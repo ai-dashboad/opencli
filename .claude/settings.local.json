@@ -48,7 +48,9 @@
       "Bash(git config:*)",
       "Bash(tree:*)",
       "Bash(git checkout:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(git stash:*)"
     ]
   }
 }
