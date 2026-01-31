@@ -1,0 +1,33 @@
+[package]
+name = "opencli"
+version = "0.1.0"
+edition = "2021"
+authors = ["cw <cw@dtok.io>"]
+description = "Universal AI Development Platform - CLI Client"
+license = "MIT"
+
+[dependencies]
+# IPC Communication
+rmp-serde = "1.1"
+serde = { version = "1.0", features = ["derive"] }
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Unix Socket (platform-specific)
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.27", features = ["socket"] }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winsock2", "ws2def"] }
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Link-time optimization
+codegen-units = 1   # Better optimization
+strip = true        # Strip symbols
+panic = "abort"     # Smaller binary
