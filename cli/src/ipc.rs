@@ -89,6 +89,14 @@ impl IpcClient {
 
             Ok(response)
         }
+
+        #[cfg(windows)]
+        {
+            // Windows named pipe implementation coming soon
+            Err(OpenCliError::RequestFailed(
+                "Windows IPC support is not yet implemented".to_string()
+            ))
+        }
     }
 }
 
