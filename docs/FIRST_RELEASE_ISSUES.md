@@ -1,32 +1,32 @@
-# 首次测试发布 - 问题记录和解决方案
+# First Test Release - Issues and Solutions
 
-## 发布信息
+## Release Information
 
-- **版本**: v0.1.1-beta.1
-- **时间**: 2026-01-31 10:25:23Z
-- **状态**: ❌ 失败
-- **总耗时**: 1分17秒
+- **Version**: v0.1.1-beta.1
+- **Time**: 2026-01-31 10:25:23Z
+- **Status**: ❌ Failed
+- **Total Duration**: 1 minute 17 seconds
 
 ---
 
-## 🐛 发现的问题
+## 🐛 Discovered Issues
 
-### 问题 1: Linux ARM64 交叉编译失败 ❌ 严重
+### Issue 1: Linux ARM64 Cross-Compilation Failed ❌ Critical
 
-**影响范围**: `build-cli` job - `aarch64-unknown-linux-musl` target
+**Scope of Impact**: `build-cli` job - `aarch64-unknown-linux-musl` target
 
-**错误信息**:
+**Error Message**:
 ```
 error: linking with `cc` failed: exit status: 1
 /usr/bin/ld: error adding symbols: file in wrong format
 ```
 
-**根本原因**:
-- 在 x86_64 主机上交叉编译 ARM64 目标时缺少交叉编译工具链
-- 没有安装 `gcc-aarch64-linux-gnu` 交叉编译器
-- release.yml 中的 Linux ARM64 配置不完整
+**Root Cause**:
+- Missing cross-compilation toolchain when cross-compiling ARM64 target on x86_64 host
+- `gcc-aarch64-linux-gnu` cross-compiler not installed
+- Incomplete Linux ARM64 configuration in release.yml
 
-**解决方案**:
+**Solution**:
 ```yaml
 # .github/workflows/release.yml
 
@@ -35,265 +35,265 @@ error: linking with `cc` failed: exit status: 1
   run: |
     sudo apt-get update
     sudo apt-get install -y musl-tools
-    # 添加 ARM64 交叉编译工具
+    # Add ARM64 cross-compilation tools
     if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
       sudo apt-get install -y gcc-aarch64-linux-gnu
-      # 设置链接器
+      # Set linker
       echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
     fi
 ```
 
-**优先级**: 🔴 高（影响 Linux ARM64 用户）
+**Priority**: 🔴 High (affects Linux ARM64 users)
 
-**临时方案**: 暂时移除 Linux ARM64 构建目标，等修复后再添加
+**Temporary Solution**: Temporarily remove Linux ARM64 build target, add back after fixing
 
 ---
 
-### 问题 2: Dart daemon 依赖版本错误 ❌ 严重
+### Issue 2: Dart Daemon Dependency Version Error ❌ Critical
 
-**影响范围**: `build-daemon` job - 所有平台
+**Scope of Impact**: `build-daemon` job - All platforms
 
-**错误信息**:
+**Error Message**:
 ```
 Because opencli_daemon depends on msgpack_dart ^2.0.0 which doesn't match any versions, version solving failed.
 ```
 
-**根本原因**:
-- `daemon/pubspec.yaml` 中指定的 `msgpack_dart: ^2.0.0` 不存在
-- pub.dev 上最新版本是 `1.0.1`
+**Root Cause**:
+- `msgpack_dart: ^2.0.0` specified in `daemon/pubspec.yaml` doesn't exist
+- Latest version on pub.dev is `1.0.1`
 
-**解决方案**:
+**Solution**:
 ```yaml
 # daemon/pubspec.yaml
 dependencies:
-  # 修改前:
+  # Before:
   # msgpack_dart: ^2.0.0
 
-  # 修改后:
+  # After:
   msgpack_dart: ^1.0.1
 ```
 
-**优先级**: 🔴 高（阻塞所有 daemon 构建）
+**Priority**: 🔴 High (blocks all daemon builds)
 
 ---
 
-### 问题 3: 缺少 Homebrew tap 仓库 ⚠️ 预期
+### Issue 3: Missing Homebrew Tap Repository ⚠️ Expected
 
-**影响范围**: `publish-homebrew` workflow
+**Scope of Impact**: `publish-homebrew` workflow
 
-**状态**: 未运行（因为主 release 失败）
+**Status**: Not run (due to main release failure)
 
-**原因**: 仓库 `ai-dashboad/homebrew-tap` 不存在
+**Reason**: Repository `ai-dashboad/homebrew-tap` doesn't exist
 
-**解决方案**: 创建仓库（见下文）
+**Solution**: Create repository (see below)
 
-**优先级**: 🟡 中（非阻塞，可稍后创建）
-
----
-
-### 问题 4: 缺少 Scoop bucket 仓库 ⚠️ 预期
-
-**影响范围**: `publish-scoop` workflow
-
-**状态**: 未运行（因为主 release 失败）
-
-**原因**: 仓库 `ai-dashboad/scoop-bucket` 不存在
-
-**解决方案**: 创建仓库（见下文）
-
-**优先级**: 🟡 中（非阻塞，可稍后创建）
+**Priority**: 🟡 Medium (non-blocking, can be created later)
 
 ---
 
-### 问题 5: 缺少发布渠道 tokens ⚠️ 预期
+### Issue 4: Missing Scoop Bucket Repository ⚠️ Expected
 
-**影响范围**: npm, VSCode, Snap 等可选渠道
+**Scope of Impact**: `publish-scoop` workflow
 
-**状态**: 未运行（因为主 release 失败）
+**Status**: Not run (due to main release failure)
 
-**原因**: GitHub Secrets 未配置
+**Reason**: Repository `ai-dashboad/scoop-bucket` doesn't exist
 
-**需要配置的 Secrets**:
-- `HOMEBREW_TAP_TOKEN` - Homebrew formula 推送
-- `SCOOP_BUCKET_TOKEN` - Scoop manifest 推送
-- `NPM_TOKEN` - npm 包发布
+**Solution**: Create repository (see below)
+
+**Priority**: 🟡 Medium (non-blocking, can be created later)
+
+---
+
+### Issue 5: Missing Release Channel Tokens ⚠️ Expected
+
+**Scope of Impact**: npm, VSCode, Snap and other optional channels
+
+**Status**: Not run (due to main release failure)
+
+**Reason**: GitHub Secrets not configured
+
+**Required Secrets**:
+- `HOMEBREW_TAP_TOKEN` - Homebrew formula push
+- `SCOOP_BUCKET_TOKEN` - Scoop manifest push
+- `NPM_TOKEN` - npm package publishing
 - `VSCE_TOKEN` - VSCode Marketplace
 - `OVSX_TOKEN` - Open VSX Registry
 - `SNAPCRAFT_TOKEN` - Snap Store
 
-**解决方案**: 在 GitHub Settings → Secrets 中添加
+**Solution**: Add in GitHub Settings → Secrets
 
-**优先级**: 🟢 低（可选渠道，稍后配置）
-
----
-
-## ✅ 成功的部分
-
-虽然发布失败，但以下部分工作正常：
-
-1. ✅ **版本号同步脚本** - 所有文件版本号正确更新
-2. ✅ **CHANGELOG 更新** - 新版本条目正确生成
-3. ✅ **文档同步** - README 正确分发到各渠道
-4. ✅ **Git 操作** - Commit, tag, push 都成功
-5. ✅ **GitHub Actions 触发** - Workflows 正确启动
-6. ✅ **部分平台构建开始** - macOS, Windows, Linux x64 构建已开始
+**Priority**: 🟢 Low (optional channels, configure later)
 
 ---
 
-## 🔧 立即修复方案
+## ✅ Successful Parts
 
-### 修复 1: 修正 Dart 依赖版本
+Although the release failed, the following parts worked correctly:
+
+1. ✅ **Version Sync Script** - All file versions updated correctly
+2. ✅ **CHANGELOG Update** - New version entry generated correctly
+3. ✅ **Documentation Sync** - README distributed correctly to all channels
+4. ✅ **Git Operations** - Commit, tag, push all succeeded
+5. ✅ **GitHub Actions Trigger** - Workflows started correctly
+6. ✅ **Partial Platform Builds Started** - macOS, Windows, Linux x64 builds initiated
+
+---
+
+## 🔧 Immediate Fix Plan
+
+### Fix 1: Correct Dart Dependency Version
 
 ```bash
-# 1. 修改 daemon/pubspec.yaml
+# 1. Modify daemon/pubspec.yaml
 cd daemon
-# 将 msgpack_dart: ^2.0.0 改为 msgpack_dart: ^1.0.1
+# Change msgpack_dart: ^2.0.0 to msgpack_dart: ^1.0.1
 
-# 2. 测试本地构建
+# 2. Test local build
 dart pub get
 dart compile exe bin/daemon.dart -o test-daemon
 
-# 3. 提交修复
+# 3. Commit fix
 git add daemon/pubspec.yaml
 git commit -m "fix: Update msgpack_dart dependency to correct version"
 git push
 ```
 
-### 修复 2: 临时移除 Linux ARM64 构建
+### Fix 2: Temporarily Remove Linux ARM64 Build
 
 ```yaml
 # .github/workflows/release.yml
-# 注释掉或删除 Linux ARM64 配置
+# Comment out or remove Linux ARM64 configuration
 strategy:
   matrix:
     include:
-      # ... 保留其他平台 ...
+      # ... keep other platforms ...
 
-      # 暂时移除，等交叉编译配置完成后再添加
+      # Temporarily removed, will add back after cross-compilation is configured
       # - os: ubuntu-latest
       #   target: aarch64-unknown-linux-musl
       #   artifact_name: opencli
       #   asset_name: opencli-linux-arm64
 ```
 
-### 修复 3: 创建必要仓库
+### Fix 3: Create Required Repositories
 
-见下一节的详细步骤。
-
----
-
-## 📋 修复后的测试计划
-
-### 阶段 1: 核心修复（今天）
-
-1. ✅ 修复 Dart 依赖版本
-2. ✅ 临时移除 Linux ARM64
-3. ✅ 创建 homebrew-tap 仓库
-4. ✅ 创建 scoop-bucket 仓库
-5. ✅ 配置基本 Secrets（HOMEBREW_TAP_TOKEN, SCOOP_BUCKET_TOKEN）
-6. 🔄 重新发布 v0.1.1-beta.2
-
-### 阶段 2: 完善配置（本周）
-
-1. 配置 NPM_TOKEN
-2. 配置 VSCE_TOKEN
-3. 配置 SNAPCRAFT_TOKEN
-4. 修复 Linux ARM64 交叉编译
-5. 测试所有渠道
-
-### 阶段 3: 正式发布（下周）
-
-1. 发布 v1.0.0 正式版
-2. 验证所有渠道可用
-3. 发布公告
+See detailed steps in the next section.
 
 ---
 
-## 📊 问题统计
+## 📋 Post-Fix Testing Plan
 
-| 类型 | 数量 | 严重性 |
+### Phase 1: Core Fixes (Today)
+
+1. ✅ Fix Dart dependency version
+2. ✅ Temporarily remove Linux ARM64
+3. ✅ Create homebrew-tap repository
+4. ✅ Create scoop-bucket repository
+5. ✅ Configure basic Secrets (HOMEBREW_TAP_TOKEN, SCOOP_BUCKET_TOKEN)
+6. 🔄 Re-release v0.1.1-beta.2
+
+### Phase 2: Complete Configuration (This Week)
+
+1. Configure NPM_TOKEN
+2. Configure VSCE_TOKEN
+3. Configure SNAPCRAFT_TOKEN
+4. Fix Linux ARM64 cross-compilation
+5. Test all channels
+
+### Phase 3: Official Release (Next Week)
+
+1. Release v1.0.0 stable version
+2. Verify all channels available
+3. Publish announcement
+
+---
+
+## 📊 Issue Statistics
+
+| Type | Count | Severity |
 |------|------|--------|
-| 严重问题 | 2 | 🔴 阻塞发布 |
-| 预期问题 | 3 | 🟡 可延后处理 |
-| 成功部分 | 6 | ✅ 正常工作 |
+| Critical Issues | 2 | 🔴 Blocking Release |
+| Expected Issues | 3 | 🟡 Can Be Deferred |
+| Successful Parts | 6 | ✅ Working Normally |
 
-**总体评估**:
-- 🎯 核心自动化系统工作正常
-- 🐛 2 个严重问题需要立即修复
-- 📈 修复后预计 90% 功能可用
+**Overall Assessment**:
+- 🎯 Core automation system working correctly
+- 🐛 2 critical issues need immediate fixing
+- 📈 90% functionality expected to be available after fixes
 
 ---
 
-## 🎓 经验教训
+## 🎓 Lessons Learned
 
-### 1. 依赖版本管理
+### 1. Dependency Version Management
 
-**问题**: 依赖版本号写错导致构建失败
+**Problem**: Incorrect dependency version caused build failure
 
-**教训**:
-- 在发布前本地测试所有组件的构建
-- 验证依赖版本在 pub.dev/crates.io 上确实存在
+**Lesson**:
+- Test builds of all components locally before release
+- Verify dependency versions actually exist on pub.dev/crates.io
 
-**改进**:
+**Improvement**:
 ```bash
-# 添加到发布前检查脚本
-dart pub get --dry-run  # 验证依赖可解析
-cargo check             # 验证 Rust 代码可编译
+# Add to pre-release check script
+dart pub get --dry-run  # Verify dependencies are resolvable
+cargo check             # Verify Rust code compiles
 ```
 
-### 2. 交叉编译配置
+### 2. Cross-Compilation Configuration
 
-**问题**: Linux ARM64 交叉编译缺少工具链
+**Problem**: Linux ARM64 cross-compilation missing toolchain
 
-**教训**:
-- 交叉编译需要额外的工具链配置
-- 不是所有目标都能在 GitHub Actions 默认环境编译
+**Lesson**:
+- Cross-compilation requires additional toolchain configuration
+- Not all targets can be compiled in GitHub Actions default environment
 
-**改进**:
-- 使用 Docker 进行交叉编译（更可靠）
-- 或使用 GitHub Actions 的原生 ARM64 runner（成本更高）
+**Improvement**:
+- Use Docker for cross-compilation (more reliable)
+- Or use GitHub Actions native ARM64 runners (higher cost)
 
-### 3. 发布前验证
+### 3. Pre-Release Validation
 
-**问题**: 没有完整的本地构建测试
+**Problem**: Lack of complete local build testing
 
-**教训**:
-- 自动化系统再完善，本地测试仍然重要
-- 第一次发布应该更谨慎
+**Lesson**:
+- No matter how sophisticated the automation, local testing is still important
+- First release should be more cautious
 
-**改进**:
-- 创建发布前检查脚本
-- 添加到 `scripts/pre-release-check.sh`
-
----
-
-## 📝 后续行动项
-
-### 立即（今天）
-
-- [ ] 修复 daemon/pubspec.yaml 依赖版本
-- [ ] 临时移除 Linux ARM64 构建
-- [ ] 创建 homebrew-tap 仓库
-- [ ] 创建 scoop-bucket 仓库
-- [ ] 配置 HOMEBREW_TAP_TOKEN 和 SCOOP_BUCKET_TOKEN
-- [ ] 删除失败的 v0.1.1-beta.1 tag
-- [ ] 重新发布 v0.1.1-beta.2
-
-### 本周
-
-- [ ] 研究 Linux ARM64 交叉编译方案
-- [ ] 配置其他可选渠道的 tokens
-- [ ] 创建发布前检查脚本
-- [ ] 测试所有发布渠道
-
-### 下周
-
-- [ ] 添加回 Linux ARM64 支持
-- [ ] 发布 v1.0.0 正式版
-- [ ] 编写发布后验证文档
+**Improvement**:
+- Create pre-release check script
+- Add to `scripts/pre-release-check.sh`
 
 ---
 
-**记录时间**: 2026-01-31
-**状态**: 问题已识别，修复方案已制定
-**下一步**: 执行修复并重新测试
+## 📝 Follow-up Action Items
+
+### Immediate (Today)
+
+- [ ] Fix daemon/pubspec.yaml dependency version
+- [ ] Temporarily remove Linux ARM64 build
+- [ ] Create homebrew-tap repository
+- [ ] Create scoop-bucket repository
+- [ ] Configure HOMEBREW_TAP_TOKEN and SCOOP_BUCKET_TOKEN
+- [ ] Delete failed v0.1.1-beta.1 tag
+- [ ] Re-release v0.1.1-beta.2
+
+### This Week
+
+- [ ] Research Linux ARM64 cross-compilation solution
+- [ ] Configure other optional channel tokens
+- [ ] Create pre-release check script
+- [ ] Test all release channels
+
+### Next Week
+
+- [ ] Add back Linux ARM64 support
+- [ ] Release v1.0.0 stable version
+- [ ] Write post-release validation documentation
+
+---
+
+**Record Time**: 2026-01-31
+**Status**: Issues identified, fix plan established
+**Next Step**: Execute fixes and retest

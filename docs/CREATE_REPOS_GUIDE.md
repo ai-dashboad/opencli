@@ -1,55 +1,55 @@
-# 创建必要的发布仓库 - 详细指南
+# Creating Required Release Repositories - Detailed Guide
 
-本指南将帮助您创建 OpenCLI 自动化发版系统所需的仓库。
+This guide will help you create the repositories required for the OpenCLI automated release system.
 
 ---
 
-## 📦 需要创建的仓库
+## 📦 Repositories to Create
 
 ### 1. homebrew-tap
 
-**仓库名称**: `homebrew-tap`
-**完整路径**: `https://github.com/ai-dashboad/homebrew-tap`
-**用途**: 存储 Homebrew formula，用于 macOS/Linux 用户通过 `brew install` 安装
+**Repository Name**: `homebrew-tap`
+**Full Path**: `https://github.com/ai-dashboad/homebrew-tap`
+**Purpose**: Stores Homebrew formula for macOS/Linux users to install via `brew install`
 
 ### 2. scoop-bucket
 
-**仓库名称**: `scoop-bucket`
-**完整路径**: `https://github.com/ai-dashboad/scoop-bucket`
-**用途**: 存储 Scoop manifest，用于 Windows 用户通过 `scoop install` 安装
+**Repository Name**: `scoop-bucket`
+**Full Path**: `https://github.com/ai-dashboad/scoop-bucket`
+**Purpose**: Stores Scoop manifest for Windows users to install via `scoop install`
 
 ---
 
-## 🚀 创建步骤
+## 🚀 Creation Steps
 
-### 方法 1: 通过 GitHub Web 界面（推荐）
+### Method 1: Via GitHub Web Interface (Recommended)
 
-#### 创建 homebrew-tap 仓库
+#### Create homebrew-tap Repository
 
-1. **访问**: https://github.com/new
+1. **Visit**: https://github.com/new
 
-2. **填写信息**:
+2. **Fill in Information**:
    - Repository name: `homebrew-tap`
    - Description: `Homebrew formula for OpenCLI`
-   - Visibility: ✅ Public（必须是 Public）
-   - ❌ 不要勾选 "Add a README file"
-   - ❌ 不要添加 .gitignore
-   - ❌ 不要选择 License
+   - Visibility: ✅ Public (must be Public)
+   - ❌ Don't check "Add a README file"
+   - ❌ Don't add .gitignore
+   - ❌ Don't select License
 
-3. **点击**: Create repository
+3. **Click**: Create repository
 
-4. **初始化仓库**（在本地执行）:
+4. **Initialize Repository** (execute locally):
 
 ```bash
-# 创建临时目录
+# Create temporary directory
 mkdir -p /tmp/homebrew-tap
 cd /tmp/homebrew-tap
 
-# 初始化 Git 仓库
+# Initialize Git repository
 git init
 git branch -M main
 
-# 创建 README
+# Create README
 cat > README.md << 'EOF'
 # Homebrew Tap for OpenCLI
 
@@ -81,10 +81,10 @@ brew untap ai-dashboad/tap
 The formula will be automatically updated by GitHub Actions when new versions are released.
 EOF
 
-# 创建 Formula 目录
+# Create Formula directory
 mkdir -p Formula
 
-# 创建占位符 formula（将被自动更新）
+# Create placeholder formula (will be auto-updated)
 cat > Formula/opencli.rb << 'EOF'
 class Opencli < Formula
   desc "Universal AI Development Platform"
@@ -101,7 +101,7 @@ class Opencli < Formula
 end
 EOF
 
-# 提交并推送
+# Commit and push
 git add .
 git commit -m "Initial commit for homebrew-tap"
 git remote add origin https://github.com/ai-dashboad/homebrew-tap.git
@@ -110,32 +110,32 @@ git push -u origin main
 
 ---
 
-#### 创建 scoop-bucket 仓库
+#### Create scoop-bucket Repository
 
-1. **访问**: https://github.com/new
+1. **Visit**: https://github.com/new
 
-2. **填写信息**:
+2. **Fill in Information**:
    - Repository name: `scoop-bucket`
    - Description: `Scoop bucket for OpenCLI`
-   - Visibility: ✅ Public（必须是 Public）
-   - ❌ 不要勾选 "Add a README file"
-   - ❌ 不要添加 .gitignore
-   - ❌ 不要选择 License
+   - Visibility: ✅ Public (must be Public)
+   - ❌ Don't check "Add a README file"
+   - ❌ Don't add .gitignore
+   - ❌ Don't select License
 
-3. **点击**: Create repository
+3. **Click**: Create repository
 
-4. **初始化仓库**（在本地执行）:
+4. **Initialize Repository** (execute locally):
 
 ```bash
-# 创建临时目录
+# Create temporary directory
 mkdir -p /tmp/scoop-bucket
 cd /tmp/scoop-bucket
 
-# 初始化 Git 仓库
+# Initialize Git repository
 git init
 git branch -M main
 
-# 创建 README
+# Create README
 cat > README.md << 'EOF'
 # Scoop Bucket for OpenCLI
 
@@ -165,7 +165,7 @@ scoop uninstall opencli
 The manifest will be automatically updated by GitHub Actions when new versions are released.
 EOF
 
-# 创建占位符 manifest（将被自动更新）
+# Create placeholder manifest (will be auto-updated)
 cat > opencli.json << 'EOF'
 {
   "version": "0.1.0",
@@ -192,7 +192,7 @@ cat > opencli.json << 'EOF'
 }
 EOF
 
-# 提交并推送
+# Commit and push
 git add .
 git commit -m "Initial commit for scoop-bucket"
 git remote add origin https://github.com/ai-dashboad/scoop-bucket.git
@@ -201,30 +201,30 @@ git push -u origin main
 
 ---
 
-### 方法 2: 通过 GitHub CLI（更快）
+### Method 2: Via GitHub CLI (Faster)
 
 ```bash
-# 确保已安装 gh CLI
+# Ensure gh CLI is installed
 gh --version
 
-# 登录 GitHub
+# Login to GitHub
 gh auth login
 
-# 创建 homebrew-tap 仓库
+# Create homebrew-tap repository
 gh repo create ai-dashboad/homebrew-tap \
   --public \
   --description "Homebrew formula for OpenCLI" \
   --clone
 
 cd homebrew-tap
-# 创建 README 和 Formula 目录（参考方法 1 的命令）
+# Create README and Formula directory (refer to Method 1 commands)
 mkdir -p Formula
-# ... 复制方法 1 中的文件创建命令 ...
+# ... copy file creation commands from Method 1 ...
 git add .
 git commit -m "Initial commit"
 git push origin main
 
-# 创建 scoop-bucket 仓库
+# Create scoop-bucket repository
 cd ..
 gh repo create ai-dashboad/scoop-bucket \
   --public \
@@ -232,8 +232,8 @@ gh repo create ai-dashboad/scoop-bucket \
   --clone
 
 cd scoop-bucket
-# 创建 README 和 manifest（参考方法 1 的命令）
-# ... 复制方法 1 中的文件创建命令 ...
+# Create README and manifest (refer to Method 1 commands)
+# ... copy file creation commands from Method 1 ...
 git add .
 git commit -m "Initial commit"
 git push origin main
@@ -241,136 +241,136 @@ git push origin main
 
 ---
 
-## 🔑 配置 GitHub Secrets
+## 🔑 Configure GitHub Secrets
 
-创建仓库后，需要配置 GitHub Personal Access Tokens：
+After creating repositories, configure GitHub Personal Access Tokens:
 
-### 步骤 1: 创建 Personal Access Token
+### Step 1: Create Personal Access Token
 
-1. **访问**: https://github.com/settings/tokens/new
+1. **Visit**: https://github.com/settings/tokens/new
 
-2. **填写信息**:
+2. **Fill in Information**:
    - Note: `OpenCLI Release Automation`
-   - Expiration: `No expiration`（或选择较长期限）
-   - Scopes（权限）:
-     - ✅ `repo`（完整仓库访问权限）
+   - Expiration: `No expiration` (or select longer duration)
+   - Scopes (permissions):
+     - ✅ `repo` (complete repository access)
        - ✅ repo:status
        - ✅ repo_deployment
        - ✅ public_repo
        - ✅ repo:invite
        - ✅ security_events
 
-3. **点击**: Generate token
+3. **Click**: Generate token
 
-4. **复制 token**（⚠️ 只显示一次，请立即保存！）
+4. **Copy token** (⚠️ shown only once, save immediately!)
 
-### 步骤 2: 添加 Secrets 到主仓库
+### Step 2: Add Secrets to Main Repository
 
-1. **访问**: https://github.com/ai-dashboad/opencli/settings/secrets/actions
+1. **Visit**: https://github.com/ai-dashboad/opencli/settings/secrets/actions
 
-2. **点击**: New repository secret
+2. **Click**: New repository secret
 
-3. **添加 HOMEBREW_TAP_TOKEN**:
+3. **Add HOMEBREW_TAP_TOKEN**:
    - Name: `HOMEBREW_TAP_TOKEN`
-   - Secret: 粘贴刚才复制的 token
-   - 点击 Add secret
+   - Secret: Paste the token you just copied
+   - Click Add secret
 
-4. **添加 SCOOP_BUCKET_TOKEN**:
+4. **Add SCOOP_BUCKET_TOKEN**:
    - Name: `SCOOP_BUCKET_TOKEN`
-   - Secret: 粘贴同一个 token（可以复用）
-   - 点击 Add secret
+   - Secret: Paste the same token (can be reused)
+   - Click Add secret
 
 ---
 
-## ✅ 验证配置
+## ✅ Verify Configuration
 
-创建仓库和配置 Secrets 后，验证一切正常：
+After creating repositories and configuring Secrets, verify everything is working:
 
-### 验证 1: 仓库可访问
+### Verification 1: Repository Accessible
 
 ```bash
-# 验证 homebrew-tap
+# Verify homebrew-tap
 curl -I https://github.com/ai-dashboad/homebrew-tap
-# 应返回 HTTP/2 200
+# Should return HTTP/2 200
 
-# 验证 scoop-bucket
+# Verify scoop-bucket
 curl -I https://github.com/ai-dashboad/scoop-bucket
-# 应返回 HTTP/2 200
+# Should return HTTP/2 200
 ```
 
-### 验证 2: Token 权限
+### Verification 2: Token Permissions
 
 ```bash
-# 测试 token 是否有推送权限
+# Test if token has push permissions
 gh auth status
 
-# 或使用 API 测试
+# Or test using API
 curl -H "Authorization: token YOUR_TOKEN" \
   https://api.github.com/repos/ai-dashboad/homebrew-tap
 ```
 
-### 验证 3: Secrets 配置
+### Verification 3: Secrets Configuration
 
-1. 访问: https://github.com/ai-dashboad/opencli/settings/secrets/actions
-2. 确认看到:
+1. Visit: https://github.com/ai-dashboad/opencli/settings/secrets/actions
+2. Confirm you see:
    - ✅ HOMEBREW_TAP_TOKEN
    - ✅ SCOOP_BUCKET_TOKEN
 
 ---
 
-## 📝 完成检查清单
+## 📝 Completion Checklist
 
-- [ ] 创建 `homebrew-tap` 仓库
-- [ ] 初始化 `homebrew-tap` 仓库（README + Formula/）
-- [ ] 创建 `scoop-bucket` 仓库
-- [ ] 初始化 `scoop-bucket` 仓库（README + manifest）
-- [ ] 创建 GitHub Personal Access Token
-- [ ] 添加 `HOMEBREW_TAP_TOKEN` secret
-- [ ] 添加 `SCOOP_BUCKET_TOKEN` secret
-- [ ] 验证仓库可访问
-- [ ] 验证 Secrets 已配置
-
----
-
-## 🎯 下一步
-
-完成以上步骤后，您可以：
-
-1. ✅ 删除失败的 v0.1.1-beta.1 tag
-2. ✅ 推送修复后的代码
-3. ✅ 发布 v0.1.1-beta.2 进行测试
-4. ✅ 验证 Homebrew 和 Scoop 自动更新是否工作
+- [ ] Create `homebrew-tap` repository
+- [ ] Initialize `homebrew-tap` repository (README + Formula/)
+- [ ] Create `scoop-bucket` repository
+- [ ] Initialize `scoop-bucket` repository (README + manifest)
+- [ ] Create GitHub Personal Access Token
+- [ ] Add `HOMEBREW_TAP_TOKEN` secret
+- [ ] Add `SCOOP_BUCKET_TOKEN` secret
+- [ ] Verify repositories are accessible
+- [ ] Verify Secrets are configured
 
 ---
 
-## 🆘 故障排除
+## 🎯 Next Steps
 
-### 问题: 推送到仓库时提示权限不足
+After completing the above steps, you can:
 
-**解决**:
-- 确认 token 有 `repo` 权限
-- 重新生成 token 并更新 Secrets
+1. ✅ Delete failed v0.1.1-beta.1 tag
+2. ✅ Push fixed code
+3. ✅ Release v0.1.1-beta.2 for testing
+4. ✅ Verify Homebrew and Scoop auto-update is working
 
-### 问题: GitHub Actions 无法访问仓库
+---
 
-**解决**:
-- 确认仓库是 Public
-- 检查 Secret 名称是否正确
-- 查看 Actions 日志获取详细错误
+## 🆘 Troubleshooting
 
-### 问题: 仓库初始化失败
+### Issue: Permission denied when pushing to repository
 
-**解决**:
+**Solution**:
+- Ensure token has `repo` permission
+- Regenerate token and update Secrets
+
+### Issue: GitHub Actions cannot access repository
+
+**Solution**:
+- Ensure repository is Public
+- Check Secret name is correct
+- View Actions logs for detailed errors
+
+### Issue: Repository initialization failed
+
+**Solution**:
 ```bash
-# 如果远程已有内容，先拉取
+# If remote already has content, pull first
 git pull origin main --rebase
 
-# 如果需要强制推送（仅第一次）
+# If force push is needed (first time only)
 git push -u origin main --force
 ```
 
 ---
 
-**创建时间**: 2026-01-31
-**状态**: 准备就绪
-**预计时间**: 10-15 分钟
+**Creation Time**: 2026-01-31
+**Status**: Ready
+**Estimated Time**: 10-15 minutes

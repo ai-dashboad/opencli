@@ -1,102 +1,102 @@
-# 首次测试发布 - 完整总结报告
+# First Test Release - Complete Summary Report
 
-## 📊 执行概况
+## 📊 Execution Overview
 
-- **测试版本**: v0.1.1-beta.1
-- **执行时间**: 2026-01-31 10:25:23Z
-- **状态**: ❌ 失败（已修复）
-- **耗时**: 1分17秒
-
----
-
-## ✅ 已完成的工作
-
-### 1️⃣ 监控 GitHub Actions ✅
-
-**执行内容**:
-- 检查了 Release workflow 的运行状态
-- 分析了所有失败的 job 日志
-- 识别了具体的错误原因
-
-**发现的问题**:
-- 2个严重问题（阻塞发布）
-- 3个预期问题（需要配置）
-
-**详细记录**: `docs/FIRST_RELEASE_ISSUES.md`
+- **Test Version**: v0.1.1-beta.1
+- **Execution Time**: 2026-01-31 10:25:23Z
+- **Status**: ❌ Failed (Fixed)
+- **Duration**: 1 minute 17 seconds
 
 ---
 
-### 2️⃣ 记录失败原因 ✅
+## ✅ Completed Work
 
-**创建的文档**:
-- `docs/FIRST_RELEASE_ISSUES.md` - 详细的问题分析和解决方案
+### 1️⃣ Monitor GitHub Actions ✅
 
-**问题分类**:
+**Execution Details**:
+- Checked Release workflow run status
+- Analyzed all failed job logs
+- Identified specific error causes
 
-| 问题 | 严重性 | 状态 |
+**Discovered Issues**:
+- 2 critical issues (blocking release)
+- 3 expected issues (need configuration)
+
+**Detailed Record**: `docs/FIRST_RELEASE_ISSUES.md`
+
+---
+
+### 2️⃣ Document Failure Causes ✅
+
+**Created Documentation**:
+- `docs/FIRST_RELEASE_ISSUES.md` - Detailed issue analysis and solutions
+
+**Issue Classification**:
+
+| Issue | Severity | Status |
 |------|--------|------|
-| Dart 依赖版本错误 | 🔴 严重 | ✅ 已修复 |
-| Linux ARM64 交叉编译失败 | 🔴 严重 | ✅ 已修复 |
-| 缺少 homebrew-tap 仓库 | 🟡 中等 | 📝 待创建 |
-| 缺少 scoop-bucket 仓库 | 🟡 中等 | 📝 待创建 |
-| 缺少发布渠道 tokens | 🟢 低 | 📝 待配置 |
+| Dart dependency version error | 🔴 Critical | ✅ Fixed |
+| Linux ARM64 cross-compilation failure | 🔴 Critical | ✅ Fixed |
+| Missing homebrew-tap repository | 🟡 Medium | 📝 To Create |
+| Missing scoop-bucket repository | 🟡 Medium | 📝 To Create |
+| Missing release channel tokens | 🟢 Low | 📝 To Configure |
 
 ---
 
-### 3️⃣ 创建必要仓库指南 ✅
+### 3️⃣ Create Required Repository Guide ✅
 
-**创建的资源**:
+**Created Resources**:
 
-1. **`docs/CREATE_REPOS_GUIDE.md`** - 详细的仓库创建指南
-   - 步骤化的Web界面创建流程
-   - GitHub CLI 快速创建方法
-   - GitHub Personal Access Token 配置
-   - Secrets 配置说明
-   - 验证和故障排除
+1. **`docs/CREATE_REPOS_GUIDE.md`** - Detailed repository creation guide
+   - Step-by-step web interface creation process
+   - GitHub CLI quick creation method
+   - GitHub Personal Access Token configuration
+   - Secrets configuration instructions
+   - Verification and troubleshooting
 
-2. **`scripts/create-release-repos.sh`** - 自动化创建脚本
-   - 一键创建两个仓库
-   - 自动初始化目录结构
-   - 自动创建占位符文件
-   - 完整的提示和错误处理
+2. **`scripts/create-release-repos.sh`** - Automated creation script
+   - One-click creation of both repositories
+   - Automatic directory structure initialization
+   - Automatic placeholder file creation
+   - Complete prompts and error handling
 
 ---
 
-## 🔧 已执行的修复
+## 🔧 Fixes Executed
 
-### 修复 1: Dart 依赖版本 ✅
+### Fix 1: Dart Dependency Version ✅
 
-**文件**: `daemon/pubspec.yaml`
+**File**: `daemon/pubspec.yaml`
 
 ```diff
 - msgpack_dart: ^2.0.0
 + msgpack_dart: ^1.0.1
 ```
 
-**验证**: ✅ `dart pub get` 成功
+**Verification**: ✅ `dart pub get` succeeded
 
 ---
 
-### 修复 2: Linux ARM64 构建 ✅
+### Fix 2: Linux ARM64 Build ✅
 
-**文件**: `.github/workflows/release.yml`
+**File**: `.github/workflows/release.yml`
 
-**操作**: 临时移除 Linux ARM64 构建目标
+**Action**: Temporarily removed Linux ARM64 build target
 
-**原因**: 需要配置交叉编译工具链
+**Reason**: Needs cross-compilation toolchain configuration
 
-**TODO**: 后续添加完整的交叉编译支持
+**TODO**: Add complete cross-compilation support later
 
 ---
 
-### 修复 3: 文档和脚本 ✅
+### Fix 3: Documentation and Scripts ✅
 
-**新增文件**:
-- `docs/FIRST_RELEASE_ISSUES.md` - 问题追踪文档
-- `docs/CREATE_REPOS_GUIDE.md` - 仓库创建指南
-- `scripts/create-release-repos.sh` - 自动化脚本
+**New Files**:
+- `docs/FIRST_RELEASE_ISSUES.md` - Issue tracking documentation
+- `docs/CREATE_REPOS_GUIDE.md` - Repository creation guide
+- `scripts/create-release-repos.sh` - Automation script
 
-**提交记录**:
+**Commit Records**:
 ```bash
 28f649e fix: Critical fixes for first release
 76c5ddb docs: Add repository setup guide and automation script
@@ -104,221 +104,221 @@
 
 ---
 
-## 📋 下一步行动清单
+## 📋 Next Action Checklist
 
-### 🔴 立即执行（今天）
+### 🔴 Immediate Execution (Today)
 
-#### 1. 创建发布仓库
+#### 1. Create Release Repositories
 
-**方法 A**: 使用自动化脚本（推荐）
+**Method A**: Use automation script (recommended)
 
 ```bash
 cd /Users/cw/development/opencli
 ./scripts/create-release-repos.sh
 ```
 
-**方法 B**: 手动创建（参考文档）
+**Method B**: Manual creation (see documentation)
 
-查看: `docs/CREATE_REPOS_GUIDE.md`
+See: `docs/CREATE_REPOS_GUIDE.md`
 
 ---
 
-#### 2. 配置 GitHub Secrets
+#### 2. Configure GitHub Secrets
 
-**步骤**:
+**Steps**:
 
-1. 创建 Personal Access Token:
-   - 访问: https://github.com/settings/tokens/new
+1. Create Personal Access Token:
+   - Visit: https://github.com/settings/tokens/new
    - Note: `OpenCLI Release Automation`
-   - Scopes: ✅ `repo`（完整权限）
-   - 生成并复制 token
+   - Scopes: ✅ `repo` (full permissions)
+   - Generate and copy token
 
-2. 添加 Secrets:
-   - 访问: https://github.com/ai-dashboad/opencli/settings/secrets/actions
-   - 添加 `HOMEBREW_TAP_TOKEN`
-   - 添加 `SCOOP_BUCKET_TOKEN`（使用同一个 token）
+2. Add Secrets:
+   - Visit: https://github.com/ai-dashboad/opencli/settings/secrets/actions
+   - Add `HOMEBREW_TAP_TOKEN`
+   - Add `SCOOP_BUCKET_TOKEN` (use same token)
 
 ---
 
-#### 3. 删除失败的 tag
+#### 3. Delete Failed Tag
 
 ```bash
-# 本地删除
+# Delete locally
 git tag -d v0.1.1-beta.1
 
-# 远程删除
+# Delete remotely
 git push origin :refs/tags/v0.1.1-beta.1
 
-# 在 GitHub 删除 Release（如果有）
+# Delete GitHub Release (if exists)
 gh release delete v0.1.1-beta.1 --yes
 ```
 
 ---
 
-#### 4. 测试新发布
+#### 4. Test New Release
 
 ```bash
-# 确保在最新代码
+# Ensure on latest code
 git pull origin main
 
-# 执行新的测试发布
+# Execute new test release
 ./scripts/release.sh 0.1.1-beta.2 "Fix build issues and test automated publishing"
 ```
 
-**预期结果**:
-- ✅ CLI 构建成功（4个平台）
-- ✅ Daemon 构建成功（3个平台）
-- ✅ GitHub Release 创建成功
-- ✅ Homebrew formula 自动更新
-- ✅ Scoop manifest 自动更新
-- ⚠️ Docker 镜像发布（应该成功）
-- ⚠️ 其他渠道（需要额外配置）
+**Expected Results**:
+- ✅ CLI build successful (4 platforms)
+- ✅ Daemon build successful (3 platforms)
+- ✅ GitHub Release created successfully
+- ✅ Homebrew formula auto-updated
+- ✅ Scoop manifest auto-updated
+- ⚠️ Docker image publishing (should succeed)
+- ⚠️ Other channels (need additional configuration)
 
 ---
 
-### 🟡 本周执行
+### 🟡 This Week Execution
 
-#### 5. 配置可选发布渠道
+#### 5. Configure Optional Release Channels
 
 **NPM Token**:
 ```
-1. 访问: https://www.npmjs.com
+1. Visit: https://www.npmjs.com
 2. Account → Access Tokens → Generate New Token
 3. Type: Automation
-4. 添加到 Secrets: NPM_TOKEN
+4. Add to Secrets: NPM_TOKEN
 ```
 
 **VSCode Token**:
 ```
-1. 访问: https://marketplace.visualstudio.com/manage
+1. Visit: https://marketplace.visualstudio.com/manage
 2. Create publisher → Generate token
-3. 添加到 Secrets: VSCE_TOKEN
+3. Add to Secrets: VSCE_TOKEN
 ```
 
 **Snap Token**:
 ```
-1. 访问: https://snapcraft.io/account
+1. Visit: https://snapcraft.io/account
 2. Export credentials
-3. 添加到 Secrets: SNAPCRAFT_TOKEN
+3. Add to Secrets: SNAPCRAFT_TOKEN
 ```
 
 ---
 
-#### 6. 修复 Linux ARM64 交叉编译
+#### 6. Fix Linux ARM64 Cross-Compilation
 
-**研究方案**:
-- 选项 A: 使用 cross-rs（推荐）
-- 选项 B: Docker 构建
-- 选项 C: GitHub Actions ARM64 runner
+**Research Options**:
+- Option A: Use cross-rs (recommended)
+- Option B: Docker build
+- Option C: GitHub Actions ARM64 runner
 
-**实现**: 更新 `.github/workflows/release.yml`
+**Implementation**: Update `.github/workflows/release.yml`
 
 ---
 
-#### 7. 验证所有渠道
+#### 7. Verify All Channels
 
-**测试清单**:
+**Test Checklist**:
 - [ ] Homebrew: `brew install ai-dashboad/tap/opencli`
 - [ ] Scoop: `scoop install opencli`
 - [ ] npm: `npm install -g @opencli/cli`
 - [ ] Docker: `docker pull ghcr.io/ai-dashboad/opencli:latest`
-- [ ] VSCode: 搜索 `opencli-vscode`
+- [ ] VSCode: Search `opencli-vscode`
 - [ ] Snap: `snap install opencli`
 
 ---
 
-### 🟢 下周执行
+### 🟢 Next Week Execution
 
-#### 8. 准备正式版本
+#### 8. Prepare Official Version
 
-- 完善文档
-- 添加示例和教程
-- 准备发布公告
+- Refine documentation
+- Add examples and tutorials
+- Prepare release announcement
 
-#### 9. 发布 v1.0.0
+#### 9. Release v1.0.0
 
 ```bash
 ./scripts/release.sh 1.0.0 "Initial stable release with multi-channel automated publishing"
 ```
 
-#### 10. 推广和宣传
+#### 10. Promotion and Outreach
 
-- 发布 GitHub Release announcement
-- 提交到 awesome 列表
-- 社交媒体宣传
+- Publish GitHub Release announcement
+- Submit to awesome lists
+- Social media promotion
 
 ---
 
-## 📊 当前进度
+## 📊 Current Progress
 
-### 核心系统
+### Core System
 
-| 组件 | 状态 | 进度 |
+| Component | Status | Progress |
 |------|------|------|
-| 版本同步脚本 | ✅ 完成 | 100% |
-| 发版主脚本 | ✅ 完成 | 100% |
-| 文档同步脚本 | ✅ 完成 | 100% |
-| Release workflow | ✅ 已修复 | 100% |
+| Version sync script | ✅ Complete | 100% |
+| Release main script | ✅ Complete | 100% |
+| Documentation sync script | ✅ Complete | 100% |
+| Release workflow | ✅ Fixed | 100% |
 
-### 发布渠道
+### Release Channels
 
-| 渠道 | 配置状态 | 测试状态 | 可用性 |
+| Channel | Configuration Status | Test Status | Availability |
 |------|---------|---------|--------|
-| GitHub Releases | ✅ 完成 | ⏳ 待测试 | 90% |
-| Homebrew | 📝 待配置 | ⏳ 待测试 | 80% |
-| Scoop | 📝 待配置 | ⏳ 待测试 | 80% |
-| Winget | ✅ 完成 | ⏳ 待测试 | 70% |
-| npm | ✅ 完成 | ⏳ 待测试 | 70% |
-| Docker | ✅ 完成 | ⏳ 待测试 | 90% |
-| VSCode | ✅ 完成 | ⏳ 待测试 | 70% |
-| Snap | ✅ 完成 | ⏳ 待测试 | 70% |
+| GitHub Releases | ✅ Complete | ⏳ To Test | 90% |
+| Homebrew | 📝 To Configure | ⏳ To Test | 80% |
+| Scoop | 📝 To Configure | ⏳ To Test | 80% |
+| Winget | ✅ Complete | ⏳ To Test | 70% |
+| npm | ✅ Complete | ⏳ To Test | 70% |
+| Docker | ✅ Complete | ⏳ To Test | 90% |
+| VSCode | ✅ Complete | ⏳ To Test | 70% |
+| Snap | ✅ Complete | ⏳ To Test | 70% |
 
-**总体进度**: 🎯 85% 完成
+**Overall Progress**: 🎯 85% Complete
 
 ---
 
-## 🎓 经验教训
+## 🎓 Lessons Learned
 
-### ✅ 做得好的地方
+### ✅ What Went Well
 
-1. **自动化系统设计完善** - 核心流程工作正常
-2. **版本同步准确** - 所有文件版本号正确更新
-3. **文档完整** - 6份详细文档涵盖所有场景
-4. **快速响应** - 发现问题后立即修复
-5. **全面记录** - 详细的问题追踪和解决方案
+1. **Automation system well-designed** - Core process working correctly
+2. **Version sync accurate** - All file versions updated correctly
+3. **Complete documentation** - 6 detailed documents covering all scenarios
+4. **Fast response** - Immediate fixes after discovering issues
+5. **Comprehensive recording** - Detailed issue tracking and solutions
 
-### 📝 需要改进
+### 📝 Areas for Improvement
 
-1. **发布前测试不足** - 应该本地完整测试所有组件
-2. **依赖版本验证** - 发布前应验证所有依赖版本存在
-3. **交叉编译准备** - 应该提前测试交叉编译配置
-4. **仓库创建时机** - 应该在首次发布前创建所有必需仓库
+1. **Insufficient pre-release testing** - Should thoroughly test all components locally
+2. **Dependency version validation** - Should verify all dependency versions exist before release
+3. **Cross-compilation preparation** - Should test cross-compilation configuration in advance
+4. **Repository creation timing** - Should create all required repositories before first release
 
-### 🔧 改进措施
+### 🔧 Improvement Measures
 
-**创建发布前检查脚本**:
+**Create pre-release check script**:
 
 ```bash
 # scripts/pre-release-check.sh
-# - 验证所有依赖可解析
-# - 测试所有组件本地构建
-# - 检查必需仓库存在
-# - 验证 Secrets 已配置
-# - 运行测试套件
+# - Verify all dependencies are resolvable
+# - Test all component local builds
+# - Check required repositories exist
+# - Verify Secrets are configured
+# - Run test suite
 ```
 
 ---
 
-## 📞 获取帮助
+## 📞 Getting Help
 
-### 文档资源
+### Documentation Resources
 
-- **QUICK_START_RELEASE.md** - 快速开始指南
-- **PUBLISHING.md** - 完整发版流程
-- **FIRST_RELEASE_ISSUES.md** - 问题追踪
-- **CREATE_REPOS_GUIDE.md** - 仓库创建指南
+- **QUICK_START_RELEASE.md** - Quick start guide
+- **PUBLISHING.md** - Complete release process
+- **FIRST_RELEASE_ISSUES.md** - Issue tracking
+- **CREATE_REPOS_GUIDE.md** - Repository creation guide
 
-### 在线资源
+### Online Resources
 
 - GitHub Actions: https://github.com/ai-dashboad/opencli/actions
 - Issues: https://github.com/ai-dashboad/opencli/issues
@@ -326,65 +326,65 @@ git pull origin main
 
 ---
 
-## 🎯 成功标准
+## 🎯 Success Criteria
 
-### Beta 测试成功标准
+### Beta Test Success Criteria
 
-- ✅ 所有构建 job 成功
-- ✅ GitHub Release 自动创建
-- ✅ Homebrew 自动更新
-- ✅ Scoop 自动更新
-- ✅ Docker 镜像推送成功
-- ✅ 至少 4 个平台的二进制可下载
+- ✅ All build jobs successful
+- ✅ GitHub Release auto-created
+- ✅ Homebrew auto-updated
+- ✅ Scoop auto-updated
+- ✅ Docker image pushed successfully
+- ✅ At least 4 platform binaries downloadable
 
-### 正式发布成功标准
+### Official Release Success Criteria
 
-- ✅ 所有 Beta 标准满足
-- ✅ 所有 8 个渠道可用
-- ✅ 用户可以成功安装和使用
-- ✅ 文档完整准确
-- ✅ 发布公告发布
-
----
-
-## 🎉 总结
-
-虽然首次测试发布失败，但我们获得了宝贵的经验：
-
-### 成就
-
-- ✅ **验证了核心系统** - 自动化流程基本可用
-- ✅ **快速定位问题** - 1分钟内识别所有问题
-- ✅ **立即修复** - 30分钟内完成所有修复
-- ✅ **完善文档** - 创建了完整的指导文档
-- ✅ **准备就绪** - 可以进行第二次测试发布
-
-### 下一步
-
-**立即执行**（预计30分钟）:
-1. 运行 `./scripts/create-release-repos.sh` 创建仓库
-2. 配置 GitHub Secrets
-3. 删除失败的 tag
-4. 执行 `./scripts/release.sh 0.1.1-beta.2`
-
-**预期结果**: 成功发布到 6-8 个渠道 🎯
+- ✅ All Beta criteria met
+- ✅ All 8 channels available
+- ✅ Users can successfully install and use
+- ✅ Documentation complete and accurate
+- ✅ Release announcement published
 
 ---
 
-**报告时间**: 2026-01-31
-**状态**: 修复完成，准备第二次测试
-**信心指数**: 🟢 高（90% 成功率）
+## 🎉 Summary
+
+Although the first test release failed, we gained valuable experience:
+
+### Achievements
+
+- ✅ **Validated core system** - Automation process basically usable
+- ✅ **Fast issue identification** - Identified all issues within 1 minute
+- ✅ **Immediate fixes** - Completed all fixes within 30 minutes
+- ✅ **Complete documentation** - Created comprehensive guidance documentation
+- ✅ **Ready to proceed** - Can proceed with second test release
+
+### Next Steps
+
+**Immediate Execution** (estimated 30 minutes):
+1. Run `./scripts/create-release-repos.sh` to create repositories
+2. Configure GitHub Secrets
+3. Delete failed tag
+4. Execute `./scripts/release.sh 0.1.1-beta.2`
+
+**Expected Result**: Successfully publish to 6-8 channels 🎯
 
 ---
 
-**下一个命令**:
+**Report Time**: 2026-01-31
+**Status**: Fixes complete, ready for second test
+**Confidence Index**: 🟢 High (90% success rate)
+
+---
+
+**Next Command**:
 
 ```bash
-# 创建仓库并配置（交互式）
+# Create repositories and configure (interactive)
 ./scripts/create-release-repos.sh
 
-# 然后执行第二次测试发布
+# Then execute second test release
 ./scripts/release.sh 0.1.1-beta.2 "Fix build issues and test automated publishing"
 ```
 
-**让我们开始吧！** 🚀
+**Let's get started!** 🚀
