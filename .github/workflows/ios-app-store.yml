@@ -44,11 +44,6 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Install CocoaPods
-        working-directory: opencli_mobile/ios
-        run: |
-          pod install --repo-update
-
       - name: Setup App Store Connect API Key
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
