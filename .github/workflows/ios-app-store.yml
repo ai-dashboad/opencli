@@ -143,49 +143,32 @@ jobs:
           PP_UUID=$(basename "$PP_FILE" .mobileprovision)
           PP_NAME=$(security cms -D -i "$PP_FILE" | plutil -p - | grep -m 1 '"Name"' | awk -F'"' '{print $4}' | tr -d '\n')
 
-          # Update project.pbxproj to use manual signing
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = G9VG22HGJG;/' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = G9VG22HGJG;/DEVELOPMENT_TEAM = G9VG22HGJG;/' Runner.xcodeproj/project.pbxproj || true
-          sed -i '' "s|PROVISIONING_PROFILE_SPECIFIER = \"\";|PROVISIONING_PROFILE_SPECIFIER = \"${PP_NAME}\";|" Runner.xcodeproj/project.pbxproj
-          sed -i '' "s|PROVISIONING_PROFILE = \"\";|PROVISIONING_PROFILE = \"${PP_UUID}\";|" Runner.xcodeproj/project.pbxproj
+          # Backup project file
+          cp Runner.xcodeproj/project.pbxproj Runner.xcodeproj/project.pbxproj.bak
+
+          # Update ALL occurrences in project.pbxproj
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/DEVELOPMENT_TEAM = ""/DEVELOPMENT_TEAM = G9VG22HGJG/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' "s|PROVISIONING_PROFILE_SPECIFIER = \"\"|PROVISIONING_PROFILE_SPECIFIER = \"${PP_NAME}\"|g" Runner.xcodeproj/project.pbxproj
+          sed -i '' "s|PROVISIONING_PROFILE = \"\"|PROVISIONING_PROFILE = \"${PP_UUID}\"|g" Runner.xcodeproj/project.pbxproj
+
+          # Ensure development team is set
+          sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' Runner.xcodeproj/project.pbxproj
 
           echo "✅ Xcode project configured for manual signing"
           echo "   - Team ID: G9VG22HGJG"
           echo "   - Profile Name: $PP_NAME"
           echo "   - Profile UUID: $PP_UUID"
+          echo ""
+          echo "Changes made:"
+          diff Runner.xcodeproj/project.pbxproj.bak Runner.xcodeproj/project.pbxproj | head -30 || true
 
       - name: Build IPA
         working-directory: opencli_mobile
         run: |
-          echo "🔨 Building iOS Archive..."
+          echo "🔨 Building iOS IPA..."
+          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
 
-          # Get provisioning profile info
-          PP_FILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
-          PP_UUID=$(basename "$PP_FILE" .mobileprovision)
-
-          # Build Flutter framework
-          flutter build ios --release --no-codesign
-
-          # Archive with xcodebuild
-          cd ios
-          xcodebuild clean archive \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath build/Runner.xcarchive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=G9VG22HGJG \
-            PROVISIONING_PROFILE="$PP_UUID" \
-            CODE_SIGN_IDENTITY="Apple Distribution"
-
-          # Export IPA
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist ExportOptions.plist
-
-          cd ..
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
           if [ -z "$IPA_PATH" ]; then
             echo "❌ IPA file not found"
