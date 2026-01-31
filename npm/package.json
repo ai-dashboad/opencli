@@ -1,0 +1,53 @@
+{
+  "name": "@opencli/cli",
+  "version": "0.1.0",
+  "description": "Universal AI Development Platform - Command-line interface with native binaries",
+  "main": "index.js",
+  "bin": {
+    "opencli": "bin/opencli.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "keywords": [
+    "ai",
+    "automation",
+    "cli",
+    "opencli",
+    "developer-tools",
+    "enterprise",
+    "mcp",
+    "workflow",
+    "desktop-automation",
+    "browser-automation"
+  ],
+  "author": "OpenCLI Team <support@opencli.ai>",
+  "homepage": "https://opencli.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opencli/opencli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/opencli/opencli/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "files": [
+    "bin/",
+    "scripts/",
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ]
+}

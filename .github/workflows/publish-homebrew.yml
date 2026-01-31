@@ -1,0 +1,200 @@
+name: Publish to Homebrew
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+
+jobs:
+  update-formula:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Publishing Homebrew formula for version: $VERSION"
+
+      - name: Download macOS ARM64 binary
+        run: |
+          curl -L -o opencli-macos-arm64 \
+            "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-macos-arm64"
+
+      - name: Download macOS x86_64 binary
+        run: |
+          curl -L -o opencli-macos-x86_64 \
+            "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-macos-x86_64"
+
+      - name: Download Linux x86_64 binary
+        run: |
+          curl -L -o opencli-linux-x86_64 \
+            "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-linux-x86_64"
+
+      - name: Calculate SHA256 checksums
+        id: checksums
+        run: |
+          SHA256_MACOS_ARM64=$(sha256sum opencli-macos-arm64 | cut -d' ' -f1)
+          SHA256_MACOS_X64=$(sha256sum opencli-macos-x86_64 | cut -d' ' -f1)
+          SHA256_LINUX=$(sha256sum opencli-linux-x86_64 | cut -d' ' -f1)
+
+          echo "macos_arm64=$SHA256_MACOS_ARM64" >> $GITHUB_OUTPUT
+          echo "macos_x64=$SHA256_MACOS_X64" >> $GITHUB_OUTPUT
+          echo "linux=$SHA256_LINUX" >> $GITHUB_OUTPUT
+
+          echo "✅ Checksums calculated:"
+          echo "   macOS ARM64: $SHA256_MACOS_ARM64"
+          echo "   macOS x86_64: $SHA256_MACOS_X64"
+          echo "   Linux: $SHA256_LINUX"
+
+      - name: Checkout Homebrew tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN || secrets.GITHUB_TOKEN }}
+          path: homebrew-tap
+
+      - name: Create Homebrew formula directory
+        run: mkdir -p homebrew-tap/Formula
+
+      - name: Generate Homebrew formula
+        run: |
+          cat > homebrew-tap/Formula/opencli.rb << 'EOF'
+          class Opencli < Formula
+            desc "Universal AI Development Platform - Enterprise Autonomous Company Operating System"
+            homepage "https://opencli.ai"
+            version "${{ steps.version.outputs.version }}"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-macos-arm64"
+                sha256 "${{ steps.checksums.outputs.macos_arm64 }}"
+
+                def install
+                  bin.install "opencli-macos-arm64" => "opencli"
+                end
+              end
+
+              on_intel do
+                url "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-macos-x86_64"
+                sha256 "${{ steps.checksums.outputs.macos_x64 }}"
+
+                def install
+                  bin.install "opencli-macos-x86_64" => "opencli"
+                end
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-linux-x86_64"
+                sha256 "${{ steps.checksums.outputs.linux }}"
+
+                def install
+                  bin.install "opencli-linux-x86_64" => "opencli"
+                end
+              end
+            end
+
+            def caveats
+              <<~EOS
+                OpenCLI has been installed! 🎉
+
+                Quick Start:
+                  1. Start the daemon:    opencli daemon start
+                  2. Submit a task:       opencli task submit "Your task here"
+                  3. Check status:        opencli status
+
+                Configuration:
+                  Edit: ~/.opencli/config.yaml
+
+                Documentation:
+                  https://docs.opencli.ai
+
+                MCP Server Configuration (for Claude Desktop):
+                  Add to ~/.claude/settings.json:
+                  {
+                    "mcpServers": {
+                      "opencli": {
+                        "command": "opencli",
+                        "args": ["mcp", "server"]
+                      }
+                    }
+                  }
+              EOS
+            end
+
+            test do
+              system "#{bin}/opencli", "--version"
+              system "#{bin}/opencli", "--help"
+            end
+          end
+          EOF
+
+          cat homebrew-tap/Formula/opencli.rb
+
+      - name: Commit and push formula
+        working-directory: homebrew-tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Formula/opencli.rb
+          git commit -m "Update opencli to v${{ steps.version.outputs.version }}"
+          git push
+
+      - name: Create tap repository README if missing
+        working-directory: homebrew-tap
+        run: |
+          if [ ! -f README.md ]; then
+            cat > README.md << 'EOF'
+          # Homebrew Tap for OpenCLI
+
+          Official Homebrew tap for [OpenCLI](https://opencli.ai).
+
+          ## Installation
+
+          ```bash
+          brew tap ${{ github.repository_owner }}/tap
+          brew install opencli
+          ```
+
+          ## Updating
+
+          ```bash
+          brew update
+          brew upgrade opencli
+          ```
+
+          ## Uninstall
+
+          ```bash
+          brew uninstall opencli
+          brew untap ${{ github.repository_owner }}/tap
+          ```
+          EOF
+
+            git add README.md
+            git commit -m "Add README"
+            git push
+          fi
+
+      - name: Summary
+        run: |
+          echo "✅ Successfully updated Homebrew formula to v${{ steps.version.outputs.version }}"
+          echo ""
+          echo "Users can now install with:"
+          echo "  brew tap ${{ github.repository_owner }}/tap"
+          echo "  brew install opencli"

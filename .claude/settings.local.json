@@ -51,7 +51,11 @@
       "Bash(git push:*)",
       "Bash(git merge:*)",
       "Bash(git stash:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(test:*)"
     ]
   }
 }

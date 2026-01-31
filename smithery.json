@@ -1,0 +1,160 @@
+{
+  "$schema": "https://smithery.ai/schema/v0.1/server.schema.json",
+  "name": "opencli",
+  "displayName": "OpenCLI",
+  "description": "Universal AI Development Platform - Enterprise autonomous company operating system with AI workforce management, desktop automation, mobile integration, and comprehensive enterprise features",
+  "homepage": "https://opencli.ai",
+  "repository": "https://github.com/opencli/opencli",
+  "license": "MIT",
+  "version": "0.1.0",
+  "categories": [
+    "automation",
+    "enterprise",
+    "workflow",
+    "ai",
+    "development"
+  ],
+  "tags": [
+    "ai-workforce",
+    "automation",
+    "desktop-control",
+    "browser-automation",
+    "mobile-integration",
+    "enterprise",
+    "task-management",
+    "mcp-server",
+    "claude",
+    "workflow-orchestration"
+  ],
+  "commands": {
+    "default": {
+      "command": "opencli",
+      "args": ["mcp", "server"],
+      "description": "Start OpenCLI MCP server for AI agent integration"
+    },
+    "daemon": {
+      "command": "opencli",
+      "args": ["daemon", "start"],
+      "description": "Start OpenCLI daemon for full platform features"
+    }
+  },
+  "installation": {
+    "homebrew": {
+      "tap": "opencli/tap",
+      "formula": "opencli"
+    },
+    "npm": {
+      "package": "@opencli/cli"
+    },
+    "scoop": {
+      "bucket": "https://github.com/opencli/scoop-bucket",
+      "app": "opencli"
+    },
+    "winget": {
+      "package": "OpenCLI.OpenCLI"
+    },
+    "docker": {
+      "image": "ghcr.io/opencli/opencli"
+    }
+  },
+  "configuration": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "ai_provider": {
+          "type": "string",
+          "description": "AI provider to use (claude, gpt, gemini, local)",
+          "enum": ["claude", "gpt", "gemini", "local"],
+          "default": "claude"
+        },
+        "api_key": {
+          "type": "string",
+          "description": "API key for the selected AI provider",
+          "secret": true
+        },
+        "model": {
+          "type": "string",
+          "description": "Model to use (e.g., claude-3-sonnet-20240229)",
+          "default": "claude-3-sonnet-20240229"
+        },
+        "enable_desktop_automation": {
+          "type": "boolean",
+          "description": "Enable desktop automation features",
+          "default": true
+        },
+        "enable_browser_automation": {
+          "type": "boolean",
+          "description": "Enable browser automation features",
+          "default": true
+        }
+      },
+      "required": ["ai_provider"]
+    }
+  },
+  "capabilities": [
+    "Desktop Automation: Full computer control (mouse, keyboard, screen capture, process management)",
+    "Browser Automation: WebDriver-based automation for Chrome, Firefox, Safari",
+    "Mobile Integration: Real-time task submission from mobile devices via WebSocket",
+    "AI Workforce: Multi-provider AI integration with workflow orchestration",
+    "Task Management: Intelligent task assignment, scheduling, and load balancing",
+    "Enterprise Dashboard: Web-based management with real-time updates",
+    "Security: Authentication, RBAC, audit logging, rate limiting",
+    "Notifications: 8 channels (Email, Slack, Discord, Telegram, SMS, Push, Webhook, Desktop)",
+    "Database: Multi-database support (SQLite, PostgreSQL, MySQL, MongoDB)",
+    "Monitoring: Prometheus metrics, structured logging, health checks",
+    "Backup & Recovery: Automated backups with compression and verification",
+    "Message Queue: Distributed processing (Redis, RabbitMQ, Kafka)",
+    "File Storage: Multi-backend support (Local, S3, GCS, Azure)",
+    "Task Scheduler: Cron-like scheduling with multiple schedule types"
+  ],
+  "examples": [
+    {
+      "title": "Basic Task Submission",
+      "description": "Submit a task to OpenCLI for AI processing",
+      "code": "opencli task submit \"Analyze this codebase and generate a technical report\""
+    },
+    {
+      "title": "Schedule Automated Task",
+      "description": "Schedule a daily task at specific time",
+      "code": "opencli schedule daily --at 09:00 \"Generate daily analytics report\""
+    },
+    {
+      "title": "Desktop Automation",
+      "description": "Automate desktop tasks with AI control",
+      "code": "opencli task submit \"Open Chrome, navigate to GitHub, and create a new repository\""
+    },
+    {
+      "title": "MCP Server Integration",
+      "description": "Use OpenCLI as MCP server with Claude Desktop",
+      "config": {
+        "mcpServers": {
+          "opencli": {
+            "command": "opencli",
+            "args": ["mcp", "server"]
+          }
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "title": "Enterprise Dashboard",
+      "url": "https://opencli.ai/images/dashboard.png",
+      "description": "Web-based management dashboard with real-time task monitoring"
+    },
+    {
+      "title": "Desktop Automation",
+      "url": "https://opencli.ai/images/desktop-automation.png",
+      "description": "AI-controlled desktop automation in action"
+    }
+  ],
+  "author": {
+    "name": "OpenCLI Team",
+    "url": "https://opencli.ai"
+  },
+  "support": {
+    "email": "support@opencli.ai",
+    "url": "https://github.com/opencli/opencli/issues",
+    "docs": "https://docs.opencli.ai"
+  }
+}

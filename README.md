@@ -34,16 +34,48 @@ OpenCLI transforms your infrastructure into an autonomous company operating syst
 
 ### Installation
 
+#### Package Managers (Recommended)
+
+**macOS:**
 ```bash
-# macOS
+brew tap opencli/tap
 brew install opencli
-
-# Windows
-scoop install opencli
-
-# Linux
-curl -sSL https://opencli.ai/install.sh | sh
 ```
+
+**Windows (Scoop):**
+```powershell
+scoop bucket add opencli https://github.com/opencli/scoop-bucket
+scoop install opencli
+```
+
+**Windows (Winget):**
+```powershell
+winget install OpenCLI.OpenCLI
+```
+
+**Linux:**
+```bash
+# Via install script
+curl -sSL https://opencli.ai/install.sh | sh
+
+# Or via Snap (coming soon)
+snap install opencli
+```
+
+**npm (Cross-platform):**
+```bash
+npm install -g @opencli/cli
+```
+
+**Docker:**
+```bash
+docker pull ghcr.io/opencli/opencli:latest
+docker run -it ghcr.io/opencli/opencli:latest opencli --help
+```
+
+#### Download Binaries
+
+Download pre-built binaries from [GitHub Releases](https://github.com/opencli/opencli/releases/latest)
 
 ### Basic Usage
 

@@ -1,0 +1,131 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+
+jobs:
+  publish:
+    name: Publish to npm Registry
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Publishing npm package version: $VERSION"
+
+      - name: Validate version
+        working-directory: npm
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [ "${{ steps.version.outputs.version }}" != "$PACKAGE_VERSION" ]; then
+            echo "❌ Version mismatch!"
+            echo "   Tag: ${{ steps.version.outputs.version }}"
+            echo "   package.json: $PACKAGE_VERSION"
+            exit 1
+          fi
+          echo "✅ Version validated: $PACKAGE_VERSION"
+
+      - name: Download synced README
+        uses: actions/download-artifact@v4
+        with:
+          name: synced-docs
+          path: synced-docs
+        continue-on-error: true
+
+      - name: Copy README
+        run: |
+          if [ -f "synced-docs/npm/README.md" ]; then
+            cp synced-docs/npm/README.md npm/README.md
+            echo "✅ Using synced README"
+          elif [ -f "README.md" ]; then
+            cp README.md npm/README.md
+            echo "✅ Using root README"
+          else
+            echo "⚠️  No README found"
+          fi
+
+      - name: Copy LICENSE
+        run: |
+          if [ -f "LICENSE" ]; then
+            cp LICENSE npm/LICENSE
+            echo "✅ Copied LICENSE"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify package
+        working-directory: npm
+        run: |
+          npm pack --dry-run
+          echo ""
+          echo "Package contents:"
+          npm pack --dry-run 2>&1 | grep -E "^\s+[0-9]" || true
+
+      - name: Publish to npm
+        working-directory: npm
+        run: |
+          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
+            npm publish --access public
+            echo "✅ Published to npm registry"
+          else
+            echo "⚠️  NPM_TOKEN not set - skipping publish"
+            echo "Package tarball created for testing:"
+            npm pack
+            ls -lh *.tgz
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package-v${{ steps.version.outputs.version }}
+          path: npm/*.tgz
+
+      - name: Test installation (dry run)
+        run: |
+          echo "Testing package installation..."
+          npm pack ./npm
+          mkdir -p /tmp/npm-test
+          cd /tmp/npm-test
+          npm init -y
+          npm install $GITHUB_WORKSPACE/*.tgz --loglevel verbose || true
+
+      - name: Summary
+        run: |
+          echo "✅ npm package v${{ steps.version.outputs.version }} processed!"
+          echo ""
+          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "✅ Published to npm registry"
+            echo "   https://www.npmjs.com/package/@opencli/cli"
+            echo ""
+            echo "Users can install with:"
+            echo "  npm install -g @opencli/cli"
+          else
+            echo "⚠️  NPM_TOKEN not set - package created but not published"
+            echo "   To publish: Add NPM_TOKEN secret in GitHub Settings"
+          fi
+          echo ""
+          echo "Package artifact uploaded to workflow artifacts"

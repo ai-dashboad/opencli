@@ -1,0 +1,113 @@
+name: opencli
+base: core22
+version: '0.1.0'
+summary: Universal AI Development Platform
+description: |
+  OpenCLI transforms your infrastructure into an autonomous company operating system,
+  combining AI workforce management, desktop automation, mobile integration, and
+  enterprise-grade infrastructure into a unified platform.
+
+  Features:
+  - AI Workforce: Multi-provider AI integration (Claude, GPT, Gemini, Local models)
+  - Desktop Automation: Full computer control across platforms
+  - Browser Automation: WebDriver-based automation
+  - Mobile Integration: Real-time task submission from mobile devices
+  - Enterprise Dashboard: Web-based management with real-time updates
+  - Security: Bank-level authentication, RBAC, audit logging
+
+grade: stable
+confinement: strict
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+apps:
+  opencli:
+    command: bin/opencli
+    plugs:
+      - network
+      - network-bind
+      - home
+      - removable-media
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - unity7
+      - browser-support
+
+  daemon:
+    command: bin/opencli-daemon
+    daemon: simple
+    restart-condition: on-failure
+    plugs:
+      - network
+      - network-bind
+      - home
+      - removable-media
+
+parts:
+  opencli-cli:
+    plugin: rust
+    source: .
+    source-subdir: cli
+    build-packages:
+      - build-essential
+      - pkg-config
+      - libssl-dev
+    stage-packages:
+      - libssl3
+    override-build: |
+      cargo build --release
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      cp target/release/opencli $CRAFT_PART_INSTALL/bin/
+
+  opencli-daemon:
+    plugin: nil
+    source: .
+    build-packages:
+      - curl
+      - git
+      - unzip
+    override-build: |
+      # Install Dart SDK
+      DART_VERSION=3.2.5
+      curl -o dart-sdk.zip https://storage.googleapis.com/dart-archive/channels/stable/release/${DART_VERSION}/sdk/dartsdk-linux-x64-release.zip
+      unzip -q dart-sdk.zip
+      export PATH="$PWD/dart-sdk/bin:$PATH"
+
+      # Build daemon
+      cd daemon
+      dart pub get
+      dart compile exe bin/daemon.dart -o $CRAFT_PART_INSTALL/bin/opencli-daemon
+
+      # Copy configuration
+      mkdir -p $CRAFT_PART_INSTALL/etc/opencli
+      if [ -f "../config/config.example.yaml" ]; then
+        cp ../config/config.example.yaml $CRAFT_PART_INSTALL/etc/opencli/
+      fi
+
+  local-files:
+    plugin: dump
+    source: .
+    organize:
+      'README.md': usr/share/doc/opencli/README.md
+      'LICENSE': usr/share/doc/opencli/LICENSE
+    stage:
+      - usr/share/doc/opencli/*
+
+layout:
+  /etc/opencli:
+    bind: $SNAP_DATA/etc/opencli
+  /var/lib/opencli:
+    bind: $SNAP_DATA/var/lib/opencli
+
+hooks:
+  install:
+    plugs:
+      - network
+
+  configure:
+    plugs:
+      - network

@@ -1,0 +1,136 @@
+name: Publish to Snap Store
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+      channel:
+        description: 'Snap channel (stable, candidate, beta, edge)'
+        required: false
+        default: 'stable'
+
+jobs:
+  build:
+    name: Build Snap Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            CHANNEL="${{ github.event.inputs.channel }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            # Determine channel from version
+            if [[ "$VERSION" == *"-alpha"* ]]; then
+              CHANNEL="edge"
+            elif [[ "$VERSION" == *"-beta"* ]]; then
+              CHANNEL="beta"
+            elif [[ "$VERSION" == *"-rc"* ]]; then
+              CHANNEL="candidate"
+            else
+              CHANNEL="stable"
+            fi
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "📦 Building Snap package version: $VERSION"
+          echo "📢 Target channel: $CHANNEL"
+
+      - name: Update snapcraft.yaml version
+        working-directory: snap
+        run: |
+          sed -i "s/^version: .*/version: '${{ steps.version.outputs.version }}'/" snapcraft.yaml
+          echo "✅ Updated version to ${{ steps.version.outputs.version }}"
+          grep "^version:" snapcraft.yaml
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: build
+
+      - name: Upload snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-package-v${{ steps.version.outputs.version }}
+          path: ${{ steps.build.outputs.snap }}
+
+      - name: Verify snap
+        run: |
+          echo "Snap package built:"
+          ls -lh ${{ steps.build.outputs.snap }}
+          echo ""
+          echo "Snap info:"
+          snap info --verbose ${{ steps.build.outputs.snap }} || true
+
+  publish:
+    name: Publish to Snap Store
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+      - name: Extract version and channel
+        id: version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+
+          # Determine channel from version
+          if [[ "$VERSION" == *"-alpha"* ]]; then
+            CHANNEL="edge"
+          elif [[ "$VERSION" == *"-beta"* ]]; then
+            CHANNEL="beta"
+          elif [[ "$VERSION" == *"-rc"* ]]; then
+            CHANNEL="candidate"
+          else
+            CHANNEL="stable"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "📢 Publishing to channel: $CHANNEL"
+
+      - name: Download snap artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: snap-package-v${{ steps.version.outputs.version }}
+
+      - name: Publish to Snap Store
+        uses: snapcore/action-publish@v1
+        with:
+          snap: opencli_*.snap
+          release: ${{ steps.version.outputs.channel }}
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        continue-on-error: true
+        if: env.SNAPCRAFT_TOKEN != ''
+
+      - name: Summary
+        run: |
+          echo "✅ Snap package v${{ steps.version.outputs.version }} processed!"
+          echo ""
+          if [ -n "${{ secrets.SNAPCRAFT_TOKEN }}" ]; then
+            echo "✅ Published to Snap Store (${{ steps.version.outputs.channel }} channel)"
+            echo "   https://snapcraft.io/opencli"
+            echo ""
+            echo "Users can install with:"
+            echo "  sudo snap install opencli"
+            if [ "${{ steps.version.outputs.channel }}" != "stable" ]; then
+              echo "  sudo snap install opencli --channel=${{ steps.version.outputs.channel }}"
+            fi
+          else
+            echo "⚠️  SNAPCRAFT_TOKEN not set - package built but not published"
+            echo "   To publish: Add SNAPCRAFT_TOKEN secret in GitHub Settings"
+          fi
+          echo ""
+          echo "Snap artifact uploaded to workflow artifacts"
