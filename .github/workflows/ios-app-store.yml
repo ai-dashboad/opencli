@@ -158,10 +158,34 @@ jobs:
       - name: Build IPA
         working-directory: opencli_mobile
         run: |
-          echo "🔨 Building iOS IPA..."
-          flutter build ipa --release \
-            --export-options-plist=ios/ExportOptions.plist
+          echo "🔨 Building iOS Archive..."
 
+          # Get provisioning profile info
+          PP_FILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
+          PP_UUID=$(basename "$PP_FILE" .mobileprovision)
+
+          # Build Flutter framework
+          flutter build ios --release --no-codesign
+
+          # Archive with xcodebuild
+          cd ios
+          xcodebuild clean archive \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/Runner.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=G9VG22HGJG \
+            PROVISIONING_PROFILE="$PP_UUID" \
+            CODE_SIGN_IDENTITY="Apple Distribution"
+
+          # Export IPA
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist ExportOptions.plist
+
+          cd ..
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
           if [ -z "$IPA_PATH" ]; then
             echo "❌ IPA file not found"
