@@ -1,0 +1,93 @@
+{
+  "name": "opencli-vscode",
+  "displayName": "OpenCLI",
+  "description": "Universal AI Development Platform for VSCode",
+  "version": "0.1.0",
+  "publisher": "opencli",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "opencli.chat",
+        "title": "OpenCLI: Open Chat"
+      },
+      {
+        "command": "opencli.flutterLaunch",
+        "title": "OpenCLI: Launch Flutter App"
+      },
+      {
+        "command": "opencli.flutterHotReload",
+        "title": "OpenCLI: Hot Reload Flutter App"
+      },
+      {
+        "command": "opencli.flutterScreenshot",
+        "title": "OpenCLI: Take Screenshot"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "opencli",
+          "title": "OpenCLI",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "opencli": [
+        {
+          "type": "webview",
+          "id": "opencli.chatView",
+          "name": "AI Assistant"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "OpenCLI",
+      "properties": {
+        "opencli.socketPath": {
+          "type": "string",
+          "default": "/tmp/opencli.sock",
+          "description": "Path to OpenCLI daemon socket"
+        },
+        "opencli.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start daemon if not running"
+        },
+        "opencli.defaultModel": {
+          "type": "string",
+          "default": "claude",
+          "description": "Default AI model to use"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "msgpack-lite": "^0.1.26"
+  }
+}

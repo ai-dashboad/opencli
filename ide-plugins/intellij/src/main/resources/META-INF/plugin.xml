@@ -1,0 +1,42 @@
+<idea-plugin>
+    <id>dev.opencli.intellij</id>
+    <name>OpenCLI</name>
+    <vendor>OpenCLI</vendor>
+
+    <description><![CDATA[
+    Universal AI Development Platform for IntelliJ IDEA.
+
+    Features:
+    - AI Chat Assistant
+    - Flutter app automation
+    - Hot reload integration
+    - Smart code assistance
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Dart</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="OpenCLI Chat"
+                    anchor="right"
+                    factoryClass="dev.opencli.ChatToolWindowFactory"
+                    icon="AllIcons.Toolwindows.ToolWindowMessages"/>
+    </extensions>
+
+    <actions>
+        <action id="OpenCLI.FlutterLaunch"
+                class="dev.opencli.actions.FlutterLaunchAction"
+                text="Launch Flutter App"
+                description="Launch Flutter app with OpenCLI">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+
+        <action id="OpenCLI.FlutterHotReload"
+                class="dev.opencli.actions.FlutterHotReloadAction"
+                text="Hot Reload Flutter App"
+                description="Trigger hot reload">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt R"/>
+        </action>
+    </actions>
+</idea-plugin>
