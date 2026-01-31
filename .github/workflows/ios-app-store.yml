@@ -141,13 +141,14 @@ jobs:
           # Get provisioning profile UUID and name
           PP_FILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
           PP_UUID=$(basename "$PP_FILE" .mobileprovision)
-          PP_NAME=$(security cms -D -i "$PP_FILE" | plutil -p - | grep "Name" | awk -F'"' '{print $4}')
+          PP_NAME=$(security cms -D -i "$PP_FILE" | plutil -p - | grep -m 1 '"Name"' | awk -F'"' '{print $4}' | tr -d '\n')
 
           # Update project.pbxproj to use manual signing
           sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/' Runner.xcodeproj/project.pbxproj
           sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = G9VG22HGJG;/' Runner.xcodeproj/project.pbxproj
-          sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\";/PROVISIONING_PROFILE_SPECIFIER = \"$PP_NAME\";/" Runner.xcodeproj/project.pbxproj
-          sed -i '' "s/PROVISIONING_PROFILE = \"\";/PROVISIONING_PROFILE = \"$PP_UUID\";/" Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/DEVELOPMENT_TEAM = G9VG22HGJG;/DEVELOPMENT_TEAM = G9VG22HGJG;/' Runner.xcodeproj/project.pbxproj || true
+          sed -i '' "s|PROVISIONING_PROFILE_SPECIFIER = \"\";|PROVISIONING_PROFILE_SPECIFIER = \"${PP_NAME}\";|" Runner.xcodeproj/project.pbxproj
+          sed -i '' "s|PROVISIONING_PROFILE = \"\";|PROVISIONING_PROFILE = \"${PP_UUID}\";|" Runner.xcodeproj/project.pbxproj
 
           echo "✅ Xcode project configured for manual signing"
           echo "   - Team ID: G9VG22HGJG"
