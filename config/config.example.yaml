@@ -1,0 +1,278 @@
+# OpenCLI Configuration Example
+# Copy this file to ~/.opencli/config.yaml and customize as needed
+
+# Version info
+config_version: 1
+
+# Auto mode (zero configuration)
+auto_mode: true
+
+# Model configuration
+models:
+  # Priority list (try in order)
+  priority:
+    - tinylm      # Built-in model
+    - ollama      # Local service
+    - claude      # Cloud API
+    - gpt
+
+  # Specific model configurations
+  claude:
+    provider: anthropic
+    api_key: ${ANTHROPIC_API_KEY}
+    model: claude-sonnet-4-20250514
+    max_tokens: 8192
+    temperature: 1.0
+    cache_enabled: true
+
+  gpt:
+    provider: openai
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4-turbo
+    max_tokens: 4096
+
+  gemini:
+    provider: google
+    api_key: ${GOOGLE_API_KEY}
+    model: gemini-2.0-flash-exp
+
+  ollama:
+    provider: ollama
+    base_url: http://localhost:11434
+    model: codellama
+    preload: true
+
+  tinylm:
+    provider: local
+    model_path: ~/.opencli/models/tinylm.gguf
+    context_length: 2048
+    gpu_layers: 0
+
+# Intelligent routing rules
+routing:
+  default: claude
+
+  rules:
+    # Simple tasks -> local model
+    - task_type: explanation
+      complexity: low
+      model: tinylm
+
+    # Code completion -> Ollama
+    - task_type: code_completion
+      model: ollama
+
+    # Complex tasks -> Claude
+    - task_type: [debugging, refactoring, architecture]
+      complexity: high
+      model: claude
+
+    # Large context -> Claude (200k)
+    - context_size: ">100000"
+      model: claude
+
+    # Vision tasks -> vision-capable model
+    - has_image: true
+      model: claude
+
+  # Fallback strategy
+  fallback:
+    - if: api_error
+      action: use_local
+    - if: rate_limit
+      action: retry_after_60s
+    - if: no_model_available
+      action: use_tinylm
+
+# Cache configuration
+cache:
+  enabled: true
+
+  # L1 cache (memory)
+  l1:
+    max_size: 100
+    max_memory_mb: 50
+
+  # L2 cache (LRU)
+  l2:
+    max_size: 1000
+    eviction_policy: lru
+
+  # L3 cache (disk)
+  l3:
+    enabled: true
+    dir: ~/.opencli/cache
+    max_size_mb: 500
+    compression: true
+
+  # Semantic cache
+  semantic:
+    enabled: true
+    similarity_threshold: 0.95
+    embedding_model: all-MiniLM-L6-v2
+
+  # TTL
+  ttl:
+    default_seconds: 604800    # 7 days
+    explanations: 2592000      # 30 days (rarely changes)
+    code_generation: 86400     # 1 day
+
+# Connection pool
+connection_pool:
+  max_size: 10
+  keep_alive: true
+  max_idle_seconds: 300
+  warmup_enabled: true
+
+# Performance configuration
+performance:
+  max_concurrent_requests: 100
+  request_timeout_ms: 30000
+  slow_request_threshold_ms: 1000
+
+  # Resource limits
+  max_memory_mb: 200
+  max_cpu_percent: 50
+
+# Plugin configuration
+plugins:
+  auto_load: true
+  dir: ~/.opencli/plugins
+
+  # Enabled plugins
+  enabled:
+    - flutter-skill
+    - ai-assistants
+    - custom-scripts
+
+  # Plugin-specific configurations
+  flutter-skill:
+    default_device: macos
+    screenshot_format: png
+    auto_hot_reload: true
+
+    # Permissions for flutter-skill plugin
+    permissions:
+      - network
+      - filesystem.read
+      - filesystem.write
+      - process.spawn
+
+  ai-assistants:
+    default_model: claude
+    stream_responses: true
+
+    # Permissions for ai-assistants plugin
+    permissions:
+      - network
+      - filesystem.read
+
+  custom-scripts:
+    # Permissions for custom-scripts plugin
+    permissions:
+      - network
+      - filesystem.read
+      - filesystem.write
+      - process.spawn
+
+# Allowed commands for terminal execution
+allowed_commands:
+  # Flutter development commands
+  flutter:
+    - flutter
+    - dart
+    - pub
+    - flutter-tool
+
+  # Git commands
+  git:
+    - git
+    - gh
+
+  # Development tools
+  development:
+    - npm
+    - yarn
+    - pnpm
+    - cargo
+    - rustc
+    - go
+    - python
+    - pip
+    - node
+    - java
+    - javac
+    - gradle
+    - mvn
+
+  # System utilities
+  system:
+    - ls
+    - cat
+    - grep
+    - find
+    - which
+    - chmod
+    - chown
+    - mkdir
+    - rm
+    - cp
+    - mv
+    - touch
+    - echo
+    - pwd
+    - cd
+
+  # Process management
+  process:
+    - ps
+    - kill
+    - killall
+    - pkill
+
+  # Network tools
+  network:
+    - curl
+    - wget
+    - ping
+    - netstat
+    - lsof
+
+# Logging configuration
+logging:
+  level: info
+  file: ~/.opencli/logs/opencli.log
+  max_size_mb: 10
+  max_files: 5
+  console: true
+
+# Auto-update
+auto_update:
+  enabled: true
+  check_interval_seconds: 86400
+  channel: stable
+  auto_install: false
+
+# Telemetry and statistics
+telemetry:
+  enabled: false
+  anonymous: true
+  endpoint: https://telemetry.opencli.dev
+
+# Security settings
+security:
+  # Unix Socket permissions
+  socket_path: /tmp/opencli.sock
+  socket_permissions: 0600
+
+  # API key storage
+  use_system_keychain: true
+
+  # Plugin sandbox
+  plugin_isolation: true
+  plugin_timeout_seconds: 30
+
+  # Input validation
+  validate_params: true
+  sanitize_paths: true
+  sanitize_commands: true
