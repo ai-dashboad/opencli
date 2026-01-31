@@ -429,4 +429,4 @@ If you find OpenCLI useful, please consider giving it a star!
 
 ---
 
-**Status**: ✅ Production Ready | **Version**: 0.1.1-beta.4 | **Last Updated**: 2026-01-31
+**Status**: ✅ Production Ready | **Version**: 0.1.1-beta.5 | **Last Updated**: 2026-01-31
