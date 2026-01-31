@@ -1,0 +1,139 @@
+name: Publish Mobile Apps
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.5'
+          channel: 'stable'
+
+      - name: Get dependencies
+        working-directory: opencli_mobile
+        run: flutter pub get
+
+      - name: Decode keystore
+        working-directory: opencli_mobile/android
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
+
+      - name: Create keystore.properties
+        working-directory: opencli_mobile/android
+        run: |
+          cat > keystore.properties << EOF
+          storeFile=app/release.keystore
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Build APK
+        working-directory: opencli_mobile
+        run: flutter build apk --release
+
+      - name: Build App Bundle
+        working-directory: opencli_mobile
+        run: flutter build appbundle --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencli-mobile-android-apk
+          path: opencli_mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencli-mobile-android-aab
+          path: opencli_mobile/build/app/outputs/bundle/release/app-release.aab
+
+  build-ios:
+    name: Build iOS
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.5'
+          channel: 'stable'
+
+      - name: Get dependencies
+        working-directory: opencli_mobile
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          cd opencli_mobile/ios
+          pod install
+
+      - name: Build iOS (no codesign)
+        working-directory: opencli_mobile
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA
+        working-directory: opencli_mobile/ios
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r opencli-mobile.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencli-mobile-ios-ipa
+          path: opencli_mobile/ios/opencli-mobile.ipa
+
+  publish-to-release:
+    name: Publish to GitHub Release
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: mobile-artifacts/
+
+      - name: Calculate SHA256
+        working-directory: mobile-artifacts
+        run: |
+          for dir in */; do
+            for file in "$dir"*; do
+              if [[ -f "$file" ]]; then
+                sha256sum "$file" > "${file}.sha256"
+              fi
+            done
+          done
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mobile-artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
