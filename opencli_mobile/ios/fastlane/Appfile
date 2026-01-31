@@ -1,0 +1,8 @@
+app_identifier("com.opencli.mobile") # OpenCLI Mobile Bundle ID
+apple_id(ENV["APPLE_ID"] || "tslacoinv@gmail.com") # Apple Developer account email
+team_id("G9VG22HGJG") # Team ID from Apple Developer account
+itc_team_id("123456789") # App Store Connect team ID (optional)
+
+# App Store Connect API Key configuration
+apple_dev_portal_id("")
+itunes_connect_id("")

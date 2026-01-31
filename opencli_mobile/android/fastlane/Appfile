@@ -1,0 +1,2 @@
+json_key_file("fastlane/play-store-key.json") # Path to the json secret file
+package_name("com.opencli.mobile") # OpenCLI Mobile package name
