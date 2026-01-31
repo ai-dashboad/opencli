@@ -11,7 +11,7 @@ dependencies:
   http: ^1.1.0
 
   # Serialization
-  msgpack_dart: ^2.0.0
+  msgpack_dart: ^1.0.1
   json_annotation: ^4.8.0
 
   # Database

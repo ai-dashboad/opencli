@@ -61,10 +61,12 @@ jobs:
             artifact_name: opencli
             asset_name: opencli-linux-x86_64
 
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-musl
-            artifact_name: opencli
-            asset_name: opencli-linux-arm64
+          # TODO: 添加 Linux ARM64 交叉编译支持
+          # 需要配置 gcc-aarch64-linux-gnu 和正确的链接器
+          # - os: ubuntu-latest
+          #   target: aarch64-unknown-linux-musl
+          #   artifact_name: opencli
+          #   asset_name: opencli-linux-arm64
 
           - os: windows-latest
             target: x86_64-pc-windows-msvc
