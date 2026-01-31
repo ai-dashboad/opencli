@@ -1,2 +1,2 @@
-json_key_file("fastlane/play-store-key.json") # Path to the json secret file
+# json_key_file is not used - we pass json_key_data via environment variable in CI
 package_name("com.opencli.mobile") # OpenCLI Mobile package name
