@@ -2,7 +2,7 @@
   "name": "opencli-vscode",
   "displayName": "OpenCLI",
   "description": "Universal AI Development Platform for VSCode",
-  "version": "0.1.1-beta.3",
+  "version": "0.1.1-beta.4",
   "publisher": "opencli",
   "engines": {
     "vscode": "^1.80.0"
