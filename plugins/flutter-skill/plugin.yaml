@@ -1,0 +1,62 @@
+name: flutter-skill
+version: 0.3.0
+description: Flutter app automation and testing plugin for OpenCLI
+author: OpenCLI Team
+license: MIT
+homepage: https://github.com/opencli/plugins/flutter-skill
+
+capabilities:
+  - launch          # Launch Flutter app
+  - connect         # Connect to running app
+  - inspect         # Get UI elements
+  - screenshot      # Take screenshot
+  - tap             # Tap on element
+  - enter_text      # Enter text in field
+  - scroll_to       # Scroll to element
+  - long_press      # Long press on element
+  - double_tap      # Double tap on element
+  - swipe           # Swipe gesture
+  - drag            # Drag element
+  - get_text_value  # Get TextField value
+  - wait_for        # Wait for element
+  - hot_reload      # Trigger hot reload
+  - get_route       # Get current route
+  - go_back         # Navigate back
+
+dependencies:
+  vm_service: ^14.0.0
+  path: ^1.8.0
+  http: ^1.1.0
+
+requirements:
+  dart_sdk: ">=3.0.0 <4.0.0"
+  platforms:
+    - macos
+    - linux
+    - windows
+    - ios
+    - android
+
+config_schema:
+  type: object
+  properties:
+    default_device:
+      type: string
+      enum: [macos, ios, android, linux, windows]
+      default: macos
+    screenshot_format:
+      type: string
+      enum: [png, jpg]
+      default: png
+    auto_hot_reload:
+      type: boolean
+      default: true
+    timeout_seconds:
+      type: integer
+      default: 30
+
+permissions:
+  - network           # VM Service connection
+  - filesystem.read   # Read project files
+  - filesystem.write  # Save screenshots
+  - process.spawn     # Launch Flutter app
