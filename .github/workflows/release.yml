@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            SHA256=$(certutil -hashfile cli/target/${{ matrix.target }}/release/${{ matrix.artifact_name }} SHA256 | findstr /v "SHA256 CertUtil")
+            SHA256=$(powershell -Command "(Get-FileHash -Path cli/target/${{ matrix.target }}/release/${{ matrix.artifact_name }} -Algorithm SHA256).Hash.ToLower()")
           else
             SHA256=$(shasum -a 256 cli/target/${{ matrix.target }}/release/${{ matrix.artifact_name }} | cut -d' ' -f1)
           fi
@@ -155,7 +155,7 @@ jobs:
         working-directory: daemon
         run: |
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            SHA256=$(certutil -hashfile ${{ matrix.binary_name }} SHA256 | findstr /v "SHA256 CertUtil")
+            SHA256=$(powershell -Command "(Get-FileHash -Path ${{ matrix.binary_name }} -Algorithm SHA256).Hash.ToLower()")
           else
             SHA256=$(shasum -a 256 ${{ matrix.binary_name }} | cut -d' ' -f1)
           fi
