@@ -1,6 +1,6 @@
 name: flutter_skill
 description: Flutter app automation and testing plugin
-version: 0.3.0
+version: 0.1.1-beta.1
 publish_to: 'none'
 
 environment:

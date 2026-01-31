@@ -1,3 +1,17 @@
+# OpenCLI - npm Package
+
+**Universal AI Development Platform**
+
+## Quick Install
+
+```bash
+npm install -g @opencli/cli
+```
+
+This package automatically downloads the native binary for your platform (macOS, Linux, Windows).
+
+---
+
 # OpenCLI - Enterprise Autonomous Company Operating System
 
 **A production-ready, AI-powered autonomous company operating system with comprehensive enterprise features.**
@@ -430,3 +444,4 @@ If you find OpenCLI useful, please consider giving it a star!
 ---
 
 **Status**: ✅ Production Ready | **Version**: 0.1.1-beta.1 | **Last Updated**: 2026-01-31
+
