@@ -102,7 +102,11 @@ jobs:
 
       - name: Create ExportOptions.plist
         run: |
-          cat > opencli_mobile/ios/ExportOptions.plist << 'EOF'
+          # Get provisioning profile UUID
+          PP_FILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
+          PP_UUID=$(basename "$PP_FILE" .mobileprovision)
+
+          cat > opencli_mobile/ios/ExportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -114,14 +118,22 @@ jobs:
             <key>uploadSymbols</key>
             <true/>
             <key>signingStyle</key>
-            <string>automatic</string>
+            <string>manual</string>
             <key>teamID</key>
             <string>G9VG22HGJG</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.opencli.opencliMobile</key>
+              <string>$PP_UUID</string>
+            </dict>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
           </dict>
           </plist>
           EOF
 
-          echo "✅ ExportOptions.plist created"
+          echo "✅ ExportOptions.plist created with provisioning profile UUID: $PP_UUID"
+          cat opencli_mobile/ios/ExportOptions.plist
 
       - name: Build IPA
         working-directory: opencli_mobile
