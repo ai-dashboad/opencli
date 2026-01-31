@@ -26,7 +26,7 @@ OpenCLI 为个人用户提供零配置使用方案：
 brew install opencli
 
 # 方法2: 下载安装包
-# 访问 https://opencli.dev/download
+# 访问 https://opencli.ai/download
 # 下载 OpenCLI.dmg，双击安装
 ```
 
@@ -43,7 +43,7 @@ brew install opencli
 scoop install opencli
 
 # 方法2: 下载安装包
-# 访问 https://opencli.dev/download
+# 访问 https://opencli.ai/download
 # 下载 OpenCLI-Setup.exe，双击安装
 ```
 
@@ -503,7 +503,7 @@ iOS 快捷指令 App
 
 - 📱 App 内置教程（首次打开自动显示）
 - 💬 在线客服（App 内）
-- 📧 邮件：support@opencli.dev
+- 📧 邮件：support@opencli.ai
 - 🎥 视频教程：youtube.com/opencli
 
 ---

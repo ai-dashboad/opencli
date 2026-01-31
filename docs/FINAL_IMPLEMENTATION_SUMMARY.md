@@ -381,7 +381,7 @@ opencli/
 
 ```bash
 # Install
-curl -sSL https://opencli.dev/install-enterprise.sh | sh
+curl -sSL https://opencli.ai/install-enterprise.sh | sh
 
 # Configure
 vi ~/.opencli/config.yaml
@@ -400,7 +400,7 @@ open http://localhost:3000
 
 ```bash
 # One-command install (macOS/Linux)
-curl -sSL https://opencli.dev/install.sh | sh
+curl -sSL https://opencli.ai/install.sh | sh
 
 # Or use package manager
 brew install opencli        # macOS
@@ -480,10 +480,10 @@ Unified automation across all platforms:
 
 ## 📞 Support & Community
 
-- **Documentation**: https://docs.opencli.dev
+- **Documentation**: https://docs.opencli.ai
 - **GitHub**: https://github.com/yourusername/opencli
 - **Discord**: https://discord.gg/opencli
-- **Email**: support@opencli.dev
+- **Email**: support@opencli.ai
 
 ---
 

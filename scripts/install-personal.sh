@@ -4,9 +4,9 @@
 # 个人模式一键安装脚本 - 零配置，开箱即用
 #
 # Usage:
-#   curl -sSL https://opencli.dev/install.sh | sh
+#   curl -sSL https://opencli.ai/install.sh | sh
 #   或
-#   wget -qO- https://opencli.dev/install.sh | sh
+#   wget -qO- https://opencli.ai/install.sh | sh
 #
 
 set -e
@@ -394,7 +394,7 @@ show_completion() {
     echo "  配置文件位置: ~/.opencli/config.yaml"
     echo "  日志文件位置: ~/.opencli/logs/"
     echo ""
-    echo "  需要帮助？访问: https://docs.opencli.dev"
+    echo "  需要帮助？访问: https://docs.opencli.ai"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""

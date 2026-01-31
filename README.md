@@ -42,7 +42,7 @@ brew install opencli
 scoop install opencli
 
 # Linux
-curl -sSL https://opencli.dev/install.sh | sh
+curl -sSL https://opencli.ai/install.sh | sh
 ```
 
 ### Basic Usage
@@ -384,10 +384,10 @@ Built with:
 
 ## 📞 Support
 
-- 📧 Email: support@opencli.dev
+- 📧 Email: support@opencli.ai
 - 💬 Discord: [Join our community](https://discord.gg/opencli)
 - 🐛 Issues: [GitHub Issues](https://github.com/yourusername/opencli/issues)
-- 📖 Docs: [https://docs.opencli.dev](https://docs.opencli.dev)
+- 📖 Docs: [https://docs.opencli.ai](https://docs.opencli.ai)
 
 ---
 

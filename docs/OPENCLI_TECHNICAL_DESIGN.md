@@ -809,7 +809,7 @@ auto_update:
 telemetry:
   enabled: false               # 默认关闭
   anonymous: true
-  endpoint: https://telemetry.opencli.dev
+  endpoint: https://telemetry.opencli.ai
 ```
 
 **配置对应的数据结构**

@@ -164,7 +164,7 @@ network:
   # 云中转（可选，需要账号）
   cloud_bridge:
     enabled: false  # 默认不使用云中转
-    # url: https://bridge.opencli.dev  # 云中转服务器
+    # url: https://bridge.opencli.ai  # 云中转服务器
     # token: ""  # 账号 token
 
 # UI 设置

@@ -308,9 +308,9 @@ This is the first production-ready release of OpenCLI, representing a complete t
 
 For questions, issues, or feature requests:
 
-- 📧 Email: support@opencli.dev
+- 📧 Email: support@opencli.ai
 - 🐛 Issues: [GitHub Issues](https://github.com/yourusername/opencli/issues)
-- 📖 Docs: [Documentation](https://docs.opencli.dev)
+- 📖 Docs: [Documentation](https://docs.opencli.ai)
 - 💬 Community: [Discord](https://discord.gg/opencli)
 
 ---

@@ -191,7 +191,7 @@ auto_update:
 telemetry:
   enabled: false
   anonymous: true
-  endpoint: https://telemetry.opencli.dev
+  endpoint: https://telemetry.opencli.ai
 
 # Security settings
 security:
