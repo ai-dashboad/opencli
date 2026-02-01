@@ -1,0 +1,31 @@
+OpenCLI - AI-Powered Task Orchestration on Mobile
+
+Transform your mobile device into a powerful AI assistant with OpenCLI. Execute complex tasks, automate workflows, and interact with AI agents seamlessly on iOS.
+
+KEY FEATURES:
+
+• AI-Powered Automation
+  Leverage advanced AI models to automate complex tasks and workflows directly from your mobile device.
+
+• Intelligent Task Orchestration
+  Chain multiple operations together and let AI handle the execution with smart decision-making.
+
+• Cross-Platform Integration
+  Connect with various services and platforms through a unified interface.
+
+• Secure & Private
+  Your data stays on your device with end-to-end encryption and privacy-first design.
+
+• Extensible Architecture
+  Support for plugins and custom integrations to extend functionality.
+
+PERFECT FOR:
+
+- Developers who need AI assistance on the go
+- Power users who want to automate mobile workflows
+- Teams looking for intelligent task management
+- Anyone who wants AI-powered productivity tools
+
+OpenCLI brings the power of command-line AI tools to your mobile device with an intuitive interface designed for touch interactions.
+
+Download OpenCLI today and experience the future of mobile AI automation!

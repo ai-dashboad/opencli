@@ -1,0 +1,11 @@
+Welcome to OpenCLI!
+
+This is the initial release of OpenCLI for iOS, bringing AI-powered task orchestration to your mobile device.
+
+What's New:
+• Initial iOS release
+• AI-powered task automation
+• Intuitive mobile interface
+• Secure and private by design
+
+We're excited to bring OpenCLI to iOS and look forward to your feedback!

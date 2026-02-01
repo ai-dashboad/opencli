@@ -1,0 +1,55 @@
+# Deliverfile for OpenCLI Mobile
+
+# App identifier
+app_identifier "com.opencli.opencliMobile"
+
+# Username (Apple ID)
+# Will use API key authentication instead
+# username ""
+
+# Team ID
+team_id "G9VG22HGJG"
+
+# Use API Key authentication
+api_key_path "~/private_keys/AuthKey_#{ENV['APP_STORE_CONNECT_API_KEY_ID']}.p8"
+
+# Platform
+platform "ios"
+
+# Automatically upload screenshots
+upload_screenshots true
+
+# Automatically upload metadata
+upload_metadata true
+
+# Skip binary upload (we handle IPA upload separately)
+skip_binary_upload false
+
+# Don't submit for review automatically
+submit_for_review false
+
+# Price tier
+# price_tier 0
+
+# App category
+# primary_category "MobileApplications"
+# secondary_category "Productivity"
+
+# Copyright
+copyright "#{Time.now.year} OpenCLI"
+
+# Version number (will be read from app)
+# app_version ""
+
+# Build number (will be read from app)
+# build_number ""
+
+# Skip waiting for build processing
+skip_waiting_for_build_processing true
+
+# Force overwrite of metadata
+force true
+
+# Precheck
+run_precheck_before_submit false
+precheck_include_in_app_purchases false
