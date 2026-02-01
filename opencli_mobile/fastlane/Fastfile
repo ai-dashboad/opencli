@@ -4,16 +4,23 @@ default_platform(:ios)
 
 platform :ios do
   desc "Upload metadata and screenshots to App Store Connect"
-  lane :upload_metadata do
+  lane :upload_metadata do |options|
+    submit = options[:submit_for_review] == "true" || options[:submit_for_review] == true
+
     deliver(
       app_identifier: "com.opencli.opencliMobile",
       skip_binary_upload: true,
-      skip_screenshots: false,
+      skip_screenshots: true,  # Will add screenshots later
       skip_metadata: false,
       force: true,
-      submit_for_review: false,
+      submit_for_review: submit,
       automatic_release: false,
-      precheck_include_in_app_purchases: false
+      precheck_include_in_app_purchases: false,
+      submission_information: submit ? {
+        add_id_info_uses_idfa: false,
+        export_compliance_uses_encryption: false,
+        export_compliance_is_exempt: true
+      } : nil
     )
   end
 

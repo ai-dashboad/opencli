@@ -1,0 +1,14 @@
+Thank you for reviewing OpenCLI!
+
+This is a developer tool and AI automation platform designed for iOS.
+
+Test Account (if needed):
+- No account required for basic functionality
+- The app can be tested without any login
+
+Key features to test:
+1. AI-powered task automation
+2. Command-line interface on mobile
+3. Workflow orchestration
+
+If you have any questions during review, please contact us at support@opencli.ai.

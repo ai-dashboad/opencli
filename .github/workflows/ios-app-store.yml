@@ -252,12 +252,13 @@ jobs:
 
           echo "✅ IPA uploaded successfully to App Store Connect!"
 
-      - name: Upload App Store Metadata
+      - name: Upload App Store Metadata and Submit for Review
         working-directory: opencli_mobile
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+          SUBMIT_FOR_REVIEW: ${{ github.event.inputs.submit_for_review || 'false' }}
         run: |
           echo "📝 Uploading App Store metadata..."
 
@@ -266,11 +267,24 @@ jobs:
             gem install fastlane
           fi
 
+          # Determine if we should submit for review
+          if [ "$SUBMIT_FOR_REVIEW" = "true" ]; then
+            echo "🚀 Will submit for App Store review after upload"
+            SUBMIT_ARG="submit_for_review:true"
+          else
+            echo "ℹ️  Will NOT submit for review (manual submission required)"
+            SUBMIT_ARG="submit_for_review:false"
+          fi
+
           # Upload metadata using Fastlane
           cd fastlane
-          fastlane upload_metadata || echo "⚠️  Metadata upload completed with warnings (this is normal for first-time setup)"
+          fastlane upload_metadata $SUBMIT_ARG || echo "⚠️  Metadata upload completed with warnings (this is normal for first-time setup)"
 
-          echo "✅ App Store metadata upload completed!"
+          if [ "$SUBMIT_FOR_REVIEW" = "true" ]; then
+            echo "✅ App Store metadata uploaded and submitted for review!"
+          else
+            echo "✅ App Store metadata uploaded! You can manually submit for review in App Store Connect."
+          fi
 
       - name: Cleanup Keychain
         if: always()
