@@ -125,35 +125,15 @@ jobs:
       - name: Build IPA
         working-directory: opencli_mobile
         run: |
-          echo "🔨 Building iOS archive with xcodebuild..."
+          echo "🔨 Building iOS IPA..."
 
-          cd ios
+          #  Build using flutter - the installed certificate and provisioning profile
+          # combined with ExportOptions.plist should be sufficient
+          flutter build ipa --release \
+            --export-options-plist=ios/ExportOptions.plist
 
-          # Build archive using xcodebuild with explicit signing parameters
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath build/Runner.xcarchive \
-            -sdk iphoneos \
-            -allowProvisioningUpdates \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="OpenCLI Mobile App Store (opencliMobile)" \
-            DEVELOPMENT_TEAM=G9VG22HGJG \
-            archive
-
-          echo "✅ Archive created successfully"
-
-          # Export IPA
-          echo "📦 Exporting IPA..."
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates
-
-          echo "✅ IPA exported successfully"
-          ls -lh build/ipa/
+          echo "✅ IPA built successfully"
+          ls -lh build/ios/ipa/
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
