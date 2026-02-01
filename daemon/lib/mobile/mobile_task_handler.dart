@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'mobile_connection_manager.dart';
+import '../services/ollama_service.dart';
+import '../executors/file_executor.dart';
 
 /// Handles task execution for mobile-submitted tasks
 /// Integrates with desktop automation and task queue
@@ -30,6 +33,11 @@ class MobileTaskHandler {
     registerExecutor('screenshot', ScreenshotExecutor());
     registerExecutor('system_info', SystemInfoExecutor());
     registerExecutor('run_command', RunCommandExecutor());
+    registerExecutor('check_process', CheckProcessExecutor());
+    registerExecutor('list_processes', ListAppsExecutor());  // 重用现有的列表进程执行器
+
+    // File operations
+    registerExecutor('file_operation', FileOperationExecutor());
 
     // Web operations
     registerExecutor('open_url', OpenUrlExecutor());
@@ -241,6 +249,21 @@ class ScreenshotExecutor extends TaskExecutor {
       ]);
     }
 
+    // Read the screenshot file and encode as base64
+    final file = File(outputPath);
+    if (await file.exists()) {
+      final bytes = await file.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      final fileSize = bytes.length;
+
+      return {
+        'success': true,
+        'path': outputPath,
+        'image_base64': base64Image,
+        'size_bytes': fileSize,
+      };
+    }
+
     return {'success': true, 'path': outputPath};
   }
 }
@@ -271,6 +294,32 @@ class RunCommandExecutor extends TaskExecutor {
       'exit_code': result.exitCode,
       'stdout': result.stdout,
       'stderr': result.stderr,
+    };
+  }
+}
+
+class CheckProcessExecutor extends TaskExecutor {
+  @override
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> taskData) async {
+    final processName = taskData['process_name'] as String;
+    ProcessResult result;
+
+    if (Platform.isMacOS || Platform.isLinux) {
+      result = await Process.run('pgrep', ['-i', '-f', processName]);
+    } else if (Platform.isWindows) {
+      result = await Process.run('tasklist', ['/FI', 'IMAGENAME eq $processName*', '/NH']);
+    } else {
+      throw UnsupportedError('Platform not supported');
+    }
+
+    final isRunning = result.exitCode == 0;
+    final output = result.stdout.toString().trim();
+
+    return {
+      'success': true,
+      'process_name': processName,
+      'is_running': isRunning,
+      'details': isRunning ? output : 'Process not found',
     };
   }
 }
@@ -311,16 +360,122 @@ class WebSearchExecutor extends TaskExecutor {
   }
 }
 
-/// AI operations executors (placeholders for AI integration)
+/// AI operations executors
 class AIQueryExecutor extends TaskExecutor {
+  static OllamaService? _ollama;
+
+  /// 获取或创建 Ollama 服务实例
+  static Future<OllamaService?> _getOllama() async {
+    if (_ollama == null) {
+      _ollama = OllamaService();
+      // 检查是否可用
+      if (!await _ollama!.isAvailable()) {
+        print('⚠️  Ollama 未运行，将使用降级方案');
+        print('   提示: 安装 Ollama 以获得更智能的意图识别');
+        print('   brew install ollama && ollama run qwen2.5');
+        return null;
+      }
+      print('✓ Ollama 已连接');
+    }
+    return _ollama;
+  }
+
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> taskData) async {
     final query = taskData['query'] as String;
+    final mode = taskData['mode'] as String? ?? 'general'; // general | intent_recognition
 
-    // TODO: Integrate with AI service (Claude, GPT, etc.)
-    final response = 'AI response to: $query (placeholder)';
+    if (mode == 'intent_recognition') {
+      // 意图识别模式
+      return await _recognizeIntent(query);
+    } else {
+      // 通用 AI 查询模式
+      final ollama = await _getOllama();
+      if (ollama != null) {
+        final response = await ollama.query(query);
+        return {'success': true, 'query': query, 'response': response};
+      } else {
+        final response = '💡 Ollama 未运行。\n\n安装方法：\nbrew install ollama\nollama run qwen2.5';
+        return {'success': false, 'query': query, 'response': response};
+      }
+    }
+  }
 
-    return {'success': true, 'query': query, 'response': response};
+  /// 使用 AI 识别用户意图
+  Future<Map<String, dynamic>> _recognizeIntent(String query) async {
+    // 优先尝试使用 Ollama
+    final ollama = await _getOllama();
+    if (ollama != null) {
+      try {
+        final result = await ollama.recognizeIntent(query);
+        if (result['success'] == true) {
+          return result;
+        }
+      } catch (e) {
+        print('Ollama 识别失败，使用降级方案: $e');
+      }
+    }
+
+    // 降级方案：使用启发式规则
+    final lowerQuery = query.toLowerCase();
+
+    // 使用启发式规则 + 智能匹配
+    if (_containsAny(lowerQuery, ['chrome', 'safari', 'firefox', 'edge', 'vscode', 'xcode', 'wechat', '微信', '浏览器'])) {
+      final appName = _extractAppName(query);
+      return {
+        'success': true,
+        'intent': 'open_app',
+        'confidence': 0.8,
+        'parameters': {'app_name': appName},
+      };
+    }
+
+    if (_containsAny(lowerQuery, ['截', 'screenshot', 'capture'])) {
+      return {
+        'success': true,
+        'intent': 'screenshot',
+        'confidence': 0.9,
+        'parameters': {},
+      };
+    }
+
+    // 无法识别
+    return {
+      'success': false,
+      'intent': 'unknown',
+      'confidence': 0.0,
+      'error': '无法识别意图，请使用更明确的指令',
+    };
+  }
+
+  bool _containsAny(String text, List<String> keywords) {
+    return keywords.any((keyword) => text.contains(keyword));
+  }
+
+  String _extractAppName(String query) {
+    // 提取应用名称
+    final commonApps = {
+      'chrome': 'Google Chrome',
+      'safari': 'Safari',
+      'firefox': 'Firefox',
+      'edge': 'Microsoft Edge',
+      'vscode': 'Visual Studio Code',
+      'code': 'Visual Studio Code',
+      'xcode': 'Xcode',
+      'wechat': 'WeChat',
+      '微信': 'WeChat',
+      '浏览器': 'Safari', // 默认浏览器
+    };
+
+    for (final entry in commonApps.entries) {
+      if (query.toLowerCase().contains(entry.key)) {
+        return entry.value;
+      }
+    }
+
+    // 提取第一个单词作为应用名
+    final match = RegExp(r'(?:打开|open|启动|launch)\s+(\S+)').firstMatch(query);
+    return match?.group(1) ?? query;
   }
 }
 
