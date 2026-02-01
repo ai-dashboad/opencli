@@ -91,19 +91,18 @@ jobs:
           echo "✅ Provisioning profile installed"
           ls -lh ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      - name: Configure Xcode for Manual Signing
+      - name: Configure Xcode Signing
         working-directory: opencli_mobile/ios
         run: |
-          echo "🔧 Configuring Xcode project for manual signing..."
+          echo "🔧 Configuring Xcode project signing..."
 
-          # Change to manual signing before pod install
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' Runner.xcodeproj/project.pbxproj
+          # Set CODE_SIGN_IDENTITY to match dtok-app configuration
+          # This allows automatic signing to work properly in CI
+          sed -i '' '/DEVELOPMENT_TEAM = G9VG22HGJG;/a\
+				CODE_SIGN_IDENTITY = "Apple Development";
+' Runner.xcodeproj/project.pbxproj
 
-          # Set provisioning profile specifier for all configurations
-          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "OpenCLI Mobile App Store (opencliMobile)";/g' Runner.xcodeproj/project.pbxproj
-
-          echo "✅ Xcode project configured for manual signing"
+          echo "✅ Xcode project configured with CODE_SIGN_IDENTITY"
 
       - name: Create ExportOptions.plist
         run: |
@@ -119,16 +118,9 @@ jobs:
             <key>uploadSymbols</key>
             <true/>
             <key>signingStyle</key>
-            <string>manual</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
+            <string>automatic</string>
             <key>teamID</key>
             <string>G9VG22HGJG</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>com.opencli.opencliMobile</key>
-              <string>OpenCLI Mobile App Store (opencliMobile)</string>
-            </dict>
           </dict>
           </plist>
           EOF
