@@ -151,16 +151,15 @@ jobs:
         run: |
           echo "🔧 Fixing App.framework Info.plist..."
 
-          # Find the IPA file
+          # Find the IPA file and get absolute path
           IPA_FILE=$(find build/ios/ipa -name "*.ipa" | head -n 1)
-          IPA_DIR=$(dirname "$IPA_FILE")
-          IPA_NAME=$(basename "$IPA_FILE")
+          ABS_IPA_FILE=$(cd $(dirname "$IPA_FILE") && pwd)/$(basename "$IPA_FILE")
 
           # Create a temporary directory
           TEMP_DIR=$(mktemp -d)
 
           # Unzip the IPA
-          unzip -q "$IPA_FILE" -d "$TEMP_DIR"
+          unzip -q "$ABS_IPA_FILE" -d "$TEMP_DIR"
 
           # Fix App.framework Info.plist
           APP_PLIST="$TEMP_DIR/Payload/Runner.app/Frameworks/App.framework/Info.plist"
@@ -175,10 +174,10 @@ jobs:
           cd "$TEMP_DIR"
           NEW_IPA="$TEMP_DIR/fixed.ipa"
           zip -qr "$NEW_IPA" Payload
+          cd -
 
           # Replace the original IPA
-          mv "$NEW_IPA" "$IPA_FILE"
-          cd -
+          mv "$NEW_IPA" "$ABS_IPA_FILE"
 
           # Cleanup
           rm -rf "$TEMP_DIR"
