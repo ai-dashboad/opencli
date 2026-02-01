@@ -148,18 +148,14 @@ jobs:
           echo "✅ Fastlane installed"
 
       - name: Build IPA with Fastlane
-        working-directory: opencli_mobile/ios
+        working-directory: opencli_mobile
         env:
           PROVISIONING_PROFILE_NAME: OpenCLI Mobile App Store (opencliMobile)
         run: |
           echo "🔨 Building iOS IPA with Fastlane..."
 
-          # Run Flutter build to generate frameworks
-          cd ..
-          flutter build ios --release --no-codesign
+          # Build IPA with Fastlane (Fastlane will handle pod install and build)
           cd ios
-
-          # Build IPA with Fastlane
           fastlane build_for_appstore
 
           echo "✅ IPA built successfully"
