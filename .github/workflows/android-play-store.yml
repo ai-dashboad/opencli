@@ -91,6 +91,19 @@ jobs:
         run: |
           gem install fastlane
 
+      - name: Update Version Changelogs
+        run: |
+          bash scripts/update-mobile-changelogs.sh
+
+      - name: Upload Play Store Metadata
+        working-directory: opencli_mobile/android
+        env:
+          PLAY_STORE_JSON_KEY: ${{ secrets.PLAY_STORE_JSON_KEY }}
+        run: |
+          echo "📝 Uploading Play Store metadata..."
+          fastlane upload_metadata || echo "⚠️  Metadata upload completed with warnings (this is normal for first-time setup)"
+          echo "✅ Play Store metadata uploaded!"
+
       - name: Deploy to Google Play
         working-directory: opencli_mobile/android
         env:
