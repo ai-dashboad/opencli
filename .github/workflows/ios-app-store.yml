@@ -98,8 +98,8 @@ jobs:
 
           # Set CODE_SIGN_IDENTITY to match dtok-app configuration
           # This allows automatic signing to work properly in CI
-          sed -i '' 's/DEVELOPMENT_TEAM = G9VG22HGJG;/DEVELOPMENT_TEAM = G9VG22HGJG;\
-				CODE_SIGN_IDENTITY = "Apple Development";/' Runner.xcodeproj/project.pbxproj
+          awk '/DEVELOPMENT_TEAM = G9VG22HGJG;/ { print; print "\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Development\";"; next } 1' Runner.xcodeproj/project.pbxproj > /tmp/project.pbxproj.tmp
+          mv /tmp/project.pbxproj.tmp Runner.xcodeproj/project.pbxproj
 
           echo "✅ Xcode project configured with CODE_SIGN_IDENTITY"
 
