@@ -125,16 +125,14 @@ jobs:
       - name: Configure Xcode project for manual signing
         working-directory: opencli_mobile/ios
         run: |
-          # For Release builds, use manual signing to avoid "No Account" errors in CI
-          # But keep ExportOptions.plist with automatic for export step
-          sed -i '' '/Release/,/};/s/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/' Runner.xcodeproj/project.pbxproj
-          sed -i '' '/Release/,/};/s/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/' Runner.xcodeproj/project.pbxproj
+          # Use manual signing to avoid "No Account" errors in CI
+          # Replace all instances of automatic signing with manual
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
 
-          # Set provisioning profile specifier for Release builds
-          sed -i '' '/Release/,/};/s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "OpenCLI Mobile App Store (opencliMobile)";/' Runner.xcodeproj/project.pbxproj
-          sed -i '' '/Release/,/};/s/"PROVISIONING_PROFILE_SPECIFIER\[sdk=iphoneos\*\]" = "";/"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "OpenCLI Mobile App Store (opencliMobile)";/' Runner.xcodeproj/project.pbxproj
+          # Also update ProvisioningStyle if present
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' Runner.xcodeproj/project.pbxproj
 
-          echo "✅ Xcode project configured for manual signing in Release builds"
+          echo "✅ Xcode project configured for manual signing"
 
       - name: Build IPA
         working-directory: opencli_mobile
