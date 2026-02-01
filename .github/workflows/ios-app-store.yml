@@ -91,6 +91,20 @@ jobs:
           echo "✅ Provisioning profile installed"
           ls -lh ~/Library/MobileDevice/Provisioning\ Profiles/
 
+      - name: Configure Xcode for Manual Signing
+        working-directory: opencli_mobile/ios
+        run: |
+          echo "🔧 Configuring Xcode project for manual signing..."
+
+          # Change to manual signing before pod install
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' Runner.xcodeproj/project.pbxproj
+
+          # Set provisioning profile specifier for all configurations
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "OpenCLI Mobile App Store (opencliMobile)";/g' Runner.xcodeproj/project.pbxproj
+
+          echo "✅ Xcode project configured for manual signing"
+
       - name: Create ExportOptions.plist
         run: |
           cat > opencli_mobile/ios/ExportOptions.plist << 'EOF'
@@ -126,7 +140,7 @@ jobs:
         working-directory: opencli_mobile/ios
         run: |
           echo "📦 Installing CocoaPods dependencies..."
-          pod install
+          pod install --repo-update
           echo "✅ CocoaPods dependencies installed"
 
       - name: Build IPA
