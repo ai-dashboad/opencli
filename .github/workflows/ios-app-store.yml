@@ -133,6 +133,25 @@ jobs:
           pod install --repo-update
           echo "✅ CocoaPods dependencies installed"
 
+      - name: Add Xcode Build Script to Fix App.framework
+        working-directory: opencli_mobile/ios
+        run: |
+          # Add a build phase script to fix App.framework Info.plist
+          cat > fix_app_framework.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          APP_FRAMEWORK_PATH="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/App.framework/Info.plist"
+
+          if [ -f "$APP_FRAMEWORK_PATH" ]; then
+            /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string ${IPHONEOS_DEPLOYMENT_TARGET}" "$APP_FRAMEWORK_PATH" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion ${IPHONEOS_DEPLOYMENT_TARGET}" "$APP_FRAMEWORK_PATH"
+            echo "✅ Set MinimumOSVersion to ${IPHONEOS_DEPLOYMENT_TARGET} in App.framework"
+          fi
+          EOF
+
+          chmod +x fix_app_framework.sh
+
       - name: Build IPA
         working-directory: opencli_mobile
         env:
@@ -140,49 +159,67 @@ jobs:
         run: |
           echo "🔨 Building iOS IPA..."
 
+          # Add build phase script to Xcode project
+          python3 << 'PYTHON_SCRIPT'
+          import re
+
+          project_path = "ios/Runner.xcodeproj/project.pbxproj"
+
+          with open(project_path, 'r') as f:
+              content = f.read()
+
+          # Check if script phase already exists
+          if 'Fix App.framework Info.plist' not in content:
+              # Find the PBXNativeTarget section for Runner
+              pattern = r'(/\* Begin PBXNativeTarget section \*/.*?97C146ED1CF9000F007C117D /\* Runner \*/ = \{.*?buildPhases = \(\s*)(.*?)(\s*\);)'
+
+              def add_script_phase(match):
+                  phases = match.group(2)
+                  # Add our script phase UUID
+                  new_phase_uuid = "7884E86A2EC3CC0800000000"
+                  if new_phase_uuid not in phases:
+                      phases += f"\n\t\t\t\t{new_phase_uuid} /* Fix App.framework Info.plist */,"
+                  return match.group(1) + phases + match.group(3)
+
+              content = re.sub(pattern, add_script_phase, content, flags=re.DOTALL)
+
+              # Add the script phase definition
+              script_phase = '''
+          		7884E86A2EC3CC0800000000 /* Fix App.framework Info.plist */ = {
+          			isa = PBXShellScriptBuildPhase;
+          			buildActionMask = 2147483647;
+          			files = (
+          			);
+          			inputPaths = (
+          			);
+          			name = "Fix App.framework Info.plist";
+          			outputPaths = (
+          			);
+          			runOnlyForDeploymentPostprocessing = 0;
+          			shellPath = /bin/sh;
+          			shellScript = "bash \\"${SRCROOT}/fix_app_framework.sh\\"\\n";
+          		};
+          '''
+
+              # Add before the "End PBXShellScriptBuildPhase section" marker
+              content = content.replace(
+                  '/* End PBXShellScriptBuildPhase section */',
+                  script_phase + '/* End PBXShellScriptBuildPhase section */'
+              )
+
+              with open(project_path, 'w') as f:
+                  f.write(content)
+
+              print("✅ Added build script to Xcode project")
+          else:
+              print("ℹ️  Build script already exists")
+          PYTHON_SCRIPT
+
           flutter build ipa --release \
             --export-options-plist=ios/ExportOptions.plist
 
           echo "✅ IPA built successfully"
           ls -lh build/ios/ipa/
-
-      - name: Fix App.framework MinimumOSVersion
-        working-directory: opencli_mobile
-        run: |
-          echo "🔧 Fixing App.framework Info.plist..."
-
-          # Find the IPA file and get absolute path
-          IPA_FILE=$(find build/ios/ipa -name "*.ipa" | head -n 1)
-          ABS_IPA_FILE=$(cd $(dirname "$IPA_FILE") && pwd)/$(basename "$IPA_FILE")
-
-          # Create a temporary directory
-          TEMP_DIR=$(mktemp -d)
-
-          # Unzip the IPA
-          unzip -q "$ABS_IPA_FILE" -d "$TEMP_DIR"
-
-          # Fix App.framework Info.plist
-          APP_PLIST="$TEMP_DIR/Payload/Runner.app/Frameworks/App.framework/Info.plist"
-          if [ -f "$APP_PLIST" ]; then
-            /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 13.0" "$APP_PLIST" 2>/dev/null || \
-            /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" "$APP_PLIST"
-            echo "✅ Set MinimumOSVersion to 13.0 in App.framework"
-            /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP_PLIST"
-          fi
-
-          # Repackage the IPA
-          cd "$TEMP_DIR"
-          NEW_IPA="$TEMP_DIR/fixed.ipa"
-          zip -qr "$NEW_IPA" Payload
-          cd -
-
-          # Replace the original IPA
-          mv "$NEW_IPA" "$ABS_IPA_FILE"
-
-          # Cleanup
-          rm -rf "$TEMP_DIR"
-
-          echo "✅ IPA fixed and repackaged"
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4

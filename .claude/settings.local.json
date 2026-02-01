@@ -65,7 +65,8 @@
       "Bash(openssl md5:*)",
       "Bash(openssl rsa:*)",
       "Bash(security cms:*)",
-      "Bash(plutil:*)"
+      "Bash(plutil:*)",
+      "Bash(yamllint:*)"
     ]
   }
 }
