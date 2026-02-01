@@ -108,10 +108,12 @@ platform :ios do
   lane :build_for_appstore do |options|
     # Get provisioning profile info from environment or parameters
     pp_name = options[:provisioning_profile_name] || ENV["PROVISIONING_PROFILE_NAME"] || "OpenCLI Mobile App Store (opencliMobile)"
+    pp_uuid = ENV["PROVISIONING_PROFILE_UUID"] || ""
 
     UI.message("Building with provisioning profile: #{pp_name}")
+    UI.message("Provisioning profile UUID: #{pp_uuid}")
 
-    # Build app with manual signing
+    # Build app with manual signing, passing CODE_SIGN_STYLE as xcarg
     build_app(
       workspace: "Runner.xcworkspace",
       scheme: "Runner",
@@ -133,7 +135,8 @@ platform :ios do
       include_bitcode: false,
       include_symbols: true,
       skip_profile_detection: true,
-      codesigning_identity: "Apple Distribution"
+      codesigning_identity: "Apple Distribution",
+      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=G9VG22HGJG PROVISIONING_PROFILE_SPECIFIER='#{pp_name}'"
     )
 
     UI.success("✅ IPA built successfully!")

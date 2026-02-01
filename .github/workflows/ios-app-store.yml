@@ -170,10 +170,16 @@ jobs:
 
       - name: Build IPA with Fastlane
         working-directory: opencli_mobile
-        env:
-          PROVISIONING_PROFILE_NAME: OpenCLI Mobile App Store (opencliMobile)
         run: |
           echo "🔨 Building iOS IPA with Fastlane..."
+
+          # Get provisioning profile info
+          PP_FILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
+          PP_UUID=$(basename "$PP_FILE" .mobileprovision)
+          PP_NAME=$(security cms -D -i "$PP_FILE" | plutil -p - | grep -m 1 '"Name"' | awk -F'"' '{print $4}' | tr -d '\n')
+
+          export PROVISIONING_PROFILE_NAME="$PP_NAME"
+          export PROVISIONING_PROFILE_UUID="$PP_UUID"
 
           # Build IPA with Fastlane (Fastlane will handle pod install and build)
           cd ios
