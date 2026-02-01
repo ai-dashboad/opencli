@@ -1,6 +1,6 @@
 name: opencli_daemon
 description: OpenCLI Daemon - Core backend process
-version: 0.1.1-beta.5
+version: 0.2.0-beta.1
 publish_to: 'none'
 
 environment:
@@ -18,6 +18,9 @@ dependencies:
 
   # Path utilities
   path: ^1.8.0
+
+  # Shelf for HTTP server
+  shelf: ^1.4.0
 
 dev_dependencies:
   lints: ^3.0.0
