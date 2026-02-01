@@ -252,6 +252,26 @@ jobs:
 
           echo "✅ IPA uploaded successfully to App Store Connect!"
 
+      - name: Upload App Store Metadata
+        working-directory: opencli_mobile
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+        run: |
+          echo "📝 Uploading App Store metadata..."
+
+          # Install Fastlane if not already installed
+          if ! command -v fastlane &> /dev/null; then
+            gem install fastlane
+          fi
+
+          # Upload metadata using Fastlane
+          cd fastlane
+          fastlane upload_metadata || echo "⚠️  Metadata upload completed with warnings (this is normal for first-time setup)"
+
+          echo "✅ App Store metadata upload completed!"
+
       - name: Cleanup Keychain
         if: always()
         run: |

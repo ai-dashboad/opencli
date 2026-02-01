@@ -1,0 +1,55 @@
+# Fastfile for OpenCLI Mobile
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Upload metadata and screenshots to App Store Connect"
+  lane :upload_metadata do
+    deliver(
+      app_identifier: "com.opencli.opencliMobile",
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      skip_metadata: false,
+      force: true,
+      submit_for_review: false,
+      automatic_release: false,
+      precheck_include_in_app_purchases: false
+    )
+  end
+
+  desc "Upload IPA to App Store Connect"
+  lane :upload_build do |options|
+    ipa_path = options[:ipa_path] || "../build/ios/ipa/opencli_mobile.ipa"
+
+    deliver(
+      app_identifier: "com.opencli.opencliMobile",
+      ipa: ipa_path,
+      skip_metadata: true,
+      skip_screenshots: true,
+      skip_app_version_update: false,
+      force: true,
+      submit_for_review: false,
+      automatic_release: false
+    )
+  end
+
+  desc "Complete release: Upload build, metadata, and submit for review"
+  lane :release do |options|
+    ipa_path = options[:ipa_path] || "../build/ios/ipa/opencli_mobile.ipa"
+    submit = options[:submit_for_review] || false
+
+    # Upload the IPA
+    deliver(
+      app_identifier: "com.opencli.opencliMobile",
+      ipa: ipa_path,
+      skip_metadata: false,
+      skip_screenshots: false,
+      force: true,
+      submit_for_review: submit,
+      automatic_release: false,
+      submission_information: {
+        add_id_info_uses_idfa: false
+      }
+    )
+  end
+end
