@@ -87,8 +87,12 @@ jobs:
           PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-          echo "✅ Provisioning profile installed"
+
+          # Install with UUID as filename for manual signing
+          PP_UUID="77603a37-5393-4eee-a01a-bce52f4fa6b6"
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/${PP_UUID}.mobileprovision
+
+          echo "✅ Provisioning profile installed with UUID: $PP_UUID"
           ls -lh ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Create ExportOptions.plist
