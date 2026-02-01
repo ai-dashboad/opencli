@@ -252,6 +252,10 @@ jobs:
 
           echo "✅ IPA uploaded successfully to App Store Connect!"
 
+      - name: Update Version Changelogs
+        run: |
+          bash scripts/update-mobile-changelogs.sh
+
       - name: Upload App Store Metadata and Submit for Review
         working-directory: opencli_mobile
         env:

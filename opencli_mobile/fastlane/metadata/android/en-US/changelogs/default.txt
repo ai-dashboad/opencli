@@ -1,0 +1,10 @@
+Welcome to OpenCLI for Android!
+
+🎉 What's New:
+• Initial Android release
+• AI-powered task automation
+• Intuitive mobile interface
+• Secure and private by design
+• Cross-platform workflow support
+
+We're excited to bring OpenCLI to Android and look forward to your feedback!
