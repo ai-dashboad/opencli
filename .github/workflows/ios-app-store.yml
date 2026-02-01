@@ -153,6 +153,8 @@ jobs:
 
           # Find the IPA file
           IPA_FILE=$(find build/ios/ipa -name "*.ipa" | head -n 1)
+          IPA_DIR=$(dirname "$IPA_FILE")
+          IPA_NAME=$(basename "$IPA_FILE")
 
           # Create a temporary directory
           TEMP_DIR=$(mktemp -d)
@@ -171,7 +173,11 @@ jobs:
 
           # Repackage the IPA
           cd "$TEMP_DIR"
-          zip -qr "$IPA_FILE" Payload
+          NEW_IPA="$TEMP_DIR/fixed.ipa"
+          zip -qr "$NEW_IPA" Payload
+
+          # Replace the original IPA
+          mv "$NEW_IPA" "$IPA_FILE"
           cd -
 
           # Cleanup
