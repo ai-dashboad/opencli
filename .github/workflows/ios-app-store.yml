@@ -135,16 +135,49 @@ jobs:
 
       - name: Build IPA
         working-directory: opencli_mobile
+        env:
+          IPHONEOS_DEPLOYMENT_TARGET: '13.0'
         run: |
           echo "🔨 Building iOS IPA..."
 
-          #  Build using flutter - the installed certificate and provisioning profile
-          # combined with ExportOptions.plist should be sufficient
           flutter build ipa --release \
             --export-options-plist=ios/ExportOptions.plist
 
           echo "✅ IPA built successfully"
           ls -lh build/ios/ipa/
+
+      - name: Fix App.framework MinimumOSVersion
+        working-directory: opencli_mobile
+        run: |
+          echo "🔧 Fixing App.framework Info.plist..."
+
+          # Find the IPA file
+          IPA_FILE=$(find build/ios/ipa -name "*.ipa" | head -n 1)
+
+          # Create a temporary directory
+          TEMP_DIR=$(mktemp -d)
+
+          # Unzip the IPA
+          unzip -q "$IPA_FILE" -d "$TEMP_DIR"
+
+          # Fix App.framework Info.plist
+          APP_PLIST="$TEMP_DIR/Payload/Runner.app/Frameworks/App.framework/Info.plist"
+          if [ -f "$APP_PLIST" ]; then
+            /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 13.0" "$APP_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" "$APP_PLIST"
+            echo "✅ Set MinimumOSVersion to 13.0 in App.framework"
+            /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP_PLIST"
+          fi
+
+          # Repackage the IPA
+          cd "$TEMP_DIR"
+          zip -qr "$IPA_FILE" Payload
+          cd -
+
+          # Cleanup
+          rm -rf "$TEMP_DIR"
+
+          echo "✅ IPA fixed and repackaged"
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
