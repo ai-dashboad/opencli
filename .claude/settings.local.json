@@ -55,7 +55,17 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(security find-identity:*)",
+      "Bash(openssl rand:*)",
+      "Bash(security import:*)",
+      "Bash(openssl x509:*)",
+      "Bash(openssl pkcs12:*)",
+      "Bash(security find-certificate:*)",
+      "Bash(openssl md5:*)",
+      "Bash(openssl rsa:*)",
+      "Bash(security cms:*)",
+      "Bash(plutil:*)"
     ]
   }
 }

@@ -104,26 +104,50 @@ platform :ios do
     end
   end
 
+  desc "Build iOS app with manual signing for GitHub Actions"
+  lane :build_for_appstore do |options|
+    # Get provisioning profile info from environment or parameters
+    pp_name = options[:provisioning_profile_name] || ENV["PROVISIONING_PROFILE_NAME"] || "OpenCLI Mobile App Store (opencliMobile)"
+
+    UI.message("Building with provisioning profile: #{pp_name}")
+
+    # Build app with manual signing
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: "G9VG22HGJG",
+        provisioningProfiles: {
+          "com.opencli.opencliMobile" => pp_name
+        },
+        uploadBitcode: false,
+        uploadSymbols: true,
+        signingCertificate: "Apple Distribution"
+      },
+      output_directory: "build/ipa",
+      output_name: "OpenCLI.ipa",
+      include_bitcode: false,
+      include_symbols: true,
+      skip_profile_detection: true,
+      codesigning_identity: "Apple Distribution"
+    )
+
+    UI.success("✅ IPA built successfully!")
+  end
+
   desc "Complete iOS build and upload workflow"
   lane :release do |options|
     # Increment build number
     increment_build_number(
-      xcodeproj: "ios/Runner.xcodeproj"
+      xcodeproj: "Runner.xcodeproj"
     )
 
     # Build app
-    build_app(
-      workspace: "ios/Runner.xcworkspace",
-      scheme: "Runner",
-      export_method: "app-store",
-      export_options: {
-        provisioningProfiles: {
-          "com.opencli.mobile" => "OpenCLI Mobile Distribution"
-        }
-      },
-      include_bitcode: false,
-      include_symbols: true
-    )
+    build_for_appstore
 
     # Upload to App Store
     ipa_path = lane_context[SharedValues::IPA_OUTPUT_PATH]

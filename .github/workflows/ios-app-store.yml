@@ -135,54 +135,41 @@ jobs:
           echo "✅ ExportOptions.plist created with provisioning profile UUID: $PP_UUID"
           cat opencli_mobile/ios/ExportOptions.plist
 
-      - name: Configure Xcode Project for Manual Signing
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+          bundler-cache: false
+
+      - name: Install Fastlane
         working-directory: opencli_mobile/ios
         run: |
-          # Get provisioning profile UUID and name
-          PP_FILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
-          PP_UUID=$(basename "$PP_FILE" .mobileprovision)
-          PP_NAME=$(security cms -D -i "$PP_FILE" | plutil -p - | grep -m 1 '"Name"' | awk -F'"' '{print $4}' | tr -d '\n')
+          gem install fastlane -N
+          echo "✅ Fastlane installed"
 
-          # Backup project file
-          cp Runner.xcodeproj/project.pbxproj Runner.xcodeproj/project.pbxproj.bak
-
-          # Update ALL occurrences in project.pbxproj
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = ""/DEVELOPMENT_TEAM = G9VG22HGJG/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' "s|PROVISIONING_PROFILE_SPECIFIER = \"\"|PROVISIONING_PROFILE_SPECIFIER = \"${PP_NAME}\"|g" Runner.xcodeproj/project.pbxproj
-          sed -i '' "s|PROVISIONING_PROFILE = \"\"|PROVISIONING_PROFILE = \"${PP_UUID}\"|g" Runner.xcodeproj/project.pbxproj
-
-          # Ensure development team is set
-          sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' Runner.xcodeproj/project.pbxproj
-
-          echo "✅ Xcode project configured for manual signing"
-          echo "   - Team ID: G9VG22HGJG"
-          echo "   - Profile Name: $PP_NAME"
-          echo "   - Profile UUID: $PP_UUID"
-          echo ""
-          echo "Changes made:"
-          diff Runner.xcodeproj/project.pbxproj.bak Runner.xcodeproj/project.pbxproj | head -30 || true
-
-      - name: Build IPA
-        working-directory: opencli_mobile
+      - name: Build IPA with Fastlane
+        working-directory: opencli_mobile/ios
+        env:
+          PROVISIONING_PROFILE_NAME: OpenCLI Mobile App Store (opencliMobile)
         run: |
-          echo "🔨 Building iOS IPA..."
-          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+          echo "🔨 Building iOS IPA with Fastlane..."
 
-          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
-          if [ -z "$IPA_PATH" ]; then
-            echo "❌ IPA file not found"
-            exit 1
-          fi
+          # Run Flutter build to generate frameworks
+          cd ..
+          flutter build ios --release --no-codesign
+          cd ios
 
-          echo "✅ IPA built successfully: $IPA_PATH"
-          echo "📊 IPA size: $(du -h "$IPA_PATH" | cut -f1)"
+          # Build IPA with Fastlane
+          fastlane build_for_appstore
+
+          echo "✅ IPA built successfully"
+          ls -lh build/ipa/
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-release-ipa
-          path: opencli_mobile/build/ios/ipa/*.ipa
+          path: opencli_mobile/ios/build/ipa/*.ipa
           retention-days: 30
 
       - name: Upload to App Store Connect
@@ -190,7 +177,7 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
-          IPA_PATH=$(find opencli_mobile/build/ios/ipa -name "*.ipa" | head -n 1)
+          IPA_PATH=$(find opencli_mobile/ios/build/ipa -name "*.ipa" | head -n 1)
 
           if [ -z "$IPA_PATH" ]; then
             echo "❌ IPA file not found"
