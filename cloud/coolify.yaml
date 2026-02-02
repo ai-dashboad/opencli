@@ -1,0 +1,47 @@
+# Coolify Configuration File
+# This file can be used with Coolify's docker-compose or application import feature
+
+version: "3.8"
+
+# Service 1: Capability CDN
+x-cdn-app: &cdn-config
+  name: opencli-capability-cdn
+  repository: https://github.com/ai-dashboad/opencli
+  branch: main
+  dockerfile: cloud/capability-cdn/Dockerfile
+  build_context: /
+  port: 80
+  domain: opencli.ai
+  path: /api/capabilities
+  auto_deploy: true
+  health_check:
+    path: /health
+    port: 80
+
+# Service 2: Telemetry API
+x-api-app: &api-config
+  name: opencli-telemetry-api
+  repository: https://github.com/ai-dashboad/opencli
+  branch: main
+  dockerfile: cloud/telemetry-api/Dockerfile
+  build_context: /cloud/telemetry-api
+  port: 3000
+  domain: opencli.ai
+  path: /api/telemetry
+  auto_deploy: true
+  environment:
+    GITHUB_TOKEN: ${GITHUB_TOKEN}
+    GITHUB_OWNER: ai-dashboad
+    GITHUB_REPO: opencli
+    PORT: 3000
+  health_check:
+    path: /health
+    port: 3000
+
+# Instructions:
+# 1. Go to https://cicd.dtok.io
+# 2. Click "+ New Resource"
+# 3. Choose "Application"
+# 4. Select "Public Repository"
+# 5. Enter: https://github.com/ai-dashboad/opencli
+# 6. Follow the settings above for each service

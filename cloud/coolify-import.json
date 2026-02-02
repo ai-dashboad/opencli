@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "applications": [
+    {
+      "name": "opencli-capability-cdn",
+      "description": "OpenCLI Capability Package Repository (Static CDN)",
+      "build_pack": "dockerfile",
+      "source": {
+        "type": "github",
+        "repository": "ai-dashboad/opencli",
+        "branch": "main",
+        "dockerfile_location": "cloud/capability-cdn/Dockerfile",
+        "build_directory": "/"
+      },
+      "ports": [
+        {
+          "published": 80,
+          "target": 80
+        }
+      ],
+      "domains": [
+        {
+          "domain": "opencli.ai",
+          "path": "/api/capabilities"
+        }
+      ],
+      "health_check": {
+        "enabled": true,
+        "path": "/health",
+        "port": 80,
+        "interval": 30,
+        "timeout": 3,
+        "retries": 3
+      },
+      "auto_deploy": true,
+      "environment_variables": []
+    },
+    {
+      "name": "opencli-telemetry-api",
+      "description": "OpenCLI Telemetry and Error Reporting API",
+      "build_pack": "dockerfile",
+      "source": {
+        "type": "github",
+        "repository": "ai-dashboad/opencli",
+        "branch": "main",
+        "dockerfile_location": "cloud/telemetry-api/Dockerfile",
+        "build_directory": "/cloud/telemetry-api"
+      },
+      "ports": [
+        {
+          "published": 3000,
+          "target": 3000
+        }
+      ],
+      "domains": [
+        {
+          "domain": "opencli.ai",
+          "path": "/api/telemetry"
+        }
+      ],
+      "health_check": {
+        "enabled": true,
+        "path": "/health",
+        "port": 3000,
+        "interval": 30,
+        "timeout": 3,
+        "retries": 3
+      },
+      "auto_deploy": true,
+      "environment_variables": [
+        {
+          "key": "GITHUB_TOKEN",
+          "value": "REPLACE_WITH_YOUR_GITHUB_TOKEN",
+          "is_secret": true
+        },
+        {
+          "key": "GITHUB_OWNER",
+          "value": "ai-dashboad"
+        },
+        {
+          "key": "GITHUB_REPO",
+          "value": "opencli"
+        },
+        {
+          "key": "PORT",
+          "value": "3000"
+        }
+      ]
+    }
+  ]
+}

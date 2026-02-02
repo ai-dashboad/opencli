@@ -1,0 +1,14 @@
+{
+  "name": "opencli-telemetry-api",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.2",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}
