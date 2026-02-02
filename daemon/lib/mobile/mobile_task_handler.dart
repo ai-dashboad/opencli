@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'mobile_connection_manager.dart';
 import '../services/ollama_service.dart';
 import '../capabilities/capabilities.dart';
+import '../security/device_pairing.dart';
+import '../security/permission_manager.dart';
 
 /// Handles task execution for mobile-submitted tasks
 /// Integrates with desktop automation, task queue, and capability system
@@ -17,12 +19,63 @@ class MobileTaskHandler {
   CapabilityExecutor? _capabilityExecutor;
   CapabilityUpdater? _capabilityUpdater;
 
+  /// Permission manager for checking operation permissions
+  PermissionManager? _permissionManager;
+
   /// Whether capability system is initialized
   bool _capabilitiesInitialized = false;
+
+  /// Whether permission system is initialized
+  bool _permissionsInitialized = false;
+
+  /// Subscription to confirmation responses
+  StreamSubscription<ConfirmationResponse>? _confirmationSubscription;
 
   MobileTaskHandler({required this.connectionManager}) {
     _registerDefaultExecutors();
     _listenToTaskSubmissions();
+  }
+
+  /// Initialize permission system for secure remote control
+  Future<void> initializePermissions({
+    DevicePairingManager? pairingManager,
+  }) async {
+    if (_permissionsInitialized) return;
+
+    final pairing = pairingManager ?? connectionManager.pairingManager;
+    if (pairing == null) {
+      print('[MobileTaskHandler] Warning: No pairing manager available, permissions disabled');
+      return;
+    }
+
+    print('[MobileTaskHandler] Initializing permission system...');
+
+    _permissionManager = PermissionManager(pairingManager: pairing);
+
+    // Listen for confirmation responses from mobile
+    _confirmationSubscription = connectionManager.confirmationResponses.listen(
+      (response) {
+        if (response.approved) {
+          _permissionManager!.approveRequest(response.requestId);
+        } else {
+          _permissionManager!.denyRequest(response.requestId);
+        }
+      },
+    );
+
+    // Add listener for confirmation requests to send to mobile
+    _permissionManager!.addConfirmationListener((request) {
+      connectionManager.sendConfirmationRequest(
+        deviceId: request.deviceId,
+        requestId: request.id,
+        operation: request.operation,
+        details: request.details,
+        timeoutSeconds: request.timeout.inSeconds,
+      );
+    });
+
+    _permissionsInitialized = true;
+    print('[MobileTaskHandler] Permission system initialized');
   }
 
   /// Initialize capability system for hot-updatable executors
@@ -130,11 +183,70 @@ class MobileTaskHandler {
     final taskId = _generateTaskId(submission);
     final taskType = submission.taskType;
     final taskData = submission.taskData;
+    final deviceId = submission.deviceId;
 
     try {
+      // Check permissions if permission system is initialized
+      if (_permissionsInitialized && _permissionManager != null) {
+        final permResult = await _permissionManager!.checkPermission(
+          deviceId: deviceId,
+          operation: taskType,
+          params: taskData,
+        );
+
+        if (!permResult.allowed) {
+          if (permResult.requiresConfirmation) {
+            // Request confirmation from user
+            await connectionManager.sendTaskUpdate(
+              deviceId,
+              taskId,
+              'pending_confirmation',
+              result: {
+                'message': 'Waiting for confirmation on host device',
+                'operation': taskType,
+              },
+            );
+
+            final confirmed = await _permissionManager!.requestConfirmation(
+              deviceId: deviceId,
+              operation: taskType,
+              details: {
+                'task_type': taskType,
+                'task_data': taskData,
+              },
+            );
+
+            if (!confirmed) {
+              await connectionManager.sendTaskUpdate(
+                deviceId,
+                taskId,
+                'denied',
+                error: 'Operation not confirmed by user',
+              );
+              return;
+            }
+            // Confirmation received, continue with execution
+          } else {
+            // Permission denied without option for confirmation
+            await connectionManager.sendTaskUpdate(
+              deviceId,
+              taskId,
+              'denied',
+              error: permResult.reason,
+            );
+            return;
+          }
+        }
+
+        // If should notify, send notification
+        if (permResult.shouldNotify) {
+          _sendOperationNotification(deviceId, taskType, taskData);
+        }
+      }
+
       // Send task started status
       await connectionManager.sendTaskUpdate(
-        submission.deviceId,
+        deviceId,
         taskId,
         'running',
       );
@@ -165,7 +277,7 @@ class MobileTaskHandler {
 
       // Send success status
       await connectionManager.sendTaskUpdate(
-        submission.deviceId,
+        deviceId,
         taskId,
         'completed',
         result: result,
@@ -173,11 +285,47 @@ class MobileTaskHandler {
     } catch (e) {
       // Send error status
       await connectionManager.sendTaskUpdate(
-        submission.deviceId,
+        deviceId,
         taskId,
         'failed',
         error: e.toString(),
       );
+    }
+  }
+
+  /// Send notification for operation (for notify-level permissions)
+  void _sendOperationNotification(
+    String deviceId,
+    String taskType,
+    Map<String, dynamic> taskData,
+  ) async {
+    // Send system notification on macOS
+    if (Platform.isMacOS) {
+      final message = _formatOperationMessage(taskType, taskData);
+      try {
+        await Process.run('osascript', [
+          '-e',
+          'display notification "$message" with title "OpenCLI Remote"',
+        ]);
+      } catch (e) {
+        print('[MobileTaskHandler] Failed to send notification: $e');
+      }
+    }
+  }
+
+  /// Format operation message for notification
+  String _formatOperationMessage(String taskType, Map<String, dynamic> taskData) {
+    switch (taskType) {
+      case 'open_app':
+        return 'Opening ${taskData['app_name'] ?? 'application'}';
+      case 'open_url':
+        return 'Opening URL: ${taskData['url'] ?? 'unknown'}';
+      case 'screenshot':
+        return 'Taking screenshot';
+      case 'open_file':
+        return 'Opening file: ${taskData['path'] ?? 'unknown'}';
+      default:
+        return 'Executing: $taskType';
     }
   }
 
@@ -239,12 +387,23 @@ class MobileTaskHandler {
       'updates': _capabilitiesInitialized
           ? _capabilityUpdater?.getStatus()
           : null,
+      'permissionsInitialized': _permissionsInitialized,
+      'permissions': _permissionsInitialized
+          ? _permissionManager?.getStats()
+          : null,
     };
+  }
+
+  /// Get permission statistics
+  Map<String, dynamic>? getPermissionStats() {
+    return _permissionManager?.getStats();
   }
 
   /// Dispose resources
   void dispose() {
     _capabilityUpdater?.stop();
+    _confirmationSubscription?.cancel();
+    _permissionManager?.dispose();
   }
 }
 
@@ -760,12 +919,12 @@ class FileOperationExecutor extends TaskExecutor {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 
-    if (difference.inSeconds < 60) return '刚刚';
-    if (difference.inMinutes < 60) return '${difference.inMinutes}分钟前';
-    if (difference.inHours < 24) return '${difference.inHours}小时前';
-    if (difference.inDays < 30) return '${difference.inDays}天前';
-    if (difference.inDays < 365) return '${(difference.inDays / 30).floor()}个月前';
-    return '${(difference.inDays / 365).floor()}年前';
+    if (difference.inSeconds < 60) return 'just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
+    if (difference.inHours < 24) return '${difference.inHours} hours ago';
+    if (difference.inDays < 30) return '${difference.inDays} days ago';
+    if (difference.inDays < 365) return '${(difference.inDays / 30).floor()} months ago';
+    return '${(difference.inDays / 365).floor()} years ago';
   }
 }
 
@@ -809,18 +968,18 @@ class WebSearchExecutor extends TaskExecutor {
 class AIQueryExecutor extends TaskExecutor {
   static OllamaService? _ollama;
 
-  /// 获取或创建 Ollama 服务实例
+  /// Get or create Ollama service instance
   static Future<OllamaService?> _getOllama() async {
     if (_ollama == null) {
       _ollama = OllamaService();
-      // 检查是否可用
+      // Check if available
       if (!await _ollama!.isAvailable()) {
-        print('⚠️  Ollama 未运行，将使用降级方案');
-        print('   提示: 安装 Ollama 以获得更智能的意图识别');
+        print('⚠️  Ollama is not running, using fallback');
+        print('   Tip: Install Ollama for smarter intent recognition');
         print('   brew install ollama && ollama run qwen2.5');
         return null;
       }
-      print('✓ Ollama 已连接');
+      print('✓ Ollama connected');
     }
     return _ollama;
   }
@@ -831,24 +990,24 @@ class AIQueryExecutor extends TaskExecutor {
     final mode = taskData['mode'] as String? ?? 'general'; // general | intent_recognition
 
     if (mode == 'intent_recognition') {
-      // 意图识别模式
+      // Intent recognition mode
       return await _recognizeIntent(query);
     } else {
-      // 通用 AI 查询模式
+      // General AI query mode
       final ollama = await _getOllama();
       if (ollama != null) {
         final response = await ollama.query(query);
         return {'success': true, 'query': query, 'response': response};
       } else {
-        final response = '💡 Ollama 未运行。\n\n安装方法：\nbrew install ollama\nollama run qwen2.5';
+        final response = '💡 Ollama is not running.\n\nInstallation:\nbrew install ollama\nollama run qwen2.5';
         return {'success': false, 'query': query, 'response': response};
       }
     }
   }
 
-  /// 使用 AI 识别用户意图
+  /// Use AI to recognize user intent
   Future<Map<String, dynamic>> _recognizeIntent(String query) async {
-    // 优先尝试使用 Ollama
+    // Try Ollama first
     final ollama = await _getOllama();
     if (ollama != null) {
       try {
@@ -857,15 +1016,15 @@ class AIQueryExecutor extends TaskExecutor {
           return result;
         }
       } catch (e) {
-        print('Ollama 识别失败，使用降级方案: $e');
+        print('Ollama recognition failed, using fallback: $e');
       }
     }
 
-    // 降级方案：使用启发式规则
+    // Fallback: use heuristic rules
     final lowerQuery = query.toLowerCase();
 
-    // 使用启发式规则 + 智能匹配
-    if (_containsAny(lowerQuery, ['chrome', 'safari', 'firefox', 'edge', 'vscode', 'xcode', 'wechat', '微信', '浏览器'])) {
+    // Heuristic rules + smart matching
+    if (_containsAny(lowerQuery, ['chrome', 'safari', 'firefox', 'edge', 'vscode', 'xcode', 'wechat', 'browser'])) {
       final appName = _extractAppName(query);
       return {
         'success': true,
@@ -875,7 +1034,7 @@ class AIQueryExecutor extends TaskExecutor {
       };
     }
 
-    if (_containsAny(lowerQuery, ['截', 'screenshot', 'capture'])) {
+    if (_containsAny(lowerQuery, ['screenshot', 'capture', 'screen'])) {
       return {
         'success': true,
         'intent': 'screenshot',
@@ -884,12 +1043,12 @@ class AIQueryExecutor extends TaskExecutor {
       };
     }
 
-    // 无法识别
+    // Unable to recognize
     return {
       'success': false,
       'intent': 'unknown',
       'confidence': 0.0,
-      'error': '无法识别意图，请使用更明确的指令',
+      'error': 'Unable to recognize intent, please use a more specific command',
     };
   }
 
@@ -898,7 +1057,7 @@ class AIQueryExecutor extends TaskExecutor {
   }
 
   String _extractAppName(String query) {
-    // 提取应用名称
+    // Extract application name
     final commonApps = {
       'chrome': 'Google Chrome',
       'safari': 'Safari',
@@ -908,8 +1067,9 @@ class AIQueryExecutor extends TaskExecutor {
       'code': 'Visual Studio Code',
       'xcode': 'Xcode',
       'wechat': 'WeChat',
-      '微信': 'WeChat',
-      '浏览器': 'Safari', // 默认浏览器
+      'slack': 'Slack',
+      'spotify': 'Spotify',
+      'browser': 'Safari', // Default browser
     };
 
     for (final entry in commonApps.entries) {
@@ -918,8 +1078,8 @@ class AIQueryExecutor extends TaskExecutor {
       }
     }
 
-    // 提取第一个单词作为应用名
-    final match = RegExp(r'(?:打开|open|启动|launch)\s+(\S+)').firstMatch(query);
+    // Extract first word as app name
+    final match = RegExp(r'(?:open|launch|start)\s+(\S+)').firstMatch(query.toLowerCase());
     return match?.group(1) ?? query;
   }
 }

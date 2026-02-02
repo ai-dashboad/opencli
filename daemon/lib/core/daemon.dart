@@ -103,6 +103,17 @@ class Daemon {
       // Continue without capabilities - fall back to built-in executors
     }
 
+    // Initialize permission system for secure remote control
+    try {
+      await _mobileTaskHandler.initializePermissions(
+        pairingManager: _mobileManager.pairingManager,
+      );
+      print('🔐 Permission system initialized');
+    } catch (e) {
+      print('⚠️  Permission system initialization failed: $e');
+      // Continue without permission checks
+    }
+
     // Start config watcher for hot-reload
     _configWatcher = ConfigWatcher(
       configPath: config.configPath,

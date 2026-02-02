@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
-import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
+import '../security/device_pairing.dart';
 
 /// Manages connections from mobile clients
 /// Handles authentication, task submission, and real-time updates
@@ -15,6 +15,15 @@ class MobileConnectionManager {
   final int port;
   final String authSecret;
 
+  /// Device pairing manager for secure authentication
+  DevicePairingManager? _pairingManager;
+
+  /// Whether to use device pairing for authentication (vs simple token)
+  final bool useDevicePairing;
+
+  /// Host device ID for pairing
+  String? _hostDeviceId;
+
   final StreamController<MobileTaskSubmission> _taskSubmissionController =
       StreamController.broadcast();
 
@@ -24,13 +33,25 @@ class MobileConnectionManager {
   /// Get list of connected device IDs
   List<String> get connectedClients => _activeConnections.keys.toList();
 
+  /// Get the device pairing manager
+  DevicePairingManager? get pairingManager => _pairingManager;
+
   MobileConnectionManager({
     this.port = 8765,
     required this.authSecret,
+    this.useDevicePairing = true,
   });
 
   /// Start the WebSocket server for mobile connections
   Future<void> start() async {
+    // Initialize device pairing if enabled
+    if (useDevicePairing) {
+      _pairingManager = DevicePairingManager();
+      await _pairingManager!.initialize();
+      _hostDeviceId = await _loadOrGenerateHostDeviceId();
+      print('✓ Device pairing initialized (host: ${_hostDeviceId!.substring(0, 8)}...)');
+    }
+
     var currentPort = port;
     var maxRetries = 10;
     var retryCount = 0;
@@ -64,6 +85,29 @@ class MobileConnectionManager {
     );
   }
 
+  /// Load or generate host device ID
+  Future<String> _loadOrGenerateHostDeviceId() async {
+    final home = Platform.environment['HOME'] ?? '.';
+    final idFile = File('$home/.opencli/device_id');
+
+    if (await idFile.exists()) {
+      return (await idFile.readAsString()).trim();
+    }
+
+    // Generate new device ID
+    final id = _generateDeviceId();
+    await idFile.parent.create(recursive: true);
+    await idFile.writeAsString(id);
+    return id;
+  }
+
+  /// Generate a unique device ID
+  String _generateDeviceId() {
+    final random = DateTime.now().millisecondsSinceEpoch;
+    final hostname = Platform.localHostname;
+    return '${hostname}_$random';
+  }
+
   /// Stop the server and close all connections
   Future<void> stop() async {
     // Copy values to avoid concurrent modification during iteration
@@ -74,6 +118,7 @@ class MobileConnectionManager {
     _activeConnections.clear();
     await _server.close();
     await _taskSubmissionController.close();
+    await _confirmationResponseController.close();
   }
 
   /// Handle new WebSocket connection from mobile client
@@ -91,6 +136,22 @@ class MobileConnectionManager {
             case 'auth':
               deviceId = await _handleAuth(channel, data);
               break;
+            case 'pair':
+              // Handle device pairing request
+              if (useDevicePairing && _pairingManager != null) {
+                deviceId = await _handlePairing(channel, data);
+              } else {
+                _sendError(channel, 'Device pairing not enabled');
+              }
+              break;
+            case 'generate_pairing_code':
+              // Generate a pairing code for QR display
+              if (useDevicePairing && _pairingManager != null) {
+                _handleGeneratePairingCode(channel);
+              } else {
+                _sendError(channel, 'Device pairing not enabled');
+              }
+              break;
             case 'submit_task':
               if (deviceId != null) {
                 await _handleTaskSubmission(deviceId!, data);
@@ -105,6 +166,12 @@ class MobileConnectionManager {
               break;
             case 'heartbeat':
               _sendMessage(channel, {'type': 'heartbeat_ack'});
+              break;
+            case 'confirm_response':
+              // Handle confirmation response from mobile
+              if (deviceId != null) {
+                _handleConfirmResponse(data);
+              }
               break;
             default:
               _sendError(channel, 'Unknown message type: $type');
@@ -142,17 +209,112 @@ class MobileConnectionManager {
       return null;
     }
 
-    // Verify timestamp (prevent replay attacks)
+    // Use device pairing authentication if enabled and device is paired
+    if (useDevicePairing && _pairingManager != null) {
+      if (_pairingManager!.isPaired(deviceId)) {
+        // Verify using paired device credentials
+        if (!_pairingManager!.verifyAuthentication(deviceId, token, timestamp)) {
+          _sendError(channel, 'Invalid authentication token');
+          return null;
+        }
+
+        // Successfully authenticated with paired device
+        final client = MobileClient(
+          deviceId: deviceId,
+          channel: channel,
+          connectedAt: DateTime.now(),
+        );
+        _activeConnections[deviceId] = client;
+
+        final device = _pairingManager!.getDevice(deviceId);
+        _sendMessage(channel, {
+          'type': 'auth_success',
+          'device_id': deviceId,
+          'device_name': device?.deviceName,
+          'server_time': DateTime.now().millisecondsSinceEpoch,
+          'permissions': device?.permissions,
+        });
+
+        print('Paired device authenticated: $deviceId');
+        return deviceId;
+      } else {
+        // Device not paired, need to pair first
+        _sendMessage(channel, {
+          'type': 'auth_required',
+          'message': 'Device not paired. Please scan the pairing QR code first.',
+          'requires_pairing': true,
+        });
+        return null;
+      }
+    }
+
+    // Fallback: simple token-based authentication
     final now = DateTime.now().millisecondsSinceEpoch;
-    if ((now - timestamp).abs() > 300000) { // 5 minutes
+    if ((now - timestamp).abs() > 300000) {
       _sendError(channel, 'Authentication expired');
       return null;
     }
 
-    // Verify token
-    final expectedToken = _generateAuthToken(deviceId, timestamp);
+    final expectedToken = _generateSimpleAuthToken(deviceId, timestamp);
     if (token != expectedToken) {
       _sendError(channel, 'Invalid authentication token');
+      return null;
+    }
+
+    final client = MobileClient(
+      deviceId: deviceId,
+      channel: channel,
+      connectedAt: DateTime.now(),
+    );
+    _activeConnections[deviceId] = client;
+
+    _sendMessage(channel, {
+      'type': 'auth_success',
+      'device_id': deviceId,
+      'server_time': now,
+    });
+
+    print('Mobile client authenticated (simple): $deviceId');
+    return deviceId;
+  }
+
+  /// Generate simple authentication token (fallback)
+  String _generateSimpleAuthToken(String deviceId, int timestamp) {
+    final input = '$deviceId:$timestamp:$authSecret';
+    final bytes = utf8.encode(input);
+    // Use a simple hash for fallback mode
+    var hash = 0;
+    for (var byte in bytes) {
+      hash = ((hash << 5) - hash) + byte;
+      hash = hash & 0xFFFFFFFF;
+    }
+    return hash.toRadixString(16);
+  }
+
+  /// Handle device pairing request
+  Future<String?> _handlePairing(
+    WebSocketChannel channel,
+    Map<String, dynamic> data,
+  ) async {
+    final pairingCode = data['pairing_code'] as String?;
+    final deviceId = data['device_id'] as String?;
+    final deviceName = data['device_name'] as String?;
+    final platform = data['platform'] as String?;
+
+    if (pairingCode == null || deviceId == null || deviceName == null) {
+      _sendError(channel, 'Missing pairing fields');
+      return null;
+    }
+
+    final device = await _pairingManager!.completePairing(
+      pairingCode: pairingCode,
+      deviceId: deviceId,
+      deviceName: deviceName,
+      platform: platform ?? 'unknown',
+    );
+
+    if (device == null) {
+      _sendError(channel, 'Invalid or expired pairing code');
       return null;
     }
 
@@ -162,25 +324,103 @@ class MobileConnectionManager {
       channel: channel,
       connectedAt: DateTime.now(),
     );
-
     _activeConnections[deviceId] = client;
 
     _sendMessage(channel, {
-      'type': 'auth_success',
+      'type': 'pair_success',
       'device_id': deviceId,
-      'server_time': now,
+      'device_name': deviceName,
+      'shared_secret': device.sharedSecret,
+      'permissions': device.permissions,
     });
 
-    print('Mobile client authenticated: $deviceId');
+    print('Device paired and connected: $deviceName ($deviceId)');
     return deviceId;
   }
 
-  /// Generate authentication token
-  String _generateAuthToken(String deviceId, int timestamp) {
-    final input = '$deviceId:$timestamp:$authSecret';
-    final bytes = utf8.encode(input);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
+  /// Handle generate pairing code request
+  void _handleGeneratePairingCode(WebSocketChannel channel) {
+    if (_hostDeviceId == null) {
+      _sendError(channel, 'Host device ID not initialized');
+      return;
+    }
+
+    final request = _pairingManager!.generatePairingRequest(
+      hostDeviceId: _hostDeviceId!,
+      hostName: Platform.localHostname,
+      port: port,
+    );
+
+    _sendMessage(channel, {
+      'type': 'pairing_code',
+      'code': request.pairingCode,
+      'qr_data': request.toQRData(),
+      'expires_at': request.expiresAt.toIso8601String(),
+    });
+
+    print('Generated pairing code: ${request.pairingCode}');
+  }
+
+  /// Handle confirmation response from mobile
+  void _handleConfirmResponse(Map<String, dynamic> data) {
+    final requestId = data['request_id'] as String?;
+    final approved = data['approved'] as bool? ?? false;
+
+    if (requestId == null) return;
+
+    // Notify confirmation listeners
+    _confirmationResponseController.add(ConfirmationResponse(
+      requestId: requestId,
+      approved: approved,
+    ));
+  }
+
+  /// Stream of confirmation responses
+  final StreamController<ConfirmationResponse> _confirmationResponseController =
+      StreamController.broadcast();
+
+  Stream<ConfirmationResponse> get confirmationResponses =>
+      _confirmationResponseController.stream;
+
+  /// Send confirmation request to mobile device
+  Future<void> sendConfirmationRequest({
+    required String deviceId,
+    required String requestId,
+    required String operation,
+    required Map<String, dynamic> details,
+    required int timeoutSeconds,
+  }) async {
+    final client = _activeConnections[deviceId];
+    if (client == null) return;
+
+    _sendMessage(client.channel, {
+      'type': 'confirmation_request',
+      'request_id': requestId,
+      'operation': operation,
+      'details': details,
+      'timeout_seconds': timeoutSeconds,
+    });
+  }
+
+  /// Generate a pairing code for display (e.g., in menu bar app)
+  PairingRequest? generatePairingCode() {
+    if (!useDevicePairing || _pairingManager == null || _hostDeviceId == null) {
+      return null;
+    }
+
+    return _pairingManager!.generatePairingRequest(
+      hostDeviceId: _hostDeviceId!,
+      hostName: Platform.localHostname,
+      port: port,
+    );
+  }
+
+  /// Check if a device is paired
+  bool isDevicePaired(String deviceId) {
+    if (!useDevicePairing || _pairingManager == null) {
+      return true; // If pairing not enabled, consider all devices "paired"
+    }
+    return _pairingManager!.isPaired(deviceId);
   }
 
   /// Handle task submission from mobile client
@@ -359,4 +599,15 @@ class MobileTaskSubmission {
       'submitted_at': submittedAt.toIso8601String(),
     };
   }
+}
+
+/// Represents a confirmation response from mobile
+class ConfirmationResponse {
+  final String requestId;
+  final bool approved;
+
+  ConfirmationResponse({
+    required this.requestId,
+    required this.approved,
+  });
 }
