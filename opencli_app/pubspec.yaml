@@ -59,6 +59,12 @@ dependencies:
   window_manager: ^0.4.2            # Window management
   launch_at_startup: ^0.3.1         # Auto-start on boot
   screen_retriever: ^0.2.0          # Screen information
+  hotkey_manager: ^0.2.2            # Global keyboard shortcuts
+  package_info_plus: ^8.0.0         # Package information
+
+  # Native UI styles
+  macos_ui: ^2.1.0                  # macOS Big Sur native design
+  fluent_ui: ^4.9.1                 # Windows 11 Fluent Design
 
 dev_dependencies:
   flutter_test:

@@ -6,6 +6,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'services/daemon_service.dart';
 import 'services/tray_service.dart';
+import 'services/hotkey_service.dart';
+import 'services/startup_service.dart';
 import 'widgets/daemon_status_card.dart';
 import 'pages/chat_page.dart';
 
@@ -126,16 +128,32 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   final DaemonService _daemonService = DaemonService();
+
+  // Desktop-only services
   final TrayService? _trayService = (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux))
       ? TrayService()
       : null;
+  final HotkeyService? _hotkeyService = (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux))
+      ? HotkeyService()
+      : null;
+  final StartupService? _startupService = (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux))
+      ? StartupService()
+      : null;
+
   bool _isConnecting = false;
 
   @override
   void initState() {
     super.initState();
-    _trayService?.init();
+    _initDesktopServices();
     _connectToDaemon();
+  }
+
+  /// Initialize all desktop services
+  Future<void> _initDesktopServices() async {
+    _trayService?.init();
+    await _hotkeyService?.init();
+    await _startupService?.init();
   }
 
   Future<void> _connectToDaemon() async {
@@ -167,6 +185,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _trayService?.dispose();
+    _hotkeyService?.dispose();
     _daemonService.dispose();
     super.dispose();
   }
@@ -501,30 +520,125 @@ class StatusPage extends StatelessWidget {
   }
 }
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
   @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  final StartupService? _startupService = (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux))
+      ? StartupService()
+      : null;
+  bool _isStartupEnabled = false;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initStartupService();
+  }
+
+  Future<void> _initStartupService() async {
+    if (_startupService != null) {
+      await _startupService!.init();
+      if (mounted) {
+        setState(() {
+          _isStartupEnabled = _startupService!.isEnabled;
+          _isInitialized = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleStartup(bool value) async {
+    if (_startupService != null) {
+      await _startupService!.toggle();
+      if (mounted) {
+        setState(() {
+          _isStartupEnabled = _startupService!.isEnabled;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDesktop = !kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux);
+
     return ListView(
       children: [
+        // Desktop Features Section
+        if (isDesktop) ...[
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Desktop Features',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.rocket_launch),
+            title: const Text('Launch at Startup'),
+            subtitle: const Text('Start OpenCLI automatically when you log in'),
+            trailing: _isInitialized
+                ? Switch(
+                    value: _isStartupEnabled,
+                    onChanged: _toggleStartup,
+                  )
+                : const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.keyboard),
+            title: const Text('Global Hotkey'),
+            subtitle: Text(
+              Platform.isMacOS ? 'Cmd+Shift+O' : 'Ctrl+Shift+O',
+            ),
+            trailing: const Chip(
+              label: Text('Active'),
+              backgroundColor: Colors.green,
+              labelStyle: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ),
+          const Divider(),
+        ],
+
+        // General Section
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            'General',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
         ListTile(
           leading: const Icon(Icons.info_outline),
           title: const Text('About'),
-          subtitle: const Text('Version 0.1.2+6'),
+          subtitle: const Text('Version 0.2.1+8'),
           onTap: () {
             showAboutDialog(
               context: context,
-              applicationName: 'OpenCLI Mobile',
-              applicationVersion: '0.1.2+6',
+              applicationName: 'OpenCLI',
+              applicationVersion: '0.2.1+8',
               applicationIcon: const Icon(Icons.terminal, size: 48),
               applicationLegalese: '© 2026 OpenCLI',
               children: const [
                 Padding(
                   padding: EdgeInsets.only(top: 16),
                   child: Text(
-                    'AI-powered task orchestration on mobile\n'
-                    'Control your Mac from your iPhone',
+                    'AI-powered task orchestration\n'
+                    'Cross-platform support for iOS, Android, macOS, Windows & Linux',
                   ),
                 ),
               ],
