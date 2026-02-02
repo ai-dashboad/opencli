@@ -71,7 +71,7 @@ class IntentRecognizer {
           'query': input,
           'mode': 'intent_recognition',
         },
-        timeout: Duration(seconds: 10),
+        timeout: Duration(seconds: 30), // 增加到30秒，给 Ollama 足够时间
       );
 
       // 解析 AI 返回的结果
@@ -124,6 +124,7 @@ class IntentRecognizer {
       'ai_query',
       'check_process',  // 新增：检查进程
       'list_processes', // 新增：列出进程
+      'file_operation', // 新增：文件操作
     };
 
     return validTaskTypes.contains(intent) ? intent : null;
@@ -179,16 +180,20 @@ class IntentRecognizer {
 - system_info: 获取系统信息
 - check_process: 检查进程是否运行（参数：process_name）
   示例：检查 claude code 是否运行 -> {"intent": "check_process", "parameters": {"process_name": "claude code"}}
+- file_operation: 文件操作（参数：operation, directory）
+  示例：查看桌面文件 -> {"intent": "file_operation", "parameters": {"operation": "list", "directory": "~/Desktop"}}
+  示例：列出文档 -> {"intent": "file_operation", "parameters": {"operation": "list", "directory": "~/Documents"}}
 - run_command: 运行 shell 命令（参数：command）
-  示例：列出文件 -> {"intent": "run_command", "parameters": {"command": "ls -la"}}
+  示例：运行命令 -> {"intent": "run_command", "parameters": {"command": "ls -la"}}
 - ai_query: AI 问答（参数：query）
   示例：什么是 AI -> {"intent": "ai_query", "parameters": {"query": "什么是 AI"}}
 
 重要规则：
-1. 对于检查进程/程序是否运行的请求，使用 check_process
-2. 对于需要执行 shell 命令的请求，使用 run_command
-3. 所有用户命令都必须映射到某个 intent，不要返回 unknown
-4. confidence 应该 >= 0.7 表示有信心识别
+1. 对于查看/列出/浏览文件的请求，使用 file_operation（不是 run_command）
+2. 对于检查进程/程序是否运行的请求，使用 check_process
+3. 对于需要执行 shell 命令的请求，使用 run_command
+4. 所有用户命令都必须映射到某个 intent，不要返回 unknown
+5. confidence 应该 >= 0.7 表示有信心识别
 
 只返回 JSON，不要其他内容。''';
 

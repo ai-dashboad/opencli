@@ -7,6 +7,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../models/chat_message.dart';
 import '../services/daemon_service.dart';
 import '../services/intent_recognizer.dart';
+import '../widgets/result_widget.dart';
 
 class ChatPage extends StatefulWidget {
   final DaemonService daemonService;
@@ -84,12 +85,13 @@ class _ChatPageState extends State<ChatPage> {
             // 提交识别出的任务
             _submitRecognizedTask(intent, parameters);
           } else {
-            // 普通任务完成
+            // 普通任务完成 - 保留原消息的 taskType
             setState(() {
               _messages[executingIndex] = _messages[executingIndex].copyWith(
                 content: '✅ 任务完成',
                 status: MessageStatus.completed,
                 result: result,
+                // taskType 已经在原消息中，copyWith 会保留
               );
             });
           }
@@ -111,7 +113,7 @@ class _ChatPageState extends State<ChatPage> {
   /// 提交 AI 识别出的任务
   Future<void> _submitRecognizedTask(String intent, Map<String, dynamic> parameters, {String? originalInput}) async {
     final processingMsg = _getProcessingMessageForIntent(intent, parameters);
-    _addAssistantMessage(processingMsg, status: MessageStatus.executing);
+    _addAssistantMessage(processingMsg, status: MessageStatus.executing, taskType: intent);
 
     try {
       // 添加用户原始输入到任务数据中
@@ -154,6 +156,7 @@ class _ChatPageState extends State<ChatPage> {
     String content, {
     MessageStatus status = MessageStatus.delivered,
     Map<String, dynamic>? result,
+    String? taskType,
   }) {
     final message = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -162,6 +165,7 @@ class _ChatPageState extends State<ChatPage> {
       timestamp: DateTime.now(),
       status: status,
       result: result,
+      taskType: taskType,
     );
     setState(() => _messages.add(message));
     _scrollToBottom();
@@ -216,7 +220,11 @@ class _ChatPageState extends State<ChatPage> {
 
       // 生成处理中的消息
       final processingMessage = _getProcessingMessage(result);
-      _addAssistantMessage(processingMessage, status: MessageStatus.executing);
+      _addAssistantMessage(
+        processingMessage,
+        status: MessageStatus.executing,
+        taskType: result.taskType, // 传递 taskType
+      );
 
       // 提交任务（实际的结果将通过 _listenToUpdates 接收）
       if (result.taskType != null) {
@@ -586,8 +594,14 @@ class _MessageBubble extends StatelessWidget {
                               },
                             ),
                           ),
+                        ] else if (message.taskType != null) ...[
+                          // 使用 ResultWidget 智能显示结果
+                          ResultWidget(
+                            taskType: message.taskType!,
+                            result: message.result!,
+                          ),
                         ] else ...[
-                          // 其他结果显示为文本
+                          // 降级方案：其他结果显示为文本
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(

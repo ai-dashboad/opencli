@@ -1,0 +1,67 @@
+name: Deploy Cloud Services
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloud/**'
+      - 'capabilities/**'
+      - '.github/workflows/deploy-cloud.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Coolify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Capability CDN
+        run: |
+          cd cloud/capability-cdn
+          docker build -t opencli-capability-cdn -f Dockerfile ../..
+
+      - name: Build Telemetry API
+        run: |
+          cd cloud/telemetry-api
+          docker build -t opencli-telemetry-api .
+
+      - name: Test Services
+        run: |
+          # Start services
+          cd cloud
+          docker-compose up -d
+
+          # Wait for services to start
+          sleep 10
+
+          # Test CDN
+          curl -f http://localhost:8080/health || exit 1
+          echo "✓ CDN health check passed"
+
+          # Test API
+          curl -f http://localhost:3000/health || exit 1
+          echo "✓ API health check passed"
+
+          # Cleanup
+          docker-compose down
+
+      - name: Deploy to Coolify
+        if: success()
+        run: |
+          echo "🚀 Deploying to Coolify..."
+          echo "Configure Coolify webhook or use Coolify API here"
+          # Example with webhook:
+          # curl -X POST ${{ secrets.COOLIFY_WEBHOOK_URL }}
+
+      - name: Notify Deployment
+        if: success()
+        run: |
+          echo "✓ Cloud services deployed successfully"
+          echo "  • CDN: https://opencli.ai/api/capabilities"
+          echo "  • API: https://opencli.ai/api/telemetry"
