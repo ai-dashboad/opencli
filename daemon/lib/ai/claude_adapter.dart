@@ -42,7 +42,7 @@ class ClaudeAdapter implements ModelAdapter {
 
   @override
   Future<ChatResponse> chat(ChatRequest request) async {
-    final messages = <Map<String, String>>[];
+    final messages = <Map<String, dynamic>>[];
 
     // Add history
     for (final msg in request.history) {

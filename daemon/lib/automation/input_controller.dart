@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
+import 'package:opencli_daemon/automation/types.dart';
 
 /// Input automation controller - Mouse, keyboard, screen capture
 class InputController {
@@ -300,37 +301,3 @@ else:
   }
 }
 
-class Rectangle {
-  final int x;
-  final int y;
-  final int width;
-  final int height;
-
-  Rectangle({
-    required this.x,
-    required this.y,
-    required this.width,
-    required this.height,
-  });
-}
-
-class Point {
-  final int x;
-  final int y;
-
-  Point(this.x, this.y);
-}
-
-class Screenshot {
-  final List<int> data;
-  final int width;
-  final int height;
-  final DateTime timestamp;
-
-  Screenshot({
-    required this.data,
-    required this.width,
-    required this.height,
-    DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
-}

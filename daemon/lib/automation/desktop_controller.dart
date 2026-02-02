@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:opencli_daemon/automation/input_controller.dart';
 import 'package:opencli_daemon/automation/process_manager.dart';
 import 'package:opencli_daemon/automation/window_manager.dart';
+import 'package:opencli_daemon/automation/types.dart';
 
 /// Desktop automation controller - Full computer control
 class DesktopController {
@@ -187,18 +188,18 @@ class DesktopController {
   }
 
   /// Take screenshot
-  Future<Screenshot> screenshot({Rectangle? region}) async {
-    return await inputController.captureScreen(region: region);
+  Future<Screenshot> screenshot({Rectangle? region}) {
+    return inputController.captureScreen(region: region);
   }
 
   /// Find image on screen
-  Future<Point?> findImage(String templatePath) async {
-    return await inputController.findImageOnScreen(templatePath);
+  Future<Point?> findImage(String templatePath) {
+    return inputController.findImageOnScreen(templatePath);
   }
 
   /// Read text from screen using OCR
-  Future<String> readTextFromScreen({Rectangle? region}) async {
-    return await inputController.readTextFromScreen(region: region);
+  Future<String> readTextFromScreen({Rectangle? region}) {
+    return inputController.readTextFromScreen(region: region);
   }
 
   // ==================== Window Management ====================
@@ -302,57 +303,3 @@ class ProcessInfo {
   });
 }
 
-class Window {
-  final String id;
-  final String title;
-  final String appName;
-  final Rectangle bounds;
-  final bool isMinimized;
-  final bool isMaximized;
-  final bool isActive;
-
-  Window({
-    required this.id,
-    required this.title,
-    required this.appName,
-    required this.bounds,
-    this.isMinimized = false,
-    this.isMaximized = false,
-    this.isActive = false,
-  });
-}
-
-class Rectangle {
-  final int x;
-  final int y;
-  final int width;
-  final int height;
-
-  Rectangle({
-    required this.x,
-    required this.y,
-    required this.width,
-    required this.height,
-  });
-}
-
-class Point {
-  final int x;
-  final int y;
-
-  Point(this.x, this.y);
-}
-
-class Screenshot {
-  final List<int> data;
-  final int width;
-  final int height;
-  final DateTime timestamp;
-
-  Screenshot({
-    required this.data,
-    required this.width,
-    required this.height,
-    DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
-}

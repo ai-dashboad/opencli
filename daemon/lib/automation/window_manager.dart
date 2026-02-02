@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:opencli_daemon/automation/types.dart';
 
 /// Window management - List, activate, minimize, maximize, close windows
 class WindowManager {
@@ -207,58 +208,3 @@ class WindowManager {
   }
 }
 
-class Window {
-  final String id;
-  final String title;
-  final String appName;
-  final Rectangle bounds;
-  final bool isMinimized;
-  final bool isMaximized;
-  final bool isActive;
-
-  Window({
-    required this.id,
-    required this.title,
-    required this.appName,
-    required this.bounds,
-    this.isMinimized = false,
-    this.isMaximized = false,
-    this.isActive = false,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'app_name': appName,
-      'bounds': {
-        'x': bounds.x,
-        'y': bounds.y,
-        'width': bounds.width,
-        'height': bounds.height,
-      },
-      'is_minimized': isMinimized,
-      'is_maximized': isMaximized,
-      'is_active': isActive,
-    };
-  }
-
-  @override
-  String toString() {
-    return 'Window(id: $id, title: "$title", app: $appName)';
-  }
-}
-
-class Rectangle {
-  final int x;
-  final int y;
-  final int width;
-  final int height;
-
-  Rectangle({
-    required this.x,
-    required this.y,
-    required this.width,
-    required this.height,
-  });
-}
