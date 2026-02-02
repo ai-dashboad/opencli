@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:opencli_mobile/models/daemon_status.dart';
+import 'package:opencli_app/models/daemon_status.dart';
 
 class DaemonStatusCard extends StatefulWidget {
   final String statusUrl;

@@ -11,7 +11,7 @@ To enable automated mobile app publishing, you need to configure the following G
 1. **ANDROID_KEYSTORE_BASE64**
    ```bash
    # Encode the keystore file
-   base64 -i opencli_mobile/android/app/release.keystore | pbcopy
+   base64 -i opencli_app/android/app/release.keystore | pbcopy
    # Then paste as secret value
    ```
 
@@ -53,7 +53,7 @@ To enable automated mobile app publishing, you need to configure the following G
 cd /Users/cw/development/opencli
 
 # Encode keystore
-base64 -i opencli_mobile/android/app/release.keystore > /tmp/keystore.b64
+base64 -i opencli_app/android/app/release.keystore > /tmp/keystore.b64
 
 # Show the encoded value
 cat /tmp/keystore.b64
@@ -82,7 +82,7 @@ gh secret list
 ### Android
 
 ```bash
-cd opencli_mobile
+cd opencli_app
 
 # Debug build
 flutter build apk --debug
@@ -97,7 +97,7 @@ flutter build appbundle --release
 ### iOS
 
 ```bash
-cd opencli_mobile
+cd opencli_app
 
 # Build for simulator
 flutter build ios --simulator
@@ -150,16 +150,16 @@ The mobile publishing workflow (`.github/workflows/publish-mobile.yml`) will aut
 **Issue**: Keystore not found
 ```bash
 # Check keystore file exists
-ls -la opencli_mobile/android/app/release.keystore
+ls -la opencli_app/android/app/release.keystore
 
 # Verify keystore.properties
-cat opencli_mobile/android/keystore.properties
+cat opencli_app/android/keystore.properties
 ```
 
 **Issue**: Build fails with signing error
 ```bash
 # Test keystore manually
-keytool -list -v -keystore opencli_mobile/android/app/release.keystore
+keytool -list -v -keystore opencli_app/android/app/release.keystore
 # Password: dtok2026
 ```
 
@@ -172,7 +172,7 @@ keytool -list -v -keystore opencli_mobile/android/app/release.keystore
 
 **Issue**: CocoaPods dependency issues
 ```bash
-cd opencli_mobile/ios
+cd opencli_app/ios
 pod repo update
 pod install
 ```

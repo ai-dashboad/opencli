@@ -32,7 +32,7 @@
 ## Project Structure
 
 - `daemon/` - Dart backend daemon
-- `opencli_mobile/` - Flutter mobile app
+- `opencli_app/` - Flutter cross-platform app (iOS, Android, macOS, Windows, Linux)
 - `cli/` - Command line interface
 - `web-ui/` - Web interface
 - `scripts/` - Build and utility scripts

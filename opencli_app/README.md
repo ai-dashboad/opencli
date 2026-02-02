@@ -1,6 +1,6 @@
-# opencli_mobile
+# opencli_app
 
-OpenCLI Mobile - AI-powered task orchestration on mobile
+OpenCLI - Cross-platform AI task orchestration app for iOS, Android, macOS, Windows & Linux
 
 ## Getting Started
 

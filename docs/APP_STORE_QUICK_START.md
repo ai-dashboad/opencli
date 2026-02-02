@@ -29,8 +29,8 @@
 
 4. **Build Files**
    ```
-   ✅ opencli_mobile/build/app/outputs/bundle/release/app-release.aab
-   ✅ opencli_mobile/build/app/outputs/flutter-apk/app-release.apk
+   ✅ opencli_app/build/app/outputs/bundle/release/app-release.aab
+   ✅ opencli_app/build/app/outputs/flutter-apk/app-release.apk
    ```
 
 ### 🔨 Needs Creation (30-60 min)
@@ -68,17 +68,17 @@
 #    - iOS: 1024x1024 → save as icon_1024.png
 
 # 5. Save to:
-cp icon_512.png opencli_mobile/app_store_materials/
-cp icon_1024.png opencli_mobile/app_store_materials/
+cp icon_512.png opencli_app/app_store_materials/
+cp icon_1024.png opencli_app/app_store_materials/
 ```
 
-See detailed guide: `opencli_mobile/app_store_materials/ICON_CREATION_GUIDE.md`
+See detailed guide: `opencli_app/app_store_materials/ICON_CREATION_GUIDE.md`
 
 #### 1.2 Generate Screenshots
 
 **Automated Method:**
 ```bash
-cd opencli_mobile
+cd opencli_app
 ./scripts/generate_screenshots.sh
 
 # Follow prompts to:
@@ -93,13 +93,13 @@ cd opencli_mobile
 # Android (1080x1920):
 flutter run --release  # On Android emulator
 # Take screenshots: Click camera icon
-# Move from Desktop to opencli_mobile/app_store_materials/screenshots/android/
+# Move from Desktop to opencli_app/app_store_materials/screenshots/android/
 
 # iOS (1290x2796, 1242x2688, 1242x2208):
 open -a Simulator
 flutter run --release  # On iPhone 14 Pro Max
 # Take screenshots: Cmd+S
-# Move from Desktop to opencli_mobile/app_store_materials/screenshots/ios/
+# Move from Desktop to opencli_app/app_store_materials/screenshots/ios/
 ```
 
 Required screenshots:
@@ -119,7 +119,7 @@ Required screenshots:
 #   - "AI Task Orchestration on Mobile" (subtitle)
 #   - Blue gradient background
 
-# Save as: opencli_mobile/app_store_materials/feature_graphic.png
+# Save as: opencli_app/app_store_materials/feature_graphic.png
 ```
 
 ---
@@ -160,7 +160,7 @@ Follow detailed guide: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
    - Content rating: Everyone
 5. Upload AAB:
    ```bash
-   # File: opencli_mobile/build/app/outputs/bundle/release/app-release.aab
+   # File: opencli_app/build/app/outputs/bundle/release/app-release.aab
    ```
 6. Review and submit
 
@@ -182,7 +182,7 @@ Follow detailed guide: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
 #### 3.2 Build iOS IPA
 
 ```bash
-cd opencli_mobile/ios
+cd opencli_app/ios
 open Runner.xcworkspace
 
 # In Xcode:
@@ -282,13 +282,13 @@ Follow detailed guide: `docs/APP_STORE_SUBMISSION_GUIDE.md`
 
 ### Generate Screenshots
 ```bash
-cd opencli_mobile
+cd opencli_app
 ./scripts/generate_screenshots.sh
 ```
 
 ### Rebuild App (if needed)
 ```bash
-cd opencli_mobile
+cd opencli_app
 
 # Android
 flutter clean
@@ -303,18 +303,18 @@ flutter build ios --release --no-codesign
 
 ### Check Build Files
 ```bash
-ls -lh opencli_mobile/build/app/outputs/bundle/release/app-release.aab
-ls -lh opencli_mobile/build/app/outputs/flutter-apk/app-release.apk
+ls -lh opencli_app/build/app/outputs/bundle/release/app-release.aab
+ls -lh opencli_app/build/app/outputs/flutter-apk/app-release.apk
 ```
 
 ### Verify App Size
 ```bash
 # AAB (Play Store)
-du -h opencli_mobile/build/app/outputs/bundle/release/app-release.aab
+du -h opencli_app/build/app/outputs/bundle/release/app-release.aab
 # Should be ~38MB
 
 # APK (Direct install)
-du -h opencli_mobile/build/app/outputs/flutter-apk/app-release.apk
+du -h opencli_app/build/app/outputs/flutter-apk/app-release.apk
 # Should be ~43MB
 ```
 
@@ -326,8 +326,8 @@ du -h opencli_mobile/build/app/outputs/flutter-apk/app-release.apk
 - **Google Play Guide**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
 - **App Store Guide**: `docs/APP_STORE_SUBMISSION_GUIDE.md`
 - **Complete Checklist**: `docs/APP_STORE_SUBMISSION_CHECKLIST.md`
-- **Icon Creation**: `opencli_mobile/app_store_materials/ICON_CREATION_GUIDE.md`
-- **App Description**: `opencli_mobile/app_store_materials/APP_DESCRIPTION.md`
+- **Icon Creation**: `opencli_app/app_store_materials/ICON_CREATION_GUIDE.md`
+- **App Description**: `opencli_app/app_store_materials/APP_DESCRIPTION.md`
 
 ### Help Resources
 - Google Play Help: https://support.google.com/googleplay/android-developer
@@ -390,7 +390,7 @@ A: Requires macOS and Xcode, ensure certificates and provisioning profiles are c
 ```bash
 # 1. Create app icon using Icon Kitchen or Canva
 # 2. Generate screenshots
-cd opencli_mobile
+cd opencli_app
 ./scripts/generate_screenshots.sh
 # 3. Review generated assets
 # 4. Then follow Google Play guide to submit
