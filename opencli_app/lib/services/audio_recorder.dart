@@ -1,30 +1,33 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:record/record.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// 音频录制服务 - 录制音频并发送到 Mac 进行识别
-class AudioRecorder {
+class AudioRecorderService {
   final AudioRecorder _recorder = AudioRecorder();
   String? _currentRecordingPath;
 
   /// 开始录音
   Future<void> startRecording() async {
-    if (await _recorder.hasPermission()) {
-      final tempDir = Directory.systemTemp;
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      _currentRecordingPath = '${tempDir.path}/recording_$timestamp.m4a';
-
-      await _recorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          sampleRate: 16000,
-          numChannels: 1,
-        ),
-        path: _currentRecordingPath!,
-      );
-    } else {
+    // Check microphone permission
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
       throw Exception('No permission to record audio');
     }
+
+    final tempDir = Directory.systemTemp;
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    _currentRecordingPath = '${tempDir.path}/recording_$timestamp.m4a';
+
+    await _recorder.start(
+      const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        sampleRate: 16000,
+        numChannels: 1,
+      ),
+      path: _currentRecordingPath!,
+    );
   }
 
   /// 停止录音并返回音频数据

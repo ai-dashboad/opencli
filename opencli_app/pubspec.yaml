@@ -51,6 +51,9 @@ dependencies:
   # Speech to text for voice input
   speech_to_text: ^7.0.0
 
+  # Audio recording for voice input
+  record: ^5.1.0
+
   # Permissions
   permission_handler: ^11.3.1
 

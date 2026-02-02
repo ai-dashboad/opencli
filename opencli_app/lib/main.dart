@@ -1,7 +1,9 @@
 import 'dart:io' show Platform;
 import 'package:flutter_skill/flutter_skill.dart';
-import 'package:flutter/foundation.dart'; // For kDebugMode
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:macos_ui/macos_ui.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'services/daemon_service.dart';
@@ -32,12 +34,12 @@ Future<void> _initDesktopFeatures() async {
   await windowManager.ensureInitialized();
 
   const windowOptions = WindowOptions(
-    size: Size(800, 600),
-    minimumSize: Size(600, 400),
+    size: Size(900, 650),
+    minimumSize: Size(700, 500),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.normal,
+    titleBarStyle: TitleBarStyle.hidden, // macOS style
     title: 'OpenCLI',
   );
 
@@ -63,7 +65,6 @@ Future<void> _initSystemTray() async {
   }
 
   // Note: Icon files need to be added to assets
-  // For now, we'll use a placeholder approach
   try {
     await trayManager.setIcon(iconPath);
   } catch (e) {
@@ -86,8 +87,6 @@ Future<void> _initSystemTray() async {
   );
 
   await trayManager.setContextMenu(menu);
-
-  // Set tooltip
   await trayManager.setToolTip('OpenCLI - AI Task Orchestration');
 }
 
@@ -96,6 +95,19 @@ class OpenCLIApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use native macOS UI on macOS, Material elsewhere
+    if (!kIsWeb && Platform.isMacOS) {
+      return MacosApp(
+        title: 'OpenCLI',
+        theme: MacosThemeData.light(),
+        darkTheme: MacosThemeData.dark(),
+        themeMode: ThemeMode.system,
+        debugShowCheckedModeBanner: false,
+        home: const MacOSHomePage(),
+      );
+    }
+
+    // Fallback to Material Design for other platforms
     return MaterialApp(
       title: 'OpenCLI',
       theme: ThemeData(
@@ -113,19 +125,185 @@ class OpenCLIApp extends StatelessWidget {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.system,
-      home: const HomePage(),
+      debugShowCheckedModeBanner: false,
+      home: const MaterialHomePage(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+// ============== macOS Native UI ==============
+
+class MacOSHomePage extends StatefulWidget {
+  const MacOSHomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<MacOSHomePage> createState() => _MacOSHomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _MacOSHomePageState extends State<MacOSHomePage> {
+  int _selectedIndex = 0;
+  final DaemonService _daemonService = DaemonService();
+
+  // Desktop services
+  final TrayService _trayService = TrayService();
+  final HotkeyService _hotkeyService = HotkeyService();
+  final StartupService _startupService = StartupService();
+
+  bool _isConnecting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDesktopServices();
+    _connectToDaemon();
+  }
+
+  Future<void> _initDesktopServices() async {
+    _trayService.init();
+    await _hotkeyService.init();
+    await _startupService.init();
+  }
+
+  Future<void> _connectToDaemon() async {
+    setState(() => _isConnecting = true);
+    try {
+      await _daemonService.connect();
+    } catch (e) {
+      debugPrint('Failed to connect: $e');
+    } finally {
+      setState(() => _isConnecting = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _trayService.dispose();
+    _hotkeyService.dispose();
+    _daemonService.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MacosWindow(
+      sidebar: Sidebar(
+        minWidth: 200,
+        builder: (context, scrollController) {
+          return SidebarItems(
+            currentIndex: _selectedIndex,
+            onChanged: (index) {
+              setState(() => _selectedIndex = index);
+            },
+            scrollController: scrollController,
+            items: [
+              SidebarItem(
+                leading: const MacosIcon(CupertinoIcons.chat_bubble_fill),
+                label: const Text('Chat'),
+              ),
+              SidebarItem(
+                leading: const MacosIcon(CupertinoIcons.chart_bar_fill),
+                label: const Text('Status'),
+              ),
+              SidebarItem(
+                leading: const MacosIcon(CupertinoIcons.gear_alt_fill),
+                label: const Text('Settings'),
+              ),
+            ],
+          );
+        },
+      ),
+      child: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _buildChatPage(),
+          _buildStatusPage(),
+          _buildSettingsPage(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatPage() {
+    return ContentArea(
+      builder: (context, scrollController) {
+        return Column(
+          children: [
+            // Toolbar
+            ToolBar(
+              title: const Text('Chat'),
+              titleWidth: 200,
+              actions: [
+                ToolBarIconButton(
+                  icon: MacosIcon(
+                    _isConnecting
+                        ? CupertinoIcons.circle_fill
+                        : (_daemonService.isConnected
+                            ? CupertinoIcons.checkmark_circle_fill
+                            : CupertinoIcons.exclamationmark_circle_fill),
+                  ),
+                  onPressed: _connectToDaemon,
+                  label: _daemonService.isConnected ? 'Connected' : 'Disconnected',
+                  showLabel: false,
+                ),
+              ],
+            ),
+            // Chat content
+            Expanded(
+              child: ChatPage(daemonService: _daemonService),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusPage() {
+    return ContentArea(
+      builder: (context, scrollController) {
+        return Column(
+          children: [
+            const ToolBar(
+              title: Text('Status'),
+              titleWidth: 200,
+            ),
+            Expanded(
+              child: StatusPage(daemonService: _daemonService),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSettingsPage() {
+    return ContentArea(
+      builder: (context, scrollController) {
+        return Column(
+          children: [
+            const ToolBar(
+              title: Text('Settings'),
+              titleWidth: 200,
+            ),
+            const Expanded(
+              child: SettingsPage(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ============== Material Design UI (for non-macOS platforms) ==============
+
+class MaterialHomePage extends StatefulWidget {
+  const MaterialHomePage({super.key});
+
+  @override
+  State<MaterialHomePage> createState() => _MaterialHomePageState();
+}
+
+class _MaterialHomePageState extends State<MaterialHomePage> {
   int _selectedIndex = 0;
   final DaemonService _daemonService = DaemonService();
 
@@ -149,7 +327,6 @@ class _HomePageState extends State<HomePage> {
     _connectToDaemon();
   }
 
-  /// Initialize all desktop services
   Future<void> _initDesktopServices() async {
     _trayService?.init();
     await _hotkeyService?.init();
@@ -250,6 +427,8 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+// ============== Legacy Pages ==============
+
 class TasksPage extends StatefulWidget {
   final DaemonService daemonService;
 
@@ -292,19 +471,10 @@ class _TasksPageState extends State<TasksPage> {
           'time': DateTime.now(),
         });
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Task submitted: $taskType')),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     }
@@ -312,108 +482,24 @@ class _TasksPageState extends State<TasksPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: _tasks.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.task_alt,
-                        size: 100,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'OpenCLI Tasks',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Submit tasks to control your Mac',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color:
-                                  Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: _tasks.length,
-                  reverse: true,
-                  padding: const EdgeInsets.all(16),
-                  itemBuilder: (context, index) {
-                    final task = _tasks[_tasks.length - 1 - index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: Icon(
-                          task['type'] == 'update'
-                              ? Icons.update
-                              : Icons.play_arrow,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        title: Text(task['type'] ?? 'Unknown'),
-                        subtitle: Text(
-                          '${task['time']}'.substring(0, 19),
-                        ),
-                        trailing: task['type'] == 'update'
-                            ? Chip(label: Text(task['status'] ?? ''))
-                            : null,
-                      ),
-                    );
-                  },
-                ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 4,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () => _submitTask('system_info', {}),
-                icon: const Icon(Icons.info),
-                label: const Text('System Info'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _submitTask('screenshot', {}),
-                icon: const Icon(Icons.camera),
-                label: const Text('Screenshot'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _submitTask(
-                  'open_url',
-                  {'url': 'https://opencli.ai'},
-                ),
-                icon: const Icon(Icons.open_in_browser),
-                label: const Text('Open URL'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => _submitTask(
-                  'web_search',
-                  {'query': 'OpenCLI mobile'},
-                ),
-                icon: const Icon(Icons.search),
-                label: const Text('Web Search'),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tasks'),
+      ),
+      body: ListView.builder(
+        itemCount: _tasks.length,
+        itemBuilder: (context, index) {
+          final task = _tasks[index];
+          return ListTile(
+            leading: const Icon(Icons.task_alt),
+            title: Text(task['type'] ?? 'Unknown'),
+            subtitle: Text(task['status'] ?? ''),
+            trailing: Text(
+              task['time'].toString().substring(11, 19),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -426,75 +512,23 @@ class StatusPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       children: [
         const DaemonStatusCard(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      daemonService.isConnected
-                          ? Icons.circle
-                          : Icons.circle_outlined,
-                      size: 16,
-                      color: daemonService.isConnected
-                          ? Colors.green
-                          : Colors.red,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Daemon Connection',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildStatusRow(
-                  'Status',
-                  daemonService.isConnected ? 'Connected' : 'Disconnected',
-                ),
-                const Divider(),
-                _buildStatusRow('Host', 'localhost:9876'),
-                const Divider(),
-                _buildStatusRow('Protocol', 'WebSocket'),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Available Task Types',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  'System Information',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: const [
-                    Chip(label: Text('system_info')),
-                    Chip(label: Text('screenshot')),
-                    Chip(label: Text('open_url')),
-                    Chip(label: Text('web_search')),
-                    Chip(label: Text('open_app')),
-                    Chip(label: Text('close_app')),
-                    Chip(label: Text('open_file')),
-                    Chip(label: Text('create_file')),
-                    Chip(label: Text('read_file')),
-                    Chip(label: Text('delete_file')),
-                  ],
-                ),
+                const SizedBox(height: 12),
+                _buildInfoRow('Platform', Platform.operatingSystem),
+                _buildInfoRow('Version', Platform.operatingSystemVersion),
               ],
             ),
           ),
@@ -503,16 +537,20 @@ class StatusPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
           ),
         ],
       ),
@@ -520,141 +558,32 @@ class StatusPage extends StatelessWidget {
   }
 }
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<SettingsPage> {
-  final StartupService? _startupService = (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux))
-      ? StartupService()
-      : null;
-  bool _isStartupEnabled = false;
-  bool _isInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initStartupService();
-  }
-
-  Future<void> _initStartupService() async {
-    if (_startupService != null) {
-      await _startupService!.init();
-      if (mounted) {
-        setState(() {
-          _isStartupEnabled = _startupService!.isEnabled;
-          _isInitialized = true;
-        });
-      }
-    }
-  }
-
-  Future<void> _toggleStartup(bool value) async {
-    if (_startupService != null) {
-      await _startupService!.toggle();
-      if (mounted) {
-        setState(() {
-          _isStartupEnabled = _startupService!.isEnabled;
-        });
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final isDesktop = !kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux);
-
     return ListView(
+      padding: const EdgeInsets.all(20),
       children: [
-        // Desktop Features Section
-        if (isDesktop) ...[
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Desktop Features',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.rocket_launch),
-            title: const Text('Launch at Startup'),
-            subtitle: const Text('Start OpenCLI automatically when you log in'),
-            trailing: _isInitialized
-                ? Switch(
-                    value: _isStartupEnabled,
-                    onChanged: _toggleStartup,
-                  )
-                : const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.keyboard),
-            title: const Text('Global Hotkey'),
-            subtitle: Text(
-              Platform.isMacOS ? 'Cmd+Shift+O' : 'Ctrl+Shift+O',
-            ),
-            trailing: const Chip(
-              label: Text('Active'),
-              backgroundColor: Colors.green,
-              labelStyle: TextStyle(color: Colors.white, fontSize: 12),
-            ),
-          ),
-          const Divider(),
-        ],
-
-        // General Section
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            'General',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
-            ),
+        Text(
+          'Settings',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 20),
+        const Card(
+          child: ListTile(
+            leading: Icon(Icons.palette),
+            title: Text('Theme'),
+            subtitle: Text('System default'),
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.info_outline),
-          title: const Text('About'),
-          subtitle: const Text('Version 0.2.1+8'),
-          onTap: () {
-            showAboutDialog(
-              context: context,
-              applicationName: 'OpenCLI',
-              applicationVersion: '0.2.1+8',
-              applicationIcon: const Icon(Icons.terminal, size: 48),
-              applicationLegalese: '© 2026 OpenCLI',
-              children: const [
-                Padding(
-                  padding: EdgeInsets.only(top: 16),
-                  child: Text(
-                    'AI-powered task orchestration\n'
-                    'Cross-platform support for iOS, Android, macOS, Windows & Linux',
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        const Divider(),
-        ListTile(
-          leading: const Icon(Icons.cloud_outlined),
-          title: const Text('Daemon Server'),
-          subtitle: const Text('localhost:9876'),
-        ),
-        ListTile(
-          leading: const Icon(Icons.code),
-          title: const Text('GitHub'),
-          subtitle: const Text('github.com/ai-dashboad/opencli'),
+        const Card(
+          child: ListTile(
+            leading: Icon(Icons.notifications),
+            title: Text('Notifications'),
+            subtitle: Text('Enabled'),
+          ),
         ),
       ],
     );

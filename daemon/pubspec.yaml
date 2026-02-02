@@ -21,9 +21,22 @@ dependencies:
 
   # Shelf for HTTP server
   shelf: ^1.4.0
+  shelf_router: ^1.1.0
 
   # Cryptography
   crypto: ^3.0.3
+
+  # FFI for native interop
+  ffi: ^2.1.0
+
+  # Archive support for backup
+  archive: ^3.4.0
+
+  # SQLite support for caching
+  sqflite_common_ffi: ^2.3.0
+
+  # WebSocket support
+  web_socket_channel: ^2.4.0
 
 dev_dependencies:
   lints: ^3.0.0
