@@ -4,7 +4,10 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   permission_handler_windows
+  screen_retriever_windows
   speech_to_text_windows
+  tray_manager
+  window_manager
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

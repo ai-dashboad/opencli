@@ -1,16 +1,92 @@
+import 'dart:io' show Platform;
 import 'package:flutter_skill/flutter_skill.dart';
 import 'package:flutter/foundation.dart'; // For kDebugMode
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:tray_manager/tray_manager.dart';
 import 'services/daemon_service.dart';
+import 'services/tray_service.dart';
 import 'widgets/daemon_status_card.dart';
 import 'pages/chat_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   if (kDebugMode) {
     FlutterSkillBinding.ensureInitialized();
   }
 
+  // Initialize desktop features on desktop platforms
+  if (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+    await _initDesktopFeatures();
+  }
+
   runApp(const OpenCLIApp());
+}
+
+/// Initialize desktop-specific features (window management, system tray)
+Future<void> _initDesktopFeatures() async {
+  // Window management setup
+  await windowManager.ensureInitialized();
+
+  const windowOptions = WindowOptions(
+    size: Size(800, 600),
+    minimumSize: Size(600, 400),
+    center: true,
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.normal,
+    title: 'OpenCLI',
+  );
+
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+
+  // System tray setup
+  await _initSystemTray();
+}
+
+/// Initialize system tray icon and menu
+Future<void> _initSystemTray() async {
+  // Set tray icon based on platform
+  String iconPath;
+  if (Platform.isMacOS) {
+    iconPath = 'assets/tray_icon_macos.png';
+  } else if (Platform.isWindows) {
+    iconPath = 'assets/tray_icon_windows.ico';
+  } else {
+    iconPath = 'assets/tray_icon_linux.png';
+  }
+
+  // Note: Icon files need to be added to assets
+  // For now, we'll use a placeholder approach
+  try {
+    await trayManager.setIcon(iconPath);
+  } catch (e) {
+    debugPrint('Failed to set tray icon: $e');
+  }
+
+  // Set tray menu
+  Menu menu = Menu(
+    items: [
+      MenuItem(
+        key: 'show',
+        label: 'Show OpenCLI',
+      ),
+      MenuItem.separator(),
+      MenuItem(
+        key: 'exit',
+        label: 'Exit',
+      ),
+    ],
+  );
+
+  await trayManager.setContextMenu(menu);
+
+  // Set tooltip
+  await trayManager.setToolTip('OpenCLI - AI Task Orchestration');
 }
 
 class OpenCLIApp extends StatelessWidget {
@@ -50,11 +126,15 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   final DaemonService _daemonService = DaemonService();
+  final TrayService? _trayService = (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux))
+      ? TrayService()
+      : null;
   bool _isConnecting = false;
 
   @override
   void initState() {
     super.initState();
+    _trayService?.init();
     _connectToDaemon();
   }
 
@@ -86,6 +166,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _trayService?.dispose();
     _daemonService.dispose();
     super.dispose();
   }
