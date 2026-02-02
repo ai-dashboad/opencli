@@ -1,0 +1,15 @@
+{
+  "name": "opencli-automation",
+  "version": "1.0.0",
+  "description": "Browser automation scripts for OpenCLI Google Play submission",
+  "main": "automate_browser.js",
+  "scripts": {
+    "github-pages": "node automate_browser.js github-pages",
+    "data-safety": "node automate_browser.js data-safety",
+    "upload": "node automate_browser.js upload",
+    "all": "node automate_browser.js all"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}

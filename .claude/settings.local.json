@@ -103,7 +103,9 @@
       "mcp__flutter-skill__enter_text",
       "mcp__flutter-skill__tap",
       "mcp__flutter-skill__screenshot",
-      "mcp__flutter-skill__wait_for_element"
+      "mcp__flutter-skill__wait_for_element",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch:*)",
+      "WebFetch(domain:opencli.ai)"
     ]
   }
 }
