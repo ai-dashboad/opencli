@@ -1,0 +1,65 @@
+# Example: Multi-Step Workflow Capability
+# Demonstrates complex workflow with conditions and error handling
+
+id: workflow.backup_and_notify
+version: 1.0.0
+name: Backup and Notify
+description: Creates a backup of files and sends a notification
+author: opencli
+min_executor_version: 0.2.0
+platforms: [macos, linux]
+
+parameters:
+  - name: source_dir
+    type: directory
+    required: true
+    description: Directory to backup
+
+  - name: backup_name
+    type: string
+    required: false
+    description: Name for the backup file
+    default: backup
+
+  - name: notify
+    type: bool
+    required: false
+    description: Whether to send notification on completion
+    default: true
+
+workflow:
+  # Step 1: Check if source directory exists
+  - action: file_operation
+    params:
+      operation: list
+      directory: "${source_dir}"
+    store_result: source_files
+    on_error: fail
+
+  # Step 2: Create backup archive
+  - action: run_command
+    params:
+      command: tar
+      args:
+        - -czf
+        - "/tmp/${backup_name}_$(date +%Y%m%d).tar.gz"
+        - "${source_dir}"
+    timeout: 5m
+    store_result: backup_result
+
+  # Step 3: Send notification if enabled
+  - action: system_notify
+    condition: "${notify} == true"
+    params:
+      title: Backup Complete
+      message: "Backup created: ${backup_name}"
+
+requires_executors:
+  - file_operation
+  - run_command
+  - system_notify
+
+tags:
+  - backup
+  - workflow
+  - automation

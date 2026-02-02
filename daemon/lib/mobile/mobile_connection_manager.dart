@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as path;
 
 /// Manages connections from mobile clients
 /// Handles authentication, task submission, and real-time updates
@@ -19,6 +21,9 @@ class MobileConnectionManager {
   Stream<MobileTaskSubmission> get taskSubmissions =>
       _taskSubmissionController.stream;
 
+  /// Get list of connected device IDs
+  List<String> get connectedClients => _activeConnections.keys.toList();
+
   MobileConnectionManager({
     this.port = 8765,
     required this.authSecret,
@@ -26,8 +31,32 @@ class MobileConnectionManager {
 
   /// Start the WebSocket server for mobile connections
   Future<void> start() async {
-    _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
-    print('Mobile connection server listening on port $port');
+    var currentPort = port;
+    var maxRetries = 10;
+    var retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        _server = await HttpServer.bind(InternetAddress.anyIPv4, currentPort);
+        print('✓ Mobile connection server listening on port $currentPort');
+
+        // Save actual port to config file
+        await _savePortToConfig(currentPort);
+        break;
+      } catch (e) {
+        if (e.toString().contains('Address already in use')) {
+          print('⚠️  Port $currentPort is in use, trying ${currentPort + 1}...');
+          currentPort++;
+          retryCount++;
+        } else {
+          rethrow;
+        }
+      }
+    }
+
+    if (retryCount >= maxRetries) {
+      throw Exception('Failed to find available port after $maxRetries attempts');
+    }
 
     _server.transform(WebSocketTransformer()).listen(
       _handleConnection,
@@ -37,7 +66,9 @@ class MobileConnectionManager {
 
   /// Stop the server and close all connections
   Future<void> stop() async {
-    for (var client in _activeConnections.values) {
+    // Copy values to avoid concurrent modification during iteration
+    final clients = _activeConnections.values.toList();
+    for (var client in clients) {
       await client.disconnect();
     }
     _activeConnections.clear();
@@ -47,7 +78,7 @@ class MobileConnectionManager {
 
   /// Handle new WebSocket connection from mobile client
   void _handleConnection(WebSocket socket) {
-    final channel = WebSocketChannel(socket);
+    final channel = IOWebSocketChannel(socket);
     String? deviceId;
 
     channel.stream.listen(
@@ -179,15 +210,14 @@ class MobileConnectionManager {
 
     _taskSubmissionController.add(submission);
 
-    // Send confirmation to mobile client
-    final client = _activeConnections[deviceId];
-    if (client != null) {
-      _sendMessage(client.channel, {
-        'type': 'task_submitted',
-        'task_type': taskType,
-        'timestamp': submission.submittedAt.millisecondsSinceEpoch,
-      });
-    }
+    // Broadcast task submission to all connected clients (including Web UI)
+    _broadcastMessage({
+      'type': 'task_submitted',
+      'device_id': deviceId,
+      'task_type': taskType,
+      'task_data': taskData,
+      'timestamp': submission.submittedAt.millisecondsSinceEpoch,
+    });
   }
 
   /// Register push notification token for device
@@ -206,17 +236,18 @@ class MobileConnectionManager {
   }) async {
     final client = _activeConnections[deviceId];
 
-    if (client != null) {
-      // Send via WebSocket if connected
-      _sendMessage(client.channel, {
-        'type': 'task_update',
-        'task_id': taskId,
-        'status': status,
-        if (result != null) 'result': result,
-        if (error != null) 'error': error,
-      });
-    } else {
-      // Send push notification if not connected
+    // Broadcast task update to all connected clients (including Web UI)
+    _broadcastMessage({
+      'type': 'task_update',
+      'device_id': deviceId,
+      'task_id': taskId,
+      'status': status,
+      if (result != null) 'result': result,
+      if (error != null) 'error': error,
+    });
+
+    if (client == null) {
+      // Send push notification if original device is not connected
       final pushToken = _deviceTokens[deviceId];
       if (pushToken != null) {
         await _sendPushNotification(pushToken, taskId, status);
@@ -244,6 +275,13 @@ class MobileConnectionManager {
     }
   }
 
+  /// Broadcast message to all connected clients (including Web UI)
+  void _broadcastMessage(Map<String, dynamic> message) {
+    for (var client in _activeConnections.values) {
+      _sendMessage(client.channel, message);
+    }
+  }
+
   /// Send error message to mobile client
   void _sendError(WebSocketChannel channel, String error) {
     _sendMessage(channel, {
@@ -260,6 +298,22 @@ class MobileConnectionManager {
   /// Check if device is connected
   bool isDeviceConnected(String deviceId) {
     return _activeConnections.containsKey(deviceId);
+  }
+
+  /// Save port to config file for mobile clients
+  Future<void> _savePortToConfig(int actualPort) async {
+    try {
+      final home = Platform.environment['HOME'] ?? '.';
+      final configDir = path.join(home, '.opencli');
+      final portFile = path.join(configDir, 'mobile_port.txt');
+
+      await Directory(configDir).create(recursive: true);
+      await File(portFile).writeAsString('$actualPort');
+
+      print('✓ Saved mobile port to: $portFile');
+    } catch (e) {
+      print('⚠️  Failed to save port config: $e');
+    }
   }
 }
 

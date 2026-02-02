@@ -1,0 +1,36 @@
+# Example Capability Package: Open Application
+# This demonstrates the capability package format for OpenCLI
+
+id: desktop.open_app
+version: 1.0.0
+name: Open Application
+description: Opens an application by name on the desktop
+author: opencli
+min_executor_version: 0.1.0
+platforms: [macos, windows, linux]
+
+# Input parameters
+parameters:
+  - name: app_name
+    type: string
+    required: true
+    description: Name of the application to open
+
+# Execution workflow
+workflow:
+  - action: open_app
+    params:
+      app_name: "${app_name}"
+
+# Required base executors
+requires_executors:
+  - open_app
+
+# Tags for discovery
+tags:
+  - desktop
+  - app
+  - launch
+  - open
+
+is_system: true

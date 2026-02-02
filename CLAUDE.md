@@ -1,0 +1,39 @@
+# OpenCLI Project Rules
+
+## Language Requirements
+
+**All text in this project MUST be in English**, including:
+- Git commit messages
+- Code comments
+- Documentation files
+- Variable names and function names
+- Error messages and log output
+- README and other markdown files
+
+## Code Style
+
+- Follow Dart style guide for daemon code
+- Follow Flutter style guide for mobile app
+- Use meaningful variable and function names
+- Add comments for complex logic
+
+## Git Workflow
+
+- Use conventional commits format: `type: description`
+  - `feat:` new feature
+  - `fix:` bug fix
+  - `chore:` maintenance
+  - `docs:` documentation
+  - `refactor:` code refactoring
+  - `test:` adding tests
+- Keep commits atomic and focused
+- Write clear, descriptive commit messages in English
+
+## Project Structure
+
+- `daemon/` - Dart backend daemon
+- `opencli_mobile/` - Flutter mobile app
+- `cli/` - Command line interface
+- `web-ui/` - Web interface
+- `scripts/` - Build and utility scripts
+- `capabilities/` - Capability package definitions

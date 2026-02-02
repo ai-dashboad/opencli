@@ -3,17 +3,74 @@ import 'dart:io';
 import 'dart:convert';
 import 'mobile_connection_manager.dart';
 import '../services/ollama_service.dart';
-import '../executors/file_executor.dart';
+import '../capabilities/capabilities.dart';
 
 /// Handles task execution for mobile-submitted tasks
-/// Integrates with desktop automation and task queue
+/// Integrates with desktop automation, task queue, and capability system
 class MobileTaskHandler {
   final MobileConnectionManager connectionManager;
   final Map<String, TaskExecutor> _executors = {};
 
+  /// Capability system components (optional, can be initialized separately)
+  CapabilityLoader? _capabilityLoader;
+  CapabilityRegistry? _capabilityRegistry;
+  CapabilityExecutor? _capabilityExecutor;
+  CapabilityUpdater? _capabilityUpdater;
+
+  /// Whether capability system is initialized
+  bool _capabilitiesInitialized = false;
+
   MobileTaskHandler({required this.connectionManager}) {
     _registerDefaultExecutors();
     _listenToTaskSubmissions();
+  }
+
+  /// Initialize capability system for hot-updatable executors
+  Future<void> initializeCapabilities({
+    String? repositoryUrl,
+    bool autoUpdate = true,
+  }) async {
+    if (_capabilitiesInitialized) return;
+
+    print('[MobileTaskHandler] Initializing capability system...');
+
+    // Create capability loader
+    _capabilityLoader = CapabilityLoader(
+      repositoryUrl: repositoryUrl ?? 'https://capabilities.opencli.io',
+    );
+
+    // Create registry
+    _capabilityRegistry = CapabilityRegistry(loader: _capabilityLoader!);
+    await _capabilityRegistry!.initialize();
+
+    // Create executor and register action handlers
+    _capabilityExecutor = CapabilityExecutor(registry: _capabilityRegistry!);
+    _registerCapabilityHandlers();
+
+    // Create updater
+    _capabilityUpdater = CapabilityUpdater(
+      registry: _capabilityRegistry!,
+      loader: _capabilityLoader!,
+      config: CapabilityUpdateConfig(
+        autoUpdate: autoUpdate,
+        checkInterval: const Duration(hours: 1),
+        downloadImmediately: false,
+      ),
+    );
+    _capabilityUpdater!.start();
+
+    _capabilitiesInitialized = true;
+    print('[MobileTaskHandler] Capability system initialized with ${_capabilityRegistry!.getAll().length} capabilities');
+  }
+
+  /// Register capability action handlers that map to existing executors
+  void _registerCapabilityHandlers() {
+    // Map each executor to a capability action handler
+    _executors.forEach((name, executor) {
+      _capabilityExecutor!.registerHandler(name, (params, context) async {
+        return await executor.execute(params);
+      });
+    });
   }
 
   /// Register default task executors
@@ -34,7 +91,7 @@ class MobileTaskHandler {
     registerExecutor('system_info', SystemInfoExecutor());
     registerExecutor('run_command', RunCommandExecutor());
     registerExecutor('check_process', CheckProcessExecutor());
-    registerExecutor('list_processes', ListAppsExecutor());  // 重用现有的列表进程执行器
+    registerExecutor('list_processes', ListAppsExecutor());
 
     // File operations
     registerExecutor('file_operation', FileOperationExecutor());
@@ -52,6 +109,13 @@ class MobileTaskHandler {
   void registerExecutor(String taskType, TaskExecutor executor) {
     _executors[taskType] = executor;
     print('Registered executor for task type: $taskType');
+
+    // Also register with capability executor if initialized
+    if (_capabilityExecutor != null) {
+      _capabilityExecutor!.registerHandler(taskType, (params, context) async {
+        return await executor.execute(params);
+      });
+    }
   }
 
   /// Listen to task submissions from mobile
@@ -63,19 +127,9 @@ class MobileTaskHandler {
 
   /// Execute a mobile-submitted task
   Future<void> _executeTask(MobileTaskSubmission submission) async {
-    final executor = _executors[submission.taskType];
-
-    if (executor == null) {
-      await connectionManager.sendTaskUpdate(
-        submission.deviceId,
-        _generateTaskId(submission),
-        'failed',
-        error: 'Unknown task type: ${submission.taskType}',
-      );
-      return;
-    }
-
     final taskId = _generateTaskId(submission);
+    final taskType = submission.taskType;
+    final taskData = submission.taskData;
 
     try {
       // Send task started status
@@ -85,8 +139,29 @@ class MobileTaskHandler {
         'running',
       );
 
-      // Execute the task
-      final result = await executor.execute(submission.taskData);
+      Map<String, dynamic> result;
+
+      // Try capability system first if initialized
+      if (_capabilitiesInitialized && _capabilityRegistry != null) {
+        // Check if this is a capability-based task
+        final capability = await _capabilityRegistry!.get(taskType);
+        if (capability != null) {
+          // Execute via capability system
+          final capResult = await _capabilityExecutor!.execute(taskType, taskData);
+
+          if (capResult.success) {
+            result = capResult.result;
+          } else {
+            throw Exception(capResult.error ?? 'Capability execution failed');
+          }
+        } else {
+          // Fall back to direct executor
+          result = await _executeWithExecutor(taskType, taskData);
+        }
+      } else {
+        // Use direct executor
+        result = await _executeWithExecutor(taskType, taskData);
+      }
 
       // Send success status
       await connectionManager.sendTaskUpdate(
@@ -106,9 +181,70 @@ class MobileTaskHandler {
     }
   }
 
+  /// Execute task with direct executor
+  Future<Map<String, dynamic>> _executeWithExecutor(
+    String taskType,
+    Map<String, dynamic> taskData,
+  ) async {
+    final executor = _executors[taskType];
+
+    if (executor == null) {
+      throw Exception('Unknown task type: $taskType');
+    }
+
+    return await executor.execute(taskData);
+  }
+
   /// Generate task ID from submission
   String _generateTaskId(MobileTaskSubmission submission) {
     return '${submission.deviceId}_${submission.submittedAt.millisecondsSinceEpoch}';
+  }
+
+  /// Get available task types (from both executors and capabilities)
+  Future<List<String>> getAvailableTaskTypes() async {
+    final types = <String>{..._executors.keys};
+
+    if (_capabilitiesInitialized && _capabilityRegistry != null) {
+      final capabilities = _capabilityRegistry!.getAll();
+      types.addAll(capabilities.map((c) => c.id));
+    }
+
+    return types.toList()..sort();
+  }
+
+  /// Check for capability updates
+  Future<void> checkForUpdates() async {
+    if (_capabilityUpdater != null) {
+      await _capabilityUpdater!.checkForUpdates();
+    }
+  }
+
+  /// Apply pending capability updates
+  Future<List<String>> applyUpdates() async {
+    if (_capabilityUpdater != null) {
+      return await _capabilityUpdater!.applyUpdates();
+    }
+    return [];
+  }
+
+  /// Get handler statistics
+  Map<String, dynamic> getStats() {
+    return {
+      'executorCount': _executors.length,
+      'executors': _executors.keys.toList(),
+      'capabilitiesInitialized': _capabilitiesInitialized,
+      'capabilities': _capabilitiesInitialized
+          ? _capabilityRegistry?.getStats()
+          : null,
+      'updates': _capabilitiesInitialized
+          ? _capabilityUpdater?.getStatus()
+          : null,
+    };
+  }
+
+  /// Dispose resources
+  void dispose() {
+    _capabilityUpdater?.stop();
   }
 }
 
@@ -321,6 +457,315 @@ class CheckProcessExecutor extends TaskExecutor {
       'is_running': isRunning,
       'details': isRunning ? output : 'Process not found',
     };
+  }
+}
+
+/// File operation executor with rich metadata
+class FileOperationExecutor extends TaskExecutor {
+  @override
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> taskData) async {
+    final operation = taskData['operation'] as String? ?? 'list';
+
+    switch (operation) {
+      case 'list':
+        return await _listFiles(taskData);
+      case 'search':
+        return await _searchFiles(taskData);
+      case 'create':
+        return await _createFile(taskData);
+      case 'move':
+        return await _moveFile(taskData);
+      case 'delete':
+        return await _deleteFile(taskData);
+      case 'organize':
+        return await _organizeFiles(taskData);
+      default:
+        return {
+          'success': false,
+          'error': 'Unknown operation: $operation',
+        };
+    }
+  }
+
+  /// List files with rich metadata
+  Future<Map<String, dynamic>> _listFiles(Map<String, dynamic> taskData) async {
+    final directory = taskData['directory'] as String? ?? Platform.environment['HOME'] ?? '/';
+    final expandedDir = directory.replaceFirst('~', Platform.environment['HOME'] ?? '~');
+
+    final dir = Directory(expandedDir);
+
+    if (!await dir.exists()) {
+      return {
+        'success': false,
+        'error': 'Directory not found: $directory',
+      };
+    }
+
+    final files = <Map<String, dynamic>>[];
+
+    await for (var entity in dir.list()) {
+      final stat = await entity.stat();
+      final isDirectory = entity is Directory;
+      final name = entity.path.split('/').last;
+      final extension = isDirectory ? '' : name.contains('.') ? name.split('.').last.toLowerCase() : '';
+
+      files.add({
+        'name': name,
+        'path': entity.path,
+        'is_directory': isDirectory,
+        'type': isDirectory ? 'directory' : _getFileType(extension),
+        'icon': isDirectory ? '📁' : _getFileIcon(extension),
+        'size': stat.size,
+        'size_formatted': _formatFileSize(stat.size),
+        'modified': stat.modified.toIso8601String(),
+        'modified_relative': _formatRelativeTime(stat.modified),
+      });
+    }
+
+    // Sort: directories first, then by name
+    files.sort((a, b) {
+      if (a['is_directory'] != b['is_directory']) {
+        return a['is_directory'] ? -1 : 1;
+      }
+      return (a['name'] as String).compareTo(b['name'] as String);
+    });
+
+    return {
+      'success': true,
+      'operation': 'list',
+      'directory': directory,
+      'files': files,
+      'count': files.length,
+    };
+  }
+
+  /// Search files by pattern
+  Future<Map<String, dynamic>> _searchFiles(Map<String, dynamic> taskData) async {
+    final directory = taskData['directory'] as String? ?? Platform.environment['HOME'] ?? '/';
+    final pattern = taskData['pattern'] as String;
+    final expandedDir = directory.replaceFirst('~', Platform.environment['HOME'] ?? '~');
+
+    final dir = Directory(expandedDir);
+    final results = <Map<String, dynamic>>[];
+
+    await for (var entity in dir.list(recursive: true)) {
+      final name = entity.path.split('/').last;
+      if (name.toLowerCase().contains(pattern.toLowerCase())) {
+        final stat = await entity.stat();
+        final isDirectory = entity is Directory;
+        final extension = isDirectory ? '' : name.contains('.') ? name.split('.').last.toLowerCase() : '';
+
+        results.add({
+          'name': name,
+          'path': entity.path,
+          'is_directory': isDirectory,
+          'type': isDirectory ? 'directory' : _getFileType(extension),
+          'icon': isDirectory ? '📁' : _getFileIcon(extension),
+          'size': stat.size,
+          'size_formatted': _formatFileSize(stat.size),
+          'modified': stat.modified.toIso8601String(),
+          'modified_relative': _formatRelativeTime(stat.modified),
+        });
+      }
+    }
+
+    return {
+      'success': true,
+      'operation': 'search',
+      'pattern': pattern,
+      'directory': directory,
+      'files': results,
+      'count': results.length,
+    };
+  }
+
+  /// Create a new file
+  Future<Map<String, dynamic>> _createFile(Map<String, dynamic> taskData) async {
+    final filePath = taskData['path'] as String;
+    final content = taskData['content'] as String? ?? '';
+    final expandedPath = filePath.replaceFirst('~', Platform.environment['HOME'] ?? '~');
+
+    final file = File(expandedPath);
+    await file.create(recursive: true);
+    await file.writeAsString(content);
+
+    return {
+      'success': true,
+      'operation': 'create',
+      'path': filePath,
+      'size': content.length,
+    };
+  }
+
+  /// Move a file
+  Future<Map<String, dynamic>> _moveFile(Map<String, dynamic> taskData) async {
+    final from = (taskData['from'] as String).replaceFirst('~', Platform.environment['HOME'] ?? '~');
+    final to = (taskData['to'] as String).replaceFirst('~', Platform.environment['HOME'] ?? '~');
+
+    final file = File(from);
+    if (!await file.exists()) {
+      return {
+        'success': false,
+        'error': 'Source file not found: $from',
+      };
+    }
+
+    await file.rename(to);
+
+    return {
+      'success': true,
+      'operation': 'move',
+      'from': taskData['from'],
+      'to': taskData['to'],
+    };
+  }
+
+  /// Delete a file
+  Future<Map<String, dynamic>> _deleteFile(Map<String, dynamic> taskData) async {
+    final filePath = (taskData['path'] as String).replaceFirst('~', Platform.environment['HOME'] ?? '~');
+    final file = File(filePath);
+
+    if (!await file.exists()) {
+      return {
+        'success': false,
+        'error': 'File not found: ${taskData['path']}',
+      };
+    }
+
+    await file.delete();
+
+    return {
+      'success': true,
+      'operation': 'delete',
+      'path': taskData['path'],
+    };
+  }
+
+  /// Organize files by type
+  Future<Map<String, dynamic>> _organizeFiles(Map<String, dynamic> taskData) async {
+    final directory = (taskData['directory'] as String? ?? Platform.environment['HOME'] ?? '/').replaceFirst('~', Platform.environment['HOME'] ?? '~');
+
+    final dir = Directory(directory);
+    final moved = <String, String>{};
+
+    await for (var entity in dir.list()) {
+      if (entity is File) {
+        final name = entity.path.split('/').last;
+        final extension = name.contains('.') ? name.split('.').last.toLowerCase() : '';
+        final category = _getFileType(extension);
+        final targetDir = '$directory/$category';
+
+        await Directory(targetDir).create(recursive: true);
+        final newPath = '$targetDir/$name';
+        await entity.rename(newPath);
+
+        moved[entity.path] = newPath;
+      }
+    }
+
+    return {
+      'success': true,
+      'operation': 'organize',
+      'directory': taskData['directory'],
+      'files_organized': moved.length,
+      'moves': moved,
+    };
+  }
+
+  /// Get file type category
+  String _getFileType(String extension) {
+    const typeMap = {
+      'txt': 'document',
+      'doc': 'document',
+      'docx': 'document',
+      'pdf': 'document',
+      'md': 'document',
+      'rtf': 'document',
+      'jpg': 'image',
+      'jpeg': 'image',
+      'png': 'image',
+      'gif': 'image',
+      'bmp': 'image',
+      'svg': 'image',
+      'webp': 'image',
+      'mp4': 'video',
+      'avi': 'video',
+      'mov': 'video',
+      'mkv': 'video',
+      'webm': 'video',
+      'mp3': 'audio',
+      'wav': 'audio',
+      'flac': 'audio',
+      'aac': 'audio',
+      'm4a': 'audio',
+      'js': 'code',
+      'ts': 'code',
+      'dart': 'code',
+      'py': 'code',
+      'java': 'code',
+      'cpp': 'code',
+      'c': 'code',
+      'go': 'code',
+      'rs': 'code',
+      'swift': 'code',
+      'zip': 'archive',
+      'rar': 'archive',
+      'tar': 'archive',
+      'gz': 'archive',
+      '7z': 'archive',
+    };
+    return typeMap[extension] ?? 'other';
+  }
+
+  /// Get emoji icon for file type
+  String _getFileIcon(String extension) {
+    const iconMap = {
+      'txt': '📄',
+      'doc': '📝',
+      'docx': '📝',
+      'pdf': '📕',
+      'md': '📝',
+      'jpg': '🖼️',
+      'jpeg': '🖼️',
+      'png': '🖼️',
+      'gif': '🖼️',
+      'svg': '🖼️',
+      'mp4': '🎬',
+      'avi': '🎬',
+      'mov': '🎬',
+      'mp3': '🎵',
+      'wav': '🎵',
+      'js': '💻',
+      'ts': '💻',
+      'dart': '💻',
+      'py': '💻',
+      'java': '💻',
+      'zip': '📦',
+      'rar': '📦',
+      'tar': '📦',
+    };
+    return iconMap[extension] ?? '📄';
+  }
+
+  /// Format file size to human readable
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  /// Format relative time
+  String _formatRelativeTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inSeconds < 60) return '刚刚';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}分钟前';
+    if (difference.inHours < 24) return '${difference.inHours}小时前';
+    if (difference.inDays < 30) return '${difference.inDays}天前';
+    if (difference.inDays < 365) return '${(difference.inDays / 30).floor()}个月前';
+    return '${(difference.inDays / 365).floor()}年前';
   }
 }
 
