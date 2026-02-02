@@ -102,7 +102,7 @@ OpenCLI is open source. You can review our code to verify our privacy practices:
 
 If you have questions about this Privacy Policy, please contact us:
 
-- **Email**: [INSERT YOUR EMAIL]
+- **Email**: cw@dtok.io
 - **GitHub Issues**: https://github.com/ai-dashboad/opencli/issues
 - **Website**: https://opencli.ai
 
