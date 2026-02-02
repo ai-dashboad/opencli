@@ -105,7 +105,8 @@
       "mcp__flutter-skill__screenshot",
       "mcp__flutter-skill__wait_for_element",
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch:*)",
-      "WebFetch(domain:opencli.ai)"
+      "WebFetch(domain:opencli.ai)",
+      "Bash(wc:*)"
     ]
   }
 }

@@ -1,6 +1,11 @@
 import 'dart:async';
 import 'base_channel.dart';
 import 'telegram_channel.dart';
+import 'whatsapp_channel.dart';
+import 'slack_channel.dart';
+import 'discord_channel.dart';
+import 'wechat_channel.dart';
+import 'sms_channel.dart';
 import 'models/unified_message.dart';
 import 'models/channel_config.dart';
 
@@ -71,11 +76,16 @@ class ChannelManager {
     switch (channelType.toLowerCase()) {
       case 'telegram':
         return TelegramChannel();
-      // Add more channels here
-      // case 'whatsapp':
-      //   return WhatsAppChannel();
-      // case 'slack':
-      //   return SlackChannel();
+      case 'whatsapp':
+        return WhatsAppChannel();
+      case 'slack':
+        return SlackChannel();
+      case 'discord':
+        return DiscordChannel();
+      case 'wechat':
+        return WeChatChannel();
+      case 'sms':
+        return SMSChannel();
       default:
         print('⚠️  Unknown channel type: $channelType');
         return null;
