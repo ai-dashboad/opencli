@@ -191,32 +191,38 @@ notifications:
 
 ```
 opencli/
-├── cli/                          # Rust CLI client
-├── daemon/                       # Dart daemon (11,662 lines)
+├── daemon/                       # Dart backend daemon (Core Engine)
 │   ├── lib/
-│   │   ├── ai/                  # AI workforce (1,155 lines)
-│   │   ├── automation/          # Desktop control (1,119 lines)
-│   │   ├── backup/              # Backup & recovery (533 lines)
-│   │   ├── browser/             # Browser automation (960 lines)
-│   │   ├── cache/               # Multi-tier caching
-│   │   ├── core/                # Core daemon
-│   │   ├── database/            # Database integration (569 lines)
-│   │   ├── enterprise/          # Dashboard & assignment (1,114 lines)
-│   │   ├── ipc/                 # IPC communication
-│   │   ├── messaging/           # Message queue (535 lines)
-│   │   ├── mobile/              # Mobile integration (645 lines)
-│   │   ├── monitoring/          # Logging & metrics (809 lines)
-│   │   ├── notifications/       # Notifications (514 lines)
-│   │   ├── plugins/             # Plugin system
-│   │   ├── scheduler/           # Task scheduler (557 lines)
-│   │   ├── security/            # Auth & authorization (974 lines)
-│   │   ├── storage/             # File storage (563 lines)
-│   │   └── task_queue/          # Task management (75 lines)
+│   │   ├── ai/                  # AI workforce integration
+│   │   ├── automation/          # Desktop control automation
+│   │   ├── browser/             # Browser automation
+│   │   ├── channels/            # Multi-channel gateway (NEW)
+│   │   │   ├── telegram/       # Telegram Bot
+│   │   │   ├── whatsapp/       # WhatsApp Bot
+│   │   │   ├── slack/          # Slack Bot
+│   │   │   └── discord/        # Discord Bot
+│   │   ├── mobile/              # Mobile client integration
+│   │   ├── security/            # Authentication & authorization
+│   │   ├── monitoring/          # Logging & metrics
+│   │   └── ...                  # Other modules
 │   └── bin/daemon.dart          # Entry point
-├── plugins/                      # Plugin implementations
-├── web-ui/                       # Web dashboard
-├── mobile/                       # Mobile apps (iOS/Android)
-├── scripts/                      # Build and deployment
+├── opencli_app/                  # Flutter cross-platform app (PRIMARY CLIENT)
+│   ├── lib/
+│   │   ├── pages/               # UI pages (Chat, Status, Settings)
+│   │   ├── services/            # Services (Daemon, Ollama, Tray, Hotkey)
+│   │   └── widgets/             # Reusable widgets
+│   ├── android/                 # Android configuration
+│   ├── ios/                     # iOS configuration
+│   ├── macos/                   # macOS configuration
+│   ├── windows/                 # Windows configuration
+│   ├── linux/                   # Linux configuration
+│   └── web/                     # Web configuration
+├── cli/                          # Rust command-line interface
+├── web-ui/                       # React enterprise dashboard
+├── menubar-app/                  # Swift macOS menubar (Legacy - being deprecated)
+├── ide-plugins/                  # IDE integrations (IntelliJ, VSCode)
+├── cloud/                        # Cloud deployment configs
+├── scripts/                      # Build and automation scripts
 ├── tests/                        # Test suites
 ├── docs/                         # Documentation
 └── config/                       # Configuration examples

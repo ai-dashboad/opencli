@@ -1,0 +1,55 @@
+# Multi-Channel Configuration
+# Enable various messaging platforms to control your computer
+
+channels:
+  # Telegram Bot
+  telegram:
+    enabled: true
+    config:
+      # Get your bot token from @BotFather on Telegram
+      token: ${TELEGRAM_BOT_TOKEN}
+    # Whitelist of allowed Telegram user IDs
+    # Get your ID by messaging @userinfobot
+    allowed_users:
+      - "123456789"  # Replace with your Telegram user ID
+      - "987654321"  # Add more users as needed
+    # Max messages per minute
+    rate_limit: 30
+
+  # WhatsApp Bot (Coming soon)
+  whatsapp:
+    enabled: false
+    config:
+      api_key: ${WHATSAPP_API_KEY}
+      phone_number: "+1234567890"
+    allowed_users:
+      - "+1234567890"
+    rate_limit: 20
+
+  # Slack Bot (Coming soon)
+  slack:
+    enabled: false
+    config:
+      bot_token: ${SLACK_BOT_TOKEN}
+      signing_secret: ${SLACK_SIGNING_SECRET}
+      workspace_id: "T123ABC"
+    allowed_users:
+      - "U123ABC"  # Slack user IDs
+    rate_limit: 30
+
+  # Discord Bot (Coming soon)
+  discord:
+    enabled: false
+    config:
+      bot_token: ${DISCORD_BOT_TOKEN}
+      guild_id: "123456789"
+    allowed_users:
+      - "123456789"  # Discord user IDs
+    rate_limit: 30
+
+# Example usage:
+# 1. Create a Telegram bot: https://t.me/BotFather
+# 2. Get your bot token and add it to environment: export TELEGRAM_BOT_TOKEN="your-token"
+# 3. Get your user ID from @userinfobot and add it to allowed_users
+# 4. Restart OpenCLI daemon
+# 5. Send a message to your bot to control your computer!
