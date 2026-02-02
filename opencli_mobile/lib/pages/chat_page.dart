@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
 import '../models/chat_message.dart';
 import '../services/daemon_service.dart';
 import '../services/intent_recognizer.dart';
@@ -36,17 +37,26 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _initSpeech() async {
-    _speechAvailable = await _speech.initialize(
-      onStatus: (status) => setState(() => _isListening = status == 'listening'),
-      onError: (error) => _showError('语音识别错误: $error'),
-    );
+    // Request microphone permission
+    final status = await Permission.microphone.request();
+
+    if (status.isGranted) {
+      _speechAvailable = await _speech.initialize(
+        onStatus: (status) => setState(() => _isListening = status == 'listening'),
+        onError: (error) => _showError('Speech recognition error: $error'),
+      );
+    } else if (status.isPermanentlyDenied) {
+      _showError('Microphone permission permanently denied. Please enable it in settings.');
+    } else {
+      _showError('Microphone permission denied. Voice commands require microphone access.');
+    }
     setState(() {});
   }
 
   void _addWelcomeMessage() {
     final welcomeMsg = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: '你好！我是 OpenCLI 助手。\n\n你可以通过文字或语音告诉我要执行的操作，例如：\n\n• "截个屏"\n• "打开百度网站"\n• "搜索 Flutter 教程"\n• "获取系统信息"',
+      content: 'Hello! I\'m OpenCLI Assistant.\n\nYou can tell me what to do via text or voice, for example:\n\n• "Take a screenshot"\n• "Open Google"\n• "Search Flutter tutorial"\n• "Get system info"',
       isUser: false,
       timestamp: DateTime.now(),
       status: MessageStatus.delivered,
@@ -69,29 +79,29 @@ class _ChatPageState extends State<ChatPage> {
         );
 
         if (status == 'completed' && result != null && executingIndex != -1) {
-          // 检查是否是 AI 意图识别的结果
+          // Check if this is an AI intent recognition result
           if (result['intent'] != null && result['intent'] != 'unknown') {
-            // AI 识别成功，重新提交正确的任务
+            // AI recognition successful, submit the recognized task
             final intent = result['intent'] as String;
             final parameters = result['parameters'] as Map<String, dynamic>? ?? {};
 
             setState(() {
               _messages[executingIndex] = _messages[executingIndex].copyWith(
-                content: '🤖 已识别意图：$intent',
+                content: '🤖 Recognized intent: $intent',
                 status: MessageStatus.completed,
               );
             });
 
-            // 提交识别出的任务
+            // Submit the recognized task
             _submitRecognizedTask(intent, parameters);
           } else {
-            // 普通任务完成 - 保留原消息的 taskType
+            // Normal task completion - preserve original message taskType
             setState(() {
               _messages[executingIndex] = _messages[executingIndex].copyWith(
-                content: '✅ 任务完成',
+                content: '✅ Task completed',
                 status: MessageStatus.completed,
                 result: result,
-                // taskType 已经在原消息中，copyWith 会保留
+                // taskType is already in original message, copyWith preserves it
               );
             });
           }
@@ -100,7 +110,7 @@ class _ChatPageState extends State<ChatPage> {
           // Replace the executing message with error
           setState(() {
             _messages[executingIndex] = _messages[executingIndex].copyWith(
-              content: '❌ 任务失败: $error',
+              content: '❌ Task failed: $error',
               status: MessageStatus.failed,
             );
           });
@@ -110,33 +120,33 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  /// 提交 AI 识别出的任务
+  /// Submit AI-recognized task
   Future<void> _submitRecognizedTask(String intent, Map<String, dynamic> parameters, {String? originalInput}) async {
     final processingMsg = _getProcessingMessageForIntent(intent, parameters);
     _addAssistantMessage(processingMsg, status: MessageStatus.executing, taskType: intent);
 
     try {
-      // 添加用户原始输入到任务数据中
+      // Add user's original input to task data
       final taskData = Map<String, dynamic>.from(parameters);
       if (originalInput != null) {
         taskData['_user_input'] = originalInput;
       }
       await widget.daemonService.submitTask(intent, taskData);
     } catch (e) {
-      _addAssistantMessage('❌ 执行失败: $e', status: MessageStatus.failed);
+      _addAssistantMessage('❌ Execution failed: $e', status: MessageStatus.failed);
     }
   }
 
   String _getProcessingMessageForIntent(String intent, Map<String, dynamic> params) {
     switch (intent) {
       case 'open_app':
-        return '🚀 正在打开应用: ${params['app_name']}...';
+        return '🚀 Opening app: ${params['app_name']}...';
       case 'screenshot':
-        return '📸 正在截取屏幕...';
+        return '📸 Taking screenshot...';
       case 'system_info':
-        return '💻 正在获取系统信息...';
+        return '💻 Getting system info...';
       default:
-        return '⏳ 正在处理...';
+        return '⏳ Processing...';
     }
   }
 
@@ -194,41 +204,41 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _parseAndExecute(String input) async {
     try {
-      // 显示 AI 识别中的状态
-      _addAssistantMessage('🤖 正在理解您的指令...', status: MessageStatus.executing);
+      // Show AI recognition status
+      _addAssistantMessage('🤖 Understanding your command...', status: MessageStatus.executing);
 
-      // 使用 AI 驱动的意图识别引擎
+      // Use AI-powered intent recognition engine
       final recognizer = IntentRecognizer(widget.daemonService);
       final result = await recognizer.recognize(input);
 
-      // 移除 "识别中" 的消息
+      // Remove "recognizing" message
       if (_messages.isNotEmpty && !_messages.last.isUser) {
         setState(() {
           _messages.removeLast();
         });
       }
 
-      // 未识别或置信度太低
+      // Not recognized or confidence too low
       if (!result.isRecognized) {
-        final errorMsg = result.error ?? '无法理解指令';
+        final errorMsg = result.error ?? 'Unable to understand command';
         _addAssistantMessage(
-          '🤔 抱歉，我还不太理解这个指令。\n\n错误: $errorMsg\n\n可以尝试：\n• "截个屏"\n• "截取模拟器的图"\n• "打开 google.com"\n• "搜索 Flutter"\n• "获取系统信息"\n• "打开 Chrome"\n• "运行命令 ls"',
+          '🤔 Sorry, I don\'t understand this command yet.\n\nError: $errorMsg\n\nYou can try:\n• "Take a screenshot"\n• "Screenshot the simulator"\n• "Open google.com"\n• "Search Flutter"\n• "Get system info"\n• "Open Chrome"\n• "Run command ls"',
           status: MessageStatus.failed,
         );
         return;
       }
 
-      // 生成处理中的消息
+      // Generate processing message
       final processingMessage = _getProcessingMessage(result);
       _addAssistantMessage(
         processingMessage,
         status: MessageStatus.executing,
-        taskType: result.taskType, // 传递 taskType
+        taskType: result.taskType, // Pass taskType
       );
 
-      // 提交任务（实际的结果将通过 _listenToUpdates 接收）
+      // Submit task (actual result will be received via _listenToUpdates)
       if (result.taskType != null) {
-        // 添加用户原始输入到任务数据
+        // Add user's original input to task data
         final taskData = Map<String, dynamic>.from(result.taskData);
         taskData['_user_input'] = input;
 
@@ -238,47 +248,47 @@ class _ChatPageState extends State<ChatPage> {
         );
       }
     } catch (e) {
-      // 移除可能残留的 "识别中" 消息
+      // Remove any remaining "recognizing" message
       if (_messages.isNotEmpty &&
           !_messages.last.isUser &&
-          _messages.last.content.contains('正在理解')) {
+          _messages.last.content.contains('Understanding')) {
         setState(() {
           _messages.removeLast();
         });
       }
-      _addAssistantMessage('❌ 执行失败: $e', status: MessageStatus.failed);
+      _addAssistantMessage('❌ Execution failed: $e', status: MessageStatus.failed);
     }
   }
 
-  /// 根据意图生成处理消息
+  /// Generate processing message based on intent
   String _getProcessingMessage(IntentResult result) {
     switch (result.intent) {
       case 'screenshot':
-        return '📸 正在截取屏幕...';
+        return '📸 Taking screenshot...';
       case 'open_url':
-        return '🌐 正在打开网页: ${result.taskData['url']}...';
+        return '🌐 Opening webpage: ${result.taskData['url']}...';
       case 'web_search':
-        return '🔍 正在搜索: ${result.taskData['query']}...';
+        return '🔍 Searching: ${result.taskData['query']}...';
       case 'system_info':
-        return '💻 正在获取系统信息...';
+        return '💻 Getting system info...';
       case 'open_app':
-        return '🚀 正在打开应用: ${result.taskData['app_name']}...';
+        return '🚀 Opening app: ${result.taskData['app_name']}...';
       case 'close_app':
-        return '❌ 正在关闭应用: ${result.taskData['app_name']}...';
+        return '❌ Closing app: ${result.taskData['app_name']}...';
       case 'open_file':
-        return '📁 正在打开文件...';
+        return '📁 Opening file...';
       case 'run_command':
-        return '⚙️ 正在执行命令...';
+        return '⚙️ Executing command...';
       case 'ai_query':
-        return '🤖 正在思考...';
+        return '🤖 Thinking...';
       default:
-        return '⏳ 正在处理您的请求...';
+        return '⏳ Processing your request...';
     }
   }
 
   void _startListening() async {
     if (!_speechAvailable) {
-      _showError('语音识别不可用');
+      _showError('Speech recognition unavailable');
       return;
     }
 
@@ -290,10 +300,10 @@ class _ChatPageState extends State<ChatPage> {
               _textController.text = result.recognizedWords;
             });
           },
-          localeId: 'zh_CN',
+          localeId: 'en_US',
         );
       } catch (e) {
-        _showError('无法启动语音识别: $e');
+        _showError('Failed to start speech recognition: $e');
       }
     }
   }
@@ -302,7 +312,7 @@ class _ChatPageState extends State<ChatPage> {
     _speech.stop();
     setState(() => _isListening = false);
 
-    // 如果有识别结果，自动提交
+    // Auto-submit if there's recognized text
     if (_textController.text.isNotEmpty) {
       _handleSubmit(_textController.text);
     }
@@ -363,7 +373,7 @@ class _ChatPageState extends State<ChatPage> {
               child: TextField(
                 controller: _textController,
                 decoration: InputDecoration(
-                  hintText: _isListening ? '正在聆听...' : '输入指令或按住说话',
+                  hintText: _isListening ? 'Listening...' : 'Enter command or hold to speak',
                   filled: true,
                   fillColor: Theme.of(context).colorScheme.surfaceVariant,
                   border: OutlineInputBorder(
@@ -501,7 +511,7 @@ class _MessageBubble extends StatelessWidget {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              '❌ 图片加载失败',
+                                              '❌ Image load failed',
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.red,
@@ -544,7 +554,7 @@ class _MessageBubble extends StatelessWidget {
                                     ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '点击放大',
+                                    'Tap to zoom',
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Theme.of(context).colorScheme.primary,
@@ -573,7 +583,7 @@ class _MessageBubble extends StatelessWidget {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        '📸 截图保存在：',
+                                        '📸 Screenshot saved at:',
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 12,
@@ -612,7 +622,7 @@ class _MessageBubble extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '📊 结果：',
+                                  '📊 Result:',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
@@ -857,7 +867,7 @@ class _ImageViewerDialogState extends State<_ImageViewerDialog> {
               ),
               child: const Center(
                 child: Text(
-                  '双击放大 • 捏合缩放',
+                  'Double tap to zoom • Pinch to scale',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
