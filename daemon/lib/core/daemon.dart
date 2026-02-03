@@ -11,6 +11,7 @@ import 'package:opencli_daemon/mobile/mobile_task_handler.dart';
 import 'package:opencli_daemon/ui/status_server.dart';
 import 'package:opencli_daemon/ui/web_ui_launcher.dart';
 import 'package:opencli_daemon/ui/menubar_app_launcher.dart';
+import 'package:opencli_daemon/ui/terminal_ui.dart';
 import 'package:opencli_daemon/telemetry/telemetry.dart';
 
 class Daemon {
@@ -58,63 +59,76 @@ class Daemon {
   }
 
   Future<void> start() async {
+    TerminalUI.printSection('Initialization', emoji: '🚀');
+
     // Initialize telemetry first (for error tracking)
+    TerminalUI.printInitStep('Initializing telemetry');
     _telemetry = TelemetryManager(
       appVersion: version,
       deviceId: _deviceId,
     );
     await _telemetry.initialize();
-    print('📊 Telemetry initialized (consent: ${_telemetry.config.consent.name})');
+    TerminalUI.success('Telemetry initialized (consent: ${_telemetry.config.consent.name})', prefix: '  ✓');
 
     // Initialize plugin manager
+    TerminalUI.printInitStep('Loading plugins');
     _pluginManager = PluginManager(config);
     await _pluginManager.loadAll();
 
     // Initialize request router
+    TerminalUI.printInitStep('Setting up request router');
     _router = RequestRouter(_pluginManager);
 
     // Start IPC server
+    TerminalUI.printInitStep('Starting IPC server');
     _ipcServer = IpcServer(
       socketPath: config.socketPath,
       router: _router,
     );
     await _ipcServer.start();
+    TerminalUI.success('IPC server listening on ${config.socketPath}', prefix: '  ✓');
 
     // Start mobile WebSocket server
+    TerminalUI.printInitStep('Starting mobile WebSocket server');
     _mobileManager = MobileConnectionManager(
       port: 9876,
       authSecret: 'opencli-dev-secret',
     );
     await _mobileManager.start();
+    TerminalUI.success('Mobile connection server listening on port 9876', prefix: '  ✓');
 
     // Initialize mobile task handler
+    TerminalUI.printInitStep('Setting up mobile task handler');
     _mobileTaskHandler = MobileTaskHandler(
       connectionManager: _mobileManager,
     );
 
     // Initialize capability system for hot-updatable executors
+    TerminalUI.printInitStep('Initializing capability system');
     try {
       await _mobileTaskHandler.initializeCapabilities(
         autoUpdate: true,
       );
-      print('📦 Capability system initialized');
+      TerminalUI.success('Capability system initialized', prefix: '  ✓');
     } catch (e) {
-      print('⚠️  Capability system initialization failed: $e');
+      TerminalUI.warning('Capability system initialization failed: $e', prefix: '  ⚠');
       // Continue without capabilities - fall back to built-in executors
     }
 
     // Initialize permission system for secure remote control
+    TerminalUI.printInitStep('Initializing permission system');
     try {
       await _mobileTaskHandler.initializePermissions(
         pairingManager: _mobileManager.pairingManager,
       );
-      print('🔐 Permission system initialized');
+      TerminalUI.success('Permission system initialized', prefix: '  ✓');
     } catch (e) {
-      print('⚠️  Permission system initialization failed: $e');
+      TerminalUI.warning('Permission system initialization failed: $e', prefix: '  ⚠');
       // Continue without permission checks
     }
 
     // Start config watcher for hot-reload
+    TerminalUI.printInitStep('Starting config watcher');
     _configWatcher = ConfigWatcher(
       configPath: config.configPath,
       onConfigChanged: _handleConfigChanged,
@@ -122,6 +136,7 @@ class Daemon {
     await _configWatcher.start();
 
     // Start health monitor
+    TerminalUI.printInitStep('Starting health monitor');
     _healthMonitor = HealthMonitor(
       daemon: this,
       checkInterval: Duration(seconds: 30),
@@ -129,18 +144,20 @@ class Daemon {
     _healthMonitor.start();
 
     // Start status HTTP server for UI consumption
+    TerminalUI.printInitStep('Starting status HTTP server', last: true);
     _statusServer = StatusServer(
       connectionManager: _mobileManager,
       daemon: this,
       port: 9875,
     );
     await _statusServer.start();
+    TerminalUI.success('Status server listening on port 9875', prefix: '  ✓');
 
     // Auto-start Web UI (optional, can be disabled via config)
     final autoStartWebUI = Platform.environment['OPENCLI_AUTO_START_WEB_UI'] != 'false';
     if (autoStartWebUI) {
-      print('');
-      print('🌐 Auto-starting Web UI...');
+      TerminalUI.printSection('Optional Services', emoji: '🌟');
+      TerminalUI.info('Auto-starting Web UI...', prefix: '🌐');
       final projectRoot = _findProjectRoot();
       if (projectRoot != null) {
         _webUILauncher = WebUILauncher(
@@ -154,29 +171,51 @@ class Daemon {
     // Auto-start menubar app on macOS (optional)
     final autoStartMenubar = Platform.environment['OPENCLI_AUTO_START_MENUBAR'] != 'false';
     if (autoStartMenubar && Platform.isMacOS) {
-      print('');
-      print('📍 Starting menubar app...');
+      if (!autoStartWebUI) {
+        TerminalUI.printSection('Optional Services', emoji: '🌟');
+      }
+      TerminalUI.info('Starting menubar app...', prefix: '📍');
       _menubarLauncher = MenubarAppLauncher(
         statusUrl: 'http://localhost:9875/status',
       );
       await _menubarLauncher!.start();
     }
 
-    print('');
-    print('✓ All services started!');
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('📊 Available Interfaces:');
-    print('  • Status API:  http://localhost:9875/status');
-    if (_webUILauncher?.isRunning ?? false) {
-      print('  • Web UI:      http://localhost:3000');
-    }
-    print('  • Mobile:      ws://localhost:9876');
-    print('  • IPC Socket:  ${config.socketPath}');
-    if (_menubarLauncher?.isRunning ?? false) {
-      print('  • Menubar:     Running in macOS taskbar');
-    }
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('');
+    // Print summary of all services
+    final services = [
+      {
+        'name': 'Status API',
+        'url': 'http://localhost:9875/status',
+        'icon': '📊',
+        'enabled': true,
+      },
+      {
+        'name': 'Web UI',
+        'url': 'http://localhost:3000',
+        'icon': '🌐',
+        'enabled': _webUILauncher?.isRunning ?? false,
+      },
+      {
+        'name': 'Mobile',
+        'url': 'ws://localhost:9876',
+        'icon': '📱',
+        'enabled': true,
+      },
+      {
+        'name': 'IPC Socket',
+        'url': config.socketPath,
+        'icon': '🔌',
+        'enabled': true,
+      },
+      {
+        'name': 'Menubar App',
+        'url': 'Running in macOS taskbar',
+        'icon': '📍',
+        'enabled': _menubarLauncher?.isRunning ?? false,
+      },
+    ];
+
+    TerminalUI.printServices(services);
   }
 
   String? _findProjectRoot() {
@@ -191,27 +230,49 @@ class Daemon {
         dir = dir.parent;
       }
     } catch (e) {
-      print('⚠️  Could not find project root: $e');
+      TerminalUI.warning('Could not find project root: $e', prefix: '  ⚠');
     }
     return null;
   }
 
   Future<void> stop() async {
-    print('Stopping daemon...');
+    TerminalUI.printSection('Shutdown', emoji: '🛑');
 
+    TerminalUI.printInitStep('Stopping Web UI');
     await _webUILauncher?.stop();
+
+    TerminalUI.printInitStep('Stopping Menubar app');
     await _menubarLauncher?.stop();
+
+    TerminalUI.printInitStep('Stopping status server');
     await _statusServer.stop();
+
+    TerminalUI.printInitStep('Stopping health monitor');
     await _healthMonitor.stop();
+
+    TerminalUI.printInitStep('Stopping config watcher');
     await _configWatcher.stop();
+
+    TerminalUI.printInitStep('Stopping mobile connection manager');
     await _mobileManager.stop();
+
+    TerminalUI.printInitStep('Stopping IPC server');
     await _ipcServer.stop();
+
+    TerminalUI.printInitStep('Unloading plugins');
     await _pluginManager.unloadAll();
+
+    TerminalUI.printInitStep('Disposing task handler');
     _mobileTaskHandler.dispose();
+
+    TerminalUI.printInitStep('Disposing telemetry', last: true);
     _telemetry.dispose();
 
     _exitSignal.complete();
-    print('✓ Daemon stopped');
+
+    print('');
+    TerminalUI.success('Daemon stopped gracefully', prefix: '👋');
+    print('');
   }
 
   /// Get telemetry manager for error reporting
@@ -220,8 +281,9 @@ class Daemon {
   Future<void> wait() => _exitSignal.future;
 
   Future<void> _handleConfigChanged(Config newConfig) async {
-    print('Configuration changed, reloading...');
+    TerminalUI.info('Configuration changed, reloading...', prefix: '🔄');
     await _pluginManager.reload(newConfig);
+    TerminalUI.success('Configuration reloaded', prefix: '✓');
   }
 
   Map<String, dynamic> getStats() {

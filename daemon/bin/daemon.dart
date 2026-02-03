@@ -1,14 +1,19 @@
 import 'dart:io';
 import 'package:opencli_daemon/core/daemon.dart';
 import 'package:opencli_daemon/core/config.dart';
+import 'package:opencli_daemon/ui/terminal_ui.dart';
 
 Future<void> main(List<String> arguments) async {
-  print('OpenCLI Daemon v0.1.0');
-  print('Starting daemon...');
+  // 打印启动横幅
+  TerminalUI.printBanner('OpenCLI Daemon', 'v${Daemon.version}');
+
+  TerminalUI.info('Initializing daemon...', prefix: '⚙');
 
   try {
     // Load configuration
+    TerminalUI.progress('Loading configuration');
     final config = await Config.load();
+    TerminalUI.progressDone();
 
     // Initialize daemon
     final daemon = Daemon(config);
@@ -16,19 +21,23 @@ Future<void> main(List<String> arguments) async {
     // Start daemon
     await daemon.start();
 
-    print('✓ Daemon started successfully');
-    print('  Socket: ${config.socketPath}');
-    print('  PID: ${pid}');
+    TerminalUI.printDivider(width: 60);
+    TerminalUI.success('Daemon started successfully', prefix: '🎉');
+    TerminalUI.printKeyValue('Socket', config.socketPath);
+    TerminalUI.printKeyValue('PID', pid.toString());
+    TerminalUI.printDivider(width: 60);
+
+    TerminalUI.printWelcome();
 
     // Handle shutdown signals
     ProcessSignal.sigterm.watch().listen((_) async {
-      print('\nReceived SIGTERM, shutting down...');
+      TerminalUI.printShutdown();
       await daemon.stop();
       exit(0);
     });
 
     ProcessSignal.sigint.watch().listen((_) async {
-      print('\nReceived SIGINT, shutting down...');
+      TerminalUI.printShutdown();
       await daemon.stop();
       exit(0);
     });
@@ -37,8 +46,8 @@ Future<void> main(List<String> arguments) async {
     await daemon.wait();
 
   } catch (e, stack) {
-    print('Fatal error: $e');
-    print(stack);
+    TerminalUI.error('Fatal error: $e');
+    print(TerminalUI.dim(stack.toString()));
     exit(1);
   }
 }
