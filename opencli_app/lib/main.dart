@@ -100,7 +100,7 @@ class MacOSHomePage extends StatefulWidget {
   State<MacOSHomePage> createState() => _MacOSHomePageState();
 }
 
-class _MacOSHomePageState extends State<MacOSHomePage> {
+class _MacOSHomePageState extends State<MacOSHomePage> with WindowListener {
   int _selectedIndex = 0;
   final DaemonService _daemonService = DaemonService();
 
@@ -114,6 +114,7 @@ class _MacOSHomePageState extends State<MacOSHomePage> {
   @override
   void initState() {
     super.initState();
+    windowManager.addListener(this);
     _initDesktopServices();
     _connectToDaemon();
   }
@@ -122,6 +123,13 @@ class _MacOSHomePageState extends State<MacOSHomePage> {
     _trayService.init();
     await _hotkeyService.init();
     await _startupService.init();
+  }
+
+  @override
+  void onWindowClose() async {
+    // 关闭窗口时不退出应用，只是隐藏窗口
+    // 托盘图标会继续显示，用户可以通过托盘重新打开窗口
+    await windowManager.hide();
   }
 
   Future<void> _connectToDaemon() async {
@@ -137,6 +145,7 @@ class _MacOSHomePageState extends State<MacOSHomePage> {
 
   @override
   void dispose() {
+    windowManager.removeListener(this);
     _trayService.dispose();
     _hotkeyService.dispose();
     _daemonService.dispose();
@@ -263,7 +272,7 @@ class MaterialHomePage extends StatefulWidget {
   State<MaterialHomePage> createState() => _MaterialHomePageState();
 }
 
-class _MaterialHomePageState extends State<MaterialHomePage> {
+class _MaterialHomePageState extends State<MaterialHomePage> with WindowListener {
   int _selectedIndex = 0;
   final DaemonService _daemonService = DaemonService();
 
@@ -283,6 +292,9 @@ class _MaterialHomePageState extends State<MaterialHomePage> {
   @override
   void initState() {
     super.initState();
+    if (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+      windowManager.addListener(this);
+    }
     _initDesktopServices();
     _connectToDaemon();
   }
@@ -291,6 +303,12 @@ class _MaterialHomePageState extends State<MaterialHomePage> {
     _trayService?.init();
     await _hotkeyService?.init();
     await _startupService?.init();
+  }
+
+  @override
+  void onWindowClose() async {
+    // 关闭窗口时不退出应用，只是隐藏窗口
+    await windowManager.hide();
   }
 
   Future<void> _connectToDaemon() async {
@@ -321,6 +339,9 @@ class _MaterialHomePageState extends State<MaterialHomePage> {
 
   @override
   void dispose() {
+    if (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+      windowManager.removeListener(this);
+    }
     _trayService?.dispose();
     _hotkeyService?.dispose();
     _daemonService.dispose();
