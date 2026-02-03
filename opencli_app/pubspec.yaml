@@ -58,7 +58,7 @@ dependencies:
   permission_handler: ^11.3.1
 
   # Desktop-specific features
-  tray_manager: ^0.2.3              # System tray support (macOS/Windows/Linux)
+  tray_manager: ^0.5.2              # System tray support (macOS/Windows/Linux)
   window_manager: ^0.4.2            # Window management
   launch_at_startup: ^0.3.1         # Auto-start on boot
   screen_retriever: ^0.2.0          # Screen information

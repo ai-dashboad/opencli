@@ -29,24 +29,33 @@ class TrayService with TrayListener {
   /// 初始化系统托盘
   Future<void> init() async {
     try {
+      debugPrint('🚀 Initializing system tray...');
+
       // 设置托盘监听器
+      debugPrint('   📝 Registering tray listener...');
       trayManager.addListener(this);
+      debugPrint('   ✅ Tray listener registered successfully');
 
       // 设置托盘图标
+      debugPrint('   🎨 Setting tray icon...');
       await _setTrayIcon();
 
       // 设置工具提示
       await trayManager.setToolTip('OpenCLI - Initializing...');
 
       // 创建托盘菜单
+      debugPrint('   📋 Creating tray menu...');
       await _updateTrayMenu();
 
       // 开始定期更新状态
+      debugPrint('   ⏰ Starting status updates...');
       _startStatusUpdates();
 
       debugPrint('✅ System tray initialized successfully');
+      debugPrint('   ℹ️  Listener type: $runtimeType');
     } catch (e) {
       debugPrint('⚠️  Failed to initialize system tray: $e');
+      debugPrint('   Stack trace: ${StackTrace.current}');
     }
   }
 
@@ -221,6 +230,7 @@ class TrayService with TrayListener {
   /// 托盘图标点击事件
   @override
   void onTrayIconMouseDown() {
+    debugPrint('🖱️  Tray icon LEFT click detected');
     // 在 Windows 上，左键点击显示菜单
     if (Platform.isWindows) {
       trayManager.popUpContextMenu();
@@ -230,6 +240,7 @@ class TrayService with TrayListener {
   /// 托盘图标右键点击事件
   @override
   void onTrayIconRightMouseDown() {
+    debugPrint('🖱️  Tray icon RIGHT click detected');
     // 在 macOS 和 Linux 上，右键点击显示菜单
     trayManager.popUpContextMenu();
   }
@@ -237,25 +248,37 @@ class TrayService with TrayListener {
   /// 托盘菜单项点击事件
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
+    debugPrint('🔔 TRAY MENU CLICK DETECTED!');
+    debugPrint('   - Menu item key: ${menuItem.key}');
+    debugPrint('   - Menu item label: ${menuItem.label}');
+
     switch (menuItem.key) {
       case 'ai_models':
+        debugPrint('   ➜ Executing: AI Models');
         _openAIModels();
         break;
       case 'dashboard':
+        debugPrint('   ➜ Executing: Dashboard');
         _openDashboard();
         break;
       case 'webui':
+        debugPrint('   ➜ Executing: Web UI');
         _openWebUI();
         break;
       case 'settings':
+        debugPrint('   ➜ Executing: Settings');
         _openSettings();
         break;
       case 'refresh':
+        debugPrint('   ➜ Executing: Refresh');
         _refresh();
         break;
       case 'quit':
+        debugPrint('   ➜ Executing: Quit');
         _quit();
         break;
+      default:
+        debugPrint('   ⚠️  Unknown menu item: ${menuItem.key}');
     }
   }
 
