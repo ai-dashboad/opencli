@@ -87,9 +87,12 @@ class TrayService with TrayListener {
   /// 更新 Daemon 状态
   Future<void> _updateDaemonStatus() async {
     try {
+      debugPrint('📡 Fetching daemon status from $_daemonStatusUrl');
       final response = await http.get(
         Uri.parse(_daemonStatusUrl),
       ).timeout(const Duration(seconds: 2));
+
+      debugPrint('📊 Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -102,6 +105,8 @@ class TrayService with TrayListener {
         _memoryMb = (daemon['memory_mb'] as num?)?.toDouble() ?? 0.0;
         _mobileClients = mobile['connected_clients'] as int? ?? 0;
 
+        debugPrint('✅ Status updated: v$_version, uptime: $_uptimeSeconds s, memory: $_memoryMb MB');
+
         // 更新托盘工具提示
         await trayManager.setToolTip(
           'OpenCLI - Running\n'
@@ -112,9 +117,11 @@ class TrayService with TrayListener {
         // 更新托盘菜单
         await _updateTrayMenu();
       } else {
+        debugPrint('❌ Unexpected status code: ${response.statusCode}');
         _handleDaemonOffline();
       }
     } catch (e) {
+      debugPrint('❌ Failed to fetch daemon status: $e');
       _handleDaemonOffline();
     }
   }
@@ -128,68 +135,65 @@ class TrayService with TrayListener {
 
   /// 更新托盘菜单
   Future<void> _updateTrayMenu() async {
-    final statusIcon = _isRunning ? '🟢' : '🔴';
+    final statusIcon = _isRunning ? '●' : '○';
     final statusText = _isRunning ? 'Running' : 'Offline';
 
     final menu = Menu(items: [
-      // 标题和状态
+      // 标题 - 更简洁的设计
       MenuItem(
         key: 'header',
-        label: '$statusIcon OpenCLI - $statusText',
+        label: 'OpenCLI  $statusIcon $statusText',
         disabled: true,
       ),
       MenuItem.separator(),
 
-      // 状态信息
-      MenuItem(
-        key: 'version',
-        label: 'Version: $_version',
-        disabled: true,
-      ),
-      MenuItem(
-        key: 'uptime',
-        label: '⏱️  Uptime: $uptimeFormatted',
-        disabled: true,
-      ),
-      MenuItem(
-        key: 'memory',
-        label: '💾 Memory: $memoryFormatted',
-        disabled: true,
-      ),
-      MenuItem(
-        key: 'clients',
-        label: '📱 Mobile Clients: $_mobileClients',
-        disabled: true,
-      ),
+      // 状态信息 - 精简布局
+      if (_isRunning) ...[
+        MenuItem(
+          key: 'version',
+          label: '  v$_version  ·  ↑ $uptimeFormatted  ·  💾 $memoryFormatted',
+          disabled: true,
+        ),
+        MenuItem(
+          key: 'clients',
+          label: '  📱 $_mobileClients ${_mobileClients == 1 ? "client" : "clients"} connected',
+          disabled: true,
+        ),
+      ] else ...[
+        MenuItem(
+          key: 'status_offline',
+          label: '  Daemon not responding...',
+          disabled: true,
+        ),
+      ],
       MenuItem.separator(),
 
-      // 操作菜单
+      // 操作菜单 - 使用 SF Symbols 风格
       MenuItem(
         key: 'ai_models',
-        label: '🤖 AI Models',
+        label: '🧠  AI Models',
       ),
       MenuItem(
         key: 'dashboard',
-        label: '📊 Open Dashboard',
+        label: '📈  Dashboard',
       ),
       MenuItem(
         key: 'webui',
-        label: '🌐 Open Web UI',
-      ),
-      MenuItem(
-        key: 'settings',
-        label: '⚙️  Settings',
+        label: '🌐  Web UI',
       ),
       MenuItem.separator(),
-
-      // 刷新和退出
       MenuItem(
-        key: 'refresh',
-        label: '♻️  Refresh',
+        key: 'settings',
+        label: '⚙️   Settings',
       ),
       MenuItem(
+        key: 'refresh',
+        label: '🔄  Refresh Status',
+      ),
+      MenuItem.separator(),
+      MenuItem(
         key: 'quit',
-        label: '❌ Quit OpenCLI',
+        label: '⏻  Quit',
       ),
     ]);
 
