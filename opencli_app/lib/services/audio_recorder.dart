@@ -1,15 +1,26 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:record/record.dart';
+// import 'package:record/record.dart';  // Temporarily disabled due to record_linux compatibility
 import 'package:permission_handler/permission_handler.dart';
 
 /// 音频录制服务 - 录制音频并发送到 Mac 进行识别
+///
+/// ⚠️  Note: Audio recording is temporarily disabled due to record_linux package
+/// compatibility issues. This is a stub implementation that throws UnimplementedError.
+///
+/// TODO: Re-enable once record_linux package is fixed or find alternative solution
 class AudioRecorderService {
-  final AudioRecorder _recorder = AudioRecorder();
+  // final AudioRecorder _recorder = AudioRecorder();  // Disabled
   String? _currentRecordingPath;
 
   /// 开始录音
   Future<void> startRecording() async {
+    throw UnimplementedError(
+      'Audio recording is temporarily disabled due to record_linux package issues. '
+      'Please use text input instead.'
+    );
+
+    /* Original implementation - disabled
     // Check microphone permission
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
@@ -28,10 +39,16 @@ class AudioRecorderService {
       ),
       path: _currentRecordingPath!,
     );
+    */
   }
 
   /// 停止录音并返回音频数据
   Future<Map<String, dynamic>> stopRecording() async {
+    throw UnimplementedError(
+      'Audio recording is temporarily disabled due to record_linux package issues.'
+    );
+
+    /* Original implementation - disabled
     final path = await _recorder.stop();
 
     if (path == null) {
@@ -54,10 +71,15 @@ class AudioRecorderService {
       'sample_rate': 16000,
       'duration_ms': await _getAudioDuration(path),
     };
+    */
   }
 
   /// 取消录音
   Future<void> cancelRecording() async {
+    // No-op since recording is disabled
+    return;
+
+    /* Original implementation - disabled
     await _recorder.stop();
     if (_currentRecordingPath != null) {
       final file = File(_currentRecordingPath!);
@@ -65,6 +87,7 @@ class AudioRecorderService {
         await file.delete();
       }
     }
+    */
   }
 
   /// 获取音频时长（毫秒）
@@ -75,10 +98,18 @@ class AudioRecorderService {
 
   /// 检查是否正在录音
   Future<bool> isRecording() async {
+    return false;  // Always return false since recording is disabled
+
+    /* Original implementation - disabled
     return await _recorder.isRecording();
+    */
   }
 
   void dispose() {
+    // No-op since recording is disabled
+
+    /* Original implementation - disabled
     _recorder.dispose();
+    */
   }
 }
