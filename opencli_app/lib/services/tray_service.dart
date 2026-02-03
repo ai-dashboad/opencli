@@ -1,43 +1,325 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-/// Service to handle system tray events
+/// 跨平台系统托盘服务
+/// 支持 macOS (菜单栏)、Windows (系统托盘)、Linux (系统托盘)
 class TrayService with TrayListener {
-  /// Initialize the tray service
-  void init() {
-    trayManager.addListener(this);
+  static const String _daemonStatusUrl = 'http://localhost:9875/status';
+  Timer? _statusUpdateTimer;
+
+  // Daemon 状态
+  bool _isRunning = false;
+  String _version = '0.0.0';
+  int _uptimeSeconds = 0;
+  double _memoryMb = 0.0;
+  int _mobileClients = 0;
+
+  // Getters
+  bool get isRunning => _isRunning;
+  String get version => _version;
+  String get uptimeFormatted => _formatUptime(_uptimeSeconds);
+  String get memoryFormatted => '${_memoryMb.toStringAsFixed(1)} MB';
+  int get mobileClients => _mobileClients;
+
+  /// 初始化系统托盘
+  Future<void> init() async {
+    try {
+      // 设置托盘监听器
+      trayManager.addListener(this);
+
+      // 设置托盘图标
+      await _setTrayIcon();
+
+      // 设置工具提示
+      await trayManager.setToolTip('OpenCLI - Initializing...');
+
+      // 创建托盘菜单
+      await _updateTrayMenu();
+
+      // 开始定期更新状态
+      _startStatusUpdates();
+
+      debugPrint('✅ System tray initialized successfully');
+    } catch (e) {
+      debugPrint('⚠️  Failed to initialize system tray: $e');
+    }
   }
 
-  /// Dispose the tray service
-  void dispose() {
-    trayManager.removeListener(this);
+  /// 设置托盘图标
+  Future<void> _setTrayIcon() async {
+    String iconPath;
+
+    if (Platform.isMacOS) {
+      // macOS 使用模板图标（自动适配深色模式）
+      iconPath = 'assets/tray_icon_macos_template.png';
+    } else if (Platform.isWindows) {
+      iconPath = 'assets/tray_icon_windows.ico';
+    } else {
+      // Linux
+      iconPath = 'assets/tray_icon_linux.png';
+    }
+
+    try {
+      await trayManager.setIcon(iconPath);
+    } catch (e) {
+      debugPrint('⚠️  Failed to set tray icon: $e');
+      // 如果图标加载失败，继续运行（使用默认图标）
+    }
   }
 
+  /// 开始定期更新状态
+  void _startStatusUpdates() {
+    // 立即更新一次
+    _updateDaemonStatus();
+
+    // 每 3 秒更新一次
+    _statusUpdateTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _updateDaemonStatus(),
+    );
+  }
+
+  /// 更新 Daemon 状态
+  Future<void> _updateDaemonStatus() async {
+    try {
+      final response = await http.get(
+        Uri.parse(_daemonStatusUrl),
+      ).timeout(const Duration(seconds: 2));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final daemon = data['daemon'] as Map<String, dynamic>;
+        final mobile = data['mobile'] as Map<String, dynamic>;
+
+        _isRunning = true;
+        _version = daemon['version'] as String? ?? '0.0.0';
+        _uptimeSeconds = daemon['uptime_seconds'] as int? ?? 0;
+        _memoryMb = (daemon['memory_mb'] as num?)?.toDouble() ?? 0.0;
+        _mobileClients = mobile['connected_clients'] as int? ?? 0;
+
+        // 更新托盘工具提示
+        await trayManager.setToolTip(
+          'OpenCLI - Running\n'
+          'Uptime: $uptimeFormatted\n'
+          'Memory: $memoryFormatted'
+        );
+
+        // 更新托盘菜单
+        await _updateTrayMenu();
+      } else {
+        _handleDaemonOffline();
+      }
+    } catch (e) {
+      _handleDaemonOffline();
+    }
+  }
+
+  /// 处理 Daemon 离线状态
+  void _handleDaemonOffline() {
+    _isRunning = false;
+    trayManager.setToolTip('OpenCLI - Daemon Offline');
+    _updateTrayMenu();
+  }
+
+  /// 更新托盘菜单
+  Future<void> _updateTrayMenu() async {
+    final statusIcon = _isRunning ? '🟢' : '🔴';
+    final statusText = _isRunning ? 'Running' : 'Offline';
+
+    final menu = Menu(items: [
+      // 标题和状态
+      MenuItem(
+        key: 'header',
+        label: '$statusIcon OpenCLI - $statusText',
+        disabled: true,
+      ),
+      MenuItem.separator(),
+
+      // 状态信息
+      MenuItem(
+        key: 'version',
+        label: 'Version: $_version',
+        disabled: true,
+      ),
+      MenuItem(
+        key: 'uptime',
+        label: '⏱️  Uptime: $uptimeFormatted',
+        disabled: true,
+      ),
+      MenuItem(
+        key: 'memory',
+        label: '💾 Memory: $memoryFormatted',
+        disabled: true,
+      ),
+      MenuItem(
+        key: 'clients',
+        label: '📱 Mobile Clients: $_mobileClients',
+        disabled: true,
+      ),
+      MenuItem.separator(),
+
+      // 操作菜单
+      MenuItem(
+        key: 'ai_models',
+        label: '🤖 AI Models',
+      ),
+      MenuItem(
+        key: 'dashboard',
+        label: '📊 Open Dashboard',
+      ),
+      MenuItem(
+        key: 'webui',
+        label: '🌐 Open Web UI',
+      ),
+      MenuItem(
+        key: 'settings',
+        label: '⚙️  Settings',
+      ),
+      MenuItem.separator(),
+
+      // 刷新和退出
+      MenuItem(
+        key: 'refresh',
+        label: '♻️  Refresh',
+      ),
+      MenuItem(
+        key: 'quit',
+        label: '❌ Quit OpenCLI',
+      ),
+    ]);
+
+    await trayManager.setContextMenu(menu);
+  }
+
+  /// 格式化运行时间
+  String _formatUptime(int seconds) {
+    if (seconds < 60) {
+      return '${seconds}s';
+    } else if (seconds < 3600) {
+      final mins = seconds ~/ 60;
+      return '${mins}m';
+    } else if (seconds < 86400) {
+      final hours = seconds ~/ 3600;
+      final mins = (seconds % 3600) ~/ 60;
+      return '${hours}h ${mins}m';
+    } else {
+      final days = seconds ~/ 86400;
+      final hours = (seconds % 86400) ~/ 3600;
+      return '${days}d ${hours}h';
+    }
+  }
+
+  /// 托盘图标点击事件
   @override
   void onTrayIconMouseDown() {
-    // Show window when tray icon is clicked
-    windowManager.show();
-    windowManager.focus();
+    // 在 Windows 上，左键点击显示菜单
+    if (Platform.isWindows) {
+      trayManager.popUpContextMenu();
+    }
   }
 
+  /// 托盘图标右键点击事件
   @override
   void onTrayIconRightMouseDown() {
-    // Show context menu on right-click
+    // 在 macOS 和 Linux 上，右键点击显示菜单
     trayManager.popUpContextMenu();
   }
 
+  /// 托盘菜单项点击事件
   @override
-  void onTrayMenuItemClick(MenuItem menuItem) async {
+  void onTrayMenuItemClick(MenuItem menuItem) {
     switch (menuItem.key) {
-      case 'show':
-        // Show and focus the window
-        await windowManager.show();
-        await windowManager.focus();
+      case 'ai_models':
+        _openAIModels();
         break;
-      case 'exit':
-        // Exit the application
-        await windowManager.destroy();
+      case 'dashboard':
+        _openDashboard();
+        break;
+      case 'webui':
+        _openWebUI();
+        break;
+      case 'settings':
+        _openSettings();
+        break;
+      case 'refresh':
+        _refresh();
+        break;
+      case 'quit':
+        _quit();
         break;
     }
+  }
+
+  /// 打开 AI Models
+  void _openAIModels() {
+    debugPrint('📍 Opening AI Models...');
+    _showMainWindow();
+  }
+
+  /// 打开 Dashboard
+  void _openDashboard() {
+    debugPrint('📍 Opening Dashboard...');
+    _openUrl('http://localhost:3000/dashboard');
+  }
+
+  /// 打开 Web UI
+  void _openWebUI() {
+    debugPrint('📍 Opening Web UI...');
+    _openUrl('http://localhost:3000');
+  }
+
+  /// 打开设置
+  void _openSettings() {
+    debugPrint('📍 Opening Settings...');
+    _showMainWindow();
+  }
+
+  /// 刷新状态
+  void _refresh() {
+    debugPrint('♻️  Refreshing status...');
+    _updateDaemonStatus();
+  }
+
+  /// 退出应用
+  void _quit() {
+    debugPrint('👋 Quitting OpenCLI...');
+    _cleanup();
+    exit(0);
+  }
+
+  /// 显示主窗口
+  Future<void> _showMainWindow() async {
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
+  /// 打开 URL
+  void _openUrl(String url) {
+    debugPrint('🌐 Opening URL: $url');
+
+    if (Platform.isMacOS) {
+      Process.run('open', [url]);
+    } else if (Platform.isWindows) {
+      Process.run('cmd', ['/c', 'start', url]);
+    } else {
+      Process.run('xdg-open', [url]);
+    }
+  }
+
+  /// 清理资源
+  void _cleanup() {
+    _statusUpdateTimer?.cancel();
+    trayManager.removeListener(this);
+    trayManager.destroy();
+  }
+
+  /// 销毁服务
+  void dispose() {
+    _cleanup();
   }
 }

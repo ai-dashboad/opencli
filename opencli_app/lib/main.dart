@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:tray_manager/tray_manager.dart';
 import 'services/daemon_service.dart';
 import 'services/tray_service.dart';
 import 'services/hotkey_service.dart';
@@ -48,46 +47,7 @@ Future<void> _initDesktopFeatures() async {
     await windowManager.focus();
   });
 
-  // System tray setup
-  await _initSystemTray();
-}
-
-/// Initialize system tray icon and menu
-Future<void> _initSystemTray() async {
-  // Set tray icon based on platform
-  String iconPath;
-  if (Platform.isMacOS) {
-    iconPath = 'assets/tray_icon_macos.png';
-  } else if (Platform.isWindows) {
-    iconPath = 'assets/tray_icon_windows.ico';
-  } else {
-    iconPath = 'assets/tray_icon_linux.png';
-  }
-
-  // Note: Icon files need to be added to assets
-  try {
-    await trayManager.setIcon(iconPath);
-  } catch (e) {
-    debugPrint('Failed to set tray icon: $e');
-  }
-
-  // Set tray menu
-  Menu menu = Menu(
-    items: [
-      MenuItem(
-        key: 'show',
-        label: 'Show OpenCLI',
-      ),
-      MenuItem.separator(),
-      MenuItem(
-        key: 'exit',
-        label: 'Exit',
-      ),
-    ],
-  );
-
-  await trayManager.setContextMenu(menu);
-  await trayManager.setToolTip('OpenCLI - AI Task Orchestration');
+  // Note: System tray is initialized by TrayService in the main widget
 }
 
 class OpenCLIApp extends StatelessWidget {

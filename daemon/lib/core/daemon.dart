@@ -10,7 +10,6 @@ import 'package:opencli_daemon/mobile/mobile_connection_manager.dart';
 import 'package:opencli_daemon/mobile/mobile_task_handler.dart';
 import 'package:opencli_daemon/ui/status_server.dart';
 import 'package:opencli_daemon/ui/web_ui_launcher.dart';
-import 'package:opencli_daemon/ui/menubar_app_launcher.dart';
 import 'package:opencli_daemon/ui/terminal_ui.dart';
 import 'package:opencli_daemon/telemetry/telemetry.dart';
 
@@ -28,7 +27,6 @@ class Daemon {
   late final StatusServer _statusServer;
   late final TelemetryManager _telemetry;
   WebUILauncher? _webUILauncher;
-  MenubarAppLauncher? _menubarLauncher;
 
   final Completer<void> _exitSignal = Completer<void>();
   late final String _deviceId;
@@ -168,19 +166,6 @@ class Daemon {
       }
     }
 
-    // Auto-start menubar app on macOS (optional)
-    final autoStartMenubar = Platform.environment['OPENCLI_AUTO_START_MENUBAR'] != 'false';
-    if (autoStartMenubar && Platform.isMacOS) {
-      if (!autoStartWebUI) {
-        TerminalUI.printSection('Optional Services', emoji: '🌟');
-      }
-      TerminalUI.info('Starting menubar app...', prefix: '📍');
-      _menubarLauncher = MenubarAppLauncher(
-        statusUrl: 'http://localhost:9875/status',
-      );
-      await _menubarLauncher!.start();
-    }
-
     // Print summary of all services
     final services = [
       {
@@ -206,12 +191,6 @@ class Daemon {
         'url': config.socketPath,
         'icon': '🔌',
         'enabled': true,
-      },
-      {
-        'name': 'Menubar App',
-        'url': 'Running in macOS taskbar',
-        'icon': '📍',
-        'enabled': _menubarLauncher?.isRunning ?? false,
       },
     ];
 
@@ -240,9 +219,6 @@ class Daemon {
 
     TerminalUI.printInitStep('Stopping Web UI');
     await _webUILauncher?.stop();
-
-    TerminalUI.printInitStep('Stopping Menubar app');
-    await _menubarLauncher?.stop();
 
     TerminalUI.printInitStep('Stopping status server');
     await _statusServer.stop();
