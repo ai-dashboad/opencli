@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:macos_ui/macos_ui.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:tray_manager/tray_manager.dart';
 import 'services/daemon_service.dart';
 import 'services/tray_service.dart';
 import 'services/hotkey_service.dart';
@@ -100,7 +101,7 @@ class MacOSHomePage extends StatefulWidget {
   State<MacOSHomePage> createState() => _MacOSHomePageState();
 }
 
-class _MacOSHomePageState extends State<MacOSHomePage> with WindowListener {
+class _MacOSHomePageState extends State<MacOSHomePage> with WindowListener, TrayListener {
   int _selectedIndex = 0;
   final DaemonService _daemonService = DaemonService();
 
@@ -115,12 +116,14 @@ class _MacOSHomePageState extends State<MacOSHomePage> with WindowListener {
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    trayManager.addListener(this); // Register tray listener on State
     _initDesktopServices();
     _connectToDaemon();
   }
 
   Future<void> _initDesktopServices() async {
-    _trayService.init();
+    // Initialize tray service (without TrayListener, we handle it here)
+    await _trayService.initWithoutListener();
     await _hotkeyService.init();
     await _startupService.init();
   }
@@ -143,9 +146,34 @@ class _MacOSHomePageState extends State<MacOSHomePage> with WindowListener {
     }
   }
 
+  // ========== TrayListener callbacks ==========
+  @override
+  void onTrayIconMouseDown() {
+    debugPrint('🖱️  [State] Tray icon LEFT click detected');
+    if (Platform.isWindows) {
+      trayManager.popUpContextMenu();
+    }
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    debugPrint('🖱️  [State] Tray icon RIGHT click detected');
+    trayManager.popUpContextMenu();
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) {
+    debugPrint('🔔 [State] TRAY MENU CLICK DETECTED!');
+    debugPrint('   - Menu item key: ${menuItem.key}');
+    debugPrint('   - Menu item label: ${menuItem.label}');
+
+    _trayService.handleMenuClick(menuItem.key ?? '');
+  }
+
   @override
   void dispose() {
     windowManager.removeListener(this);
+    trayManager.removeListener(this); // Remove tray listener
     _trayService.dispose();
     _hotkeyService.dispose();
     _daemonService.dispose();
@@ -272,7 +300,7 @@ class MaterialHomePage extends StatefulWidget {
   State<MaterialHomePage> createState() => _MaterialHomePageState();
 }
 
-class _MaterialHomePageState extends State<MaterialHomePage> with WindowListener {
+class _MaterialHomePageState extends State<MaterialHomePage> with WindowListener, TrayListener {
   int _selectedIndex = 0;
   final DaemonService _daemonService = DaemonService();
 
@@ -294,13 +322,14 @@ class _MaterialHomePageState extends State<MaterialHomePage> with WindowListener
     super.initState();
     if (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
       windowManager.addListener(this);
+      trayManager.addListener(this);
     }
     _initDesktopServices();
     _connectToDaemon();
   }
 
   Future<void> _initDesktopServices() async {
-    _trayService?.init();
+    await _trayService?.initWithoutListener();
     await _hotkeyService?.init();
     await _startupService?.init();
   }
@@ -337,10 +366,35 @@ class _MaterialHomePageState extends State<MaterialHomePage> with WindowListener
     }
   }
 
+  // ========== TrayListener callbacks ==========
+  @override
+  void onTrayIconMouseDown() {
+    debugPrint('🖱️  [State-Material] Tray icon LEFT click detected');
+    if (Platform.isWindows) {
+      trayManager.popUpContextMenu();
+    }
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    debugPrint('🖱️  [State-Material] Tray icon RIGHT click detected');
+    trayManager.popUpContextMenu();
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) {
+    debugPrint('🔔 [State-Material] TRAY MENU CLICK DETECTED!');
+    debugPrint('   - Menu item key: ${menuItem.key}');
+    debugPrint('   - Menu item label: ${menuItem.label}');
+
+    _trayService?.handleMenuClick(menuItem.key ?? '');
+  }
+
   @override
   void dispose() {
     if (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
       windowManager.removeListener(this);
+      trayManager.removeListener(this);
     }
     _trayService?.dispose();
     _hotkeyService?.dispose();

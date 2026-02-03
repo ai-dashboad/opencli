@@ -8,7 +8,7 @@ import 'dart:convert';
 
 /// 跨平台系统托盘服务
 /// 支持 macOS (菜单栏)、Windows (系统托盘)、Linux (系统托盘)
-class TrayService with TrayListener {
+class TrayService {
   static const String _daemonStatusUrl = 'http://localhost:9875/status';
   Timer? _statusUpdateTimer;
 
@@ -26,15 +26,10 @@ class TrayService with TrayListener {
   String get memoryFormatted => '${_memoryMb.toStringAsFixed(1)} MB';
   int get mobileClients => _mobileClients;
 
-  /// 初始化系统托盘
-  Future<void> init() async {
+  /// 初始化系统托盘（不注册监听器，由外部 State 类处理）
+  Future<void> initWithoutListener() async {
     try {
       debugPrint('🚀 Initializing system tray...');
-
-      // 设置托盘监听器
-      debugPrint('   📝 Registering tray listener...');
-      trayManager.addListener(this);
-      debugPrint('   ✅ Tray listener registered successfully');
 
       // 设置托盘图标
       debugPrint('   🎨 Setting tray icon...');
@@ -52,7 +47,6 @@ class TrayService with TrayListener {
       _startStatusUpdates();
 
       debugPrint('✅ System tray initialized successfully');
-      debugPrint('   ℹ️  Listener type: $runtimeType');
     } catch (e) {
       debugPrint('⚠️  Failed to initialize system tray: $e');
       debugPrint('   Stack trace: ${StackTrace.current}');
@@ -227,32 +221,11 @@ class TrayService with TrayListener {
     }
   }
 
-  /// 托盘图标点击事件
-  @override
-  void onTrayIconMouseDown() {
-    debugPrint('🖱️  Tray icon LEFT click detected');
-    // 在 Windows 上，左键点击显示菜单
-    if (Platform.isWindows) {
-      trayManager.popUpContextMenu();
-    }
-  }
+  /// 处理托盘菜单项点击（由外部 State 类调用）
+  void handleMenuClick(String menuKey) {
+    debugPrint('🔔 [TrayService] Handling menu click: $menuKey');
 
-  /// 托盘图标右键点击事件
-  @override
-  void onTrayIconRightMouseDown() {
-    debugPrint('🖱️  Tray icon RIGHT click detected');
-    // 在 macOS 和 Linux 上，右键点击显示菜单
-    trayManager.popUpContextMenu();
-  }
-
-  /// 托盘菜单项点击事件
-  @override
-  void onTrayMenuItemClick(MenuItem menuItem) {
-    debugPrint('🔔 TRAY MENU CLICK DETECTED!');
-    debugPrint('   - Menu item key: ${menuItem.key}');
-    debugPrint('   - Menu item label: ${menuItem.label}');
-
-    switch (menuItem.key) {
+    switch (menuKey) {
       case 'ai_models':
         debugPrint('   ➜ Executing: AI Models');
         _openAIModels();
@@ -278,7 +251,7 @@ class TrayService with TrayListener {
         _quit();
         break;
       default:
-        debugPrint('   ⚠️  Unknown menu item: ${menuItem.key}');
+        debugPrint('   ⚠️  Unknown menu item: $menuKey');
     }
   }
 
@@ -341,7 +314,6 @@ class TrayService with TrayListener {
   /// 清理资源
   void _cleanup() {
     _statusUpdateTimer?.cancel();
-    trayManager.removeListener(this);
     trayManager.destroy();
   }
 
