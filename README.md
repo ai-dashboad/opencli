@@ -219,7 +219,6 @@ opencli/
 │   └── web/                     # Web configuration
 ├── cli/                          # Rust command-line interface
 ├── web-ui/                       # React enterprise dashboard
-├── menubar-app/                  # Swift macOS menubar (Legacy - being deprecated)
 ├── ide-plugins/                  # IDE integrations (IntelliJ, VSCode)
 ├── cloud/                        # Cloud deployment configs
 ├── scripts/                      # Build and automation scripts

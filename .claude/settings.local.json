@@ -106,7 +106,9 @@
       "mcp__flutter-skill__wait_for_element",
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch:*)",
       "WebFetch(domain:opencli.ai)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(./scripts/test-integration.sh:*)",
+      "Bash(./scripts/test-all-clients.sh:*)"
     ]
   }
 }
