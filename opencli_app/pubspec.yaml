@@ -54,8 +54,8 @@ dependencies:
   # Audio recording for voice input (disabled due to record_linux compatibility issues)
   # record: ^5.1.0
 
-  # Permissions
-  permission_handler: ^11.3.1
+  # Permissions (disabled - not currently used)
+  # permission_handler: ^11.3.1
 
   # Desktop-specific features
   tray_manager: ^0.5.2              # System tray support (macOS/Windows/Linux)
@@ -71,6 +71,8 @@ dependencies:
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to

@@ -23,12 +23,21 @@ class DaemonService {
   bool get isConnected => _isConnected;
 
   DaemonService({
-    String host = 'localhost',
+    String? host,
     int port = 9876,
     String authSecret = 'opencli-dev-secret',
-  })  : _host = host,
+  })  : _host = host ?? _getDefaultHost(),
         _port = port,
         _authSecret = authSecret;
+
+  /// Get default host based on platform
+  /// Android emulator uses 10.0.2.2 to access host machine
+  static String _getDefaultHost() {
+    if (Platform.isAndroid) {
+      return '10.0.2.2';
+    }
+    return 'localhost';
+  }
 
   Future<void> connect() async {
     if (_isConnected) return;

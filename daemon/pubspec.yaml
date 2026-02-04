@@ -37,6 +37,11 @@ dependencies:
 
   # WebSocket support
   web_socket_channel: ^2.4.0
+  shelf_web_socket: ^1.0.4
+
+  # Shared protocol
+  opencli_shared:
+    path: ../shared
 
 dev_dependencies:
   lints: ^3.0.0

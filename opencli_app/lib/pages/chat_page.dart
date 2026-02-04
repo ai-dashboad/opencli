@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:permission_handler/permission_handler.dart';
+// import 'package:permission_handler/permission_handler.dart';  // Disabled - speech_to_text handles permissions internally
 import '../models/chat_message.dart';
 import '../services/daemon_service.dart';
 import '../services/intent_recognizer.dart';
@@ -37,17 +37,17 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _initSpeech() async {
-    // Request microphone permission
-    final status = await Permission.microphone.request();
-
-    if (status.isGranted) {
+    // speech_to_text package handles microphone permissions internally
+    try {
       _speechAvailable = await _speech.initialize(
         onStatus: (status) => setState(() => _isListening = status == 'listening'),
         onError: (error) => _showError('Speech recognition error: $error'),
       );
-    } else if (status.isPermanentlyDenied) {
-      _showError('Microphone permission permanently denied. Please enable it in settings.');
-    } else {
+
+      if (!_speechAvailable) {
+        _showError('Speech recognition not available. Please check microphone permissions.');
+      }
+    } catch (e) {
       _showError('Microphone permission denied. Voice commands require microphone access.');
     }
     setState(() {});

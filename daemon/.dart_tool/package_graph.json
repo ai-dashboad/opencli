@@ -12,9 +12,11 @@
         "ffi",
         "http",
         "msgpack_dart",
+        "opencli_shared",
         "path",
         "shelf",
         "shelf_router",
+        "shelf_web_socket",
         "sqflite_common_ffi",
         "web_socket_channel",
         "yaml"
@@ -59,6 +61,20 @@
       "name": "lints",
       "version": "3.0.0",
       "dependencies": []
+    },
+    {
+      "name": "opencli_shared",
+      "version": "0.1.0",
+      "dependencies": []
+    },
+    {
+      "name": "shelf_web_socket",
+      "version": "1.0.4",
+      "dependencies": [
+        "shelf",
+        "stream_channel",
+        "web_socket_channel"
+      ]
     },
     {
       "name": "web_socket_channel",
@@ -227,15 +243,6 @@
         "collection",
         "path",
         "term_glyph"
-      ]
-    },
-    {
-      "name": "shelf_web_socket",
-      "version": "3.0.0",
-      "dependencies": [
-        "shelf",
-        "stream_channel",
-        "web_socket_channel"
       ]
     },
     {

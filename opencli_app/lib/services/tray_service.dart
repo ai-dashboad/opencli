@@ -102,6 +102,7 @@ class TrayService {
         final daemon = data['daemon'] as Map<String, dynamic>;
         final mobile = data['mobile'] as Map<String, dynamic>;
 
+        final wasRunning = _isRunning;
         _isRunning = true;
         _version = daemon['version'] as String? ?? '0.0.0';
         _uptimeSeconds = daemon['uptime_seconds'] as int? ?? 0;
@@ -110,15 +111,18 @@ class TrayService {
 
         debugPrint('✅ Status updated: v$_version, uptime: $_uptimeSeconds s, memory: $_memoryMb MB');
 
-        // 更新托盘工具提示
+        // 更新托盘工具提示（每次都更新，因为这不影响点击事件）
         await trayManager.setToolTip(
           'OpenCLI - Running\n'
           'Uptime: $uptimeFormatted\n'
           'Memory: $memoryFormatted'
         );
 
-        // 更新托盘菜单
-        await _updateTrayMenu();
+        // ⚠️ 只在状态变化时更新菜单，避免频繁调用 setContextMenu 导致点击事件失效
+        if (wasRunning != _isRunning) {
+          debugPrint('🔄 Daemon state changed, updating menu...');
+          await _updateTrayMenu();
+        }
       } else {
         debugPrint('❌ Unexpected status code: ${response.statusCode}');
         _handleDaemonOffline();
@@ -131,9 +135,15 @@ class TrayService {
 
   /// 处理 Daemon 离线状态
   void _handleDaemonOffline() {
+    final wasRunning = _isRunning;
     _isRunning = false;
     trayManager.setToolTip('OpenCLI - Daemon Offline');
-    _updateTrayMenu();
+
+    // 只在状态变化时更新菜单
+    if (wasRunning != _isRunning) {
+      debugPrint('🔄 Daemon went offline, updating menu...');
+      _updateTrayMenu();
+    }
   }
 
   /// 更新托盘菜单

@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:shelf_router/shelf_router.dart';
 import 'package:opencli_daemon/mobile/mobile_connection_manager.dart';
 import 'package:opencli_daemon/core/daemon.dart';
+import 'package:opencli_daemon/api/message_handler.dart';
 
 /// HTTP server providing daemon status for UI consumption
 class StatusServer {
@@ -12,29 +14,44 @@ class StatusServer {
   final Daemon _daemon;
   final int port;
   HttpServer? _server;
+  late final MessageHandler _messageHandler;
 
   StatusServer({
     required MobileConnectionManager connectionManager,
     required Daemon daemon,
     this.port = 9875,
   })  : _connectionManager = connectionManager,
-        _daemon = daemon;
+        _daemon = daemon {
+    _messageHandler = MessageHandler();
+  }
 
   Future<void> start() async {
+    final router = Router();
+
+    // REST endpoints
+    router.get('/status', _handleStatus);
+    router.get('/health', _handleHealth);
+
+    // WebSocket endpoint for unified protocol
+    router.get('/ws', _messageHandler.handler);
+
     final handler = const shelf.Pipeline()
         .addMiddleware(shelf.logRequests())
         .addMiddleware(_cors())
-        .addHandler(_router);
+        .addHandler(router.call);
 
     try {
       _server = await shelf_io.serve(handler, InternetAddress.loopbackIPv4, port);
       print('✓ Status server listening on http://localhost:${_server!.port}');
+      print('  - REST API: http://localhost:${_server!.port}/status');
+      print('  - WebSocket: ws://localhost:${_server!.port}/ws');
     } catch (e) {
       print('⚠️  Failed to start status server: $e');
     }
   }
 
   Future<void> stop() async {
+    _messageHandler.dispose();
     await _server?.close(force: true);
     _server = null;
   }
@@ -57,19 +74,6 @@ class StatusServer {
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       };
-
-  Future<shelf.Response> _router(shelf.Request request) async {
-    final path = request.url.path;
-
-    switch (path) {
-      case 'status':
-        return _handleStatus(request);
-      case 'health':
-        return _handleHealth(request);
-      default:
-        return shelf.Response.notFound('Not found');
-    }
-  }
 
   Future<shelf.Response> _handleStatus(shelf.Request request) async {
     final stats = _daemon.getStats();

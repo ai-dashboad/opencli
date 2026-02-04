@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 // import 'package:record/record.dart';  // Temporarily disabled due to record_linux compatibility
-import 'package:permission_handler/permission_handler.dart';
+// import 'package:permission_handler/permission_handler.dart';  // Disabled with recording
 
 /// 音频录制服务 - 录制音频并发送到 Mac 进行识别
 ///

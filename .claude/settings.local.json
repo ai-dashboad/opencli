@@ -108,7 +108,11 @@
       "WebFetch(domain:opencli.ai)",
       "Bash(wc:*)",
       "Bash(./scripts/test-integration.sh:*)",
-      "Bash(./scripts/test-all-clients.sh:*)"
+      "Bash(./scripts/test-all-clients.sh:*)",
+      "Bash(log show:*)",
+      "mcp__jetbrains__get_run_configurations",
+      "WebFetch(domain:pub.dev)",
+      "Bash(./test_daemon_startup.sh)"
     ]
   }
 }
