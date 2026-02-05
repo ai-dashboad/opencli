@@ -240,32 +240,125 @@ class PluginMarketplaceUI {
   Future<Response> _handleInstallPlugin(Request request, String name) async {
     print('Installing plugin: $name');
 
-    // For now, simulate installation
-    await Future.delayed(Duration(seconds: 2));
+    try {
+      // Read request body to get package name
+      final body = await request.readAsString();
+      final data = body.isNotEmpty ? jsonDecode(body) as Map<String, dynamic> : {};
+      final packageName = data['package'] ?? name;
 
-    return Response.ok(
-      jsonEncode({
-        'success': true,
-        'message': 'Plugin installed successfully',
-        'plugin': name,
-      }),
-      headers: {'Content-Type': 'application/json'},
-    );
+      // Create plugin directory
+      final pluginPath = path.join(pluginsDir, name);
+      final pluginDir = Directory(pluginPath);
+
+      if (pluginDir.existsSync()) {
+        return Response.badRequest(
+          body: jsonEncode({'error': 'Plugin already installed'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      await pluginDir.create(recursive: true);
+
+      // Create package.json if installing from npm
+      final packageJsonFile = File(path.join(pluginPath, 'package.json'));
+      await packageJsonFile.writeAsString(jsonEncode({
+        'name': name,
+        'version': '1.0.0',
+        'description': 'MCP Plugin for OpenCLI',
+        'main': 'index.js',
+        'dependencies': {
+          packageName: 'latest',
+        },
+      }));
+
+      // Run npm install
+      print('Running npm install in $pluginPath...');
+      final result = await Process.run(
+        'npm',
+        ['install'],
+        workingDirectory: pluginPath,
+      );
+
+      if (result.exitCode != 0) {
+        // Cleanup on failure
+        await pluginDir.delete(recursive: true);
+        return Response.internalServerError(
+          body: jsonEncode({
+            'error': 'npm install failed',
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'message': 'Plugin installed successfully',
+          'plugin': name,
+          'logs': result.stdout.toString(),
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stackTrace) {
+      print('Install error: $e\n$stackTrace');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Installation failed: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
   }
 
   /// Uninstall plugin
   Future<Response> _handleUninstallPlugin(Request request, String name) async {
     print('Uninstalling plugin: $name');
 
-    // Stop plugin if running
-    if (mcpManager != null && mcpManager!.isRunning(name)) {
-      await mcpManager!.stopServer(name);
-    }
+    try {
+      // Stop plugin if running
+      if (mcpManager != null && mcpManager!.isRunning(name)) {
+        await mcpManager!.stopServer(name);
+      }
 
-    return Response.ok(
-      jsonEncode({'success': true, 'message': 'Plugin uninstalled'}),
-      headers: {'Content-Type': 'application/json'},
-    );
+      // Remove from mcp-servers.json configuration
+      final home = Platform.environment['HOME'] ?? '.';
+      final configFile = File('$home/.opencli/mcp-servers.json');
+
+      if (configFile.existsSync()) {
+        final content = await configFile.readAsString();
+        final json = jsonDecode(content) as Map<String, dynamic>;
+        final servers = json['mcpServers'] as Map<String, dynamic>? ?? {};
+
+        if (servers.containsKey(name)) {
+          servers.remove(name);
+          await configFile.writeAsString(
+            JsonEncoder.withIndent('  ').convert(json),
+          );
+        }
+      }
+
+      // Delete plugin directory
+      final pluginPath = path.join(pluginsDir, name);
+      final pluginDir = Directory(pluginPath);
+
+      if (pluginDir.existsSync()) {
+        await pluginDir.delete(recursive: true);
+      }
+
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'message': 'Plugin uninstalled successfully'
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stackTrace) {
+      print('Uninstall error: $e\n$stackTrace');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Uninstall failed: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
   }
 
   /// Start plugin
