@@ -112,7 +112,15 @@
       "Bash(log show:*)",
       "mcp__jetbrains__get_run_configurations",
       "WebFetch(domain:pub.dev)",
-      "Bash(./test_daemon_startup.sh)"
+      "Bash(./test_daemon_startup.sh)",
+      "Bash(adb:*)",
+      "Bash(pwdx:*)",
+      "Bash(opencli daemon stop:*)",
+      "Bash(sleep:*)",
+      "Bash(timeout:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(xargs:*)"
     ]
   }
 }
