@@ -73,6 +73,12 @@ class PluginMarketplaceUI {
     // API: Get plugin details
     router.get('/api/plugins/<name>', _handleGetPluginDetails);
 
+    // API: Configure plugin
+    router.post('/api/plugins/<name>/configure', _handleConfigurePlugin);
+
+    // API: Get plugin configuration
+    router.get('/api/plugins/<name>/config', _handleGetPluginConfig);
+
     // Fallback to static files
     final handler = Cascade()
         .add(router)
@@ -351,5 +357,119 @@ class PluginMarketplaceUI {
       jsonEncode(plugin),
       headers: {'Content-Type': 'application/json'},
     );
+  }
+
+  /// Get plugin configuration
+  Future<Response> _handleGetPluginConfig(Request request, String name) async {
+    try {
+      final home = Platform.environment['HOME'] ?? '.';
+      final configFile = File('$home/.opencli/mcp-servers.json');
+
+      if (!configFile.existsSync()) {
+        return Response.ok(
+          jsonEncode({
+            'configured': false,
+            'config': {},
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final content = await configFile.readAsString();
+      final json = jsonDecode(content) as Map<String, dynamic>;
+      final servers = json['mcpServers'] as Map<String, dynamic>? ?? {};
+
+      if (servers.containsKey(name)) {
+        return Response.ok(
+          jsonEncode({
+            'configured': true,
+            'config': servers[name],
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      return Response.ok(
+        jsonEncode({
+          'configured': false,
+          'config': {},
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to load config: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  /// Configure plugin
+  Future<Response> _handleConfigurePlugin(Request request, String name) async {
+    try {
+      // Read request body
+      final body = await request.readAsString();
+      final config = jsonDecode(body) as Map<String, dynamic>;
+
+      // Validate required fields
+      if (!config.containsKey('command')) {
+        return Response.badRequest(
+          body: jsonEncode({'error': 'Missing required field: command'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // Load existing configuration
+      final home = Platform.environment['HOME'] ?? '.';
+      final configFile = File('$home/.opencli/mcp-servers.json');
+
+      Map<String, dynamic> fullConfig = {
+        'mcpServers': <String, dynamic>{},
+      };
+
+      if (configFile.existsSync()) {
+        final content = await configFile.readAsString();
+        fullConfig = jsonDecode(content) as Map<String, dynamic>;
+        fullConfig['mcpServers'] ??= <String, dynamic>{};
+      } else {
+        // Create .opencli directory if it doesn't exist
+        await Directory('$home/.opencli').create(recursive: true);
+      }
+
+      // Update plugin configuration
+      (fullConfig['mcpServers'] as Map<String, dynamic>)[name] = config;
+
+      // Save configuration
+      await configFile.writeAsString(
+        JsonEncoder.withIndent('  ').convert(fullConfig),
+      );
+
+      // Restart plugin if it was running
+      bool wasRunning = false;
+      if (mcpManager != null && mcpManager!.isRunning(name)) {
+        wasRunning = true;
+        await mcpManager!.stopServer(name);
+      }
+
+      // Start plugin with new configuration
+      if (mcpManager != null && wasRunning) {
+        final serverConfig = MCPServerConfig.fromJson(config);
+        await mcpManager!.startServer(name, serverConfig);
+      }
+
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'message': 'Plugin configured successfully',
+          'restarted': wasRunning,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to configure plugin: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
   }
 }

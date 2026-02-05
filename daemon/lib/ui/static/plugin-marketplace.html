@@ -310,6 +310,112 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .modal-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .modal-tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+        }
+
+        .modal-tab:hover {
+            color: white;
+        }
+
+        .modal-tab.active {
+            color: white;
+            border-bottom-color: #4CAF50;
+        }
+
+        .tab-panel {
+            color: rgba(255,255,255,0.9);
+            line-height: 1.6;
+        }
+
+        .tab-panel h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: white;
+        }
+
+        .tab-panel ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .tab-panel li {
+            margin-bottom: 8px;
+        }
+
+        .tab-panel code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: white;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+            background: rgba(0,0,0,0.4);
+        }
+
+        .form-group textarea {
+            font-family: monospace;
+            resize: vertical;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -522,13 +628,183 @@
             }
         }
 
-        function showDetails(id) {
-            // TODO: Implement plugin details modal
-            alert('Plugin details for: ' + id);
+        let currentPluginId = null;
+
+        async function showDetails(id) {
+            currentPluginId = id;
+            const plugin = allPlugins.find(p => p.id === id);
+            if (!plugin) return;
+
+            // Set modal title
+            document.getElementById('modal-title').textContent = plugin.name;
+
+            // Create tabs and content
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML = `
+                <div class="modal-tabs">
+                    <button class="modal-tab active" onclick="showTab('overview')">Overview</button>
+                    <button class="modal-tab" onclick="showTab('tools')">Tools</button>
+                    <button class="modal-tab" onclick="showTab('config')">Configuration</button>
+                </div>
+
+                <div class="tab-content">
+                    <div id="tab-overview" class="tab-panel active">
+                        <p><strong>Description:</strong> ${plugin.description}</p>
+                        <p><strong>Version:</strong> ${plugin.version}</p>
+                        <p><strong>Category:</strong> ${plugin.category}</p>
+                        <p><strong>Downloads:</strong> ${plugin.downloads}</p>
+                        <p><strong>Rating:</strong> ${'★'.repeat(Math.floor(plugin.rating))}${'☆'.repeat(5-Math.floor(plugin.rating))} (${plugin.rating})</p>
+                    </div>
+
+                    <div id="tab-tools" class="tab-panel" style="display: none;">
+                        <h3>Available Tools</h3>
+                        ${plugin.tools && plugin.tools.length > 0
+                            ? '<ul>' + plugin.tools.map(t => `<li><code>${t}</code></li>`).join('') + '</ul>'
+                            : '<p>No tools available. Start the plugin to see available tools.</p>'}
+                    </div>
+
+                    <div id="tab-config" class="tab-panel" style="display: none;">
+                        <h3>Plugin Configuration</h3>
+                        <div id="config-form">
+                            <div class="form-group">
+                                <label>Command</label>
+                                <input type="text" id="config-command" placeholder="e.g., node" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Arguments (one per line)</label>
+                                <textarea id="config-args" rows="3" placeholder="e.g., index.js"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Environment Variables (KEY=VALUE, one per line)</label>
+                                <textarea id="config-env" rows="4" placeholder="e.g., API_KEY=your-key-here"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Working Directory (optional)</label>
+                                <input type="text" id="config-workdir" placeholder="e.g., /path/to/plugin" />
+                            </div>
+                            <button onclick="saveConfiguration()" class="btn-primary" style="margin-top: 1rem;">
+                                Save Configuration
+                            </button>
+                            <div id="config-message" style="margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Load existing configuration
+            await loadConfiguration(id);
+
+            // Show modal
+            document.getElementById('plugin-modal').classList.add('active');
+        }
+
+        async function loadConfiguration(pluginId) {
+            try {
+                const response = await fetch(`/api/plugins/${pluginId}/config`);
+                const data = await response.json();
+
+                if (data.configured && data.config) {
+                    const config = data.config;
+                    document.getElementById('config-command').value = config.command || '';
+                    document.getElementById('config-args').value = (config.args || []).join('\n');
+
+                    // Convert env object to KEY=VALUE format
+                    const envLines = Object.entries(config.env || {}).map(([k, v]) => `${k}=${v}`).join('\n');
+                    document.getElementById('config-env').value = envLines;
+
+                    document.getElementById('config-workdir').value = config.workingDirectory || '';
+                }
+            } catch (error) {
+                console.error('Error loading configuration:', error);
+            }
+        }
+
+        async function saveConfiguration() {
+            if (!currentPluginId) return;
+
+            const command = document.getElementById('config-command').value.trim();
+            if (!command) {
+                showConfigMessage('Command is required', 'error');
+                return;
+            }
+
+            // Parse args
+            const argsText = document.getElementById('config-args').value.trim();
+            const args = argsText ? argsText.split('\n').map(a => a.trim()).filter(a => a) : [];
+
+            // Parse env
+            const envText = document.getElementById('config-env').value.trim();
+            const env = {};
+            if (envText) {
+                envText.split('\n').forEach(line => {
+                    const [key, ...valueParts] = line.split('=');
+                    if (key && valueParts.length > 0) {
+                        env[key.trim()] = valueParts.join('=').trim();
+                    }
+                });
+            }
+
+            const workingDirectory = document.getElementById('config-workdir').value.trim() || undefined;
+
+            const config = { command, args, env };
+            if (workingDirectory) {
+                config.workingDirectory = workingDirectory;
+            }
+
+            try {
+                const response = await fetch(`/api/plugins/${currentPluginId}/configure`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showConfigMessage('Configuration saved successfully!', 'success');
+                    // Reload plugins to update UI
+                    setTimeout(() => loadPlugins(), 1000);
+                } else {
+                    showConfigMessage(result.error || 'Failed to save configuration', 'error');
+                }
+            } catch (error) {
+                showConfigMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        function showConfigMessage(message, type) {
+            const msgDiv = document.getElementById('config-message');
+            msgDiv.textContent = message;
+            msgDiv.style.padding = '0.75rem';
+            msgDiv.style.borderRadius = '4px';
+            msgDiv.style.backgroundColor = type === 'success' ? '#d4edda' : '#f8d7da';
+            msgDiv.style.color = type === 'success' ? '#155724' : '#721c24';
+            msgDiv.style.border = `1px solid ${type === 'success' ? '#c3e6cb' : '#f5c6cb'}`;
+
+            setTimeout(() => {
+                msgDiv.textContent = '';
+                msgDiv.style.padding = '0';
+                msgDiv.style.border = 'none';
+            }, 5000);
+        }
+
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.style.display = 'none';
+            });
+            document.querySelectorAll('.modal-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(`tab-${tabName}`).style.display = 'block';
+            event.target.classList.add('active');
         }
 
         function closeModal() {
             document.getElementById('plugin-modal').classList.remove('active');
+            currentPluginId = null;
         }
 
         // Event listeners
