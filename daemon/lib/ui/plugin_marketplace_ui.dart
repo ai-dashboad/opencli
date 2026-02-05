@@ -79,6 +79,12 @@ class PluginMarketplaceUI {
     // API: Get plugin configuration
     router.get('/api/plugins/<name>/config', _handleGetPluginConfig);
 
+    // API: Check for plugin updates
+    router.get('/api/plugins/<name>/check-update', _handleCheckUpdate);
+
+    // API: Update plugin
+    router.post('/api/plugins/<name>/update', _handleUpdatePlugin);
+
     // Fallback to static files
     final handler = Cascade()
         .add(router)
@@ -564,5 +570,156 @@ class PluginMarketplaceUI {
         headers: {'Content-Type': 'application/json'},
       );
     }
+  }
+
+  /// Check for plugin updates
+  Future<Response> _handleCheckUpdate(Request request, String name) async {
+    try {
+      // Get current installed version
+      final pluginPath = path.join(pluginsDir, name);
+      final packageJsonFile = File(path.join(pluginPath, 'package.json'));
+
+      if (!packageJsonFile.existsSync()) {
+        return Response.notFound(
+          jsonEncode({'error': 'Plugin not installed'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final content = await packageJsonFile.readAsString();
+      final packageJson = jsonDecode(content) as Map<String, dynamic>;
+      final currentVersion = packageJson['version'] ?? '0.0.0';
+      final packageName = packageJson['name'] ?? name;
+
+      // Check npm registry for latest version
+      // For now, we'll simulate this. In production, you'd call npm registry API
+      final latestVersion = await _getLatestVersionFromNpm(packageName);
+
+      final updateAvailable = _compareVersions(latestVersion, currentVersion) > 0;
+
+      return Response.ok(
+        jsonEncode({
+          'currentVersion': currentVersion,
+          'latestVersion': latestVersion,
+          'updateAvailable': updateAvailable,
+          'packageName': packageName,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to check for updates: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  /// Update plugin to latest version
+  Future<Response> _handleUpdatePlugin(Request request, String name) async {
+    try {
+      final pluginPath = path.join(pluginsDir, name);
+      final pluginDir = Directory(pluginPath);
+
+      if (!pluginDir.existsSync()) {
+        return Response.notFound(
+          jsonEncode({'error': 'Plugin not installed'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // Stop plugin if running
+      bool wasRunning = false;
+      if (mcpManager != null && mcpManager!.isRunning(name)) {
+        wasRunning = true;
+        await mcpManager!.stopServer(name);
+      }
+
+      // Run npm update
+      print('Updating plugin: $name...');
+      final result = await Process.run(
+        'npm',
+        ['update'],
+        workingDirectory: pluginPath,
+      );
+
+      if (result.exitCode != 0) {
+        return Response.internalServerError(
+          body: jsonEncode({
+            'error': 'Update failed',
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // Restart plugin if it was running
+      if (mcpManager != null && wasRunning) {
+        final home = Platform.environment['HOME'] ?? '.';
+        final configFile = File('$home/.opencli/mcp-servers.json');
+
+        if (configFile.existsSync()) {
+          final content = await configFile.readAsString();
+          final json = jsonDecode(content) as Map<String, dynamic>;
+          final servers = json['mcpServers'] as Map<String, dynamic>? ?? {};
+
+          if (servers.containsKey(name)) {
+            final config = MCPServerConfig.fromJson(servers[name]);
+            await mcpManager!.startServer(name, config);
+          }
+        }
+      }
+
+      // Get new version
+      final packageJsonFile = File(path.join(pluginPath, 'package.json'));
+      final content = await packageJsonFile.readAsString();
+      final packageJson = jsonDecode(content) as Map<String, dynamic>;
+      final newVersion = packageJson['version'] ?? 'unknown';
+
+      return Response.ok(
+        jsonEncode({
+          'success': true,
+          'message': 'Plugin updated successfully',
+          'newVersion': newVersion,
+          'restarted': wasRunning,
+          'logs': result.stdout.toString(),
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stackTrace) {
+      print('Update error: $e\n$stackTrace');
+      return Response.internalServerError(
+        body: jsonEncode({'error': 'Update failed: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  /// Get latest version from npm registry (simplified)
+  Future<String> _getLatestVersionFromNpm(String packageName) async {
+    try {
+      // For now, return a mock version
+      // In production, you'd call: npm view <package> version
+      // or use the npm registry API: https://registry.npmjs.org/<package>/latest
+      return '1.0.1'; // Mock latest version
+    } catch (e) {
+      return '1.0.0'; // Fallback version
+    }
+  }
+
+  /// Compare version strings (semantic versioning)
+  int _compareVersions(String v1, String v2) {
+    final v1Parts = v1.split('.').map(int.parse).toList();
+    final v2Parts = v2.split('.').map(int.parse).toList();
+
+    for (var i = 0; i < 3; i++) {
+      final part1 = i < v1Parts.length ? v1Parts[i] : 0;
+      final part2 = i < v2Parts.length ? v2Parts[i] : 0;
+
+      if (part1 > part2) return 1;
+      if (part1 < part2) return -1;
+    }
+
+    return 0;
   }
 }

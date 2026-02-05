@@ -201,6 +201,16 @@
             color: white;
         }
 
+        .btn-warning {
+            background: #ecc94b;
+            color: #744210;
+            font-weight: 600;
+        }
+
+        .btn-warning:hover {
+            background: #d69e2e;
+        }
+
         .btn-secondary {
             background: #e2e8f0;
             color: #4a5568;
@@ -221,6 +231,17 @@
         .status-running {
             background: #bee3f8;
             color: #2c5282;
+        }
+
+        .status-update {
+            background: #fef3c7;
+            color: #92400e;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .stats {
@@ -486,12 +507,41 @@
                 const response = await fetch('/api/plugins');
                 const data = await response.json();
                 allPlugins = data.plugins;
+
+                // Check for updates for installed plugins
+                await checkAllUpdates();
+
                 updateStats();
                 renderPlugins();
                 document.getElementById('loading').style.display = 'none';
             } catch (error) {
                 console.error('Error loading plugins:', error);
                 document.getElementById('loading').innerHTML = '<p>Error loading plugins</p>';
+            }
+        }
+
+        async function checkAllUpdates() {
+            const installed = allPlugins.filter(p => p.installed);
+            const updateChecks = installed.map(plugin =>
+                checkForUpdate(plugin.id).catch(() => null)
+            );
+            const results = await Promise.all(updateChecks);
+
+            results.forEach((result, index) => {
+                if (result && result.updateAvailable) {
+                    allPlugins.find(p => p.id === installed[index].id).updateAvailable = true;
+                    allPlugins.find(p => p.id === installed[index].id).latestVersion = result.latestVersion;
+                }
+            });
+        }
+
+        async function checkForUpdate(pluginId) {
+            try {
+                const response = await fetch(`/api/plugins/${encodeURIComponent(pluginId)}/check-update`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Failed to check update for ${pluginId}:`, error);
+                return null;
             }
         }
 
@@ -534,6 +584,7 @@
                         </div>
                         ${plugin.installed ? '<span class="status-badge status-installed">Installed</span>' : ''}
                         ${plugin.running ? '<span class="status-badge status-running">Running</span>' : ''}
+                        ${plugin.updateAvailable ? '<span class="status-badge status-update">Update Available</span>' : ''}
                     </div>
                     <p class="plugin-description">${plugin.description}</p>
                     <div class="plugin-tools">
@@ -547,6 +598,9 @@
                     </div>
                     <div class="plugin-actions">
                         ${plugin.installed ? `
+                            ${plugin.updateAvailable ? `
+                                <button class="btn btn-warning" onclick="updatePlugin('${plugin.id}')">Update</button>
+                            ` : ''}
                             ${plugin.running ? `
                                 <button class="btn btn-danger" onclick="stopPlugin('${plugin.id}')">Stop</button>
                             ` : `
@@ -601,6 +655,27 @@
                 await loadPlugins();
             } catch (error) {
                 alert('Error uninstalling plugin: ' + error.message);
+            }
+        }
+
+        async function updatePlugin(id) {
+            const plugin = allPlugins.find(p => p.id === id);
+            if (!confirm(`Update ${plugin.name} to version ${plugin.latestVersion}?`)) return;
+
+            try {
+                const response = await fetch(`/api/plugins/${encodeURIComponent(id)}/update`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`Successfully updated to version ${result.newVersion}!`);
+                    await loadPlugins();
+                } else {
+                    alert('Update failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error updating plugin: ' + error.message);
             }
         }
 

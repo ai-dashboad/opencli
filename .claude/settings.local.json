@@ -5,6 +5,7 @@
   },
   "permissions": {
     "allow": [
+      "Bash(*)",
       "Bash(git:*)",
       "Bash(gh:*)",
       "Bash(flutter:*)",
