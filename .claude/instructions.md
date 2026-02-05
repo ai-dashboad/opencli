@@ -37,3 +37,26 @@
 - `web-ui/` - Web interface
 - `scripts/` - Build and utility scripts
 - `capabilities/` - Capability package definitions
+- `docs/` - Documentation files
+- `plugins/` - MCP plugin implementations
+
+## Documentation Guidelines
+
+**All documentation markdown files MUST be created in the `docs/` folder**, including:
+- Feature documentation
+- User guides
+- Architecture documents
+- API documentation
+- Implementation notes
+
+**Exceptions** (can be in project root):
+- `README.md` - Main project readme
+- `CHANGELOG.md` - Version history
+- `LICENSE` - License file
+- `CONTRIBUTING.md` - Contribution guidelines
+
+**Examples:**
+- ✅ `docs/PLUGIN_SYSTEM.md` - Correct
+- ✅ `docs/QUICK_START.md` - Correct
+- ❌ `PLUGIN_SYSTEM.md` - Wrong (should be in docs/)
+- ❌ `QUICK_START.md` - Wrong (should be in docs/)
