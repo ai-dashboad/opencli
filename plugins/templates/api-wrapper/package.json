@@ -1,0 +1,37 @@
+{
+  "name": "@opencli/my-api-plugin",
+  "version": "1.0.0",
+  "description": "API wrapper MCP plugin for OpenCLI",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "api",
+    "integration"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^16.0.0",
+    "axios": "^1.6.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "mcp": {
+    "name": "my-api-plugin",
+    "description": "API integration for [Service Name]",
+    "capabilities": [
+      "api.get_data",
+      "api.post_data",
+      "api.list_resources"
+    ],
+    "permissions": [
+      "network",
+      "credentials.read"
+    ]
+  }
+}
