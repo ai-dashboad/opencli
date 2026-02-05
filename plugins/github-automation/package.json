@@ -1,0 +1,42 @@
+{
+  "name": "@opencli/github-mcp",
+  "version": "1.0.0",
+  "description": "GitHub automation MCP plugin for OpenCLI - Releases, PRs, Issues, Actions",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "github",
+    "automation",
+    "ci-cd",
+    "devops"
+  ],
+  "author": "OpenCLI Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@octokit/rest": "^20.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node test.js"
+  },
+  "mcp": {
+    "name": "github-automation",
+    "description": "GitHub automation - releases, PRs, issues, webhooks",
+    "capabilities": [
+      "github.create_release",
+      "github.create_pr",
+      "github.create_issue",
+      "github.monitor_events",
+      "github.run_workflow"
+    ],
+    "permissions": [
+      "network",
+      "credentials.read"
+    ]
+  }
+}

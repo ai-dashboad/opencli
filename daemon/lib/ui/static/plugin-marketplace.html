@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenCLI Plugin Marketplace</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .search-bar {
+            margin-bottom: 30px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            background: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .plugins-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .plugin-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+
+        .plugin-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+
+        .plugin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .plugin-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .plugin-info h3 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .plugin-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .plugin-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .plugin-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .plugin-tools {
+            margin-bottom: 15px;
+        }
+
+        .tools-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .tool-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tool-tag {
+            padding: 4px 10px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .plugin-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-installed {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-running {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔌 Plugin Marketplace</h1>
+            <p class="subtitle">Extend OpenCLI with powerful plugins</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="total-plugins">0</div>
+                <div class="stat-label">Available Plugins</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="installed-plugins">0</div>
+                <div class="stat-label">Installed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="running-plugins">0</div>
+                <div class="stat-label">Running</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-tools">0</div>
+                <div class="stat-label">Total Tools</div>
+            </div>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="🔍 Search plugins...">
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="social-media">Social Media</button>
+            <button class="filter-btn" data-filter="development">Development</button>
+            <button class="filter-btn" data-filter="testing">Testing</button>
+            <button class="filter-btn" data-filter="cloud">Cloud</button>
+            <button class="filter-btn" data-filter="communication">Communication</button>
+            <button class="filter-btn" data-filter="devops">DevOps</button>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading plugins...</p>
+        </div>
+
+        <div class="plugins-grid" id="plugins-grid"></div>
+    </div>
+
+    <!-- Plugin Details Modal -->
+    <div class="modal" id="plugin-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Plugin Details</h2>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        let allPlugins = [];
+        let currentFilter = 'all';
+
+        async function loadPlugins() {
+            try {
+                const response = await fetch('/api/plugins');
+                const data = await response.json();
+                allPlugins = data.plugins;
+                updateStats();
+                renderPlugins();
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error('Error loading plugins:', error);
+                document.getElementById('loading').innerHTML = '<p>Error loading plugins</p>';
+            }
+        }
+
+        function updateStats() {
+            const installed = allPlugins.filter(p => p.installed).length;
+            const running = allPlugins.filter(p => p.running).length;
+            const totalTools = allPlugins.reduce((sum, p) => sum + p.tools.length, 0);
+
+            document.getElementById('total-plugins').textContent = allPlugins.length;
+            document.getElementById('installed-plugins').textContent = installed;
+            document.getElementById('running-plugins').textContent = running;
+            document.getElementById('total-tools').textContent = totalTools;
+        }
+
+        function renderPlugins() {
+            const grid = document.getElementById('plugins-grid');
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+
+            const filtered = allPlugins.filter(plugin => {
+                const matchesFilter = currentFilter === 'all' || plugin.category === currentFilter;
+                const matchesSearch = searchTerm === '' ||
+                    plugin.name.toLowerCase().includes(searchTerm) ||
+                    plugin.description.toLowerCase().includes(searchTerm);
+                return matchesFilter && matchesSearch;
+            });
+
+            grid.innerHTML = filtered.map(plugin => `
+                <div class="plugin-card">
+                    <div class="plugin-header">
+                        <div style="display: flex; gap: 12px;">
+                            <div class="plugin-icon">${getPluginIcon(plugin.category)}</div>
+                            <div class="plugin-info">
+                                <h3>${plugin.name}</h3>
+                                <div class="plugin-meta">
+                                    <span>⭐ ${plugin.rating}</span>
+                                    <span>📥 ${plugin.downloads}</span>
+                                    <span>v${plugin.version}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${plugin.installed ? '<span class="status-badge status-installed">Installed</span>' : ''}
+                        ${plugin.running ? '<span class="status-badge status-running">Running</span>' : ''}
+                    </div>
+                    <p class="plugin-description">${plugin.description}</p>
+                    <div class="plugin-tools">
+                        <div class="tools-label">${plugin.tools.length} tools available</div>
+                        <div class="tool-tags">
+                            ${plugin.tools.slice(0, 3).map(tool => `
+                                <span class="tool-tag">${tool}</span>
+                            `).join('')}
+                            ${plugin.tools.length > 3 ? `<span class="tool-tag">+${plugin.tools.length - 3} more</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="plugin-actions">
+                        ${plugin.installed ? `
+                            ${plugin.running ? `
+                                <button class="btn btn-danger" onclick="stopPlugin('${plugin.id}')">Stop</button>
+                            ` : `
+                                <button class="btn btn-success" onclick="startPlugin('${plugin.id}')">Start</button>
+                            `}
+                            <button class="btn btn-secondary" onclick="uninstallPlugin('${plugin.id}')">Uninstall</button>
+                        ` : `
+                            <button class="btn btn-primary" onclick="installPlugin('${plugin.id}')">Install</button>
+                        `}
+                        <button class="btn btn-secondary" onclick="showDetails('${plugin.id}')">Details</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getPluginIcon(category) {
+            const icons = {
+                'social-media': '🐦',
+                'development': '🔧',
+                'testing': '🧪',
+                'cloud': '☁️',
+                'communication': '💬',
+                'devops': '🐳'
+            };
+            return icons[category] || '🔌';
+        }
+
+        async function installPlugin(id) {
+            if (!confirm(`Install plugin: ${id}?`)) return;
+
+            try {
+                const response = await fetch(`/api/plugins/${encodeURIComponent(id)}/install`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                alert(result.message);
+                await loadPlugins();
+            } catch (error) {
+                alert('Error installing plugin: ' + error.message);
+            }
+        }
+
+        async function uninstallPlugin(id) {
+            if (!confirm(`Uninstall plugin: ${id}?`)) return;
+
+            try {
+                const response = await fetch(`/api/plugins/${encodeURIComponent(id)}/uninstall`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                alert(result.message);
+                await loadPlugins();
+            } catch (error) {
+                alert('Error uninstalling plugin: ' + error.message);
+            }
+        }
+
+        async function startPlugin(id) {
+            try {
+                const response = await fetch(`/api/plugins/${encodeURIComponent(id)}/start`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                await loadPlugins();
+            } catch (error) {
+                alert('Error starting plugin: ' + error.message);
+            }
+        }
+
+        async function stopPlugin(id) {
+            try {
+                const response = await fetch(`/api/plugins/${encodeURIComponent(id)}/stop`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                await loadPlugins();
+            } catch (error) {
+                alert('Error stopping plugin: ' + error.message);
+            }
+        }
+
+        function showDetails(id) {
+            // TODO: Implement plugin details modal
+            alert('Plugin details for: ' + id);
+        }
+
+        function closeModal() {
+            document.getElementById('plugin-modal').classList.remove('active');
+        }
+
+        // Event listeners
+        document.getElementById('search-input').addEventListener('input', renderPlugins);
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderPlugins();
+            });
+        });
+
+        // Load plugins on page load
+        loadPlugins();
+    </script>
+</body>
+</html>

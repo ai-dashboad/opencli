@@ -10,6 +10,7 @@ import 'package:opencli_daemon/mobile/mobile_connection_manager.dart';
 import 'package:opencli_daemon/mobile/mobile_task_handler.dart';
 import 'package:opencli_daemon/ui/status_server.dart';
 import 'package:opencli_daemon/ui/web_ui_launcher.dart';
+import 'package:opencli_daemon/ui/plugin_marketplace_ui.dart';
 import 'package:opencli_daemon/ui/terminal_ui.dart';
 import 'package:opencli_daemon/telemetry/telemetry.dart';
 
@@ -27,6 +28,7 @@ class Daemon {
   late final StatusServer _statusServer;
   late final TelemetryManager _telemetry;
   WebUILauncher? _webUILauncher;
+  PluginMarketplaceUI? _pluginMarketplaceUI;
 
   final Completer<void> _exitSignal = Completer<void>();
   late final String _deviceId;
@@ -142,7 +144,7 @@ class Daemon {
     _healthMonitor.start();
 
     // Start status HTTP server for UI consumption
-    TerminalUI.printInitStep('Starting status HTTP server', last: true);
+    TerminalUI.printInitStep('Starting status HTTP server');
     _statusServer = StatusServer(
       connectionManager: _mobileManager,
       daemon: this,
@@ -150,6 +152,12 @@ class Daemon {
     );
     await _statusServer.start();
     TerminalUI.success('Status server listening on port 9875', prefix: '  ✓');
+
+    // Start plugin marketplace UI
+    TerminalUI.printInitStep('Starting plugin marketplace UI', last: true);
+    _pluginMarketplaceUI = PluginMarketplaceUI(port: 9877);
+    await _pluginMarketplaceUI!.start();
+    TerminalUI.success('Plugin marketplace UI listening on port 9877', prefix: '  ✓');
 
     // Auto-start Web UI (optional, can be disabled via config)
     final autoStartWebUI = Platform.environment['OPENCLI_AUTO_START_WEB_UI'] != 'false';
@@ -168,6 +176,12 @@ class Daemon {
 
     // Print summary of all services
     final services = [
+      {
+        'name': 'Plugin Marketplace',
+        'url': 'http://localhost:9877',
+        'icon': '🔌',
+        'enabled': true,
+      },
       {
         'name': 'Status API',
         'url': 'http://localhost:9875/status',
@@ -189,7 +203,7 @@ class Daemon {
       {
         'name': 'IPC Socket',
         'url': config.socketPath,
-        'icon': '🔌',
+        'icon': '💬',
         'enabled': true,
       },
     ];
@@ -216,6 +230,9 @@ class Daemon {
 
   Future<void> stop() async {
     TerminalUI.printSection('Shutdown', emoji: '🛑');
+
+    TerminalUI.printInitStep('Stopping plugin marketplace UI');
+    await _pluginMarketplaceUI?.stop();
 
     TerminalUI.printInitStep('Stopping Web UI');
     await _webUILauncher?.stop();
