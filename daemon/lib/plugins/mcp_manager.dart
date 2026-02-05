@@ -76,6 +76,7 @@ class MCPServerManager {
       // Monitor process exit
       process.exitCode.then((code) {
         print('[$name] Exited with code $code');
+        _servers[name]?.markStopped();
         _processes.remove(name);
         _servers.remove(name);
       });
@@ -91,6 +92,7 @@ class MCPServerManager {
     final process = _processes[name];
     if (process == null) return;
 
+    _servers[name]?.markStopped();
     process.kill();
     await process.exitCode;
     _processes.remove(name);
@@ -228,6 +230,7 @@ class MCPServer {
   final MCPServerConfig config;
   final Process process;
   final List<MCPTool> tools;
+  bool _isRunning = true;
 
   MCPServer({
     required this.name,
@@ -236,7 +239,11 @@ class MCPServer {
     this.tools = const [],
   });
 
-  bool get isRunning => !process.kill(ProcessSignal.none);
+  bool get isRunning => _isRunning;
+
+  void markStopped() {
+    _isRunning = false;
+  }
 
   Map<String, dynamic> toJson() => {
         'name': name,

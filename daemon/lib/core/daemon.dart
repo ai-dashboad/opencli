@@ -13,6 +13,7 @@ import 'package:opencli_daemon/ui/web_ui_launcher.dart';
 import 'package:opencli_daemon/ui/plugin_marketplace_ui.dart';
 import 'package:opencli_daemon/ui/terminal_ui.dart';
 import 'package:opencli_daemon/telemetry/telemetry.dart';
+import 'package:opencli_daemon/plugins/mcp_manager.dart';
 
 class Daemon {
   static const String version = '0.2.0';
@@ -21,6 +22,7 @@ class Daemon {
   late final IpcServer _ipcServer;
   late final RequestRouter _router;
   late final PluginManager _pluginManager;
+  late final MCPServerManager _mcpManager;
   late final ConfigWatcher _configWatcher;
   late final HealthMonitor _healthMonitor;
   late final MobileConnectionManager _mobileManager;
@@ -74,6 +76,19 @@ class Daemon {
     TerminalUI.printInitStep('Loading plugins');
     _pluginManager = PluginManager(config);
     await _pluginManager.loadAll();
+
+    // Initialize MCP server manager
+    TerminalUI.printInitStep('Initializing MCP server manager');
+    final home = Platform.environment['HOME'] ?? '.';
+    final mcpConfigPath = '$home/.opencli/mcp-servers.json';
+    _mcpManager = MCPServerManager(configPath: mcpConfigPath);
+    try {
+      await _mcpManager.initialize();
+      TerminalUI.success('MCP server manager initialized', prefix: '  ✓');
+    } catch (e) {
+      TerminalUI.warning('MCP initialization failed: $e', prefix: '  ⚠');
+      // Continue without MCP servers
+    }
 
     // Initialize request router
     TerminalUI.printInitStep('Setting up request router');
@@ -155,7 +170,12 @@ class Daemon {
 
     // Start plugin marketplace UI
     TerminalUI.printInitStep('Starting plugin marketplace UI', last: true);
-    _pluginMarketplaceUI = PluginMarketplaceUI(port: 9877);
+    final pluginsDir = _findPluginsDirectory();
+    _pluginMarketplaceUI = PluginMarketplaceUI(
+      port: 9877,
+      mcpManager: _mcpManager,
+      pluginsDir: pluginsDir,
+    );
     await _pluginMarketplaceUI!.start();
     TerminalUI.success('Plugin marketplace UI listening on port 9877', prefix: '  ✓');
 
@@ -228,6 +248,25 @@ class Daemon {
     return null;
   }
 
+  String _findPluginsDirectory() {
+    // Try multiple possible locations for plugins directory
+    final candidates = [
+      'plugins',           // Same level as daemon
+      '../plugins',        // Parent directory (from daemon/)
+      '../../plugins',     // Two levels up
+    ];
+
+    for (final candidate in candidates) {
+      final dir = Directory(candidate);
+      if (dir.existsSync()) {
+        return candidate;
+      }
+    }
+
+    // Default to 'plugins' if nothing found
+    return 'plugins';
+  }
+
   Future<void> stop() async {
     TerminalUI.printSection('Shutdown', emoji: '🛑');
 
@@ -254,6 +293,9 @@ class Daemon {
 
     TerminalUI.printInitStep('Unloading plugins');
     await _pluginManager.unloadAll();
+
+    TerminalUI.printInitStep('Stopping MCP servers');
+    await _mcpManager.stopAll();
 
     TerminalUI.printInitStep('Disposing task handler');
     _mobileTaskHandler.dispose();

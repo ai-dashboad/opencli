@@ -9,12 +9,20 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
+import 'package:path/path.dart' as path;
+import 'package:opencli_daemon/plugins/mcp_manager.dart';
 
 class PluginMarketplaceUI {
   HttpServer? _server;
   final int port;
+  final MCPServerManager? mcpManager;
+  final String pluginsDir;
 
-  PluginMarketplaceUI({this.port = 9877});
+  PluginMarketplaceUI({
+    this.port = 9877,
+    this.mcpManager,
+    this.pluginsDir = 'plugins',
+  });
 
   /// Start the plugin marketplace web UI
   Future<void> start() async {
@@ -80,58 +88,85 @@ class PluginMarketplaceUI {
     await _server?.close();
   }
 
-  /// Get available plugins from marketplace
-  Future<Response> _handleGetPlugins(Request request) async {
-    final plugins = [
-      {
-        'id': '@opencli/twitter-api',
-        'name': 'Twitter API',
-        'description': 'Post tweets, monitor keywords, auto-reply',
-        'version': '1.0.0',
-        'category': 'social-media',
-        'rating': 4.8,
-        'downloads': 1250,
-        'tools': ['twitter_post', 'twitter_search', 'twitter_monitor', 'twitter_reply'],
-        'installed': true,
-        'running': false,
-      },
-      {
-        'id': '@opencli/github-automation',
-        'name': 'GitHub Automation',
-        'description': 'Releases, PRs, Issues, Actions',
-        'version': '1.0.0',
-        'category': 'development',
-        'rating': 4.9,
-        'downloads': 2100,
-        'tools': ['github_create_release', 'github_create_pr', 'github_create_issue'],
-        'installed': true,
-        'running': false,
-      },
-      {
-        'id': '@opencli/slack-integration',
-        'name': 'Slack Integration',
-        'description': 'Send messages, create channels',
-        'version': '1.0.0',
-        'category': 'communication',
-        'rating': 4.7,
-        'downloads': 890,
-        'tools': ['slack_send_message'],
-        'installed': true,
-        'running': false,
-      },
-      {
-        'id': '@opencli/docker-manager',
-        'name': 'Docker Manager',
-        'description': 'Manage containers and images',
-        'version': '1.0.0',
-        'category': 'devops',
-        'rating': 4.6,
-        'downloads': 1500,
-        'tools': ['docker_list_containers', 'docker_run'],
-        'installed': true,
-        'running': false,
-      },
-      // Add more plugins...
+  /// Scan plugins directory for available plugins
+  Future<List<Map<String, dynamic>>> _scanAvailablePlugins() async {
+    final plugins = <Map<String, dynamic>>[];
+
+    // Scan plugins directory
+    final pluginsDirectory = Directory(pluginsDir);
+    if (!pluginsDirectory.existsSync()) {
+      return plugins;
+    }
+
+    final entries = pluginsDirectory.listSync();
+    for (final entry in entries) {
+      if (entry is Directory) {
+        final pluginName = path.basename(entry.path);
+        final packageJson = File(path.join(entry.path, 'package.json'));
+
+        if (packageJson.existsSync()) {
+          try {
+            final content = await packageJson.readAsString();
+            final json = jsonDecode(content) as Map<String, dynamic>;
+
+            // Check if installed and running
+            final isRunning = mcpManager?.isRunning(pluginName) ?? false;
+            final server = mcpManager?.getServer(pluginName);
+
+            plugins.add({
+              'id': json['name'] ?? pluginName,
+              'name': _formatPluginName(pluginName),
+              'description': json['description'] ?? 'No description',
+              'version': json['version'] ?? '1.0.0',
+              'category': _inferCategory(pluginName),
+              'rating': 4.5,
+              'downloads': 0,
+              'tools': server?.tools.map((t) => t.name).toList() ?? [],
+              'installed': true,
+              'running': isRunning,
+            });
+          } catch (e) {
+            print('Error reading plugin $pluginName: $e');
+          }
+        }
+      }
+    }
+
+    // Add some uninstalled plugins for discovery
+    plugins.addAll(_getMarketplacePlugins(plugins.map((p) => p['id'] as String).toList()));
+
+    return plugins;
+  }
+
+  /// Format plugin name for display
+  String _formatPluginName(String dirName) {
+    return dirName
+        .split('-')
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
+  }
+
+  /// Infer category from plugin name
+  String _inferCategory(String name) {
+    if (name.contains('twitter') || name.contains('facebook') || name.contains('linkedin')) {
+      return 'social-media';
+    } else if (name.contains('github') || name.contains('gitlab') || name.contains('git')) {
+      return 'development';
+    } else if (name.contains('slack') || name.contains('discord') || name.contains('teams')) {
+      return 'communication';
+    } else if (name.contains('docker') || name.contains('kubernetes') || name.contains('k8s')) {
+      return 'devops';
+    } else if (name.contains('aws') || name.contains('azure') || name.contains('gcp')) {
+      return 'cloud';
+    } else if (name.contains('playwright') || name.contains('selenium') || name.contains('test')) {
+      return 'testing';
+    }
+    return 'development';
+  }
+
+  /// Get marketplace plugins (not yet installed)
+  List<Map<String, dynamic>> _getMarketplacePlugins(List<String> installedIds) {
+    final available = [
       {
         'id': '@opencli/aws-integration',
         'name': 'AWS Integration',
@@ -156,7 +191,27 @@ class PluginMarketplaceUI {
         'installed': false,
         'running': false,
       },
+      {
+        'id': '@opencli/postgresql-manager',
+        'name': 'PostgreSQL Manager',
+        'description': 'Database operations and queries',
+        'version': '1.0.0',
+        'category': 'database',
+        'rating': 4.7,
+        'downloads': 890,
+        'tools': ['pg_query', 'pg_connect', 'pg_backup'],
+        'installed': false,
+        'running': false,
+      },
     ];
+
+    // Filter out already installed plugins
+    return available.where((p) => !installedIds.contains(p['id'])).toList();
+  }
+
+  /// Get available plugins from marketplace
+  Future<Response> _handleGetPlugins(Request request) async {
+    final plugins = await _scanAvailablePlugins();
 
     return Response.ok(
       jsonEncode({'plugins': plugins}),
@@ -166,34 +221,21 @@ class PluginMarketplaceUI {
 
   /// Get installed plugins
   Future<Response> _handleGetInstalledPlugins(Request request) async {
-    // TODO: Get from actual MCP manager
-    final plugins = [
-      {
-        'id': '@opencli/twitter-api',
-        'name': 'Twitter API',
-        'running': false,
-        'tools': 4,
-      },
-      {
-        'id': '@opencli/github-automation',
-        'name': 'GitHub Automation',
-        'running': false,
-        'tools': 5,
-      },
-    ];
+    final plugins = await _scanAvailablePlugins();
+    final installed = plugins.where((p) => p['installed'] == true).toList();
 
     return Response.ok(
-      jsonEncode({'plugins': plugins}),
+      jsonEncode({'plugins': installed}),
       headers: {'Content-Type': 'application/json'},
     );
   }
 
   /// Install plugin
   Future<Response> _handleInstallPlugin(Request request, String name) async {
-    // TODO: Implement actual installation
     print('Installing plugin: $name');
 
-    await Future.delayed(Duration(seconds: 2)); // Simulate installation
+    // For now, simulate installation
+    await Future.delayed(Duration(seconds: 2));
 
     return Response.ok(
       jsonEncode({
@@ -208,6 +250,12 @@ class PluginMarketplaceUI {
   /// Uninstall plugin
   Future<Response> _handleUninstallPlugin(Request request, String name) async {
     print('Uninstalling plugin: $name');
+
+    // Stop plugin if running
+    if (mcpManager != null && mcpManager!.isRunning(name)) {
+      await mcpManager!.stopServer(name);
+    }
+
     return Response.ok(
       jsonEncode({'success': true, 'message': 'Plugin uninstalled'}),
       headers: {'Content-Type': 'application/json'},
@@ -217,8 +265,41 @@ class PluginMarketplaceUI {
   /// Start plugin
   Future<Response> _handleStartPlugin(Request request, String name) async {
     print('Starting plugin: $name');
+
+    if (mcpManager != null) {
+      try {
+        // Load config for this plugin
+        final configFile = File('.opencli/mcp-servers.json');
+        if (configFile.existsSync()) {
+          final content = await configFile.readAsString();
+          final json = jsonDecode(content) as Map<String, dynamic>;
+          final servers = json['mcpServers'] as Map<String, dynamic>?;
+
+          if (servers != null && servers.containsKey(name)) {
+            final config = MCPServerConfig.fromJson(servers[name]);
+            await mcpManager!.startServer(name, config);
+
+            return Response.ok(
+              jsonEncode({'success': true, 'message': 'Plugin started'}),
+              headers: {'Content-Type': 'application/json'},
+            );
+          }
+        }
+
+        return Response.internalServerError(
+          body: jsonEncode({'success': false, 'message': 'Plugin config not found'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return Response.internalServerError(
+          body: jsonEncode({'success': false, 'message': 'Failed to start: $e'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+    }
+
     return Response.ok(
-      jsonEncode({'success': true, 'message': 'Plugin started'}),
+      jsonEncode({'success': true, 'message': 'Plugin started (no manager)'}),
       headers: {'Content-Type': 'application/json'},
     );
   }
@@ -226,36 +307,44 @@ class PluginMarketplaceUI {
   /// Stop plugin
   Future<Response> _handleStopPlugin(Request request, String name) async {
     print('Stopping plugin: $name');
+
+    if (mcpManager != null) {
+      try {
+        await mcpManager!.stopServer(name);
+        return Response.ok(
+          jsonEncode({'success': true, 'message': 'Plugin stopped'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      } catch (e) {
+        return Response.internalServerError(
+          body: jsonEncode({'success': false, 'message': 'Failed to stop: $e'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+    }
+
     return Response.ok(
-      jsonEncode({'success': true, 'message': 'Plugin stopped'}),
+      jsonEncode({'success': true, 'message': 'Plugin stopped (no manager)'}),
       headers: {'Content-Type': 'application/json'},
     );
   }
 
   /// Get plugin details
   Future<Response> _handleGetPluginDetails(Request request, String name) async {
+    // Get real plugin info if available
+    final server = mcpManager?.getServer(name);
+
     final plugin = {
       'id': name,
-      'name': 'Twitter API',
-      'description': 'Full-featured Twitter/X automation plugin',
+      'name': _formatPluginName(name),
+      'description': 'Plugin details for $name',
       'version': '1.0.0',
-      'author': 'OpenCLI Team',
-      'license': 'MIT',
-      'category': 'social-media',
-      'rating': 4.8,
-      'downloads': 1250,
-      'installed': true,
-      'running': false,
-      'tools': [
-        {'name': 'twitter_post', 'description': 'Post a tweet'},
-        {'name': 'twitter_search', 'description': 'Search tweets'},
-        {'name': 'twitter_monitor', 'description': 'Monitor keywords'},
-        {'name': 'twitter_reply', 'description': 'Reply to tweets'},
-      ],
-      'configuration': [
-        {'key': 'TWITTER_API_KEY', 'required': true, 'secret': true},
-        {'key': 'TWITTER_API_SECRET', 'required': true, 'secret': true},
-      ],
+      'installed': server != null,
+      'running': server?.isRunning ?? false,
+      'tools': server?.tools.map((t) => {
+        'name': t.name,
+        'description': t.description,
+      }).toList() ?? [],
     };
 
     return Response.ok(
