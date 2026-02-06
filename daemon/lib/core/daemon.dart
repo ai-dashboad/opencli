@@ -14,6 +14,8 @@ import 'package:opencli_daemon/ui/plugin_marketplace_ui.dart';
 import 'package:opencli_daemon/ui/terminal_ui.dart';
 import 'package:opencli_daemon/telemetry/telemetry.dart';
 import 'package:opencli_daemon/plugins/mcp_manager.dart';
+import 'package:opencli_daemon/api/unified_api_server.dart';
+import 'package:opencli_daemon/api/message_handler.dart';
 
 class Daemon {
   static const String version = '0.2.0';
@@ -31,6 +33,7 @@ class Daemon {
   late final TelemetryManager _telemetry;
   WebUILauncher? _webUILauncher;
   PluginMarketplaceUI? _pluginMarketplaceUI;
+  UnifiedApiServer? _unifiedApiServer;
 
   final Completer<void> _exitSignal = Completer<void>();
   late final String _deviceId;
@@ -169,7 +172,7 @@ class Daemon {
     TerminalUI.success('Status server listening on port 9875', prefix: '  ✓');
 
     // Start plugin marketplace UI
-    TerminalUI.printInitStep('Starting plugin marketplace UI', last: true);
+    TerminalUI.printInitStep('Starting plugin marketplace UI');
     final pluginsDir = _findPluginsDirectory();
     _pluginMarketplaceUI = PluginMarketplaceUI(
       port: 9877,
@@ -178,6 +181,16 @@ class Daemon {
     );
     await _pluginMarketplaceUI!.start();
     TerminalUI.success('Plugin marketplace UI listening on port 9877', prefix: '  ✓');
+
+    // Start unified API server for Web UI integration
+    TerminalUI.printInitStep('Starting unified API server', last: true);
+    _unifiedApiServer = UnifiedApiServer(
+      requestRouter: _router,
+      messageHandler: MessageHandler(), // Create new instance for unified API
+      port: 9529,
+    );
+    await _unifiedApiServer!.start();
+    TerminalUI.success('Unified API server listening on port 9529', prefix: '  ✓');
 
     // Auto-start Web UI (optional, can be disabled via config)
     final autoStartWebUI = Platform.environment['OPENCLI_AUTO_START_WEB_UI'] != 'false';
@@ -196,6 +209,12 @@ class Daemon {
 
     // Print summary of all services
     final services = [
+      {
+        'name': 'Unified API',
+        'url': 'http://localhost:9529/api/v1',
+        'icon': '🔗',
+        'enabled': true,
+      },
       {
         'name': 'Plugin Marketplace',
         'url': 'http://localhost:9877',
@@ -269,6 +288,9 @@ class Daemon {
 
   Future<void> stop() async {
     TerminalUI.printSection('Shutdown', emoji: '🛑');
+
+    TerminalUI.printInitStep('Stopping unified API server');
+    await _unifiedApiServer?.stop();
 
     TerminalUI.printInitStep('Stopping plugin marketplace UI');
     await _pluginMarketplaceUI?.stop();

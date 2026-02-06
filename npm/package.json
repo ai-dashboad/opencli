@@ -45,9 +45,13 @@
   ],
   "files": [
     "bin/",
+    "lib/",
     "scripts/",
     "index.js",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "@msgpack/msgpack": "^3.1.3"
+  }
 }
