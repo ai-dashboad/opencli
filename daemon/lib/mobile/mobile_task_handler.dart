@@ -577,19 +577,88 @@ class SystemInfoExecutor extends TaskExecutor {
 }
 
 class RunCommandExecutor extends TaskExecutor {
+  static const _dangerousPatterns = [
+    r'rm\s+-rf\s+/', // rm -rf /
+    r'rm\s+-rf\s+~', // rm -rf ~
+    r'rm\s+-rf\s+\*', // rm -rf *
+    r':\(\)\s*\{\s*:\|:\s*&\s*\}', // fork bomb
+    r'dd\s+if=/dev/', // dd overwrite
+    r'mkfs\.', // format filesystem
+    r'>(\/dev\/sda|\/dev\/disk)', // overwrite disk
+    r'chmod\s+-R\s+777\s+/', // chmod 777 /
+    r'wget.*\|\s*sh', // pipe remote script to shell
+    r'curl.*\|\s*sh', // pipe remote script to shell
+  ];
+
+  static const _defaultTimeout = Duration(seconds: 120);
+
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> taskData) async {
     final command = taskData['command'] as String;
-    final args = (taskData['args'] as List<dynamic>?)?.cast<String>() ?? [];
+    // Handle args as either List or String (JSON may stringify it)
+    List<String> args;
+    final rawArgs = taskData['args'];
+    if (rawArgs is List) {
+      args = rawArgs.cast<String>();
+    } else if (rawArgs is String) {
+      args = rawArgs.isNotEmpty ? [rawArgs] : [];
+    } else {
+      args = [];
+    }
+    final workingDir = taskData['working_directory'] as String?;
 
-    final result = await Process.run(command, args);
+    // Build the full command string for safety check
+    final fullCommand = '$command ${args.join(' ')}';
 
-    return {
-      'success': result.exitCode == 0,
-      'exit_code': result.exitCode,
-      'stdout': result.stdout,
-      'stderr': result.stderr,
-    };
+    // Safety check
+    for (final pattern in _dangerousPatterns) {
+      if (RegExp(pattern).hasMatch(fullCommand)) {
+        return {
+          'success': false,
+          'command': fullCommand,
+          'error': 'Command blocked for safety: matches dangerous pattern',
+          'blocked': true,
+        };
+      }
+    }
+
+    // Resolve ~ in working directory
+    String? resolvedDir;
+    if (workingDir != null) {
+      resolvedDir = workingDir.replaceFirst('~', Platform.environment['HOME'] ?? '/tmp');
+      if (!await Directory(resolvedDir).exists()) {
+        resolvedDir = null; // Fall back to default
+      }
+    }
+
+    try {
+      final result = await Process.run(
+        command,
+        args,
+        workingDirectory: resolvedDir,
+      ).timeout(_defaultTimeout);
+
+      return {
+        'success': result.exitCode == 0,
+        'command': fullCommand,
+        'exit_code': result.exitCode,
+        'stdout': result.stdout,
+        'stderr': result.stderr,
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'command': fullCommand,
+        'error': 'Command timed out after 120 seconds',
+        'timed_out': true,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'command': fullCommand,
+        'error': 'Command failed: $e',
+      };
+    }
   }
 }
 

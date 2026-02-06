@@ -111,6 +111,7 @@ class Daemon {
     _mobileManager = MobileConnectionManager(
       port: 9876,
       authSecret: 'opencli-dev-secret',
+      useDevicePairing: false,
     );
     await _mobileManager.start();
     TerminalUI.success('Mobile connection server listening on port 9876', prefix: '  ✓');

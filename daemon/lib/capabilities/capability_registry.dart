@@ -257,6 +257,7 @@ class CapabilityRegistry {
               'command': r'${command}',
               'args': r'${args}',
             },
+            timeout: const Duration(seconds: 120),
           ),
         ],
         requiresExecutors: ['run_command'],

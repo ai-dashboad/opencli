@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:path/path.dart' as path;
@@ -238,13 +239,8 @@ class MobileConnectionManager {
         print('Paired device authenticated: $deviceId');
         return deviceId;
       } else {
-        // Device not paired, need to pair first
-        _sendMessage(channel, {
-          'type': 'auth_required',
-          'message': 'Device not paired. Please scan the pairing QR code first.',
-          'requires_pairing': true,
-        });
-        return null;
+        // Device not paired - fall through to simple auth
+        print('Device $deviceId not paired, trying simple auth fallback');
       }
     }
 
@@ -255,8 +251,10 @@ class MobileConnectionManager {
       return null;
     }
 
-    final expectedToken = _generateSimpleAuthToken(deviceId, timestamp);
-    if (token != expectedToken) {
+    // Accept both SHA256 and simple hash tokens for compatibility
+    final simpleFallbackToken = _generateSimpleAuthToken(deviceId, timestamp);
+    final sha256Token = _generateSha256AuthToken(deviceId, timestamp);
+    if (token != simpleFallbackToken && token != sha256Token) {
       _sendError(channel, 'Invalid authentication token');
       return null;
     }
@@ -289,6 +287,14 @@ class MobileConnectionManager {
       hash = hash & 0xFFFFFFFF;
     }
     return hash.toRadixString(16);
+  }
+
+  /// Generate SHA256 authentication token (matches Flutter client)
+  String _generateSha256AuthToken(String deviceId, int timestamp) {
+    final input = '$deviceId:$timestamp:$authSecret';
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   /// Handle device pairing request

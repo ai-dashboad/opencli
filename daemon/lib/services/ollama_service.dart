@@ -27,45 +27,65 @@ class OllamaService {
 
   /// 识别用户意图
   Future<Map<String, dynamic>> recognizeIntent(String userInput) async {
-    final prompt = '''
-你是一个智能助手，负责识别用户的指令意图。
+    final prompt = '''You are an intent classifier for a macOS automation assistant. Analyze the user's input and return JSON.
 
-用户输入：$userInput
+User input: $userInput
 
-请分析用户的意图，并返回 JSON 格式的结果：
-{
-  "intent": "意图名称",
-  "confidence": 0.0-1.0,
-  "parameters": {参数}
-}
+Return JSON format:
+{"intent": "intent_name", "confidence": 0.0-1.0, "parameters": {params}}
 
-可用的意图类型：
-- screenshot: 截屏、截图
-- open_app: 打开应用（参数：app_name）
-  示例："打开 Chrome" → {"intent": "open_app", "parameters": {"app_name": "Chrome"}}
-- close_app: 关闭应用（参数：app_name）
-- open_url: 打开网址（参数：url）
-- web_search: 网络搜索（参数：query）
-- system_info: 获取系统信息
-- open_file: 打开文件（参数：path）
-- run_command: 运行 shell 命令（参数：command, args）
-- check_process: 检查进程是否运行（参数：process_name）
-  示例："检查 chrome 是否运行" → {"intent": "check_process", "parameters": {"process_name": "chrome"}}
-- list_processes: 列出运行中的进程
-- file_operation: 文件操作（参数：operation, directory）
-  示例："查看桌面的文件" → {"intent": "file_operation", "parameters": {"operation": "list", "directory": "~/Desktop"}}
-  示例："搜索文档文件夹的PDF" → {"intent": "file_operation", "parameters": {"operation": "search", "directory": "~/Documents", "pattern": "pdf"}}
-- ai_query: AI 问答（参数：query）
+Available intents:
 
-重要识别规则：
-1. 检查进程/程序是否运行 → check_process（不是 system_info）
-2. 列出运行中的程序 → list_processes（不是 file_operation）
-3. 查看/列出/浏览文件 → file_operation（不是 list_processes）
-4. 搜索文件 → file_operation（operation: search）
-5. 需要执行 shell 命令 → run_command
-6. 获取系统信息（版本、CPU等）→ system_info
+1. **open_url** - Open a website (params: url)
+   "open twitter" → {"intent": "open_url", "parameters": {"url": "https://twitter.com"}}
+   "send message on twitter" → {"intent": "open_url", "parameters": {"url": "https://twitter.com"}}
+   "check my email" → {"intent": "open_url", "parameters": {"url": "https://mail.google.com"}}
 
-只返回 JSON，不要其他内容。
+2. **open_app** - Open a macOS application (params: app_name)
+   "open Chrome" → {"intent": "open_app", "parameters": {"app_name": "Google Chrome"}}
+   "launch Terminal" → {"intent": "open_app", "parameters": {"app_name": "Terminal"}}
+
+3. **close_app** - Close/quit an application (params: app_name)
+   "close Safari" → {"intent": "close_app", "parameters": {"app_name": "Safari"}}
+   "kill Chrome" → {"intent": "close_app", "parameters": {"app_name": "Google Chrome"}}
+
+4. **run_command** - Execute a shell command (params: command, args)
+   Simple commands:
+   "what's my IP" → {"intent": "run_command", "parameters": {"command": "curl", "args": ["-s", "ifconfig.me"]}}
+   "check disk space" → {"intent": "run_command", "parameters": {"command": "df", "args": ["-h"]}}
+   "git status" → {"intent": "run_command", "parameters": {"command": "git", "args": ["status"]}}
+
+   Multi-step scripts (use bash -c for chained commands):
+   "show largest files" → {"intent": "run_command", "parameters": {"command": "bash", "args": ["-c", "du -ah ~ -d 3 2>/dev/null | sort -rh | head -20"]}}
+   "kill process on port 3000" → {"intent": "run_command", "parameters": {"command": "bash", "args": ["-c", "lsof -t -i:3000 | xargs kill -9"]}}
+   "compress downloads" → {"intent": "run_command", "parameters": {"command": "bash", "args": ["-c", "cd ~/Downloads && zip -r ~/Desktop/archive.zip ."]}}
+   "show open ports" → {"intent": "run_command", "parameters": {"command": "bash", "args": ["-c", "lsof -i -P -n | grep LISTEN"]}}
+   "backup documents" → {"intent": "run_command", "parameters": {"command": "bash", "args": ["-c", "rsync -av ~/Documents/ ~/Desktop/backup/"]}}
+
+   macOS automation via AppleScript (use osascript -e):
+   "create a note about shopping" → {"intent": "run_command", "parameters": {"command": "osascript", "args": ["-e", "tell application \\"Notes\\" to make new note with properties {name:\\"shopping\\"}"]}}
+   "set volume to 50" → {"intent": "run_command", "parameters": {"command": "osascript", "args": ["-e", "set volume output volume 50"]}}
+   "empty trash" → {"intent": "run_command", "parameters": {"command": "osascript", "args": ["-e", "tell application \\"Finder\\" to empty the trash"]}}
+   "toggle dark mode" → {"intent": "run_command", "parameters": {"command": "osascript", "args": ["-e", "tell application \\"System Events\\" to tell appearance preferences to set dark mode to not dark mode"]}}
+
+5. **web_search** - Search the web (params: query)
+6. **screenshot** - Take a screenshot (no params)
+7. **system_info** - Get system information (no params)
+8. **check_process** - Check if a process is running (params: process_name)
+9. **list_processes** - List running processes (no params)
+10. **file_operation** - Browse/list/search files (params: operation, directory, pattern)
+11. **ai_query** - General questions needing AI (params: query)
+
+RULES:
+1. Social media actions → open_url with the platform URL
+2. Multi-step operations → run_command with command: "bash", args: ["-c", "cmd1 && cmd2"]
+3. macOS app automation → run_command with command: "osascript", args: ["-e", "applescript"]
+4. args MUST be a JSON array of strings
+5. run_command is the UNIVERSAL FALLBACK
+6. NEVER return "unknown"
+7. confidence >= 0.7
+
+Return ONLY JSON.
 ''';
 
     try {

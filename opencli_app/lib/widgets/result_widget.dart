@@ -32,6 +32,22 @@ class ResultWidget extends StatelessWidget {
       case 'screenshot':
         return _buildScreenshotResult();
 
+      case 'run_command':
+        return _buildRunCommandResult();
+
+      case 'open_url':
+        return _buildOpenUrlResult();
+
+      case 'open_app':
+      case 'close_app':
+        return _buildAppActionResult();
+
+      case 'web_search':
+        return _buildWebSearchResult();
+
+      case 'ai_query':
+        return _buildAIQueryResult();
+
       default:
         return _buildDefaultResult();
     }
@@ -256,6 +272,365 @@ class ResultWidget extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      );
+    }
+    return _buildDefaultResult();
+  }
+
+  /// Shell 命令結果 — 终端风格（支持 bash -c, osascript, blocked）
+  Widget _buildRunCommandResult() {
+    final success = result['success'] == true;
+    final blocked = result['blocked'] == true;
+    final timedOut = result['timed_out'] == true;
+    final rawCommand = result['command'] as String? ?? '';
+    final stdout = result['stdout'] as String? ?? result['output'] as String? ?? '';
+    final stderr = result['stderr'] as String? ?? '';
+    final error = result['error'] as String? ?? '';
+    final exitCode = result['exit_code'] as int? ?? result['exitCode'] as int?;
+
+    // Smart display: strip "bash -c " prefix, show script content
+    String displayCommand = rawCommand;
+    IconData commandIcon = Icons.terminal;
+    String commandLabel = 'Terminal';
+
+    if (rawCommand.startsWith('bash -c ')) {
+      displayCommand = rawCommand.substring(8);
+      commandIcon = Icons.code;
+      commandLabel = 'Script';
+    } else if (rawCommand.startsWith('osascript ')) {
+      displayCommand = rawCommand.substring(10);
+      commandIcon = Icons.auto_fix_high;
+      commandLabel = 'AppleScript';
+    }
+
+    // Blocked command — amber warning card
+    if (blocked) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.amber[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.amber[300]!, width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.shield, color: Colors.amber[800], size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Command Blocked', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.amber[900])),
+                  const SizedBox(height: 4),
+                  Text(error.isNotEmpty ? error : 'Dangerous command pattern detected', style: TextStyle(fontSize: 13, color: Colors.amber[800])),
+                  if (rawCommand.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(rawCommand, style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.amber[700]), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Timed out — red timeout card
+    if (timedOut) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red[300]!, width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.timer_off, color: Colors.red[700], size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Command Timed Out', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.red[900])),
+                  const SizedBox(height: 4),
+                  Text('The command took longer than 120 seconds', style: TextStyle(fontSize: 13, color: Colors.red[700])),
+                  if (rawCommand.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(displayCommand, style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.red[600]), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF333333), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title bar with command type label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: const BoxDecoration(
+              color: Color(0xFF2D2D2D),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(commandIcon, size: 16, color: success ? Colors.green[400] : Colors.red[400]),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF444444),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(commandLabel, style: const TextStyle(fontSize: 10, color: Color(0xFFAAAAAA), fontFamily: 'monospace')),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    displayCommand.isNotEmpty ? displayCommand : 'Command',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontFamily: 'monospace',
+                      color: Color(0xFFCCCCCC),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (exitCode != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: exitCode == 0 ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'exit $exitCode',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontFamily: 'monospace',
+                        color: exitCode == 0 ? Colors.green[400] : Colors.red[400],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Output content
+          if (stdout.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                stdout.length > 2000 ? '${stdout.substring(0, 2000)}\n... (truncated)' : stdout,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  color: Color(0xFFD4D4D4),
+                  height: 1.4,
+                ),
+              ),
+            ),
+          if (stderr.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Text(
+                stderr,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  color: Colors.red[300],
+                  height: 1.4,
+                ),
+              ),
+            ),
+          if (error.isNotEmpty && !blocked && !timedOut)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Text(
+                error,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  color: Colors.red[300],
+                  height: 1.4,
+                ),
+              ),
+            ),
+          if (stdout.isEmpty && stderr.isEmpty && error.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                '(no output)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  color: Color(0xFF888888),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 打开 URL 结果
+  Widget _buildOpenUrlResult() {
+    final success = result['success'] == true;
+    final url = result['url'] as String? ?? '';
+
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: success ? Colors.blue[50] : Colors.red[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: success ? Colors.blue[200]! : Colors.red[200]!, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.open_in_browser, color: success ? Colors.blue[700] : Colors.red[700], size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  success ? 'Opened in browser' : 'Failed to open',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: success ? Colors.blue[900] : Colors.red[900]),
+                ),
+                if (url.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(url, style: TextStyle(fontSize: 12, color: Colors.blue[600], fontFamily: 'monospace'), maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 应用操作结果 (open/close)
+  Widget _buildAppActionResult() {
+    final success = result['success'] == true;
+    final appName = result['app_name'] as String? ?? result['name'] as String? ?? '';
+    final isOpen = taskType == 'open_app';
+
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: success ? Colors.green[50] : Colors.red[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: success ? Colors.green[200]! : Colors.red[200]!, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isOpen ? Icons.launch : Icons.close,
+            color: success ? Colors.green[700] : Colors.red[700],
+            size: 28,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              success
+                  ? (isOpen ? 'Opened $appName' : 'Closed $appName')
+                  : 'Failed: ${result['error'] ?? 'unknown error'}',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: success ? Colors.green[900] : Colors.red[900],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 网络搜索结果
+  Widget _buildWebSearchResult() {
+    final success = result['success'] == true;
+    final query = result['query'] as String? ?? '';
+    final url = result['url'] as String? ?? '';
+
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange[200]!, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.search, color: Colors.orange[700], size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  success ? 'Searching: $query' : 'Search failed',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.orange[900]),
+                ),
+                if (url.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(url, style: TextStyle(fontSize: 11, color: Colors.orange[600], fontFamily: 'monospace'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// AI 问答结果
+  Widget _buildAIQueryResult() {
+    final response = result['response'] as String? ?? result['answer'] as String? ?? result['result'] as String? ?? '';
+
+    if (response.isNotEmpty) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.purple[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.purple[200]!, width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, color: Colors.purple[700], size: 20),
+                const SizedBox(width: 8),
+                Text('AI Response', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.purple[900])),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(response, style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.5)),
           ],
         ),
       );

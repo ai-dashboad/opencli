@@ -156,6 +156,11 @@ class DaemonService {
           }
         }
         break;
+      case 'auth_required':
+        _isConnected = false;
+        final requiresPairing = data['requires_pairing'] as bool? ?? false;
+        print('Auth required from daemon: ${data['message']} (pairing=$requiresPairing)');
+        break;
       case 'error':
         print('Error from daemon: ${data['message']}');
         break;

@@ -56,7 +56,7 @@ class _ChatPageState extends State<ChatPage> {
   void _addWelcomeMessage() {
     final welcomeMsg = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: 'Hello! I\'m OpenCLI Assistant.\n\nYou can tell me what to do via text or voice, for example:\n\n• "Take a screenshot"\n• "Open Google"\n• "Search Flutter tutorial"\n• "Get system info"',
+      content: 'Hello! I\'m OpenCLI Assistant.\n\nI can automate your Mac. Try:\n\n📱 Apps: "open chrome" / "close safari"\n🌐 Web: "open youtube" / "search flutter"\n💻 System: "system info" / "disk space" / "battery"\n📜 Scripts: "kill port 3000" / "show largest files"\n🍎 macOS: "create note" / "set volume 50" / "dark mode"\n🔧 Dev: "git status" / "run tests" / "build apk"\n📦 Files: "compress downloads" / "backup documents"',
       isUser: false,
       timestamp: DateTime.now(),
       status: MessageStatus.delivered,
@@ -140,11 +140,28 @@ class _ChatPageState extends State<ChatPage> {
   String _getProcessingMessageForIntent(String intent, Map<String, dynamic> params) {
     switch (intent) {
       case 'open_app':
-        return '🚀 Opening app: ${params['app_name']}...';
+        return '🚀 Opening: ${params['app_name']}...';
+      case 'close_app':
+        return '🛑 Closing: ${params['app_name']}...';
       case 'screenshot':
         return '📸 Taking screenshot...';
       case 'system_info':
         return '💻 Getting system info...';
+      case 'open_url':
+        return '🌐 Opening: ${params['url'] ?? 'webpage'}...';
+      case 'web_search':
+        return '🔍 Searching: ${params['query']}...';
+      case 'run_command':
+        final cmd = params['command'] ?? '';
+        if (cmd == 'bash') return '📜 Running script...';
+        if (cmd == 'osascript') return '🍎 Running AppleScript...';
+        return '⚙️ Running: $cmd...';
+      case 'ai_query':
+        return '🤖 Thinking...';
+      case 'check_process':
+        return '🔎 Checking: ${params['process_name']}...';
+      case 'file_operation':
+        return '📂 ${params['operation'] ?? 'Processing'} files...';
       default:
         return '⏳ Processing...';
     }
@@ -218,11 +235,11 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
 
-      // Not recognized or confidence too low
+      // Not recognized or confidence too low (should rarely happen with auto-fallback)
       if (!result.isRecognized) {
         final errorMsg = result.error ?? 'Unable to understand command';
         _addAssistantMessage(
-          '🤔 Sorry, I don\'t understand this command yet.\n\nError: $errorMsg\n\nYou can try:\n• "Take a screenshot"\n• "Screenshot the simulator"\n• "Open google.com"\n• "Search Flutter"\n• "Get system info"\n• "Open Chrome"\n• "Run command ls"',
+          '🤔 Having trouble understanding. Error: $errorMsg\n\nTry:\n• "open youtube" / "dark mode" / "system info"\n• "kill port 3000" / "show largest files"\n• "create note about shopping"\n• "git status" / "compress downloads"',
           status: MessageStatus.failed,
         );
         return;
@@ -266,21 +283,38 @@ class _ChatPageState extends State<ChatPage> {
       case 'screenshot':
         return '📸 Taking screenshot...';
       case 'open_url':
-        return '🌐 Opening webpage: ${result.taskData['url']}...';
+        return '🌐 Opening: ${result.taskData['url'] ?? 'webpage'}...';
       case 'web_search':
         return '🔍 Searching: ${result.taskData['query']}...';
       case 'system_info':
         return '💻 Getting system info...';
       case 'open_app':
-        return '🚀 Opening app: ${result.taskData['app_name']}...';
+        return '🚀 Opening: ${result.taskData['app_name']}...';
       case 'close_app':
-        return '❌ Closing app: ${result.taskData['app_name']}...';
+        return '🛑 Closing: ${result.taskData['app_name']}...';
       case 'open_file':
         return '📁 Opening file...';
       case 'run_command':
-        return '⚙️ Executing command...';
+        final cmd = result.taskData['command'] ?? '';
+        if (cmd == 'bash') return '📜 Running script...';
+        if (cmd == 'osascript') return '🍎 Running AppleScript...';
+        return '⚙️ Running: $cmd...';
       case 'ai_query':
         return '🤖 Thinking...';
+      case 'check_process':
+        return '🔎 Checking process: ${result.taskData['process_name']}...';
+      case 'list_processes':
+        return '📋 Listing processes...';
+      case 'file_operation':
+        return '📂 ${result.taskData['operation'] ?? 'Processing'} files...';
+      case 'create_file':
+        return '📝 Creating file...';
+      case 'delete_file':
+        return '🗑️ Deleting file...';
+      case 'read_file':
+        return '📖 Reading file...';
+      case 'list_apps':
+        return '📱 Listing apps...';
       default:
         return '⏳ Processing your request...';
     }
@@ -340,6 +374,7 @@ class _ChatPageState extends State<ChatPage> {
       children: [
         Expanded(
           child: ListView.builder(
+            key: const ValueKey('message_list'),
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
             itemCount: _messages.length,
@@ -371,6 +406,7 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             Expanded(
               child: TextField(
+                key: const ValueKey('chat_text_field'),
                 controller: _textController,
                 decoration: InputDecoration(
                   hintText: _isListening ? 'Listening...' : 'Enter command or hold to speak',
@@ -391,6 +427,7 @@ class _ChatPageState extends State<ChatPage> {
             const SizedBox(width: 8),
             // 语音按钮
             GestureDetector(
+              key: const ValueKey('mic_button'),
               onLongPressStart: (_) => _startListening(),
               onLongPressEnd: (_) => _stopListening(),
               child: Container(
@@ -410,10 +447,14 @@ class _ChatPageState extends State<ChatPage> {
             ),
             const SizedBox(width: 8),
             // 发送按钮
-            IconButton(
-              onPressed: () => _handleSubmit(_textController.text),
-              icon: const Icon(Icons.send),
-              color: Theme.of(context).colorScheme.primary,
+            Tooltip(
+              message: 'Send',
+              child: IconButton(
+                key: const ValueKey('send_button'),
+                onPressed: () => _handleSubmit(_textController.text),
+                icon: const Icon(Icons.send),
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           ],
         ),

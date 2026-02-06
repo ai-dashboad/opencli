@@ -90,9 +90,20 @@ class ExecutionContext {
   Map<String, dynamic> resolveParams(Map<String, dynamic> params) {
     final resolved = <String, dynamic>{};
 
+    // Pattern for a single variable reference like ${args}
+    final singleVarPattern = RegExp(r'^\$\{(\w+)\}$');
+
     params.forEach((key, value) {
       if (value is String) {
-        resolved[key] = resolveTemplate(value);
+        // If the entire value is a single ${var} reference,
+        // return the original value preserving its type (e.g., List)
+        final match = singleVarPattern.firstMatch(value);
+        if (match != null) {
+          final varName = match.group(1)!;
+          resolved[key] = variables[varName] ?? '';
+        } else {
+          resolved[key] = resolveTemplate(value);
+        }
       } else if (value is Map<String, dynamic>) {
         resolved[key] = resolveParams(value);
       } else if (value is List) {
@@ -137,7 +148,7 @@ class CapabilityExecutor {
 
   CapabilityExecutor({
     required CapabilityRegistry registry,
-    this.defaultTimeout = const Duration(seconds: 30),
+    this.defaultTimeout = const Duration(seconds: 120),
   }) : _registry = registry;
 
   /// Register an action handler
