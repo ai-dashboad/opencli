@@ -40,6 +40,25 @@
 - `docs/` - Documentation files
 - `plugins/` - MCP plugin implementations
 
+## Releasing New Versions
+
+To release a new version, **always use the release script**:
+
+```bash
+./scripts/release.sh <version> "<description>"
+```
+
+Examples:
+```bash
+./scripts/release.sh 0.3.0 "New domain system with 12 task domains"
+./scripts/release.sh 0.2.3 "Bug fixes for pattern matching"
+./scripts/release.sh 1.0.0 "First stable release"
+```
+
+The script handles: version bump (via `scripts/bump_version.dart`), CHANGELOG update, git commit, annotated tag, and push. It also triggers GitHub Actions for builds.
+
+**Never manually edit version numbers** — always use the release script.
+
 ## Documentation Guidelines
 
 **All documentation markdown files MUST be created in the `docs/` folder**, including:
