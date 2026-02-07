@@ -36,6 +36,42 @@ class ChatMessage {
       result: result ?? this.result,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    // Filter out image_base64 from result to avoid storing large blobs
+    Map<String, dynamic>? filteredResult;
+    if (result != null) {
+      filteredResult = Map<String, dynamic>.from(result!);
+      filteredResult.remove('image_base64');
+    }
+
+    return {
+      'id': id,
+      'content': content,
+      'isUser': isUser,
+      'timestamp': timestamp.toIso8601String(),
+      'status': status.name,
+      'taskType': taskType,
+      'result': filteredResult,
+    };
+  }
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'] as String,
+      content: json['content'] as String,
+      isUser: json['isUser'] as bool,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      status: MessageStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => MessageStatus.delivered,
+      ),
+      taskType: json['taskType'] as String?,
+      result: json['result'] != null
+          ? Map<String, dynamic>.from(json['result'] as Map)
+          : null,
+    );
+  }
 }
 
 enum MessageStatus {

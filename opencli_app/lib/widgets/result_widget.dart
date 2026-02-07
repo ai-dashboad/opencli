@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'file_list_widget.dart';
+import 'domain_cards/domain_card_registry.dart';
 
 /// 通用结果展示组件
 /// 根据任务类型智能选择展示方式
@@ -49,6 +50,10 @@ class ResultWidget extends StatelessWidget {
         return _buildAIQueryResult();
 
       default:
+        // Check if this is a domain task type (calendar, music, timer, etc.)
+        if (DomainCardRegistry.handles(taskType)) {
+          return DomainCardRegistry.buildCard(taskType, result);
+        }
         return _buildDefaultResult();
     }
   }

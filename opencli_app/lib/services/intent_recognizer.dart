@@ -3,12 +3,45 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'daemon_service.dart';
 
+/// Domain intent pattern — injected from daemon's DomainRegistry via config
+class DomainIntentPatternLocal {
+  final RegExp pattern;
+  final String taskType;
+  final Map<String, dynamic> Function(RegExpMatch match) extractData;
+  final double confidence;
+
+  const DomainIntentPatternLocal({
+    required this.pattern,
+    required this.taskType,
+    required this.extractData,
+    this.confidence = 1.0,
+  });
+}
+
 /// AI 驱动的意图识别引擎
 /// 使用 Ollama LLM 理解自然语言，无需硬编码模式
 class IntentRecognizer {
   final DaemonService daemonService;
 
+  /// Domain patterns injected from the daemon's DomainRegistry.
+  /// Checked FIRST in _tryQuickPath() before hardcoded patterns.
+  final List<DomainIntentPatternLocal> _domainPatterns = [];
+
+  /// Set of all domain task types (for _mapIntentToTaskType)
+  final Set<String> _domainTaskTypes = {};
+
   IntentRecognizer(this.daemonService);
+
+  /// Register domain patterns (called after connecting to daemon)
+  void registerDomainPatterns(List<DomainIntentPatternLocal> patterns) {
+    _domainPatterns.clear();
+    _domainPatterns.addAll(patterns);
+    _domainTaskTypes.clear();
+    for (final p in patterns) {
+      _domainTaskTypes.add(p.taskType);
+    }
+    print('[IntentRecognizer] Registered ${patterns.length} domain patterns');
+  }
 
   /// 识别用户输入的意图（AI 驱动）
   Future<IntentResult> recognize(String input) async {
@@ -50,6 +83,20 @@ class IntentRecognizer {
   /// 快速路径：高频命令直接返回，无需 AI 调用
   IntentResult? _tryQuickPath(String input) {
     final lower = input.toLowerCase().trim();
+
+    // === Domain patterns (calendar, music, timer, weather, etc.) ===
+    // Checked FIRST — these come from the daemon's DomainRegistry
+    for (final dp in _domainPatterns) {
+      final match = dp.pattern.firstMatch(input.trim());
+      if (match != null) {
+        return IntentResult(
+          intent: dp.taskType,
+          confidence: dp.confidence,
+          taskType: dp.taskType,
+          taskData: dp.extractData(match),
+        );
+      }
+    }
 
     // === 截图 ===
     if (lower == '截图' || lower == '截屏' || lower == 'screenshot' || lower == 'take screenshot') {
@@ -577,6 +624,10 @@ class IntentRecognizer {
       case 'ai_analyze_image':
         return intent;
       default:
+        // Check if it's a domain task type
+        if (_domainTaskTypes.contains(intent)) {
+          return intent;
+        }
         // 未知意图 fallback 到 run_command，让 shell 处理
         return 'run_command';
     }

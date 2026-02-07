@@ -3,11 +3,13 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 // import 'package:permission_handler/permission_handler.dart';  // Disabled - speech_to_text handles permissions internally
 import '../models/chat_message.dart';
 import '../services/daemon_service.dart';
 import '../services/intent_recognizer.dart';
+import '../services/domain_patterns.dart';
 import '../widgets/result_widget.dart';
 
 class ChatPage extends StatefulWidget {
@@ -24,16 +26,21 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
+  late final IntentRecognizer _intentRecognizer;
 
   bool _isListening = false;
   bool _speechAvailable = false;
 
+  static const _storageKey = 'chat_messages';
+
   @override
   void initState() {
     super.initState();
+    _intentRecognizer = IntentRecognizer(widget.daemonService);
+    _intentRecognizer.registerDomainPatterns(buildDomainPatterns());
     _initSpeech();
     _listenToUpdates();
-    _addWelcomeMessage();
+    _loadMessages();
   }
 
   Future<void> _initSpeech() async {
@@ -56,12 +63,49 @@ class _ChatPageState extends State<ChatPage> {
   void _addWelcomeMessage() {
     final welcomeMsg = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: 'Hello! I\'m OpenCLI Assistant.\n\nI can automate your Mac. Try:\n\n📱 Apps: "open chrome" / "close safari"\n🌐 Web: "open youtube" / "search flutter"\n💻 System: "system info" / "disk space" / "battery"\n📜 Scripts: "kill port 3000" / "show largest files"\n🍎 macOS: "create note" / "set volume 50" / "dark mode"\n🔧 Dev: "git status" / "run tests" / "build apk"\n📦 Files: "compress downloads" / "backup documents"',
+      content: 'Hello! I\'m OpenCLI Assistant.\n\nI can automate your Mac. Try:\n\n📱 Apps: "open chrome" / "close safari"\n🌐 Web: "open youtube" / "search flutter"\n💻 System: "system info" / "disk space" / "battery"\n⏱ Timer: "set timer for 25 minutes" / "pomodoro"\n🎵 Music: "play music" / "next song" / "now playing"\n📅 Calendar: "my schedule today" / "schedule meeting"\n✅ Reminders: "remind me to buy groceries"\n🌤 Weather: "weather" / "forecast"\n🧮 Calculator: "calculate 15% of 234"\n📝 Notes: "create note about ideas"\n🌍 Translation: "translate hello to Spanish"',
       isUser: false,
       timestamp: DateTime.now(),
       status: MessageStatus.delivered,
     );
     setState(() => _messages.add(welcomeMsg));
+  }
+
+  Future<void> _loadMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_storageKey);
+    if (json != null && json.isNotEmpty) {
+      try {
+        final list = jsonDecode(json) as List<dynamic>;
+        final loaded = list
+            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+            .toList();
+        if (loaded.isNotEmpty) {
+          setState(() {
+            _messages.clear();
+            _messages.addAll(loaded);
+          });
+          _scrollToBottom();
+          return;
+        }
+      } catch (_) {
+        // Corrupted data — fall through to welcome message
+      }
+    }
+    _addWelcomeMessage();
+  }
+
+  Future<void> _saveMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Only persist final-state messages (skip executing/sending), keep last 100
+    final toSave = _messages
+        .where((m) =>
+            m.status != MessageStatus.executing &&
+            m.status != MessageStatus.sending)
+        .toList();
+    final trimmed = toSave.length > 100 ? toSave.sublist(toSave.length - 100) : toSave;
+    final json = jsonEncode(trimmed.map((m) => m.toJson()).toList());
+    await prefs.setString(_storageKey, json);
   }
 
   void _listenToUpdates() {
@@ -94,6 +138,7 @@ class _ChatPageState extends State<ChatPage> {
 
             // Submit the recognized task
             _submitRecognizedTask(intent, parameters);
+            _saveMessages();
           } else {
             // Normal task completion - preserve original message taskType
             setState(() {
@@ -104,6 +149,7 @@ class _ChatPageState extends State<ChatPage> {
                 // taskType is already in original message, copyWith preserves it
               );
             });
+            _saveMessages();
           }
           _scrollToBottom();
         } else if (status == 'failed' && error != null && executingIndex != -1) {
@@ -114,6 +160,7 @@ class _ChatPageState extends State<ChatPage> {
               status: MessageStatus.failed,
             );
           });
+          _saveMessages();
           _scrollToBottom();
         }
       }
@@ -213,6 +260,7 @@ class _ChatPageState extends State<ChatPage> {
       _messages.add(userMessage);
       _textController.clear();
     });
+    _saveMessages();
     _scrollToBottom();
 
     // 解析用户意图并执行任务
@@ -225,8 +273,7 @@ class _ChatPageState extends State<ChatPage> {
       _addAssistantMessage('🤖 Understanding your command...', status: MessageStatus.executing);
 
       // Use AI-powered intent recognition engine
-      final recognizer = IntentRecognizer(widget.daemonService);
-      final result = await recognizer.recognize(input);
+      final result = await _intentRecognizer.recognize(input);
 
       // Remove "recognizing" message
       if (_messages.isNotEmpty && !_messages.last.isUser) {
@@ -320,6 +367,14 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  void _toggleListening() {
+    if (_isListening) {
+      _stopListening();
+    } else {
+      _startListening();
+    }
+  }
+
   void _startListening() async {
     if (!_speechAvailable) {
       _showError('Speech recognition unavailable');
@@ -409,7 +464,7 @@ class _ChatPageState extends State<ChatPage> {
                 key: const ValueKey('chat_text_field'),
                 controller: _textController,
                 decoration: InputDecoration(
-                  hintText: _isListening ? 'Listening...' : 'Enter command or hold to speak',
+                  hintText: _isListening ? 'Listening...' : 'Enter command or tap mic',
                   filled: true,
                   fillColor: Theme.of(context).colorScheme.surfaceVariant,
                   border: OutlineInputBorder(
@@ -428,11 +483,11 @@ class _ChatPageState extends State<ChatPage> {
             // 语音按钮
             GestureDetector(
               key: const ValueKey('mic_button'),
-              onLongPressStart: (_) => _startListening(),
-              onLongPressEnd: (_) => _stopListening(),
-              child: Container(
-                width: 48,
-                height: 48,
+              onTap: _toggleListening,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: _isListening ? 52 : 48,
+                height: _isListening ? 52 : 48,
                 decoration: BoxDecoration(
                   color: _isListening
                       ? Colors.red

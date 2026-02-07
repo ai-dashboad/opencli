@@ -16,6 +16,8 @@ import 'package:opencli_daemon/telemetry/telemetry.dart';
 import 'package:opencli_daemon/plugins/mcp_manager.dart';
 import 'package:opencli_daemon/api/unified_api_server.dart';
 import 'package:opencli_daemon/api/message_handler.dart';
+import 'package:opencli_daemon/domains/domain_registry.dart';
+import 'package:opencli_daemon/domains/domain_plugin_adapter.dart';
 
 class Daemon {
   static const String version = '0.2.0';
@@ -31,6 +33,7 @@ class Daemon {
   late final MobileTaskHandler _mobileTaskHandler;
   late final StatusServer _statusServer;
   late final TelemetryManager _telemetry;
+  late final DomainRegistry _domainRegistry;
   WebUILauncher? _webUILauncher;
   PluginMarketplaceUI? _pluginMarketplaceUI;
   UnifiedApiServer? _unifiedApiServer;
@@ -145,6 +148,24 @@ class Daemon {
       TerminalUI.warning('Permission system initialization failed: $e', prefix: '  ⚠');
       // Continue without permission checks
     }
+
+    // Initialize domain registry (calendar, music, timer, weather, etc.)
+    TerminalUI.printInitStep('Initializing task domain registry');
+    _domainRegistry = createBuiltinDomainRegistry();
+    await _domainRegistry.initializeAll();
+
+    // Register domain executors into mobile task handler
+    _domainRegistry.registerIntoTaskHandler(_mobileTaskHandler);
+
+    // Register domain routes into request router (IPC + Unified API)
+    _router.setDomainRegistry(_domainRegistry);
+
+    TerminalUI.success(
+      'Domain registry: ${_domainRegistry.domains.length} domains, '
+      '${_domainRegistry.allTaskTypes.length} task types '
+      '(plugin + MCP + API)',
+      prefix: '  ✓',
+    );
 
     // Start config watcher for hot-reload
     TerminalUI.printInitStep('Starting config watcher');
@@ -320,6 +341,9 @@ class Daemon {
     TerminalUI.printInitStep('Stopping MCP servers');
     await _mcpManager.stopAll();
 
+    TerminalUI.printInitStep('Disposing domain registry');
+    await _domainRegistry.disposeAll();
+
     TerminalUI.printInitStep('Disposing task handler');
     _mobileTaskHandler.dispose();
 
@@ -354,9 +378,13 @@ class Daemon {
       'memory_mb': _healthMonitor.memoryUsageMb,
       'telemetry': _telemetry.getStats(),
       'taskHandler': _mobileTaskHandler.getStats(),
+      'domains': _domainRegistry.getStats(),
     };
   }
 
   /// Get mobile task handler for capability management
   MobileTaskHandler get taskHandler => _mobileTaskHandler;
+
+  /// Get domain registry for domain-based task access
+  DomainRegistry get domainRegistry => _domainRegistry;
 }

@@ -48,6 +48,9 @@ dependencies:
   http: ^1.2.2
   flutter_skill: ^0.4.1
 
+  # Local storage for chat history
+  shared_preferences: ^2.3.0
+
   # Speech to text for voice input
   speech_to_text: ^7.0.0
 
