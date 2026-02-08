@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   ReactFlow,
   addEdge,
@@ -31,7 +31,7 @@ import {
   runPipelineFromNode,
   listPipelines,
   deletePipeline,
-  getNodeCatalog,
+  getVideoNodeCatalog,
 } from '../api/pipeline-api';
 
 import '../components/pipeline/pipeline.css';
@@ -61,7 +61,7 @@ function PipelineEditorInner() {
 
   // Load catalog for output type lookups
   useEffect(() => {
-    getNodeCatalog().then(setCatalogCache).catch(() => {});
+    getVideoNodeCatalog().then(setCatalogCache).catch(() => {});
   }, []);
 
   // Load pipeline if ID provided
@@ -76,13 +76,12 @@ function PipelineEditorInner() {
       const pipeline = await getPipeline(id);
       if (!pipeline) return;
 
-      const catalog = catalogCache.length ? catalogCache : await getNodeCatalog();
+      const catalog = catalogCache.length ? catalogCache : await getVideoNodeCatalog();
 
       setPipelineName(pipeline.name);
       setPipelineDescription(pipeline.description);
       setCurrentPipelineId(pipeline.id);
 
-      // Convert pipeline nodes to React Flow nodes
       const rfNodes: Node[] = pipeline.nodes.map((n) => {
         const catalogEntry = catalog.find((c) => c.type === n.type);
         return {
@@ -100,16 +99,16 @@ function PipelineEditorInner() {
             params: n.params,
             inputs: catalogEntry?.inputs || [{ name: 'input', type: 'any' }],
             outputs: catalogEntry?.outputs || [{ name: 'output', type: 'any' }],
+            category: catalogEntry?.category,
           } as DomainNodeData,
         };
       });
 
-      // Convert pipeline edges to React Flow edges with color-coding
       const rfEdges: Edge[] = pipeline.edges.map((e) => {
         const sourceNode = rfNodes.find((n) => n.id === e.source);
         const sourceData = sourceNode?.data as DomainNodeData | undefined;
         const outputPort = sourceData?.outputs?.find((o) => o.name === e.source_port);
-        const edgeColor = outputPort ? getTypeColor(outputPort.type) : '#00BCD4';
+        const edgeColor = outputPort ? getTypeColor(outputPort.type) : '#6C5CE7';
 
         return {
           id: e.id,
@@ -132,13 +131,12 @@ function PipelineEditorInner() {
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      // Look up source port type for color-coded edge
       const sourceNode = nodes.find((n) => n.id === connection.source);
       const sourceData = sourceNode?.data as DomainNodeData | undefined;
       const outputPort = sourceData?.outputs?.find(
         (o) => o.name === connection.sourceHandle
       );
-      const edgeColor = outputPort ? getTypeColor(outputPort.type) : '#00BCD4';
+      const edgeColor = outputPort ? getTypeColor(outputPort.type) : '#6C5CE7';
 
       setEdges((eds) =>
         addEdge(
@@ -162,7 +160,6 @@ function PipelineEditorInner() {
     setSelectedNode(null);
   }, []);
 
-  // Drag & drop from catalog
   const onDragStart = useCallback((event: React.DragEvent, catalogNode: NodeCatalogEntry) => {
     event.dataTransfer.setData('application/json', JSON.stringify(catalogNode));
     event.dataTransfer.effectAllowed = 'move';
@@ -204,6 +201,7 @@ function PipelineEditorInner() {
           params: {},
           inputs: catalogNode.inputs,
           outputs: catalogNode.outputs,
+          category: catalogNode.category,
           status: undefined,
         } as DomainNodeData,
       };
@@ -213,7 +211,6 @@ function PipelineEditorInner() {
     [setNodes]
   );
 
-  // Update node data from config panel
   const onUpdateNode = useCallback(
     (nodeId: string, dataUpdate: Partial<DomainNodeData>) => {
       setNodes((nds) =>
@@ -279,7 +276,6 @@ function PipelineEditorInner() {
       setExecutionLog([]);
       addLog(fromNodeId ? `Running from node ${fromNodeId}...` : 'Starting pipeline execution...');
 
-      // Reset all node statuses
       setNodes((nds) =>
         nds.map((n) => ({
           ...n,
@@ -287,7 +283,6 @@ function PipelineEditorInner() {
         }))
       );
 
-      // Animate edges
       setEdges((eds) => eds.map((e) => ({ ...e, animated: true })));
 
       try {
@@ -353,7 +348,6 @@ function PipelineEditorInner() {
                 );
               }
 
-              // Cache node results for play-from-here
               if (result.node_results) {
                 setNodeResults((prev) => ({ ...prev, ...result.node_results }));
               }
@@ -390,7 +384,6 @@ function PipelineEditorInner() {
     [setNodes, setEdges, nodeResults]
   );
 
-  // Run full pipeline
   const handleRun = async () => {
     let id = currentPipelineId;
     if (!id) {
@@ -404,7 +397,6 @@ function PipelineEditorInner() {
     connectAndRun(id);
   };
 
-  // Play from a specific node
   const handlePlayFromHere = useCallback(
     async (nodeId: string) => {
       let id = currentPipelineId;
@@ -421,7 +413,6 @@ function PipelineEditorInner() {
     [currentPipelineId, connectAndRun]
   );
 
-  // New pipeline
   const handleNew = () => {
     setNodes([]);
     setEdges([]);
@@ -434,7 +425,6 @@ function PipelineEditorInner() {
     nodeIdCounter = 0;
   };
 
-  // Load pipeline list
   const handleShowList = async () => {
     try {
       const pipelines = await listPipelines();
@@ -456,7 +446,6 @@ function PipelineEditorInner() {
     setExecutionLog((prev) => [...prev, `[${time}] ${message}`]);
   };
 
-  // Pipeline context value (memoized to avoid re-render loops)
   const pipelineContextValue = useMemo(
     () => ({
       onPlayFromHere: handlePlayFromHere,
@@ -471,9 +460,6 @@ function PipelineEditorInner() {
       <div className="pipeline-page">
         {/* Top toolbar */}
         <div className="pipeline-toolbar">
-          <Link to="/" className="toolbar-back">DASHBOARD</Link>
-          <div className="toolbar-divider" />
-
           <input
             type="text"
             className="toolbar-name"
@@ -486,13 +472,6 @@ function PipelineEditorInner() {
             <button className="toolbar-btn" onClick={handleNew}>New</button>
             <button className="toolbar-btn" onClick={handleShowList}>Open</button>
             <button className="toolbar-btn primary" onClick={handleSave}>Save</button>
-            <button
-              className={`toolbar-btn ${isRunning ? 'running' : 'run'}`}
-              onClick={handleRun}
-              disabled={isRunning || nodes.length === 0}
-            >
-              {isRunning ? 'Running...' : 'Run'}
-            </button>
           </div>
         </div>
 
@@ -519,30 +498,39 @@ function PipelineEditorInner() {
               fitView
               proOptions={{ hideAttribution: true }}
               defaultEdgeOptions={{
-                style: { stroke: '#00BCD4', strokeWidth: 2 },
-                type: 'smoothstep',
+                style: { stroke: '#6C5CE7', strokeWidth: 2 },
+                type: 'default',
               }}
             >
-              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1a1a2e" />
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#333333" />
               <Controls />
               <MiniMap
                 nodeColor={(n) => {
                   const d = n.data as DomainNodeData;
-                  if (d.status === 'completed') return '#4CAF50';
-                  if (d.status === 'failed') return '#f44336';
-                  if (d.status === 'running') return '#2196F3';
-                  return '#333';
+                  if (d.status === 'completed') return '#16A34A';
+                  if (d.status === 'failed') return '#EF4444';
+                  if (d.status === 'running') return '#6C5CE7';
+                  return '#444444';
                 }}
-                style={{ background: '#0a0118' }}
+                style={{ background: '#141414', border: '1px solid #2a2a2a' }}
               />
             </ReactFlow>
 
             {/* Empty state */}
             {nodes.length === 0 && (
               <div className="canvas-empty">
-                Drag nodes from the catalog to start building your pipeline
+                Drag nodes from the catalog to start building your video pipeline
               </div>
             )}
+
+            {/* Run pipeline FAB */}
+            <button
+              className={`run-pipeline-fab${isRunning ? ' running' : ''}`}
+              onClick={handleRun}
+              disabled={isRunning || nodes.length === 0}
+            >
+              {isRunning ? 'Running...' : 'Run pipeline'}
+            </button>
           </div>
 
           {/* Right: Config Panel */}
@@ -557,7 +545,7 @@ function PipelineEditorInner() {
         {executionLog.length > 0 && (
           <div className="execution-log">
             <div className="log-header">
-              <span>EXECUTION LOG</span>
+              <span>Execution Log</span>
               <button className="log-clear" onClick={() => setExecutionLog([])}>Clear</button>
             </div>
             <div className="log-content">

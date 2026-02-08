@@ -64,6 +64,7 @@ export interface NodeCatalogEntry {
   description: string;
   icon: string;
   color: string;
+  category?: string;
   inputs: NodeInputPort[];
   outputs: NodeOutputPort[];
 }
@@ -128,6 +129,12 @@ export async function runPipelineFromNode(
 
 export async function getNodeCatalog(): Promise<NodeCatalogEntry[]> {
   const res = await fetch(`${API_BASE}/nodes/catalog`);
+  const data = await res.json();
+  return data.nodes || [];
+}
+
+export async function getVideoNodeCatalog(): Promise<NodeCatalogEntry[]> {
+  const res = await fetch(`${API_BASE}/nodes/video-catalog`);
   const data = await res.json();
   return data.nodes || [];
 }
