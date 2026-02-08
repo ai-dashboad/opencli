@@ -1,4 +1,4 @@
-use crate::error::{OpenCliError, Result};
+use crate::error::Result;
 use std::fs;
 use std::path::PathBuf;
 

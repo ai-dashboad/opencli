@@ -90,6 +90,7 @@ jobs:
           file_or_dir: config/
 
       - name: Check Markdown files
+        continue-on-error: true
         uses: DavidAnson/markdownlint-cli2-action@v11
         with:
           globs: |

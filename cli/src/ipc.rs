@@ -1,7 +1,6 @@
 use crate::error::{OpenCliError, Result};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
-use std::path::PathBuf;
 
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
@@ -104,20 +103,24 @@ impl IpcClient {
 
 // UUID generation helper
 mod uuid {
+    use std::fmt;
+
     pub struct Uuid;
 
     impl Uuid {
         pub fn new_v4() -> Self {
             Uuid
         }
+    }
 
-        pub fn to_string(&self) -> String {
+    impl fmt::Display for Uuid {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             use std::time::{SystemTime, UNIX_EPOCH};
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            format!("{:x}", timestamp)
+            write!(f, "{:x}", timestamp)
         }
     }
 }
