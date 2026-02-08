@@ -12,11 +12,10 @@ const GITHUB_OWNER = process.env.GITHUB_OWNER || 'ai-dashboad';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'opencli';
 
 if (!GITHUB_TOKEN) {
-  console.error('❌ GITHUB_TOKEN environment variable is required');
-  process.exit(1);
+  console.warn('⚠️ GITHUB_TOKEN not set — issue creation disabled');
 }
 
-const octokit = new Octokit({ auth: GITHUB_TOKEN });
+const octokit = GITHUB_TOKEN ? new Octokit({ auth: GITHUB_TOKEN }) : null;
 
 // Middleware
 app.use(cors());
@@ -73,6 +72,9 @@ app.post('/api/telemetry/report', async (req, res) => {
     }
 
     // Create new GitHub issue
+    if (!octokit) {
+      return res.status(503).json({ error: 'GitHub integration not configured' });
+    }
     const issueNumber = await createGitHubIssue(error, system_info, device_id, timestamp);
 
     // Cache the issue

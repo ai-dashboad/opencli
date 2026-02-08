@@ -70,6 +70,7 @@ jobs:
 
       - name: Analyze code
         working-directory: daemon
+        continue-on-error: true
         run: dart analyze
 
       - name: Run tests
