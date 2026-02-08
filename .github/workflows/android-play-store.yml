@@ -16,6 +16,9 @@ on:
           - beta
           - production
 
+permissions:
+  contents: write
+
 env:
   FLUTTER_VERSION: '3.32.2'
   JAVA_VERSION: '17'

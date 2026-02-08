@@ -12,6 +12,9 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: write
+
 env:
   FLUTTER_VERSION: '3.32.2'
 

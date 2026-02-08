@@ -57,6 +57,7 @@ platform :android do
       track: 'internal',
       aab: aab_path,
       json_key_data: ENV['PLAY_STORE_JSON_KEY'],
+      release_status: 'draft',
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
