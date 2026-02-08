@@ -12,6 +12,7 @@ interface ProviderConfig {
   placeholder: string;
   meta: string;
   capabilities: string[];
+  link: string;
 }
 
 const AI_PROVIDERS: ProviderConfig[] = [
@@ -20,32 +21,90 @@ const AI_PROVIDERS: ProviderConfig[] = [
     name: 'Replicate',
     configKey: 'replicate',
     placeholder: 'r8_xxxxxxxxxxxx',
-    meta: 'Flux Schnell (image) + Kling v2.6 (video) — ~$0.20-0.28/gen',
-    capabilities: ['Image Generation', 'Video Generation'],
+    meta: 'Flux Schnell (image) + Kling v2.6 (video)',
+    capabilities: ['Image', 'Video'],
+    link: 'replicate.com/account/api-tokens',
   },
   {
     id: 'runway',
     name: 'Runway Gen-4',
     configKey: 'runway',
     placeholder: 'rwk_xxxxxxxxxxxx',
-    meta: 'Gen-4 Turbo video generation — ~$0.75/gen',
-    capabilities: ['Video Generation'],
+    meta: 'Gen-4 Turbo video generation',
+    capabilities: ['Video'],
+    link: 'app.runwayml.com/settings/api-keys',
   },
   {
     id: 'kling',
     name: 'Kling AI (PiAPI)',
     configKey: 'kling_piapi',
     placeholder: 'piapi_xxxxxxxxxxxx',
-    meta: 'Kling v2.6 video via PiAPI — ~$0.90/gen',
-    capabilities: ['Video Generation'],
+    meta: 'Kling v2.6 video via PiAPI proxy',
+    capabilities: ['Video'],
+    link: 'piapi.ai',
   },
   {
     id: 'luma',
     name: 'Luma Dream Machine',
     configKey: 'luma',
     placeholder: 'luma_xxxxxxxxxxxx',
-    meta: 'Dream Machine video — ~$0.20/gen',
-    capabilities: ['Video Generation'],
+    meta: 'Dream Machine video + Photon image',
+    capabilities: ['Video', 'Image'],
+    link: 'lumalabs.ai',
+  },
+  {
+    id: 'stability',
+    name: 'Stability AI',
+    configKey: 'stability',
+    placeholder: 'sk-xxxxxxxxxxxx',
+    meta: 'Stable Diffusion XL, SD3, SDXL Turbo',
+    capabilities: ['Image'],
+    link: 'platform.stability.ai/account/keys',
+  },
+  {
+    id: 'openai_image',
+    name: 'DALL-E (OpenAI)',
+    configKey: 'openai_dalle',
+    placeholder: 'sk-xxxxxxxxxxxx',
+    meta: 'DALL-E 3 image generation',
+    capabilities: ['Image'],
+    link: 'platform.openai.com/api-keys',
+  },
+  {
+    id: 'minimax',
+    name: 'Minimax / Hailuo',
+    configKey: 'minimax',
+    placeholder: 'mm_xxxxxxxxxxxx',
+    meta: 'Hailuo AI video generation',
+    capabilities: ['Video'],
+    link: 'hailuoai.com',
+  },
+  {
+    id: 'pika',
+    name: 'Pika',
+    configKey: 'pika',
+    placeholder: 'pika_xxxxxxxxxxxx',
+    meta: 'Pika 1.0 video generation',
+    capabilities: ['Video'],
+    link: 'pika.art',
+  },
+  {
+    id: 'ideogram',
+    name: 'Ideogram',
+    configKey: 'ideogram',
+    placeholder: 'ig_xxxxxxxxxxxx',
+    meta: 'Ideogram 2.0 image + text rendering',
+    capabilities: ['Image'],
+    link: 'ideogram.ai',
+  },
+  {
+    id: 'fal',
+    name: 'fal.ai',
+    configKey: 'fal',
+    placeholder: 'fal_xxxxxxxxxxxx',
+    meta: 'Fast Flux, SDXL, video models',
+    capabilities: ['Image', 'Video'],
+    link: 'fal.ai/dashboard',
   },
 ];
 
@@ -58,6 +117,7 @@ interface ModelConfig {
   placeholder: string;
   modelName: string;
   type: 'cloud' | 'local';
+  link: string;
 }
 
 const LLM_MODELS: ModelConfig[] = [
@@ -70,6 +130,7 @@ const LLM_MODELS: ModelConfig[] = [
     placeholder: 'sk-ant-xxxxxxxxxxxx',
     modelName: 'claude-sonnet-4-20250514',
     type: 'cloud',
+    link: 'console.anthropic.com/settings/keys',
   },
   {
     id: 'gpt',
@@ -80,6 +141,7 @@ const LLM_MODELS: ModelConfig[] = [
     placeholder: 'sk-xxxxxxxxxxxx',
     modelName: 'gpt-4-turbo',
     type: 'cloud',
+    link: 'platform.openai.com/api-keys',
   },
   {
     id: 'gemini',
@@ -88,8 +150,64 @@ const LLM_MODELS: ModelConfig[] = [
     configSection: 'gemini',
     keyField: 'api_key',
     placeholder: 'AIzaxxxxxxxxxxxx',
-    modelName: 'gemini-2.0-flash-exp',
+    modelName: 'gemini-2.0-flash',
     type: 'cloud',
+    link: 'aistudio.google.com/apikey',
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    icon: 'explore',
+    configSection: 'deepseek',
+    keyField: 'api_key',
+    placeholder: 'sk-xxxxxxxxxxxx',
+    modelName: 'deepseek-chat',
+    type: 'cloud',
+    link: 'platform.deepseek.com/api_keys',
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    icon: 'bolt',
+    configSection: 'groq',
+    keyField: 'api_key',
+    placeholder: 'gsk_xxxxxxxxxxxx',
+    modelName: 'llama-3.3-70b',
+    type: 'cloud',
+    link: 'console.groq.com/keys',
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral',
+    icon: 'air',
+    configSection: 'mistral',
+    keyField: 'api_key',
+    placeholder: 'xxxxxxxxxxxx',
+    modelName: 'mistral-large',
+    type: 'cloud',
+    link: 'console.mistral.ai/api-keys',
+  },
+  {
+    id: 'perplexity',
+    name: 'Perplexity',
+    icon: 'travel_explore',
+    configSection: 'perplexity',
+    keyField: 'api_key',
+    placeholder: 'pplx-xxxxxxxxxxxx',
+    modelName: 'sonar-pro',
+    type: 'cloud',
+    link: 'perplexity.ai/settings/api',
+  },
+  {
+    id: 'cohere',
+    name: 'Cohere',
+    icon: 'hub',
+    configSection: 'cohere',
+    keyField: 'api_key',
+    placeholder: 'xxxxxxxxxxxx',
+    modelName: 'command-r-plus',
+    type: 'cloud',
+    link: 'dashboard.cohere.com/api-keys',
   },
   {
     id: 'ollama',
@@ -98,8 +216,9 @@ const LLM_MODELS: ModelConfig[] = [
     configSection: 'ollama',
     keyField: 'base_url',
     placeholder: 'http://localhost:11434',
-    modelName: 'codellama',
+    modelName: 'llama3.2 / codellama / mistral',
     type: 'local',
+    link: 'ollama.com',
   },
 ];
 
@@ -108,11 +227,11 @@ export default function SettingsPage() {
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   // Editable API key values
   const [providerKeys, setProviderKeys] = useState<Record<string, string>>({});
   const [modelKeys, setModelKeys] = useState<Record<string, string>>({});
-  const [hasChanges, setHasChanges] = useState(false);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -120,7 +239,6 @@ export default function SettingsPage() {
       const data = await res.json();
       setConfig(data.config);
 
-      // Init provider keys from config
       const keys: Record<string, string> = {};
       AI_PROVIDERS.forEach((p) => {
         const val = data.config?.ai_video?.api_keys?.[p.configKey] ?? '';
@@ -128,7 +246,6 @@ export default function SettingsPage() {
       });
       setProviderKeys(keys);
 
-      // Init model keys from config
       const mkeys: Record<string, string> = {};
       LLM_MODELS.forEach((m) => {
         const val = data.config?.models?.[m.configSection]?.[m.keyField] ?? '';
@@ -146,6 +263,13 @@ export default function SettingsPage() {
     fetchConfig();
   }, [fetchConfig]);
 
+  // Auto-dismiss banner
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4000);
+    return () => clearTimeout(t);
+  }, [banner]);
+
   const isProviderConfigured = (provider: ProviderConfig) => {
     const val = config?.ai_video?.api_keys?.[provider.configKey];
     return val && val !== '' && val !== 'null';
@@ -156,81 +280,71 @@ export default function SettingsPage() {
     return val && val !== '' && val !== 'null';
   };
 
-  const handleProviderKeyChange = (id: string, value: string) => {
-    setProviderKeys((prev) => ({ ...prev, [id]: value }));
-    setHasChanges(true);
-  };
-
-  const handleModelKeyChange = (id: string, value: string) => {
-    setModelKeys((prev) => ({ ...prev, [id]: value }));
-    setHasChanges(true);
-  };
-
-  const handleSave = async () => {
+  // Save a single provider key immediately
+  const saveProviderKey = async (provider: ProviderConfig) => {
+    const key = providerKeys[provider.id]?.trim();
+    if (!key) return;
+    setSavingKey(provider.id);
     try {
-      // Build update payload
-      const updates: any = {};
-
-      // Provider keys
-      const apiKeys: any = {};
-      let hasProviderUpdate = false;
-      AI_PROVIDERS.forEach((p) => {
-        if (providerKeys[p.id] && providerKeys[p.id].trim()) {
-          apiKeys[p.configKey] = providerKeys[p.id].trim();
-          hasProviderUpdate = true;
-        }
-      });
-      if (hasProviderUpdate) {
-        updates.ai_video = { api_keys: apiKeys };
-      }
-
-      // Model keys
-      let hasModelUpdate = false;
-      const models: any = {};
-      LLM_MODELS.forEach((m) => {
-        if (modelKeys[m.id] && modelKeys[m.id].trim()) {
-          models[m.configSection] = {
-            ...(config?.models?.[m.configSection] ?? {}),
-            [m.keyField]: modelKeys[m.id].trim(),
-          };
-          hasModelUpdate = true;
-        }
-      });
-      if (hasModelUpdate) {
-        updates.models = models;
-      }
-
-      if (!hasProviderUpdate && !hasModelUpdate) {
-        setBanner({ type: 'info', message: 'No changes to save.' });
-        return;
-      }
-
       const res = await fetch(`${API_BASE}/api/v1/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({ ai_video: { api_keys: { [provider.configKey]: key } } }),
       });
-
       const data = await res.json();
       if (data.success) {
-        setBanner({ type: 'success', message: 'Config saved! Restart the daemon to apply changes.' });
-        setHasChanges(false);
-        // Refresh config
+        setBanner({ type: 'success', message: `${provider.name} key saved and activated.` });
         await fetchConfig();
       } else {
         setBanner({ type: 'error', message: data.error || 'Failed to save' });
       }
     } catch {
-      setBanner({ type: 'error', message: 'Failed to save config. Check daemon connection.' });
+      setBanner({ type: 'error', message: 'Failed to save. Check daemon connection.' });
+    } finally {
+      setSavingKey(null);
     }
+  };
+
+  // Save a single model key immediately
+  const saveModelKey = async (model: ModelConfig) => {
+    const key = modelKeys[model.id]?.trim();
+    if (!key) return;
+    setSavingKey(model.id);
+    try {
+      const section = config?.models?.[model.configSection] ?? {};
+      const res = await fetch(`${API_BASE}/api/v1/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          models: { [model.configSection]: { ...section, [model.keyField]: key } },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBanner({ type: 'success', message: `${model.name} configured and activated.` });
+        await fetchConfig();
+      } else {
+        setBanner({ type: 'error', message: data.error || 'Failed to save' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: 'Failed to save. Check daemon connection.' });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  // Handle Enter key to save
+  const handleProviderKeyDown = (e: React.KeyboardEvent, provider: ProviderConfig) => {
+    if (e.key === 'Enter') saveProviderKey(provider);
+  };
+  const handleModelKeyDown = (e: React.KeyboardEvent, model: ModelConfig) => {
+    if (e.key === 'Enter') saveModelKey(model);
   };
 
   if (loading) {
     return (
       <div className="st-page">
-        <div className="st-header">
-          <h1>Settings</h1>
-        </div>
+        <div className="st-header"><h1>Settings</h1></div>
         <div className="st-banner info">
           <span className="material-icons">hourglass_empty</span>
           Loading configuration...
@@ -272,98 +386,118 @@ export default function SettingsPage() {
 
       {/* AI Generation Tab */}
       {tab === 'generation' && (
-        <>
-          <div className="st-section">
-            <div className="st-section-header">
-              <div className="st-section-icon purple">
-                <span className="material-icons">movie</span>
-              </div>
-              <div>
-                <div className="st-section-title">AI Video & Image Providers</div>
-                <div className="st-section-desc">API keys for cloud-based media generation</div>
-              </div>
+        <div className="st-section">
+          <div className="st-section-header">
+            <div className="st-section-icon purple">
+              <span className="material-icons">movie</span>
             </div>
-
-            <div className="st-provider-list">
-              {AI_PROVIDERS.map((p) => {
-                const active = isProviderConfigured(p);
-                return (
-                  <div key={p.id} className={`st-provider${active ? ' configured' : ''}`}>
-                    <div className="st-provider-top">
-                      <div className="st-provider-info">
-                        <span className="st-provider-name">{p.name}</span>
-                        <span className={`st-provider-badge ${active ? 'active' : 'inactive'}`}>
-                          {active ? 'ACTIVE' : 'NOT SET'}
-                        </span>
-                      </div>
-                      <span className="st-provider-meta">
-                        {p.capabilities.join(' + ')}
-                      </span>
-                    </div>
-                    <div className="st-key-row">
-                      <input
-                        className="st-key-input"
-                        type="password"
-                        placeholder={p.placeholder}
-                        value={providerKeys[p.id] || ''}
-                        onChange={(e) => handleProviderKeyChange(p.id, e.target.value)}
-                      />
-                    </div>
-                    <div className="st-provider-meta" style={{ marginTop: 6 }}>{p.meta}</div>
-                  </div>
-                );
-              })}
+            <div>
+              <div className="st-section-title">AI Video & Image Providers</div>
+              <div className="st-section-desc">Enter an API key and press Enter or click Save — changes apply instantly</div>
             </div>
           </div>
-        </>
+
+          <div className="st-provider-list">
+            {AI_PROVIDERS.map((p) => {
+              const active = isProviderConfigured(p);
+              const saving = savingKey === p.id;
+              return (
+                <div key={p.id} className={`st-provider${active ? ' configured' : ''}`}>
+                  <div className="st-provider-top">
+                    <div className="st-provider-info">
+                      <span className="st-provider-name">{p.name}</span>
+                      <span className={`st-provider-badge ${active ? 'active' : 'inactive'}`}>
+                        {active ? 'ACTIVE' : 'NOT SET'}
+                      </span>
+                      {p.capabilities.map((c) => (
+                        <span key={c} className="st-cap-badge">{c}</span>
+                      ))}
+                    </div>
+                    <a className="st-provider-link" href={`https://${p.link}`} target="_blank" rel="noopener noreferrer">
+                      Get Key
+                    </a>
+                  </div>
+                  <div className="st-key-row">
+                    <input
+                      className="st-key-input"
+                      type="password"
+                      placeholder={active ? '••••••••' : p.placeholder}
+                      value={providerKeys[p.id] || ''}
+                      onChange={(e) => setProviderKeys((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                      onKeyDown={(e) => handleProviderKeyDown(e, p)}
+                    />
+                    <button
+                      className="st-key-btn save"
+                      disabled={!providerKeys[p.id]?.trim() || saving}
+                      onClick={() => saveProviderKey(p)}
+                    >
+                      {saving ? '...' : 'Save'}
+                    </button>
+                  </div>
+                  <div className="st-provider-meta" style={{ marginTop: 6 }}>{p.meta}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* LLM Models Tab */}
       {tab === 'models' && (
-        <>
-          <div className="st-section">
-            <div className="st-section-header">
-              <div className="st-section-icon blue">
-                <span className="material-icons">psychology</span>
-              </div>
-              <div>
-                <div className="st-section-title">Language Models</div>
-                <div className="st-section-desc">Configure AI assistants for task routing and chat</div>
-              </div>
+        <div className="st-section">
+          <div className="st-section-header">
+            <div className="st-section-icon blue">
+              <span className="material-icons">psychology</span>
             </div>
-
-            <div className="st-model-list">
-              {LLM_MODELS.map((m) => {
-                const active = isModelConfigured(m);
-                return (
-                  <div key={m.id} className={`st-model${active ? ' configured' : ''}`}>
-                    <div className="st-model-icon">
-                      <span className="material-icons">{m.icon}</span>
-                    </div>
-                    <div className="st-model-body">
-                      <div className="st-model-name">{m.name}</div>
-                      <div className="st-model-detail">
-                        {m.modelName} {m.type === 'local' ? '(local)' : ''}
-                      </div>
-                    </div>
-                    <div className="st-model-key">
-                      <input
-                        className="st-key-input"
-                        type={m.type === 'local' ? 'text' : 'password'}
-                        placeholder={m.placeholder}
-                        value={modelKeys[m.id] || ''}
-                        onChange={(e) => handleModelKeyChange(m.id, e.target.value)}
-                      />
-                    </div>
-                    <span className={`st-provider-badge ${active ? 'active' : 'inactive'}`}>
-                      {active ? 'ACTIVE' : 'NOT SET'}
-                    </span>
-                  </div>
-                );
-              })}
+            <div>
+              <div className="st-section-title">Language Models</div>
+              <div className="st-section-desc">Configure AI assistants — Enter key and press Enter to save</div>
             </div>
           </div>
-        </>
+
+          <div className="st-model-list">
+            {LLM_MODELS.map((m) => {
+              const active = isModelConfigured(m);
+              const saving = savingKey === m.id;
+              return (
+                <div key={m.id} className={`st-model${active ? ' configured' : ''}`}>
+                  <div className="st-model-icon">
+                    <span className="material-icons">{m.icon}</span>
+                  </div>
+                  <div className="st-model-body">
+                    <div className="st-model-name">
+                      {m.name}
+                      <a className="st-model-link" href={`https://${m.link}`} target="_blank" rel="noopener noreferrer">
+                        <span className="material-icons">open_in_new</span>
+                      </a>
+                    </div>
+                    <div className="st-model-detail">{m.modelName}</div>
+                  </div>
+                  <div className="st-model-key">
+                    <input
+                      className="st-key-input"
+                      type={m.type === 'local' ? 'text' : 'password'}
+                      placeholder={active ? '••••••••' : m.placeholder}
+                      value={modelKeys[m.id] || ''}
+                      onChange={(e) => setModelKeys((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      onKeyDown={(e) => handleModelKeyDown(e, m)}
+                    />
+                  </div>
+                  <button
+                    className="st-key-btn save"
+                    disabled={!modelKeys[m.id]?.trim() || saving}
+                    onClick={() => saveModelKey(m)}
+                  >
+                    {saving ? '...' : 'Save'}
+                  </button>
+                  <span className={`st-provider-badge ${active ? 'active' : 'inactive'}`}>
+                    {active ? 'ACTIVE' : ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* General Tab */}
@@ -427,27 +561,21 @@ export default function SettingsPage() {
 
             <div className="st-model-list">
               <div className="st-model">
-                <div className="st-model-icon">
-                  <span className="material-icons">folder</span>
-                </div>
+                <div className="st-model-icon"><span className="material-icons">folder</span></div>
                 <div className="st-model-body">
                   <div className="st-model-name">Config File</div>
                   <div className="st-model-detail">~/.opencli/config.yaml</div>
                 </div>
               </div>
               <div className="st-model">
-                <div className="st-model-icon">
-                  <span className="material-icons">lan</span>
-                </div>
+                <div className="st-model-icon"><span className="material-icons">lan</span></div>
                 <div className="st-model-body">
                   <div className="st-model-name">Daemon Ports</div>
                   <div className="st-model-detail">API: 9529 | WS: 9876 | Status: 9875</div>
                 </div>
               </div>
               <div className="st-model">
-                <div className="st-model-icon">
-                  <span className="material-icons">security</span>
-                </div>
+                <div className="st-model-icon"><span className="material-icons">security</span></div>
                 <div className="st-model-body">
                   <div className="st-model-name">Socket Path</div>
                   <div className="st-model-detail">{config?.security?.socket_path ?? '/tmp/opencli.sock'}</div>
@@ -456,16 +584,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </>
-      )}
-
-      {/* Sticky Save Bar */}
-      {hasChanges && (
-        <div className="st-save-bar">
-          <span className="st-save-hint">You have unsaved changes</span>
-          <button className="st-save-btn" onClick={handleSave}>
-            Save Changes
-          </button>
-        </div>
       )}
     </div>
   );

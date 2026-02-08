@@ -22,15 +22,18 @@ class UnifiedApiServer {
   final int port;
   HttpServer? _server;
   PipelineApi? _pipelineApi;
+  Future<void> Function()? _onConfigSaved;
 
   UnifiedApiServer({
     required RequestRouter requestRouter,
     required MessageHandler messageHandler,
     this.port = 9529,
     PipelineApi? pipelineApi,
+    Future<void> Function()? onConfigSaved,
   })  : _requestRouter = requestRouter,
         _messageHandler = messageHandler,
-        _pipelineApi = pipelineApi;
+        _pipelineApi = pipelineApi,
+        _onConfigSaved = onConfigSaved;
 
   /// Set pipeline API (can be configured after construction).
   void setPipelineApi(PipelineApi api) {
@@ -238,8 +241,17 @@ class UnifiedApiServer {
       final yamlStr = _toYamlString(current, 0);
       await file.writeAsString('# OpenCLI Configuration\n# Updated by web UI\n\n$yamlStr');
 
+      // Hot-reload providers immediately
+      if (_onConfigSaved != null) {
+        try {
+          await _onConfigSaved!();
+        } catch (e) {
+          print('[UnifiedApi] Config reload warning: $e');
+        }
+      }
+
       return shelf.Response.ok(
-        jsonEncode({'success': true, 'message': 'Config updated. Restart daemon to apply changes.'}),
+        jsonEncode({'success': true, 'message': 'Config saved and applied.'}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e) {

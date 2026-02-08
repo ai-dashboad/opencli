@@ -281,6 +281,30 @@ class MediaCreationDomain extends TaskDomain {
     }
   }
 
+  /// Reload providers from config file (called on config change).
+  Future<void> reloadProviders() async {
+    try {
+      final home = Platform.environment['HOME'] ?? '/tmp';
+      final configFile = File('$home/.opencli/config.yaml');
+      if (await configFile.exists()) {
+        final content = await configFile.readAsString();
+        final yaml = loadYaml(content);
+        if (yaml is YamlMap) {
+          final aiVideo = yaml['ai_video'];
+          if (aiVideo is YamlMap) {
+            final config = _yamlToMap(aiVideo);
+            _providerRegistry.configureFromConfig(config);
+            final configured = _providerRegistry.configuredProviders;
+            print('[MediaCreationDomain] Providers reloaded: '
+                '${configured.map((p) => p.displayName).join(', ')}');
+          }
+        }
+      }
+    } catch (e) {
+      print('[MediaCreationDomain] Could not reload providers: $e');
+    }
+  }
+
   /// Convert YamlMap to regular Map recursively.
   Map<String, dynamic> _yamlToMap(YamlMap yaml) {
     final map = <String, dynamic>{};

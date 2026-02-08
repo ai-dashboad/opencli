@@ -239,6 +239,7 @@ class Daemon {
       messageHandler: MessageHandler(), // Create new instance for unified API
       port: 9529,
       pipelineApi: pipelineApi,
+      onConfigSaved: reloadMediaProviders,
     );
     await _unifiedApiServer!.start();
     TerminalUI.success('Unified API server listening on port 9529',
@@ -396,7 +397,22 @@ class Daemon {
   Future<void> _handleConfigChanged(Config newConfig) async {
     TerminalUI.info('Configuration changed, reloading...', prefix: '🔄');
     await _pluginManager.reload(newConfig);
+    // Reload media creation providers
+    await reloadMediaProviders();
     TerminalUI.success('Configuration reloaded', prefix: '✓');
+  }
+
+  /// Reload media creation providers from updated config.
+  Future<void> reloadMediaProviders() async {
+    final mediaDomain = _domainRegistry.getDomain('media_creation');
+    if (mediaDomain != null) {
+      // Use dynamic dispatch to call reloadProviders
+      try {
+        await (mediaDomain as dynamic).reloadProviders();
+      } catch (e) {
+        print('[Daemon] Could not reload media providers: $e');
+      }
+    }
   }
 
   Map<String, dynamic> getStats() {

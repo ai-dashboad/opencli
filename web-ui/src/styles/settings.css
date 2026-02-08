@@ -167,6 +167,43 @@
   color: var(--text-muted);
 }
 
+.st-cap-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+
+.st-provider-link {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.st-provider-link:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.st-model-link {
+  color: var(--text-muted);
+  margin-left: 6px;
+  vertical-align: middle;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.st-model-link .material-icons {
+  font-size: 14px;
+}
+
+.st-model-link:hover {
+  color: var(--accent);
+}
+
 .st-key-row {
   display: flex;
   gap: 8px;
