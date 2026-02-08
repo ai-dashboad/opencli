@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:yaml/yaml.dart';
 import '../domain.dart';
 import 'providers/video_provider.dart';
@@ -28,6 +29,7 @@ class MediaCreationDomain extends TaskDomain {
         'media_animate_photo',
         'media_create_slideshow',
         'media_ai_generate_video',
+        'media_ai_generate_image',
       ];
 
   @override
@@ -82,6 +84,23 @@ class MediaCreationDomain extends TaskDomain {
           ),
           taskType: 'media_ai_generate_video',
           extractData: (_) => {'style': 'adPromo'},
+        ),
+        // AI image generation patterns
+        DomainIntentPattern(
+          pattern: RegExp(
+            r'^(?:generate|create)\s+(?:an?\s+)?(?:ai\s+)?(?:image|picture|photo)\s+(?:of|showing|with)\s+(.+)$',
+            caseSensitive: false,
+          ),
+          taskType: 'media_ai_generate_image',
+          extractData: (m) => {'prompt': m.group(1)?.trim() ?? ''},
+        ),
+        DomainIntentPattern(
+          pattern: RegExp(
+            r'^(?:generate|create|make)\s+(?:an?\s+)?(?:image|picture|illustration|artwork)\s*$',
+            caseSensitive: false,
+          ),
+          taskType: 'media_ai_generate_image',
+          extractData: (_) => {},
         ),
       ];
 
@@ -161,6 +180,38 @@ class MediaCreationDomain extends TaskDomain {
             ),
           ],
         ),
+        DomainOllamaIntent(
+          intentName: 'media_ai_generate_image',
+          description:
+              'Generate an AI image from a text prompt using cloud AI services (Replicate Flux model). Can also transform a reference image.',
+          parameters: {
+            'prompt':
+                'text description of the image to generate (required)',
+            'style':
+                'style hint: photorealistic, illustration, anime, oil_painting, watercolor, 3d_render (default: photorealistic)',
+            'aspect_ratio':
+                'output aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4 (default: 1:1)',
+            'negative_prompt':
+                'things to avoid in the generated image (optional)',
+          },
+          examples: [
+            OllamaExample(
+              input: 'generate an image of a sunset over mountains',
+              intentJson:
+                  '{"intent": "media_ai_generate_image", "confidence": 0.95, "parameters": {"prompt": "a sunset over mountains"}}',
+            ),
+            OllamaExample(
+              input: 'create a picture of a cute robot in anime style',
+              intentJson:
+                  '{"intent": "media_ai_generate_image", "confidence": 0.95, "parameters": {"prompt": "a cute robot", "style": "anime"}}',
+            ),
+            OllamaExample(
+              input: 'make an AI image of a futuristic city in 16:9',
+              intentJson:
+                  '{"intent": "media_ai_generate_image", "confidence": 0.90, "parameters": {"prompt": "a futuristic city", "aspect_ratio": "16:9"}}',
+            ),
+          ],
+        ),
       ];
 
   @override
@@ -182,6 +233,13 @@ class MediaCreationDomain extends TaskDomain {
           cardType: 'media_creation',
           titleTemplate: 'AI Video',
           subtitleTemplate: '\${style} via \${provider}',
+          icon: 'auto_awesome',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_ai_generate_image': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'AI Image',
+          subtitleTemplate: '\${style}',
           icon: 'auto_awesome',
           colorHex: 0xFF7C4DFF,
         ),
@@ -258,6 +316,8 @@ class MediaCreationDomain extends TaskDomain {
         return _createSlideshow(taskData);
       case 'media_ai_generate_video':
         return _aiGenerateVideo(taskData);
+      case 'media_ai_generate_image':
+        return _aiGenerateImage(taskData);
       default:
         return {
           'success': false,
@@ -275,6 +335,9 @@ class MediaCreationDomain extends TaskDomain {
   }) async {
     if (taskType == 'media_ai_generate_video') {
       return _aiGenerateVideo(taskData, onProgress: onProgress);
+    }
+    if (taskType == 'media_ai_generate_image') {
+      return _aiGenerateImage(taskData, onProgress: onProgress);
     }
     return executeTask(taskType, taskData);
   }
@@ -502,6 +565,310 @@ class MediaCreationDomain extends TaskDomain {
         'card_type': 'media_creation',
       };
     }
+  }
+
+  /// Generate an image using Replicate's Flux model with progress reporting.
+  Future<Map<String, dynamic>> _aiGenerateImage(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    final prompt = data['prompt'] as String?;
+    if (prompt == null || prompt.trim().isEmpty) {
+      return {
+        'success': false,
+        'error': 'No prompt provided. Please describe the image you want to generate.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    // Get Replicate API key from the provider registry
+    final replicateProvider = _providerRegistry.get('replicate');
+    if (replicateProvider == null || !replicateProvider.isConfigured) {
+      return {
+        'success': false,
+        'error': 'Replicate API key not configured. '
+            'Add your API key to ~/.opencli/config.yaml under ai_video.api_keys.replicate',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    // Build the full prompt with style hints
+    final style = data['style'] as String? ?? 'photorealistic';
+    final negativePrompt = data['negative_prompt'] as String?;
+    final aspectRatio = data['aspect_ratio'] as String? ?? '1:1';
+    final referenceImageBase64 = data['reference_image_base64'] as String?;
+
+    // Enhance prompt with style
+    final styledPrompt = _buildImagePrompt(prompt, style);
+
+    onProgress?.call({
+      'progress': 0.05,
+      'status_message': 'Submitting image generation to Replicate...',
+      'provider': 'replicate',
+      'style': style,
+      'generation_type': 'ai_image',
+    });
+
+    // Use the Replicate API directly for Flux model (different input schema from video)
+    // Access the API token via the provider's headers by making a direct HTTP call
+    final home = Platform.environment['HOME'] ?? '/tmp';
+    final configFile = File('$home/.opencli/config.yaml');
+    String? apiToken;
+    try {
+      if (await configFile.exists()) {
+        final content = await configFile.readAsString();
+        final yaml = loadYaml(content);
+        if (yaml is YamlMap) {
+          final aiVideo = yaml['ai_video'];
+          if (aiVideo is YamlMap) {
+            var token = aiVideo['api_keys']?['replicate'];
+            if (token is String &&
+                token.startsWith(r'${') &&
+                token.endsWith('}')) {
+              final envVar = token.substring(2, token.length - 1);
+              token = Platform.environment[envVar] ?? token;
+            }
+            if (token is String &&
+                token.isNotEmpty &&
+                !token.startsWith(r'${')) {
+              apiToken = token;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fall through to error below
+    }
+
+    if (apiToken == null) {
+      return {
+        'success': false,
+        'error': 'Could not read Replicate API key from config.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final client = http.Client();
+    const baseUrl = 'https://api.replicate.com/v1';
+    const model = 'black-forest-labs/flux-schnell';
+    final headers = {
+      'Authorization': 'Bearer $apiToken',
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      // Build input parameters for Flux
+      final input = <String, dynamic>{
+        'prompt': styledPrompt,
+        'aspect_ratio': aspectRatio,
+        'output_format': 'png',
+        'output_quality': 90,
+        'num_outputs': 1,
+        'go_fast': true,
+      };
+
+      if (negativePrompt != null && negativePrompt.isNotEmpty) {
+        // Flux-schnell doesn't natively support negative prompts,
+        // so we append it to the prompt as guidance
+        input['prompt'] = '$styledPrompt. Avoid: $negativePrompt';
+      }
+
+      if (referenceImageBase64 != null && referenceImageBase64.isNotEmpty) {
+        input['image'] = 'data:image/jpeg;base64,$referenceImageBase64';
+      }
+
+      // Submit prediction
+      final response = await client.post(
+        Uri.parse('$baseUrl/models/$model/predictions'),
+        headers: headers,
+        body: jsonEncode({'input': input}),
+      );
+
+      if (response.statusCode != 201 && response.statusCode != 200) {
+        final body = jsonDecode(response.body);
+        return {
+          'success': false,
+          'error':
+              'Replicate submit failed: ${body['detail'] ?? response.statusCode}',
+          'domain': 'media_creation',
+          'card_type': 'media_creation',
+        };
+      }
+
+      final submitData = jsonDecode(response.body);
+      final jobId = submitData['id'] as String;
+
+      print(
+          '[MediaCreationDomain] AI image job submitted: $jobId via Replicate Flux');
+
+      onProgress?.call({
+        'progress': 0.15,
+        'status_message': 'Image generation queued...',
+        'job_id': jobId,
+        'provider': 'replicate',
+        'style': style,
+        'generation_type': 'ai_image',
+      });
+
+      // Poll loop: every 2s for up to 3 minutes (images are much faster than video)
+      const pollInterval = Duration(seconds: 2);
+      const maxWait = Duration(minutes: 3);
+      final deadline = DateTime.now().add(maxWait);
+
+      while (DateTime.now().isBefore(deadline)) {
+        await Future.delayed(pollInterval);
+
+        final pollResponse = await client.get(
+          Uri.parse('$baseUrl/predictions/$jobId'),
+          headers: headers,
+        );
+
+        if (pollResponse.statusCode != 200) {
+          continue; // Retry on transient errors
+        }
+
+        final pollData = jsonDecode(pollResponse.body);
+        final status = pollData['status'] as String;
+
+        switch (status) {
+          case 'succeeded':
+            onProgress?.call({
+              'progress': 0.85,
+              'status_message': 'Downloading generated image...',
+              'provider': 'replicate',
+              'style': style,
+              'generation_type': 'ai_image',
+            });
+
+            // Get output URL - Flux returns a list of URLs
+            final output = pollData['output'];
+            final imageUrl =
+                output is List ? output.first as String : output as String;
+
+            // Download the image
+            final imageResponse = await http.get(Uri.parse(imageUrl));
+            if (imageResponse.statusCode != 200) {
+              return {
+                'success': false,
+                'error':
+                    'Failed to download generated image: HTTP ${imageResponse.statusCode}',
+                'domain': 'media_creation',
+                'card_type': 'media_creation',
+              };
+            }
+
+            final imageBytes = imageResponse.bodyBytes;
+            final imageBase64 = base64Encode(imageBytes);
+            final sizeKB = (imageBytes.length / 1024).toStringAsFixed(0);
+
+            return {
+              'success': true,
+              'image_base64': imageBase64,
+              'image_url': imageUrl,
+              'provider': 'replicate',
+              'provider_name': 'Replicate',
+              'model': model,
+              'style': style,
+              'prompt': styledPrompt,
+              'aspect_ratio': aspectRatio,
+              'size_bytes': imageBytes.length,
+              'generation_type': 'ai_image',
+              'message':
+                  'AI image generated via Replicate Flux ($sizeKB KB)',
+              'domain': 'media_creation',
+              'card_type': 'media_creation',
+            };
+
+          case 'failed':
+          case 'canceled':
+            return {
+              'success': false,
+              'error': pollData['error']?['message'] as String? ??
+                  'Image generation failed',
+              'provider': 'replicate',
+              'generation_type': 'ai_image',
+              'domain': 'media_creation',
+              'card_type': 'media_creation',
+            };
+
+          case 'processing':
+            // Estimate progress from logs
+            final logs = pollData['logs'] as String?;
+            double progress = 0.4;
+            if (logs != null) {
+              final percentMatch = RegExp(r'(\d+)%').allMatches(logs);
+              if (percentMatch.isNotEmpty) {
+                final pct =
+                    int.tryParse(percentMatch.last.group(1)!) ?? 40;
+                progress = (pct / 100.0).clamp(0.2, 0.8);
+              }
+            }
+            onProgress?.call({
+              'progress': progress,
+              'status_message': 'Generating image...',
+              'provider': 'replicate',
+              'style': style,
+              'generation_type': 'ai_image',
+            });
+
+          default: // starting, queued
+            onProgress?.call({
+              'progress': 0.10,
+              'status_message': 'Queued...',
+              'provider': 'replicate',
+              'style': style,
+              'generation_type': 'ai_image',
+            });
+        }
+      }
+
+      // Timed out
+      return {
+        'success': false,
+        'error': 'AI image generation timed out after 3 minutes',
+        'provider': 'replicate',
+        'generation_type': 'ai_image',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'AI image generation error: $e',
+        'provider': 'replicate',
+        'generation_type': 'ai_image',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Build an enhanced prompt with style hints for image generation.
+  String _buildImagePrompt(String basePrompt, String style) {
+    final stylePrefix = switch (style) {
+      'photorealistic' => 'A photorealistic, high-quality photograph of',
+      'illustration' => 'A detailed digital illustration of',
+      'anime' => 'An anime-style illustration of',
+      'oil_painting' => 'An oil painting in classical style of',
+      'watercolor' => 'A delicate watercolor painting of',
+      '3d_render' => 'A high-quality 3D render of',
+      _ => 'A high-quality image of',
+    };
+
+    // If the prompt already starts with common articles, use the style prefix
+    // directly followed by the prompt content
+    final trimmed = basePrompt.trim();
+    if (trimmed.toLowerCase().startsWith('a ') ||
+        trimmed.toLowerCase().startsWith('an ') ||
+        trimmed.toLowerCase().startsWith('the ')) {
+      return '$stylePrefix ${trimmed.substring(trimmed.indexOf(' ') + 1)}';
+    }
+    return '$stylePrefix $trimmed';
   }
 
   Future<Map<String, dynamic>> _animatePhoto(Map<String, dynamic> data) async {
