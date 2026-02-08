@@ -29,9 +29,7 @@ pub enum OpenCliError {
 impl OpenCliError {
     pub fn suggest_fix(&self) -> Option<String> {
         match self {
-            OpenCliError::DaemonNotRunning => {
-                Some("Try running: opencli daemon start".to_string())
-            }
+            OpenCliError::DaemonNotRunning => Some("Try running: opencli daemon start".to_string()),
             OpenCliError::IpcConnectionFailed(_) => {
                 Some("Check if daemon is running: opencli daemon status".to_string())
             }

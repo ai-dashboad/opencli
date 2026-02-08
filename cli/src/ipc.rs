@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-use std::io::{Read, Write};
-use serde::{Deserialize, Serialize};
 use crate::error::{OpenCliError, Result};
+use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
+use std::path::PathBuf;
 
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
@@ -36,8 +36,8 @@ impl IpcClient {
     pub fn connect() -> Result<Self> {
         #[cfg(unix)]
         {
-            let stream = UnixStream::connect(SOCKET_PATH)
-                .map_err(|_| OpenCliError::DaemonNotRunning)?;
+            let stream =
+                UnixStream::connect(SOCKET_PATH).map_err(|_| OpenCliError::DaemonNotRunning)?;
 
             Ok(Self { stream })
         }
@@ -83,7 +83,9 @@ impl IpcClient {
 
             if !response.success {
                 return Err(OpenCliError::RequestFailed(
-                    response.error.unwrap_or_else(|| "Unknown error".to_string())
+                    response
+                        .error
+                        .unwrap_or_else(|| "Unknown error".to_string()),
                 ));
             }
 
@@ -94,7 +96,7 @@ impl IpcClient {
         {
             // Windows named pipe implementation coming soon
             Err(OpenCliError::RequestFailed(
-                "Windows IPC support is not yet implemented".to_string()
+                "Windows IPC support is not yet implemented".to_string(),
             ))
         }
     }
