@@ -11,6 +11,7 @@ use std::os::unix::net::UnixStream;
 const SOCKET_PATH: &str = "/tmp/opencli.sock";
 
 #[derive(Serialize, Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct IpcRequest {
     pub method: String,
     pub params: Vec<String>,
@@ -100,6 +101,7 @@ impl IpcClient {
 }
 
 // UUID generation helper
+#[allow(dead_code)]
 mod uuid {
     use std::fmt;
 
