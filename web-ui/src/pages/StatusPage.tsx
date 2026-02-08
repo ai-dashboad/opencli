@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import PipelineEditor from './pages/PipelineEditor';
-import './App.css';
+import '../styles/status.css';
 
 interface DaemonStatus {
   daemon: {
@@ -21,7 +19,7 @@ interface DaemonStatus {
 interface Message {
   id: string;
   type: 'user' | 'system' | 'task_submit' | 'task_update' | 'task_result';
-  source: string; // 'ios', 'web', 'daemon'
+  source: string;
   content: string;
   taskType?: string;
   taskData?: any;
@@ -38,7 +36,7 @@ interface DeviceInfo {
   lastSeen: Date;
 }
 
-function App() {
+function StatusPage() {
   const [status, setStatus] = useState<DaemonStatus | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [connected, setConnected] = useState(false);
@@ -49,7 +47,6 @@ function App() {
   const wsRef = useRef<WebSocket | null>(null);
   const radarCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // 滚动到顶部（最新消息）
   const scrollToTop = () => {
     messagesTopRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -58,14 +55,12 @@ function App() {
     scrollToTop();
   }, [messages]);
 
-  // 加载状态
   useEffect(() => {
     loadStatus();
     const interval = setInterval(loadStatus, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  // WebSocket 连接
   useEffect(() => {
     connectWebSocket();
     return () => {
@@ -96,9 +91,8 @@ function App() {
       ws.onopen = async () => {
         console.log('WebSocket connected');
         setWsConnected(true);
-        addSystemMessage('已连接到 OpenCLI Daemon', 'system');
+        addSystemMessage('Connected to OpenCLI Daemon', 'system');
 
-        // 发送认证
         const timestamp = Date.now();
         const token = await generateAuthToken('web_dashboard', timestamp);
         ws.send(JSON.stringify({
@@ -121,9 +115,7 @@ function App() {
       ws.onclose = () => {
         console.log('WebSocket disconnected');
         setWsConnected(false);
-        addSystemMessage('与 Daemon 断开连接', 'system');
-
-        // 5秒后重连
+        addSystemMessage('Disconnected from Daemon', 'system');
         setTimeout(connectWebSocket, 5000);
       };
 
@@ -138,7 +130,6 @@ function App() {
   };
 
   const generateAuthToken = async (deviceId: string, timestamp: number): Promise<string> => {
-    // 使用 SHA256 生成认证 token（与 daemon 一致）
     const input = `${deviceId}:${timestamp}:opencli-dev-secret`;
     const encoder = new TextEncoder();
     const data = encoder.encode(input);
@@ -153,20 +144,17 @@ function App() {
 
     switch (type) {
       case 'auth_success':
-        addSystemMessage('认证成功，开始监听消息...', 'system');
-        // 添加 Web UI 自己作为设备
+        addSystemMessage('Auth success, listening...', 'system');
         updateDeviceActivity('web_dashboard');
         break;
 
       case 'task_submitted':
-        // 更新设备列表
         updateDeviceActivity(data.device_id);
 
-        // 优先显示用户原始输入，如果没有则显示任务类型
         const userInput = data.task_data?._user_input;
         const displayContent = userInput
-          ? `💬 ${userInput}`
-          : `提交任务: ${data.task_type}`;
+          ? `${userInput}`
+          : `Task: ${data.task_type}`;
 
         addMessage({
           id: `task_${Date.now()}`,
@@ -187,7 +175,7 @@ function App() {
           id: `update_${Date.now()}`,
           type: 'task_update',
           source: data.device_id || 'daemon',
-          content: `${emoji} 任务${status === 'completed' ? '完成' : status === 'failed' ? '失败' : '运行中'}`,
+          content: `${emoji} Task ${status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'running'}`,
           taskType: data.task_type,
           status: status,
           result: data.result,
@@ -196,7 +184,7 @@ function App() {
         break;
 
       case 'error':
-        addSystemMessage(`错误: ${data.message}`, 'system');
+        addSystemMessage(`Error: ${data.message}`, 'system');
         break;
     }
   };
@@ -215,46 +203,19 @@ function App() {
     setMessages(prev => [...prev, message]);
   };
 
-  const formatUptime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours}h ${minutes}m ${secs}s`;
-  };
-
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('zh-CN', {
+    return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     });
   };
 
-  const getMessageIcon = (msg: Message) => {
-    if (msg.type === 'system') return '🔔';
-    if (msg.type === 'task_submit') return '📤';
-    if (msg.type === 'task_update') {
-      if (msg.status === 'completed') return '✅';
-      if (msg.status === 'failed') return '❌';
-      return '⏳';
-    }
-    return '💬';
-  };
-
-  const getSourceLabel = (source: string) => {
-    if (source.includes('ios')) return '📱 iOS';
-    if (source === 'web_dashboard') return '💻 Web';
-    if (source === 'daemon') return '🤖 Daemon';
-    if (source === 'system') return '⚙️ System';
-    return source;
-  };
-
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      // Show a brief success indication
       const notification = document.createElement('div');
       notification.className = 'copy-notification';
-      notification.textContent = `✓ ${label} 已复制`;
+      notification.textContent = `Copied ${label}`;
       document.body.appendChild(notification);
       setTimeout(() => notification.remove(), 2000);
     }).catch(err => {
@@ -262,15 +223,12 @@ function App() {
     });
   };
 
-  // 更新设备活动状态
   const updateDeviceActivity = (deviceId: string) => {
     setDevices(prev => {
       const existing = prev.find(d => d.id === deviceId);
       if (existing) {
         return prev.map(d => d.id === deviceId ? { ...d, lastSeen: new Date() } : d);
       } else {
-        // 新设备，随机分配角度和距离
-        // 检测设备类型：web_dashboard 是 web，其他都是 iOS/移动设备
         const isWebDashboard = deviceId === 'web_dashboard' || deviceId.includes('web_') || deviceId.includes('dashboard');
         const newDevice: DeviceInfo = {
           id: deviceId,
@@ -284,7 +242,6 @@ function App() {
     });
   };
 
-  // 计算任务速率（任务/分钟）
   const calculateTaskRate = () => {
     const now = new Date();
     const oneMinuteAgo = new Date(now.getTime() - 60000);
@@ -294,7 +251,6 @@ function App() {
     return recentTasks.length;
   };
 
-  // 计算成功率
   const calculateSuccessRate = () => {
     const completedTasks = messages.filter(m => m.type === 'task_update' && m.status === 'completed');
     const failedTasks = messages.filter(m => m.type === 'task_update' && m.status === 'failed');
@@ -302,7 +258,6 @@ function App() {
     return total > 0 ? Math.round((completedTasks.length / total) * 100) : 100;
   };
 
-  // 绘制雷达可视化
   useEffect(() => {
     const canvas = radarCanvasRef.current;
     if (!canvas) return;
@@ -314,11 +269,9 @@ function App() {
     const centerY = canvas.height / 2;
     const maxRadius = 140;
 
-    // 清空画布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 绘制网格圆圈
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(108, 92, 231, 0.25)';
     ctx.lineWidth = 1;
     for (let r = 30; r <= maxRadius; r += 30) {
       ctx.beginPath();
@@ -326,8 +279,7 @@ function App() {
       ctx.stroke();
     }
 
-    // 绘制网格线
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(108, 92, 231, 0.15)';
     for (let i = 0; i < 8; i++) {
       const angle = (Math.PI * 2 * i) / 8;
       ctx.beginPath();
@@ -339,35 +291,31 @@ function App() {
       ctx.stroke();
     }
 
-    // 绘制设备点
     devices.forEach(device => {
       const angle = (device.angle * Math.PI) / 180;
       const distance = (device.distance / 100) * maxRadius;
       const x = centerX + Math.cos(angle) * distance;
       const y = centerY + Math.sin(angle) * distance;
 
-      // 设备点
-      ctx.fillStyle = device.type === 'ios' ? '#ff006e' : '#00f0ff';
+      ctx.fillStyle = device.type === 'ios' ? '#22C55E' : '#6C5CE7';
       ctx.beginPath();
       ctx.arc(x, y, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // 发光效果
-      ctx.fillStyle = device.type === 'ios' ? 'rgba(255, 0, 110, 0.3)' : 'rgba(0, 240, 255, 0.3)';
+      ctx.fillStyle = device.type === 'ios' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(108, 92, 231, 0.3)';
       ctx.beginPath();
       ctx.arc(x, y, 12, 0, Math.PI * 2);
       ctx.fill();
     });
 
-    // 扫描线动画
     const scanAngle = (Date.now() / 20) % 360;
     const gradient = ctx.createLinearGradient(
       centerX, centerY,
       centerX + Math.cos(scanAngle * Math.PI / 180) * maxRadius,
       centerY + Math.sin(scanAngle * Math.PI / 180) * maxRadius
     );
-    gradient.addColorStop(0, 'rgba(0, 240, 255, 0.5)');
-    gradient.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    gradient.addColorStop(0, 'rgba(108, 92, 231, 0.4)');
+    gradient.addColorStop(1, 'rgba(108, 92, 231, 0)');
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -377,29 +325,15 @@ function App() {
     ctx.fill();
   }, [devices]);
 
-  // 雷达动画循环
   useEffect(() => {
     const interval = setInterval(() => {
       const canvas = radarCanvasRef.current;
       if (canvas) {
-        // 触发重绘
         setDevices(d => [...d]);
       }
     }, 50);
     return () => clearInterval(interval);
   }, []);
-
-  const location = useLocation();
-
-  // Pipeline editor has its own layout
-  if (location.pathname.startsWith('/pipelines')) {
-    return (
-      <Routes>
-        <Route path="/pipelines" element={<PipelineEditor />} />
-        <Route path="/pipelines/:id" element={<PipelineEditor />} />
-      </Routes>
-    );
-  }
 
   if (!status && !error) {
     return (
@@ -412,37 +346,29 @@ function App() {
 
   return (
     <div className="app">
-      {/* 背景效果 */}
-      <div className="bg-gradient"></div>
-      <div className="bg-grid"></div>
-      <div className="bg-stars"></div>
-
-      {/* 【组件1】顶部状态栏 - 科幻风格 */}
       <header className="quantum-header">
         <div className="header-title">
-          <div className="title-main">OPENCLI_PORTAL</div>
-          <div className="title-sub">REALTIME_MONITORING_SYSTEM v{status?.daemon.version || '0.1.0'}</div>
+          <div className="title-main">System Status</div>
+          <div className="title-sub">Real-time Monitoring v{status?.daemon.version || '0.1.0'}</div>
         </div>
-
-        <Link to="/pipelines" className="pipeline-nav-link">PIPELINE_EDITOR</Link>
 
         <div className="header-metrics">
           <div className="metric-item">
-            <span className="metric-label">UPTIME:</span>
+            <span className="metric-label">Uptime</span>
             <span className="metric-value">{status ? status.daemon.uptime_seconds : 0}s</span>
           </div>
           <div className="metric-item">
-            <span className="metric-label">FLUX:</span>
+            <span className="metric-label">Health</span>
             <span className="metric-value">{calculateSuccessRate()}%</span>
           </div>
           <div className="metric-item">
-            <span className="metric-label">SYS_TIME:</span>
+            <span className="metric-label">Time</span>
             <span className="metric-value">
               {new Date().toLocaleTimeString('en-US', { hour12: false })}
             </span>
           </div>
           <div className="metric-item">
-            <span className="metric-label">STATUS:</span>
+            <span className="metric-label">Status</span>
             <span className={`metric-value ${connected && wsConnected ? 'status-online' : 'status-offline'}`}>
               {connected && wsConnected ? 'ONLINE' : 'OFFLINE'}
             </span>
@@ -450,17 +376,14 @@ function App() {
         </div>
       </header>
 
-      {/* 主内容区 - 科幻布局 */}
       <div className="quantum-container">
-        {/* 左侧列 */}
         <div className="left-column">
-          {/* 【组件2】设备雷达可视化 */}
           <div className="radar-section">
             <div className="section-header">
-              <span className="header-label">DEVICE_SCANNER.sys</span>
+              <span className="header-label">Connected Devices</span>
               <span className="status-indicator">
                 <span className="status-dot-live"></span>
-                LIVE_FEED
+                Live
               </span>
             </div>
             <div className="radar-container">
@@ -487,35 +410,33 @@ function App() {
             </div>
           </div>
 
-          {/* 【组件3】关键指标卡片网格 */}
           <div className="metrics-grid">
             <div className="metric-card">
-              <div className="metric-label">iOS_CLIENTS</div>
+              <div className="metric-label">iOS Clients</div>
               <div className="metric-value">{devices.filter(d => d.type === 'ios').length}</div>
             </div>
             <div className="metric-card">
-              <div className="metric-label">WEB_CLIENTS</div>
+              <div className="metric-label">Web Clients</div>
               <div className="metric-value">{devices.filter(d => d.type === 'web').length}</div>
             </div>
             <div className="metric-card">
-              <div className="metric-label">TASKS/MIN</div>
+              <div className="metric-label">Tasks/min</div>
               <div className="metric-value">{calculateTaskRate()}</div>
             </div>
             <div className="metric-card">
-              <div className="metric-label">MEMORY</div>
+              <div className="metric-label">Memory</div>
               <div className="metric-value">{status?.daemon.memory_mb.toFixed(0) || 0}MB</div>
             </div>
             <div className="metric-card">
-              <div className="metric-label">PLUGINS</div>
+              <div className="metric-label">Plugins</div>
               <div className="metric-value">{status?.daemon.plugins_loaded || 0}</div>
             </div>
             <div className="metric-card">
-              <div className="metric-label">SUCCESS_RATE</div>
+              <div className="metric-label">Success Rate</div>
               <div className="metric-value">{calculateSuccessRate()}%</div>
             </div>
           </div>
 
-          {/* 【组件7】信号强度指示器 */}
           <div className="signal-section">
             <div className="signal-bars">
               {[1, 2, 3, 4, 5].map(i => (
@@ -527,28 +448,25 @@ function App() {
               ))}
             </div>
             <div className="signal-label">
-              SIGNAL: {connected && wsConnected ? '87%' : '0%'}
+              Signal: {connected && wsConnected ? '87%' : '0%'}
             </div>
           </div>
         </div>
 
-        {/* 右侧列 */}
         <div className="right-column">
-          {/* 【组件9】状态标签 */}
           <div className="status-tags">
             <div className="status-tag">
               <span className="tag-dot"></span>
-              QUANTUM_LINK_ACTIVE
+              Connection Active
             </div>
             <div className="status-tag">
-              LAST_UPDATE: {new Date().toLocaleTimeString('en-US', { hour12: true })}
+              Last update: {new Date().toLocaleTimeString('en-US', { hour12: true })}
             </div>
           </div>
 
-          {/* 【组件4】终端风格日志流 */}
           <div className="terminal-section">
             <div className="terminal-header">
-              <span className="terminal-label">DATA_STREAM:</span>
+              <span className="terminal-label">Event Log</span>
               <div className="terminal-controls">
                 <span className="terminal-dot red"></span>
                 <span className="terminal-dot yellow"></span>
@@ -560,7 +478,7 @@ function App() {
               {messages.length === 0 ? (
                 <div className="terminal-line">
                   <span className="terminal-cursor">&gt;</span>
-                  <span className="terminal-text">AWAITING_TRANSMISSION...</span>
+                  <span className="terminal-text">Waiting for events...</span>
                 </div>
               ) : (
                 [...messages].reverse().slice(0, 15).map((msg, idx) => (
@@ -572,8 +490,8 @@ function App() {
                     {msg.taskData && (
                       <button
                         className="terminal-copy-btn"
-                        onClick={() => copyToClipboard(JSON.stringify(msg.taskData, null, 2), '任务数据')}
-                        title="复制任务数据"
+                        onClick={() => copyToClipboard(JSON.stringify(msg.taskData, null, 2), 'task data')}
+                        title="Copy task data"
                       >
                         📋
                       </button>
@@ -581,8 +499,8 @@ function App() {
                     {msg.result && (
                       <button
                         className="terminal-copy-btn"
-                        onClick={() => copyToClipboard(JSON.stringify(msg.result, null, 2), 'LLM 响应')}
-                        title="复制 LLM 响应"
+                        onClick={() => copyToClipboard(JSON.stringify(msg.result, null, 2), 'result')}
+                        title="Copy result"
                       >
                         📋
                       </button>
@@ -593,162 +511,24 @@ function App() {
             </div>
           </div>
 
-          {/* 【组件8】大按钮组件 */}
           <div className="action-buttons">
             <button className="quantum-button">
-              <span className="button-icon">🌀</span>
-              <span className="button-text">QUANTUM_TRANSPORT.exe</span>
+              <span className="button-icon material-symbols-outlined" style={{fontSize: '18px'}}>send</span>
+              <span className="button-text">Send Test</span>
             </button>
             <button className="quantum-button secondary">
-              <span className="button-icon">🔄</span>
-              <span className="button-text">RELOAD_MATRIX.sys</span>
+              <span className="button-icon material-symbols-outlined" style={{fontSize: '18px'}}>refresh</span>
+              <span className="button-text">Reload</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 底部保留 */}
-      <div style={{ display: 'none' }}>
-        <aside className="sidebar">
-          <div className="stats-section">
-            <h2 className="section-title">
-              <span className="title-icon">📊</span>
-              System Status
-            </h2>
-
-            {status && (
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <div className="stat-label">Version</div>
-                  <div className="stat-value">{status.daemon.version}</div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-label">Uptime</div>
-                  <div className="stat-value">{formatUptime(status.daemon.uptime_seconds)}</div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-label">Memory</div>
-                  <div className="stat-value">{status.daemon.memory_mb.toFixed(1)} MB</div>
-                  <div className="stat-progress">
-                    <div
-                      className="stat-progress-bar"
-                      style={{ width: `${Math.min(100, (status.daemon.memory_mb / 500) * 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-label">Plugins</div>
-                  <div className="stat-value">{status.daemon.plugins_loaded}</div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-label">Requests</div>
-                  <div className="stat-value">{status.daemon.total_requests}</div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-label">Mobile Clients</div>
-                  <div className="stat-value">{status.mobile.connected_clients}</div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {error && (
-            <div className="error-box">
-              <span className="error-icon">⚠️</span>
-              <div className="error-text">{error}</div>
-            </div>
-          )}
-        </aside>
-
-        {/* 右侧：消息流 */}
-        <main className="main-content">
-          <div className="messages-section">
-            <h2 className="section-title">
-              <span className="title-icon">💬</span>
-              Real-time Messages
-              <span className="message-count">{messages.length}</span>
-            </h2>
-
-            <div className="messages-container">
-              {messages.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">📭</div>
-                  <p>等待消息...</p>
-                  <p className="empty-hint">来自 iOS、Web 或其他客户端的消息将在这里实时显示</p>
-                </div>
-              ) : (
-                <div className="messages-list">
-                  <div ref={messagesTopRef} />
-                  {[...messages].reverse().map((msg) => (
-                    <div key={msg.id} className={`message-item ${msg.type}`}>
-                      <div className="message-header">
-                        <span className="message-icon">{getMessageIcon(msg)}</span>
-                        <span className="message-source">{getSourceLabel(msg.source)}</span>
-                        <span className="message-time">{formatTime(msg.timestamp)}</span>
-                      </div>
-
-                      <div className="message-content">
-                        {msg.content}
-                        {msg.taskType && (
-                          <span className="task-type-badge">{msg.taskType}</span>
-                        )}
-                      </div>
-
-                      {msg.taskData && (
-                        <div className="message-result">
-                          <div className="result-header">
-                            <div className="result-label">任务数据:</div>
-                            <button
-                              className="copy-btn"
-                              onClick={() => copyToClipboard(JSON.stringify(msg.taskData, null, 2), '任务数据')}
-                              title="复制任务数据"
-                            >
-                              📋 复制
-                            </button>
-                          </div>
-                          <pre className="result-data">
-                            {JSON.stringify(msg.taskData, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-
-                      {msg.result && (
-                        <div className="message-result">
-                          <div className="result-header">
-                            <div className="result-label">LLM 响应:</div>
-                            <button
-                              className="copy-btn"
-                              onClick={() => copyToClipboard(JSON.stringify(msg.result, null, 2), 'LLM 响应')}
-                              title="复制 LLM 响应"
-                            >
-                              📋 复制
-                            </button>
-                          </div>
-                          <pre className="result-data">
-                            {JSON.stringify(msg.result, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </main>
-      </div>
-
-      {/* 底部状态栏 */}
       <footer className="footer">
         <div className="footer-content">
-          <span>🤖 OpenCLI Enterprise OS</span>
+          <span>OpenCLI Enterprise OS</span>
           <span className="footer-divider">|</span>
-          <span>Last update: {status?.timestamp ? new Date(status.timestamp).toLocaleTimeString('zh-CN') : '--'}</span>
+          <span>Last update: {status?.timestamp ? new Date(status.timestamp).toLocaleTimeString() : '--'}</span>
           <span className="footer-divider">|</span>
           <span className="footer-highlight">
             {messages.length} messages monitored
@@ -759,4 +539,4 @@ function App() {
   );
 }
 
-export default App;
+export default StatusPage;

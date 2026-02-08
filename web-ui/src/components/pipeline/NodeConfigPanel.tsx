@@ -1,7 +1,7 @@
 import type { Node } from '@xyflow/react';
 import type { DomainNodeData } from './DomainNode';
 import type { NodeInputPort } from '../../api/pipeline-api';
-import { getTypeColor, daemonColorToCss, getDomainIcon } from './dataTypeColors';
+import { getTypeColor, getNodeIcon } from './dataTypeColors';
 
 interface NodeConfigPanelProps {
   node: Node | null;
@@ -13,8 +13,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }: NodeConfigP
   if (!node) return null;
 
   const data = node.data as DomainNodeData;
-  const domainColor = daemonColorToCss(data.color);
-  const iconName = getDomainIcon(data.domain);
+  const icon = getNodeIcon(data.taskType);
 
   const handleParamChange = (key: string, value: any) => {
     onUpdate(node.id, {
@@ -71,7 +70,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }: NodeConfigP
               value={parseFloat(value) || min}
               onChange={(e) => handleParamChange(input.name, parseFloat(e.target.value))}
             />
-            <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+            <span className="config-slider-value">
               {parseFloat(value) || min}
             </span>
           </div>
@@ -80,13 +79,13 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }: NodeConfigP
 
       case 'toggle':
         return (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <label className="config-toggle">
             <input
               type="checkbox"
               checked={!!value}
               onChange={(e) => handleParamChange(input.name, e.target.checked)}
             />
-            <span style={{ fontSize: 11, color: '#aaa' }}>{value ? 'On' : 'Off'}</span>
+            <span className="config-toggle-label">{value ? 'On' : 'Off'}</span>
           </label>
         );
 
@@ -112,16 +111,14 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }: NodeConfigP
 
       <div className="config-body">
         {/* Node identity */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span className="material-icons" style={{ fontSize: 20, color: domainColor }}>
-            {iconName}
-          </span>
+        <div className="config-identity">
+          <span className="config-icon">{icon}</span>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#e0e0e0' }}>
+            <div className="config-node-name">
               {data.label || data.taskType}
             </div>
-            <div style={{ fontSize: 9, color: '#666', fontFamily: 'monospace' }}>
-              {data.domainName} / {data.taskType}
+            <div className="config-node-type">
+              {data.taskType}
             </div>
           </div>
         </div>
@@ -144,19 +141,12 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }: NodeConfigP
           <div key={input.name} className="config-field">
             <label className="config-label">
               <span
-                className="port-dot"
-                style={{
-                  background: getTypeColor(input.type),
-                  display: 'inline-block',
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  marginRight: 6,
-                }}
+                className="config-port-dot"
+                style={{ background: getTypeColor(input.type) }}
               />
               {input.name}
               {input.type !== 'any' && (
-                <span style={{ color: getTypeColor(input.type), marginLeft: 6, fontSize: 9 }}>
+                <span className="config-port-type" style={{ color: getTypeColor(input.type) }}>
                   {input.type}
                 </span>
               )}
@@ -171,25 +161,20 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }: NodeConfigP
             <div className="config-section-title">Outputs</div>
             {data.outputs.map((output) => (
               <div key={output.name} className="config-field">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="config-output-row">
                   <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: getTypeColor(output.type),
-                      display: 'inline-block',
-                    }}
+                    className="config-port-dot"
+                    style={{ background: getTypeColor(output.type) }}
                   />
-                  <span style={{ fontSize: 11, color: '#aaa' }}>{output.name}</span>
-                  <span style={{ fontSize: 9, color: getTypeColor(output.type) }}>{output.type}</span>
+                  <span className="config-output-name">{output.name}</span>
+                  <span className="config-output-type" style={{ color: getTypeColor(output.type) }}>{output.type}</span>
                 </div>
               </div>
             ))}
           </>
         )}
 
-        {/* Status (during execution) */}
+        {/* Status */}
         {data.status && (
           <>
             <div className="config-section-title">Status</div>
@@ -199,7 +184,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }: NodeConfigP
           </>
         )}
 
-        {/* Result preview */}
+        {/* Result */}
         {data.result && (
           <>
             <div className="config-section-title">Result</div>
