@@ -5,10 +5,15 @@
 **All text in this project MUST be in English**, including:
 - Git commit messages
 - Code comments
-- Documentation files
+- Documentation files (docs/, test-results/, etc.)
 - Variable names and function names
 - Error messages and log output
 - README and other markdown files
+- Test reports and E2E test output
+- AI-generated content (reports, summaries, code comments)
+- UI strings in the Flutter app and Web UI
+
+**No exceptions.** Even if the user writes in Chinese or another language, all code, documentation, and generated files MUST be written in English.
 
 ## Code Style
 

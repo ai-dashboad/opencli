@@ -7,81 +7,121 @@ class RemindersDomain extends TaskDomain {
   @override
   String get name => 'Reminders';
   @override
-  String get description => 'Add, list, and complete reminders via Reminders.app';
+  String get description =>
+      'Add, list, and complete reminders via Reminders.app';
   @override
   String get icon => 'checklist';
   @override
   int get colorHex => 0xFFFF9800;
 
   @override
-  List<String> get taskTypes => ['reminders_add', 'reminders_list', 'reminders_complete'];
+  List<String> get taskTypes =>
+      ['reminders_add', 'reminders_list', 'reminders_complete'];
 
   @override
   List<DomainIntentPattern> get intentPatterns => [
-    // "remind me to buy groceries" / "add reminder call dentist"
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:remind\s+me\s+to|add\s+(?:a\s+)?reminder(?:\s+to)?)\s+(.+?)(?:\s+(?:at|by|on)\s+(.+))?$', caseSensitive: false),
-      taskType: 'reminders_add',
-      extractData: (m) => {'title': m.group(1)!.trim(), 'due': m.group(2)},
-    ),
-    // "add X to shopping list" / "add X to groceries"
-    DomainIntentPattern(
-      pattern: RegExp(r'^add\s+(.+?)\s+to\s+(?:my\s+)?(?:shopping\s+list|groceries|grocery\s+list)$', caseSensitive: false),
-      taskType: 'reminders_add',
-      extractData: (m) => {'title': m.group(1)!.trim(), 'list': 'Shopping'},
-    ),
-    // "show reminders" / "my reminders" / "list reminders"
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:show|list|my|check)\s*(?:my\s+)?reminders?$', caseSensitive: false),
-      taskType: 'reminders_list',
-      extractData: (_) => {},
-    ),
-    // "complete X" / "mark X done" / "done with X"
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:complete|finish|done\s+with|mark\s+.+?\s+(?:as\s+)?done)\s*(.+)?$', caseSensitive: false),
-      taskType: 'reminders_complete',
-      extractData: (m) => {'title': m.group(1)?.trim() ?? ''},
-    ),
-  ];
+        // "remind me to buy groceries" / "add reminder call dentist"
+        DomainIntentPattern(
+          pattern: RegExp(
+              r'^(?:remind\s+me\s+to|add\s+(?:a\s+)?reminder(?:\s+to)?)\s+(.+?)(?:\s+(?:at|by|on)\s+(.+))?$',
+              caseSensitive: false),
+          taskType: 'reminders_add',
+          extractData: (m) => {'title': m.group(1)!.trim(), 'due': m.group(2)},
+        ),
+        // "add X to shopping list" / "add X to groceries"
+        DomainIntentPattern(
+          pattern: RegExp(
+              r'^add\s+(.+?)\s+to\s+(?:my\s+)?(?:shopping\s+list|groceries|grocery\s+list)$',
+              caseSensitive: false),
+          taskType: 'reminders_add',
+          extractData: (m) => {'title': m.group(1)!.trim(), 'list': 'Shopping'},
+        ),
+        // "show reminders" / "my reminders" / "list reminders"
+        DomainIntentPattern(
+          pattern: RegExp(r'^(?:show|list|my|check)\s*(?:my\s+)?reminders?$',
+              caseSensitive: false),
+          taskType: 'reminders_list',
+          extractData: (_) => {},
+        ),
+        // "complete X" / "mark X done" / "done with X"
+        DomainIntentPattern(
+          pattern: RegExp(
+              r'^(?:complete|finish|done\s+with|mark\s+.+?\s+(?:as\s+)?done)\s*(.+)?$',
+              caseSensitive: false),
+          taskType: 'reminders_complete',
+          extractData: (m) => {'title': m.group(1)?.trim() ?? ''},
+        ),
+      ];
 
   @override
   List<DomainOllamaIntent> get ollamaIntents => [
-    DomainOllamaIntent(
-      intentName: 'reminders_add',
-      description: 'Add a new reminder to Reminders.app',
-      parameters: {'title': 'what to remember', 'due': 'optional due date/time'},
-      examples: [
-        OllamaExample(input: 'remind me to buy groceries', intentJson: '{"intent": "reminders_add", "confidence": 0.95, "parameters": {"title": "buy groceries"}}'),
-        OllamaExample(input: 'remind me to call dentist at 3pm', intentJson: '{"intent": "reminders_add", "confidence": 0.95, "parameters": {"title": "call dentist", "due": "3pm"}}'),
-        OllamaExample(input: 'add milk to shopping list', intentJson: '{"intent": "reminders_add", "confidence": 0.95, "parameters": {"title": "milk", "list": "Shopping"}}'),
-      ],
-    ),
-    DomainOllamaIntent(
-      intentName: 'reminders_list',
-      description: 'Show pending reminders',
-      examples: [
-        OllamaExample(input: 'show my reminders', intentJson: '{"intent": "reminders_list", "confidence": 0.95, "parameters": {}}'),
-      ],
-    ),
-    DomainOllamaIntent(
-      intentName: 'reminders_complete',
-      description: 'Mark a reminder as completed',
-      parameters: {'title': 'reminder title to complete'},
-      examples: [
-        OllamaExample(input: 'done with buy groceries', intentJson: '{"intent": "reminders_complete", "confidence": 0.95, "parameters": {"title": "buy groceries"}}'),
-      ],
-    ),
-  ];
+        DomainOllamaIntent(
+          intentName: 'reminders_add',
+          description: 'Add a new reminder to Reminders.app',
+          parameters: {
+            'title': 'what to remember',
+            'due': 'optional due date/time'
+          },
+          examples: [
+            OllamaExample(
+                input: 'remind me to buy groceries',
+                intentJson:
+                    '{"intent": "reminders_add", "confidence": 0.95, "parameters": {"title": "buy groceries"}}'),
+            OllamaExample(
+                input: 'remind me to call dentist at 3pm',
+                intentJson:
+                    '{"intent": "reminders_add", "confidence": 0.95, "parameters": {"title": "call dentist", "due": "3pm"}}'),
+            OllamaExample(
+                input: 'add milk to shopping list',
+                intentJson:
+                    '{"intent": "reminders_add", "confidence": 0.95, "parameters": {"title": "milk", "list": "Shopping"}}'),
+          ],
+        ),
+        DomainOllamaIntent(
+          intentName: 'reminders_list',
+          description: 'Show pending reminders',
+          examples: [
+            OllamaExample(
+                input: 'show my reminders',
+                intentJson:
+                    '{"intent": "reminders_list", "confidence": 0.95, "parameters": {}}'),
+          ],
+        ),
+        DomainOllamaIntent(
+          intentName: 'reminders_complete',
+          description: 'Mark a reminder as completed',
+          parameters: {'title': 'reminder title to complete'},
+          examples: [
+            OllamaExample(
+                input: 'done with buy groceries',
+                intentJson:
+                    '{"intent": "reminders_complete", "confidence": 0.95, "parameters": {"title": "buy groceries"}}'),
+          ],
+        ),
+      ];
 
   @override
   Map<String, DomainDisplayConfig> get displayConfigs => {
-    'reminders_add': const DomainDisplayConfig(cardType: 'reminders', titleTemplate: 'Reminder Added', icon: 'add_task', colorHex: 0xFFFF9800),
-    'reminders_list': const DomainDisplayConfig(cardType: 'reminders', titleTemplate: 'Reminders', icon: 'checklist', colorHex: 0xFFFF9800),
-    'reminders_complete': const DomainDisplayConfig(cardType: 'reminders', titleTemplate: 'Reminder Completed', icon: 'task_alt', colorHex: 0xFFFF9800),
-  };
+        'reminders_add': const DomainDisplayConfig(
+            cardType: 'reminders',
+            titleTemplate: 'Reminder Added',
+            icon: 'add_task',
+            colorHex: 0xFFFF9800),
+        'reminders_list': const DomainDisplayConfig(
+            cardType: 'reminders',
+            titleTemplate: 'Reminders',
+            icon: 'checklist',
+            colorHex: 0xFFFF9800),
+        'reminders_complete': const DomainDisplayConfig(
+            cardType: 'reminders',
+            titleTemplate: 'Reminder Completed',
+            icon: 'task_alt',
+            colorHex: 0xFFFF9800),
+      };
 
   @override
-  Future<Map<String, dynamic>> executeTask(String taskType, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> executeTask(
+      String taskType, Map<String, dynamic> data) async {
     switch (taskType) {
       case 'reminders_add':
         return _addReminder(data);
@@ -110,8 +150,11 @@ end tell''';
         'success': result.exitCode == 0,
         'title': title,
         'list': listName,
-        'message': result.exitCode == 0 ? 'Reminder "$title" added to $listName' : (result.stderr as String).trim(),
-        'domain': 'reminders', 'card_type': 'reminders',
+        'message': result.exitCode == 0
+            ? 'Reminder "$title" added to $listName'
+            : (result.stderr as String).trim(),
+        'domain': 'reminders',
+        'card_type': 'reminders',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'reminders'};
@@ -137,20 +180,23 @@ end tell''';
     try {
       final result = await Process.run('osascript', ['-e', script]);
       final output = (result.stdout as String).trim();
-      final items = output.split('\n').where((s) => s.trim().isNotEmpty).toList();
+      final items =
+          output.split('\n').where((s) => s.trim().isNotEmpty).toList();
       return {
         'success': result.exitCode == 0,
         'items': items,
         'count': items.length,
         'raw': output,
-        'domain': 'reminders', 'card_type': 'reminders',
+        'domain': 'reminders',
+        'card_type': 'reminders',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'reminders'};
     }
   }
 
-  Future<Map<String, dynamic>> _completeReminder(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> _completeReminder(
+      Map<String, dynamic> data) async {
     final title = data['title'] as String? ?? '';
     final script = '''
 tell application "Reminders"
@@ -175,7 +221,8 @@ end tell''';
         'success': result.exitCode == 0 && output.startsWith('Completed'),
         'title': title,
         'message': output,
-        'domain': 'reminders', 'card_type': 'reminders',
+        'domain': 'reminders',
+        'card_type': 'reminders',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'reminders'};

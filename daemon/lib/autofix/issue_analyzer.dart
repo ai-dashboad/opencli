@@ -47,15 +47,15 @@ class AnalyzedIssue {
   });
 
   Map<String, dynamic> toJson() => {
-    'issueId': issueId,
-    'classification': classification.name,
-    'confidence': confidence,
-    'summary': summary,
-    'rootCause': rootCause,
-    'suggestedFixes': suggestedFixes,
-    'relatedIssues': relatedIssues,
-    'metadata': metadata,
-  };
+        'issueId': issueId,
+        'classification': classification.name,
+        'confidence': confidence,
+        'summary': summary,
+        'rootCause': rootCause,
+        'suggestedFixes': suggestedFixes,
+        'relatedIssues': relatedIssues,
+        'metadata': metadata,
+      };
 }
 
 /// Issue pattern for matching known issues
@@ -103,15 +103,18 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'conn-timeout',
         name: 'Connection Timeout',
-        pattern: RegExp(r'(connection|socket)\s*(timeout|timed out)', caseSensitive: false),
-        solution: 'Check network connectivity and ensure the daemon is running on the expected port.',
+        pattern: RegExp(r'(connection|socket)\s*(timeout|timed out)',
+            caseSensitive: false),
+        solution:
+            'Check network connectivity and ensure the daemon is running on the expected port.',
         classification: IssueClassification.environmental,
       ),
       IssuePattern(
         id: 'conn-refused',
         name: 'Connection Refused',
         pattern: RegExp(r'connection\s*refused', caseSensitive: false),
-        solution: 'Ensure the daemon is running. Try restarting with: opencli-daemon',
+        solution:
+            'Ensure the daemon is running. Try restarting with: opencli-daemon',
         classification: IssueClassification.environmental,
       ),
 
@@ -119,8 +122,10 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'perm-denied',
         name: 'Permission Denied',
-        pattern: RegExp(r'permission\s*denied|access\s*denied|unauthorized', caseSensitive: false),
-        solution: 'Check file permissions and ensure the user has appropriate access rights.',
+        pattern: RegExp(r'permission\s*denied|access\s*denied|unauthorized',
+            caseSensitive: false),
+        solution:
+            'Check file permissions and ensure the user has appropriate access rights.',
         classification: IssueClassification.userError,
       ),
 
@@ -128,7 +133,8 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'file-not-found',
         name: 'File Not Found',
-        pattern: RegExp(r'(file|directory)\s*(not\s*found|does\s*not\s*exist)', caseSensitive: false),
+        pattern: RegExp(r'(file|directory)\s*(not\s*found|does\s*not\s*exist)',
+            caseSensitive: false),
         solution: 'Verify the file path is correct and the file exists.',
         classification: IssueClassification.userError,
       ),
@@ -137,8 +143,11 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'app-not-found',
         name: 'Application Not Found',
-        pattern: RegExp(r'(application|app|program)\s*(not\s*found|cannot\s*find)', caseSensitive: false),
-        solution: 'Check if the application is installed and the name is correct.',
+        pattern: RegExp(
+            r'(application|app|program)\s*(not\s*found|cannot\s*find)',
+            caseSensitive: false),
+        solution:
+            'Check if the application is installed and the name is correct.',
         classification: IssueClassification.userError,
       ),
 
@@ -146,8 +155,10 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'out-of-memory',
         name: 'Out of Memory',
-        pattern: RegExp(r'out\s*of\s*memory|memory\s*exhausted|heap\s*overflow', caseSensitive: false),
-        solution: 'Reduce memory usage or increase system memory. Try restarting the daemon.',
+        pattern: RegExp(r'out\s*of\s*memory|memory\s*exhausted|heap\s*overflow',
+            caseSensitive: false),
+        solution:
+            'Reduce memory usage or increase system memory. Try restarting the daemon.',
         classification: IssueClassification.performance,
       ),
 
@@ -155,7 +166,8 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'json-parse',
         name: 'JSON Parse Error',
-        pattern: RegExp(r'(json|format)\s*(parse|parsing|syntax)\s*error', caseSensitive: false),
+        pattern: RegExp(r'(json|format)\s*(parse|parsing|syntax)\s*error',
+            caseSensitive: false),
         solution: 'Check the input format. Ensure JSON is properly formatted.',
         classification: IssueClassification.userError,
       ),
@@ -164,8 +176,11 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'null-error',
         name: 'Null Reference Error',
-        pattern: RegExp(r'(null|undefined)\s*(pointer|reference|object|value)|cannot\s*read\s*property', caseSensitive: false),
-        solution: 'This is likely a bug. Please report the issue with steps to reproduce.',
+        pattern: RegExp(
+            r'(null|undefined)\s*(pointer|reference|object|value)|cannot\s*read\s*property',
+            caseSensitive: false),
+        solution:
+            'This is likely a bug. Please report the issue with steps to reproduce.',
         classification: IssueClassification.knownPattern,
       ),
 
@@ -173,8 +188,10 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'timeout',
         name: 'Operation Timeout',
-        pattern: RegExp(r'(operation|task|request)\s*timed?\s*out', caseSensitive: false),
-        solution: 'The operation took too long. Try again or check if the target is responsive.',
+        pattern: RegExp(r'(operation|task|request)\s*timed?\s*out',
+            caseSensitive: false),
+        solution:
+            'The operation took too long. Try again or check if the target is responsive.',
         classification: IssueClassification.performance,
       ),
 
@@ -182,8 +199,10 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'capability-not-found',
         name: 'Capability Not Found',
-        pattern: RegExp(r'(capability|task\s*type|executor)\s*not\s*found', caseSensitive: false),
-        solution: 'The requested capability is not available. Check for updates or install the required capability package.',
+        pattern: RegExp(r'(capability|task\s*type|executor)\s*not\s*found',
+            caseSensitive: false),
+        solution:
+            'The requested capability is not available. Check for updates or install the required capability package.',
         classification: IssueClassification.userError,
       ),
 
@@ -191,8 +210,10 @@ class IssueAnalyzer {
       IssuePattern(
         id: 'device-not-paired',
         name: 'Device Not Paired',
-        pattern: RegExp(r'device\s*not\s*(paired|authenticated)', caseSensitive: false),
-        solution: 'Pair your device by scanning the QR code from the desktop app.',
+        pattern: RegExp(r'device\s*not\s*(paired|authenticated)',
+            caseSensitive: false),
+        solution:
+            'Pair your device by scanning the QR code from the desktop app.',
         classification: IssueClassification.userError,
       ),
     ]);
@@ -271,15 +292,17 @@ class IssueAnalyzer {
     try {
       final prompt = _buildAnalysisPrompt(error);
 
-      final response = await http.post(
-        Uri.parse('$ollamaEndpoint/api/generate'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'model': 'qwen2.5:3b',
-          'prompt': prompt,
-          'stream': false,
-        }),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse('$ollamaEndpoint/api/generate'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'model': 'qwen2.5:3b',
+              'prompt': prompt,
+              'stream': false,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -296,13 +319,15 @@ class IssueAnalyzer {
   /// Query cloud AI for analysis
   Future<AnalyzedIssue?> _queryCloudAI(ErrorReport error) async {
     try {
-      final response = await http.post(
-        Uri.parse('$aiEndpoint/analyze'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'error': error.toSanitizedJson(),
-        }),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse('$aiEndpoint/analyze'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'error': error.toSanitizedJson(),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -312,8 +337,10 @@ class IssueAnalyzer {
           confidence: (data['confidence'] as num).toDouble(),
           summary: data['summary'] as String,
           rootCause: data['rootCause'] as String?,
-          suggestedFixes: (data['suggestedFixes'] as List<dynamic>?)?.cast<String>() ?? [],
-          relatedIssues: (data['relatedIssues'] as List<dynamic>?)?.cast<String>() ?? [],
+          suggestedFixes:
+              (data['suggestedFixes'] as List<dynamic>?)?.cast<String>() ?? [],
+          relatedIssues:
+              (data['relatedIssues'] as List<dynamic>?)?.cast<String>() ?? [],
           metadata: {'source': 'cloud_ai'},
         );
       }
@@ -362,7 +389,8 @@ Respond in JSON format:
         confidence: (data['confidence'] as num?)?.toDouble() ?? 0.5,
         summary: data['summary'] as String? ?? 'Unknown issue',
         rootCause: data['rootCause'] as String?,
-        suggestedFixes: (data['suggestedFixes'] as List<dynamic>?)?.cast<String>() ?? [],
+        suggestedFixes:
+            (data['suggestedFixes'] as List<dynamic>?)?.cast<String>() ?? [],
         metadata: {'source': 'ollama'},
       );
     } catch (e) {

@@ -344,13 +344,26 @@ class _MaterialHomePageState extends State<MaterialHomePage> with WindowListener
     setState(() => _isConnecting = true);
     try {
       await _daemonService.connect();
+      // Listen for auth_success to update the connection icon
+      _daemonService.messages.listen((msg) {
+        if (!mounted) return;
+        final type = msg['type'] as String?;
+        if (type == 'auth_success' || type == 'auth_required') {
+          setState(() {}); // Rebuild to update connection icon
+        }
+      });
+      // Wait briefly for auth_success before showing status
+      await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Connected to OpenCLI Daemon'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (_daemonService.isConnected) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Connected to OpenCLI Daemon'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        setState(() {}); // Ensure icon updates
       }
     } catch (e) {
       if (mounted) {

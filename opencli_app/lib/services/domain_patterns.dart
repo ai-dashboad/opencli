@@ -278,6 +278,40 @@ List<DomainIntentPatternLocal> buildDomainPatterns() {
       taskType: 'files_organize',
       extractData: (m) => {'path': _resolveDir(m.group(1)!.trim())},
     ),
+
+    // ─── Media Creation ─────────────────────────────────
+    DomainIntentPatternLocal(
+      pattern: RegExp(r'^(?:animate|create\s+(?:a\s+)?(?:video|animation)\s+(?:from|of|with))\s+(?:this\s+)?(?:photo|picture|image)$', caseSensitive: false),
+      taskType: 'media_animate_photo',
+      extractData: (_) => {'effect': 'ken_burns'},
+    ),
+    DomainIntentPatternLocal(
+      pattern: RegExp(r'^(?:make|create)\s+(?:an?\s+)?(?:ad|advertisement|promo(?:tional)?(?:\s+video)?)\s+(?:from|with|of)\s+(?:this\s+)?(?:photo|picture|image)$', caseSensitive: false),
+      taskType: 'media_animate_photo',
+      extractData: (_) => {'effect': 'ken_burns', 'style': 'ad', 'duration': 8},
+    ),
+    DomainIntentPatternLocal(
+      pattern: RegExp(r'^(?:create|make)\s+(?:a\s+)?(?:video\s+)?slideshow(?:\s+(?:from|with)\s+(?:these\s+)?(?:photos|images|pictures))?$', caseSensitive: false),
+      taskType: 'media_create_slideshow',
+      extractData: (_) => {'transition': 'fade'},
+    ),
+
+    // ─── AI Video Generation ────────────────────────────
+    DomainIntentPatternLocal(
+      pattern: RegExp(r'^(?:generate|create)\s+(?:an?\s+)?(?:ai|cinematic|professional)\s+video\s+(?:from|of|with)\s+(?:this\s+)?(?:photo|picture|image)$', caseSensitive: false),
+      taskType: 'media_ai_generate_video',
+      extractData: (_) => {'style': 'cinematic'},
+    ),
+    DomainIntentPatternLocal(
+      pattern: RegExp(r'^(?:make|create)\s+(?:an?\s+)?(?:tiktok|social\s+media|ad|commercial)\s+video\s+(?:from|with|of)\s+(?:this\s+)?(?:photo|picture|image)$', caseSensitive: false),
+      taskType: 'media_ai_generate_video',
+      extractData: (_) => {'style': 'adPromo'},
+    ),
+    DomainIntentPatternLocal(
+      pattern: RegExp(r'^(?:generate|create)\s+(?:an?\s+)?(?:ai\s+)?video\s+(?:from|of|with)\s+(?:this\s+)?(?:photo|picture|image)\s+(?:using|with|via)\s+(replicate|runway|kling|luma)$', caseSensitive: false),
+      taskType: 'media_ai_generate_video',
+      extractData: (m) => {'provider': m.group(1)!.toLowerCase(), 'style': 'cinematic'},
+    ),
   ];
 }
 

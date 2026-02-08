@@ -187,8 +187,8 @@ class AIWorkforceManager {
   double _calculateWorkerScore(AIWorker worker) {
     if (worker.completedTasks == 0) return 0.5;
 
-    final successRate = worker.completedTasks /
-        (worker.completedTasks + worker.failedTasks);
+    final successRate =
+        worker.completedTasks / (worker.completedTasks + worker.failedTasks);
 
     return successRate;
   }
@@ -517,7 +517,8 @@ class GeminiProvider implements AIProvider {
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final content = data['candidates'][0]['content']['parts'][0]['text'] as String;
+      final content =
+          data['candidates'][0]['content']['parts'][0]['text'] as String;
 
       return AIProviderResponse(
         content: content,

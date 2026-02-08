@@ -94,7 +94,8 @@ class RequestRouter {
     return <String, dynamic>{};
   }
 
-  Future<String> _handleSystemCommand(List<String> parts, List<dynamic> params) async {
+  Future<String> _handleSystemCommand(
+      List<String> parts, List<dynamic> params) async {
     if (parts.isEmpty) {
       throw Exception('Missing system command');
     }

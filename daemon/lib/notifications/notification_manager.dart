@@ -455,7 +455,8 @@ class NotificationTemplate {
 
     data.forEach((key, value) {
       renderedTitle = renderedTitle.replaceAll('{{$key}}', value.toString());
-      renderedMessage = renderedMessage.replaceAll('{{$key}}', value.toString());
+      renderedMessage =
+          renderedMessage.replaceAll('{{$key}}', value.toString());
     });
 
     return Notification(

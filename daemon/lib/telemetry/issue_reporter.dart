@@ -70,24 +70,25 @@ class Issue {
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'body': body,
-    'labels': labels,
-    'sourceErrorId': sourceError.id,
-    'createdAt': createdAt.toIso8601String(),
-    'reported': reported,
-    'remoteId': remoteId,
-  };
+        'id': id,
+        'title': title,
+        'body': body,
+        'labels': labels,
+        'sourceErrorId': sourceError.id,
+        'createdAt': createdAt.toIso8601String(),
+        'reported': reported,
+        'remoteId': remoteId,
+      };
 
   /// Generate issue fingerprint for deduplication
   String get fingerprint {
     // Create fingerprint from error message (first line) and stack trace (first frame)
     final messageLine = sourceError.message.split('\n').first;
     final stackLine = sourceError.stackTrace?.split('\n').firstWhere(
-      (line) => line.contains('.dart'),
-      orElse: () => '',
-    ) ?? '';
+              (line) => line.contains('.dart'),
+              orElse: () => '',
+            ) ??
+        '';
     return '${messageLine.hashCode}-${stackLine.hashCode}';
   }
 }
@@ -132,7 +133,8 @@ class IssueReporter {
     final issue = _createIssue(error);
 
     // Check for duplicates
-    if (config.deduplicateIssues && _reportedFingerprints.contains(issue.fingerprint)) {
+    if (config.deduplicateIssues &&
+        _reportedFingerprints.contains(issue.fingerprint)) {
       print('[IssueReporter] Skipping duplicate issue: ${issue.title}');
       return;
     }
@@ -162,9 +164,8 @@ class IssueReporter {
     final message = error.message.split('\n').first;
 
     // Truncate if too long
-    final truncatedMessage = message.length > 80
-        ? '${message.substring(0, 77)}...'
-        : message;
+    final truncatedMessage =
+        message.length > 80 ? '${message.substring(0, 77)}...' : message;
 
     return '[$severity] $truncatedMessage';
   }
@@ -197,7 +198,8 @@ class IssueReporter {
 
     buffer.writeln('### Context');
     buffer.writeln('```json');
-    buffer.writeln(const JsonEncoder.withIndent('  ').convert(sanitized['context']));
+    buffer.writeln(
+        const JsonEncoder.withIndent('  ').convert(sanitized['context']));
     buffer.writeln('```');
     buffer.writeln('');
 
@@ -256,9 +258,9 @@ class IssueReporter {
     }
 
     // Report issues one by one with rate limiting
-    final toReport = _pendingIssues.take(
-      config.maxIssuesPerHour - _recentReports.length
-    ).toList();
+    final toReport = _pendingIssues
+        .take(config.maxIssuesPerHour - _recentReports.length)
+        .toList();
 
     for (final issue in toReport) {
       try {
@@ -284,7 +286,8 @@ class IssueReporter {
       await _reportToCustomEndpoint(issue);
     } else {
       // Store locally only
-      print('[IssueReporter] No reporting endpoint configured, storing locally');
+      print(
+          '[IssueReporter] No reporting endpoint configured, storing locally');
       issue.reported = true;
     }
   }
@@ -313,7 +316,8 @@ class IssueReporter {
       issue.reported = true;
       print('[IssueReporter] Created GitHub issue #${issue.remoteId}');
     } else {
-      throw Exception('GitHub API error: ${response.statusCode} ${response.body}');
+      throw Exception(
+          'GitHub API error: ${response.statusCode} ${response.body}');
     }
   }
 
@@ -375,7 +379,8 @@ class IssueReporter {
           _reportedFingerprints.addAll(fingerprints.cast<String>());
         }
 
-        print('[IssueReporter] Loaded ${_reportedFingerprints.length} fingerprints for deduplication');
+        print(
+            '[IssueReporter] Loaded ${_reportedFingerprints.length} fingerprints for deduplication');
       }
     } catch (e) {
       print('[IssueReporter] Failed to load pending issues: $e');
@@ -406,7 +411,8 @@ class IssueReporter {
       'reportedIssues': _reportedIssues.length,
       'uniqueFingerprints': _reportedFingerprints.length,
       'recentReports': _recentReports.length,
-      'rateLimit': '${_recentReports.length}/${config.maxIssuesPerHour} per hour',
+      'rateLimit':
+          '${_recentReports.length}/${config.maxIssuesPerHour} per hour',
     };
   }
 

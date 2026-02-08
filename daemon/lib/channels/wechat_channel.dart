@@ -105,7 +105,8 @@ class WeChatChannel extends BaseChannel {
     };
 
     final response = await http.post(
-      Uri.parse('https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=$_accessToken'),
+      Uri.parse(
+          'https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=$_accessToken'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(params),
     );
@@ -148,7 +149,8 @@ class WeChatChannel extends BaseChannel {
     };
 
     final response = await http.post(
-      Uri.parse('https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=$_accessToken'),
+      Uri.parse(
+          'https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=$_accessToken'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(params),
     );

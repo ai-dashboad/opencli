@@ -48,6 +48,21 @@ dependencies:
   http: ^1.2.2
   flutter_skill: ^0.4.1
 
+  # Image picker for photo selection
+  image_picker: ^1.1.2
+
+  # Video player for media preview
+  video_player: ^2.9.2
+
+  # Platform temp directory for iOS sandbox compatibility
+  path_provider: ^2.1.0
+
+  # Save videos/images to device gallery
+  gal: ^2.3.0
+
+  # Share files to other apps (TikTok, WhatsApp, etc.)
+  share_plus: ^10.0.0
+
   # Local storage for chat history
   shared_preferences: ^2.3.0
 

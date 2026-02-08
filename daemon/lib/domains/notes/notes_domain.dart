@@ -18,65 +18,97 @@ class NotesDomain extends TaskDomain {
 
   @override
   List<DomainIntentPattern> get intentPatterns => [
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:create|make|new)\s+(?:a\s+)?note\s+(?:about\s+|titled?\s+)?(.+)$', caseSensitive: false),
-      taskType: 'notes_create',
-      extractData: (m) => {'title': m.group(1)!.trim(), 'body': m.group(1)!.trim()},
-    ),
-    DomainIntentPattern(
-      pattern: RegExp(r'^note:\s*(.+)$', caseSensitive: false),
-      taskType: 'notes_create',
-      extractData: (m) => {'title': m.group(1)!.trim(), 'body': m.group(1)!.trim()},
-    ),
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:search|find)\s+notes?\s+(?:about\s+|for\s+)?(.+)$', caseSensitive: false),
-      taskType: 'notes_search',
-      extractData: (m) => {'query': m.group(1)!.trim()},
-    ),
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:show|list)\s+(?:my\s+)?(?:recent\s+)?notes$', caseSensitive: false),
-      taskType: 'notes_list',
-      extractData: (_) => {},
-    ),
-  ];
+        DomainIntentPattern(
+          pattern: RegExp(
+              r'^(?:create|make|new)\s+(?:a\s+)?note\s+(?:about\s+|titled?\s+)?(.+)$',
+              caseSensitive: false),
+          taskType: 'notes_create',
+          extractData: (m) =>
+              {'title': m.group(1)!.trim(), 'body': m.group(1)!.trim()},
+        ),
+        DomainIntentPattern(
+          pattern: RegExp(r'^note:\s*(.+)$', caseSensitive: false),
+          taskType: 'notes_create',
+          extractData: (m) =>
+              {'title': m.group(1)!.trim(), 'body': m.group(1)!.trim()},
+        ),
+        DomainIntentPattern(
+          pattern: RegExp(
+              r'^(?:search|find)\s+notes?\s+(?:about\s+|for\s+)?(.+)$',
+              caseSensitive: false),
+          taskType: 'notes_search',
+          extractData: (m) => {'query': m.group(1)!.trim()},
+        ),
+        DomainIntentPattern(
+          pattern: RegExp(r'^(?:show|list)\s+(?:my\s+)?(?:recent\s+)?notes$',
+              caseSensitive: false),
+          taskType: 'notes_list',
+          extractData: (_) => {},
+        ),
+      ];
 
   @override
   List<DomainOllamaIntent> get ollamaIntents => [
-    DomainOllamaIntent(
-      intentName: 'notes_create',
-      description: 'Create a new note in Notes.app',
-      parameters: {'title': 'note title', 'body': 'note content'},
-      examples: [
-        OllamaExample(input: 'create note about shopping list', intentJson: '{"intent": "notes_create", "confidence": 0.95, "parameters": {"title": "shopping list", "body": "shopping list"}}'),
-        OllamaExample(input: 'note: meeting ideas for project', intentJson: '{"intent": "notes_create", "confidence": 0.95, "parameters": {"title": "meeting ideas for project", "body": "meeting ideas for project"}}'),
-      ],
-    ),
-    DomainOllamaIntent(
-      intentName: 'notes_search',
-      description: 'Search notes by keyword',
-      parameters: {'query': 'search term'},
-      examples: [
-        OllamaExample(input: 'find notes about recipes', intentJson: '{"intent": "notes_search", "confidence": 0.95, "parameters": {"query": "recipes"}}'),
-      ],
-    ),
-    DomainOllamaIntent(
-      intentName: 'notes_list',
-      description: 'List recent notes',
-      examples: [
-        OllamaExample(input: 'show my notes', intentJson: '{"intent": "notes_list", "confidence": 0.95, "parameters": {}}'),
-      ],
-    ),
-  ];
+        DomainOllamaIntent(
+          intentName: 'notes_create',
+          description: 'Create a new note in Notes.app',
+          parameters: {'title': 'note title', 'body': 'note content'},
+          examples: [
+            OllamaExample(
+                input: 'create note about shopping list',
+                intentJson:
+                    '{"intent": "notes_create", "confidence": 0.95, "parameters": {"title": "shopping list", "body": "shopping list"}}'),
+            OllamaExample(
+                input: 'note: meeting ideas for project',
+                intentJson:
+                    '{"intent": "notes_create", "confidence": 0.95, "parameters": {"title": "meeting ideas for project", "body": "meeting ideas for project"}}'),
+          ],
+        ),
+        DomainOllamaIntent(
+          intentName: 'notes_search',
+          description: 'Search notes by keyword',
+          parameters: {'query': 'search term'},
+          examples: [
+            OllamaExample(
+                input: 'find notes about recipes',
+                intentJson:
+                    '{"intent": "notes_search", "confidence": 0.95, "parameters": {"query": "recipes"}}'),
+          ],
+        ),
+        DomainOllamaIntent(
+          intentName: 'notes_list',
+          description: 'List recent notes',
+          examples: [
+            OllamaExample(
+                input: 'show my notes',
+                intentJson:
+                    '{"intent": "notes_list", "confidence": 0.95, "parameters": {}}'),
+          ],
+        ),
+      ];
 
   @override
   Map<String, DomainDisplayConfig> get displayConfigs => {
-    'notes_create': const DomainDisplayConfig(cardType: 'notes', titleTemplate: 'Note Created', icon: 'note_add', colorHex: 0xFFFFC107),
-    'notes_search': const DomainDisplayConfig(cardType: 'notes', titleTemplate: 'Notes Search', icon: 'search', colorHex: 0xFFFFC107),
-    'notes_list': const DomainDisplayConfig(cardType: 'notes', titleTemplate: 'Recent Notes', icon: 'note', colorHex: 0xFFFFC107),
-  };
+        'notes_create': const DomainDisplayConfig(
+            cardType: 'notes',
+            titleTemplate: 'Note Created',
+            icon: 'note_add',
+            colorHex: 0xFFFFC107),
+        'notes_search': const DomainDisplayConfig(
+            cardType: 'notes',
+            titleTemplate: 'Notes Search',
+            icon: 'search',
+            colorHex: 0xFFFFC107),
+        'notes_list': const DomainDisplayConfig(
+            cardType: 'notes',
+            titleTemplate: 'Recent Notes',
+            icon: 'note',
+            colorHex: 0xFFFFC107),
+      };
 
   @override
-  Future<Map<String, dynamic>> executeTask(String taskType, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> executeTask(
+      String taskType, Map<String, dynamic> data) async {
     switch (taskType) {
       case 'notes_create':
         return _createNote(data);
@@ -103,7 +135,8 @@ end tell''';
         'success': result.exitCode == 0,
         'title': title,
         'message': (result.stdout as String).trim(),
-        'domain': 'notes', 'card_type': 'notes',
+        'domain': 'notes',
+        'card_type': 'notes',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'notes'};
@@ -131,13 +164,15 @@ end tell''';
     try {
       final result = await Process.run('osascript', ['-e', script]);
       final output = (result.stdout as String).trim();
-      final items = output.split('\n').where((s) => s.trim().isNotEmpty).toList();
+      final items =
+          output.split('\n').where((s) => s.trim().isNotEmpty).toList();
       return {
         'success': result.exitCode == 0,
         'query': query,
         'items': items,
         'count': items.length,
-        'domain': 'notes', 'card_type': 'notes',
+        'domain': 'notes',
+        'card_type': 'notes',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'notes'};
@@ -163,12 +198,14 @@ end tell''';
     try {
       final result = await Process.run('osascript', ['-e', script]);
       final output = (result.stdout as String).trim();
-      final items = output.split('\n').where((s) => s.trim().isNotEmpty).toList();
+      final items =
+          output.split('\n').where((s) => s.trim().isNotEmpty).toList();
       return {
         'success': result.exitCode == 0,
         'items': items,
         'count': items.length,
-        'domain': 'notes', 'card_type': 'notes',
+        'domain': 'notes',
+        'card_type': 'notes',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'notes'};

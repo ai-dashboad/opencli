@@ -6,6 +6,7 @@ import 'weather_card.dart';
 import 'calculator_card.dart';
 import 'calendar_card.dart';
 import 'reminders_card.dart';
+import 'media_creation_card.dart';
 
 /// Registry that maps domain task types to specialized Flutter card widgets.
 /// Falls back to GenericDomainCard for domains without a custom card.
@@ -23,7 +24,8 @@ class DomainCardRegistry {
         taskType.startsWith('contacts_') ||
         taskType.startsWith('messages_') ||
         taskType.startsWith('translation_') ||
-        taskType.startsWith('files_');
+        taskType.startsWith('files_') ||
+        taskType.startsWith('media_');
   }
 
   /// Build the appropriate card widget for a domain task result
@@ -56,6 +58,11 @@ class DomainCardRegistry {
     // Reminders domain
     if (taskType.startsWith('reminders_')) {
       return RemindersCard(taskType: taskType, result: result);
+    }
+
+    // Media Creation domain
+    if (taskType.startsWith('media_')) {
+      return MediaCreationCard(taskType: taskType, result: result);
     }
 
     // Fallback for all other domains (notes, email, contacts, messages, translation, files)

@@ -65,7 +65,8 @@ class PairingManager {
     // Store active code
     _activeCodes[pairingId] = pairingCode;
 
-    print('[PairingManager] Generated pairing code: $code (expires in ${_codeTimeout.inMinutes}m)');
+    print(
+        '[PairingManager] Generated pairing code: $code (expires in ${_codeTimeout.inMinutes}m)');
 
     return pairingCode;
   }
@@ -173,13 +174,12 @@ class PairingManager {
 
   /// Get all active pairing codes
   List<PairingCode> getActivePairingCodes() {
-    return _activeCodes.values
-        .where((code) => !code.isExpired)
-        .toList();
+    return _activeCodes.values.where((code) => !code.isExpired).toList();
   }
 
   /// Generate QR code data URL
-  String generateQRCodeData(PairingCode pairingCode, {
+  String generateQRCodeData(
+    PairingCode pairingCode, {
     required String serverUrl,
     required int port,
   }) {

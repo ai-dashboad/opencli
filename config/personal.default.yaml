@@ -1,6 +1,8 @@
+---
 # OpenCLI Personal Mode - Default Configuration
 # 此配置自动生成，个人用户无需修改即可使用
-# This configuration is auto-generated, personal users can use it without modification
+# Auto-generated config, personal users need
+# no modification
 
 # 运行模式
 mode: personal

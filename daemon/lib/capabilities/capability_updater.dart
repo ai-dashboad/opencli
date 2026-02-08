@@ -42,12 +42,12 @@ class CapabilityUpdateStatus {
   });
 
   Map<String, dynamic> toJson() => {
-    'capabilityId': capabilityId,
-    'currentVersion': currentVersion,
-    'availableVersion': availableVersion,
-    'updateAvailable': updateAvailable,
-    'lastChecked': lastChecked?.toIso8601String(),
-  };
+        'capabilityId': capabilityId,
+        'currentVersion': currentVersion,
+        'availableVersion': availableVersion,
+        'updateAvailable': updateAvailable,
+        'lastChecked': lastChecked?.toIso8601String(),
+      };
 }
 
 /// Manages capability updates
@@ -69,8 +69,8 @@ class CapabilityUpdater {
     required CapabilityRegistry registry,
     required CapabilityLoader loader,
     this.config = const CapabilityUpdateConfig(),
-  }) : _registry = registry,
-       _loader = loader;
+  })  : _registry = registry,
+        _loader = loader;
 
   /// Start the auto-update timer
   void start() {
@@ -87,7 +87,8 @@ class CapabilityUpdater {
     // Initial check
     checkForUpdates();
 
-    print('[CapabilityUpdater] Started with ${config.checkInterval.inMinutes} minute interval');
+    print(
+        '[CapabilityUpdater] Started with ${config.checkInterval.inMinutes} minute interval');
   }
 
   /// Stop the auto-update timer
@@ -161,7 +162,8 @@ class CapabilityUpdater {
         listener(updates);
       }
 
-      print('[CapabilityUpdater] Found ${_pendingUpdates.length} updates available');
+      print(
+          '[CapabilityUpdater] Found ${_pendingUpdates.length} updates available');
     } catch (e) {
       print('[CapabilityUpdater] Error checking updates: $e');
     }

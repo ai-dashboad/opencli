@@ -86,10 +86,7 @@ class PluginMarketplaceUI {
     router.post('/api/plugins/<name>/update', _handleUpdatePlugin);
 
     // Fallback to static files
-    final handler = Cascade()
-        .add(router)
-        .add(staticHandler)
-        .handler;
+    final handler = Cascade().add(router).add(staticHandler).handler;
 
     _server = await io.serve(handler, 'localhost', port);
     print('🌐 Plugin Marketplace UI: http://localhost:$port');
@@ -145,7 +142,8 @@ class PluginMarketplaceUI {
     }
 
     // Add some uninstalled plugins for discovery
-    plugins.addAll(_getMarketplacePlugins(plugins.map((p) => p['id'] as String).toList()));
+    plugins.addAll(
+        _getMarketplacePlugins(plugins.map((p) => p['id'] as String).toList()));
 
     return plugins;
   }
@@ -160,17 +158,29 @@ class PluginMarketplaceUI {
 
   /// Infer category from plugin name
   String _inferCategory(String name) {
-    if (name.contains('twitter') || name.contains('facebook') || name.contains('linkedin')) {
+    if (name.contains('twitter') ||
+        name.contains('facebook') ||
+        name.contains('linkedin')) {
       return 'social-media';
-    } else if (name.contains('github') || name.contains('gitlab') || name.contains('git')) {
+    } else if (name.contains('github') ||
+        name.contains('gitlab') ||
+        name.contains('git')) {
       return 'development';
-    } else if (name.contains('slack') || name.contains('discord') || name.contains('teams')) {
+    } else if (name.contains('slack') ||
+        name.contains('discord') ||
+        name.contains('teams')) {
       return 'communication';
-    } else if (name.contains('docker') || name.contains('kubernetes') || name.contains('k8s')) {
+    } else if (name.contains('docker') ||
+        name.contains('kubernetes') ||
+        name.contains('k8s')) {
       return 'devops';
-    } else if (name.contains('aws') || name.contains('azure') || name.contains('gcp')) {
+    } else if (name.contains('aws') ||
+        name.contains('azure') ||
+        name.contains('gcp')) {
       return 'cloud';
-    } else if (name.contains('playwright') || name.contains('selenium') || name.contains('test')) {
+    } else if (name.contains('playwright') ||
+        name.contains('selenium') ||
+        name.contains('test')) {
       return 'testing';
     }
     return 'development';
@@ -249,7 +259,8 @@ class PluginMarketplaceUI {
     try {
       // Read request body to get package name
       final body = await request.readAsString();
-      final data = body.isNotEmpty ? jsonDecode(body) as Map<String, dynamic> : {};
+      final data =
+          body.isNotEmpty ? jsonDecode(body) as Map<String, dynamic> : {};
       final packageName = data['package'] ?? name;
 
       // Create plugin directory
@@ -352,10 +363,8 @@ class PluginMarketplaceUI {
       }
 
       return Response.ok(
-        jsonEncode({
-          'success': true,
-          'message': 'Plugin uninstalled successfully'
-        }),
+        jsonEncode(
+            {'success': true, 'message': 'Plugin uninstalled successfully'}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stackTrace) {
@@ -392,12 +401,14 @@ class PluginMarketplaceUI {
         }
 
         return Response.internalServerError(
-          body: jsonEncode({'success': false, 'message': 'Plugin config not found'}),
+          body: jsonEncode(
+              {'success': false, 'message': 'Plugin config not found'}),
           headers: {'Content-Type': 'application/json'},
         );
       } catch (e) {
         return Response.internalServerError(
-          body: jsonEncode({'success': false, 'message': 'Failed to start: $e'}),
+          body:
+              jsonEncode({'success': false, 'message': 'Failed to start: $e'}),
           headers: {'Content-Type': 'application/json'},
         );
       }
@@ -446,10 +457,13 @@ class PluginMarketplaceUI {
       'version': '1.0.0',
       'installed': server != null,
       'running': server?.isRunning ?? false,
-      'tools': server?.tools.map((t) => {
-        'name': t.name,
-        'description': t.description,
-      }).toList() ?? [],
+      'tools': server?.tools
+              .map((t) => {
+                    'name': t.name,
+                    'description': t.description,
+                  })
+              .toList() ??
+          [],
     };
 
     return Response.ok(
@@ -595,7 +609,8 @@ class PluginMarketplaceUI {
       // For now, we'll simulate this. In production, you'd call npm registry API
       final latestVersion = await _getLatestVersionFromNpm(packageName);
 
-      final updateAvailable = _compareVersions(latestVersion, currentVersion) > 0;
+      final updateAvailable =
+          _compareVersions(latestVersion, currentVersion) > 0;
 
       return Response.ok(
         jsonEncode({

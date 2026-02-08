@@ -22,8 +22,8 @@ class CapabilityRegistry {
   CapabilityRegistry({
     required CapabilityLoader loader,
     String? platform,
-  }) : _loader = loader,
-       currentPlatform = platform ?? Platform.operatingSystem;
+  })  : _loader = loader,
+        currentPlatform = platform ?? Platform.operatingSystem;
 
   /// Initialize registry
   Future<void> initialize() async {
@@ -39,7 +39,8 @@ class CapabilityRegistry {
       register(capability);
     }
 
-    print('[CapabilityRegistry] Registered ${builtins.length} built-in capabilities');
+    print(
+        '[CapabilityRegistry] Registered ${builtins.length} built-in capabilities');
   }
 
   /// Get built-in capability definitions
@@ -298,7 +299,8 @@ class CapabilityRegistry {
   void register(CapabilityPackage capability) {
     // Check platform compatibility
     if (!capability.supportsPlatform(currentPlatform)) {
-      print('[CapabilityRegistry] Skipping ${capability.id}: not supported on $currentPlatform');
+      print(
+          '[CapabilityRegistry] Skipping ${capability.id}: not supported on $currentPlatform');
       return;
     }
 
@@ -312,7 +314,8 @@ class CapabilityRegistry {
 
     // Register alias (last part of ID)
     final alias = capability.id.split('.').last;
-    if (!_aliases.containsKey(alias) || _capabilities[_aliases[alias]]!.isNewerThan(capability.version)) {
+    if (!_aliases.containsKey(alias) ||
+        _capabilities[_aliases[alias]]!.isNewerThan(capability.version)) {
       _aliases[alias] = capability.id;
     }
 
@@ -336,7 +339,16 @@ class CapabilityRegistry {
     }
   }
 
-  /// Get a capability by ID or alias
+  /// Get a capability by ID or alias (local only, no remote fetch)
+  CapabilityPackage? getLocal(String idOrAlias) {
+    var capability = _capabilities[idOrAlias];
+    if (capability != null) return capability;
+    final id = _aliases[idOrAlias];
+    if (id != null) return _capabilities[id];
+    return null;
+  }
+
+  /// Get a capability by ID or alias (with remote fallback)
   Future<CapabilityPackage?> get(String idOrAlias) async {
     // Try direct ID first
     var capability = _capabilities[idOrAlias];
@@ -371,7 +383,7 @@ class CapabilityRegistry {
   /// Check if a capability exists
   bool has(String idOrAlias) {
     return _capabilities.containsKey(idOrAlias) ||
-           _aliases.containsKey(idOrAlias);
+        _aliases.containsKey(idOrAlias);
   }
 
   /// Get all registered capabilities
@@ -381,9 +393,7 @@ class CapabilityRegistry {
 
   /// Get capabilities by tag
   List<CapabilityPackage> getByTag(String tag) {
-    return _capabilities.values
-        .where((c) => c.tags.contains(tag))
-        .toList();
+    return _capabilities.values.where((c) => c.tags.contains(tag)).toList();
   }
 
   /// Search capabilities by name or description
@@ -391,9 +401,9 @@ class CapabilityRegistry {
     final lowerQuery = query.toLowerCase();
     return _capabilities.values.where((c) {
       return c.name.toLowerCase().contains(lowerQuery) ||
-             c.id.toLowerCase().contains(lowerQuery) ||
-             (c.description?.toLowerCase().contains(lowerQuery) ?? false) ||
-             c.tags.any((t) => t.toLowerCase().contains(lowerQuery));
+          c.id.toLowerCase().contains(lowerQuery) ||
+          (c.description?.toLowerCase().contains(lowerQuery) ?? false) ||
+          c.tags.any((t) => t.toLowerCase().contains(lowerQuery));
     }).toList();
   }
 
@@ -424,7 +434,8 @@ class CapabilityRegistry {
       }
     }
 
-    print('[CapabilityRegistry] Refreshed ${manifest.packages.length} packages');
+    print(
+        '[CapabilityRegistry] Refreshed ${manifest.packages.length} packages');
   }
 
   /// Get registry statistics

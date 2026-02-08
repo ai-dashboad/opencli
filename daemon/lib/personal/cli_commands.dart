@@ -33,7 +33,8 @@ class PersonalCLI {
       default:
         return CommandResult(
           success: false,
-          message: 'Unknown command: $command\nRun "opencli help" for available commands',
+          message:
+              'Unknown command: $command\nRun "opencli help" for available commands',
         );
     }
   }
@@ -46,12 +47,15 @@ class PersonalCLI {
     output.writeln('OpenCLI Personal Mode Status');
     output.writeln('═' * 50);
     output.writeln();
-    output.writeln('Status: ${status['running'] ? '🟢 Running' : '🔴 Stopped'}');
+    output
+        .writeln('Status: ${status['running'] ? '🟢 Running' : '🔴 Stopped'}');
     output.writeln('Port: ${status['port']}');
     output.writeln('Paired Devices: ${status['paired_devices']}');
     output.writeln('Active Connections: ${status['active_connections']}');
-    output.writeln('Auto-Discovery: ${status['discovery_enabled'] ? 'Enabled' : 'Disabled'}');
-    output.writeln('System Tray: ${status['tray_enabled'] ? 'Enabled' : 'Disabled'}');
+    output.writeln(
+        'Auto-Discovery: ${status['discovery_enabled'] ? 'Enabled' : 'Disabled'}');
+    output.writeln(
+        'System Tray: ${status['tray_enabled'] ? 'Enabled' : 'Disabled'}');
 
     return CommandResult(success: true, message: output.toString());
   }
@@ -115,7 +119,8 @@ class PersonalCLI {
         output.writeln();
       }
 
-      output.writeln('Total: ${devices.length} device${devices.length > 1 ? 's' : ''}');
+      output.writeln(
+          'Total: ${devices.length} device${devices.length > 1 ? 's' : ''}');
     }
 
     return CommandResult(success: true, message: output.toString());

@@ -57,7 +57,8 @@ class Daemon {
     } catch (_) {}
 
     // Generate new device ID
-    final deviceId = '${Platform.localHostname}-${DateTime.now().millisecondsSinceEpoch}';
+    final deviceId =
+        '${Platform.localHostname}-${DateTime.now().millisecondsSinceEpoch}';
     try {
       deviceIdFile.parent.createSync(recursive: true);
       deviceIdFile.writeAsStringSync(deviceId);
@@ -76,7 +77,9 @@ class Daemon {
       deviceId: _deviceId,
     );
     await _telemetry.initialize();
-    TerminalUI.success('Telemetry initialized (consent: ${_telemetry.config.consent.name})', prefix: '  ✓');
+    TerminalUI.success(
+        'Telemetry initialized (consent: ${_telemetry.config.consent.name})',
+        prefix: '  ✓');
 
     // Initialize plugin manager
     TerminalUI.printInitStep('Loading plugins');
@@ -107,7 +110,8 @@ class Daemon {
       router: _router,
     );
     await _ipcServer.start();
-    TerminalUI.success('IPC server listening on ${config.socketPath}', prefix: '  ✓');
+    TerminalUI.success('IPC server listening on ${config.socketPath}',
+        prefix: '  ✓');
 
     // Start mobile WebSocket server
     TerminalUI.printInitStep('Starting mobile WebSocket server');
@@ -117,7 +121,8 @@ class Daemon {
       useDevicePairing: false,
     );
     await _mobileManager.start();
-    TerminalUI.success('Mobile connection server listening on port 9876', prefix: '  ✓');
+    TerminalUI.success('Mobile connection server listening on port 9876',
+        prefix: '  ✓');
 
     // Initialize mobile task handler
     TerminalUI.printInitStep('Setting up mobile task handler');
@@ -133,7 +138,8 @@ class Daemon {
       );
       TerminalUI.success('Capability system initialized', prefix: '  ✓');
     } catch (e) {
-      TerminalUI.warning('Capability system initialization failed: $e', prefix: '  ⚠');
+      TerminalUI.warning('Capability system initialization failed: $e',
+          prefix: '  ⚠');
       // Continue without capabilities - fall back to built-in executors
     }
 
@@ -145,7 +151,8 @@ class Daemon {
       );
       TerminalUI.success('Permission system initialized', prefix: '  ✓');
     } catch (e) {
-      TerminalUI.warning('Permission system initialization failed: $e', prefix: '  ⚠');
+      TerminalUI.warning('Permission system initialization failed: $e',
+          prefix: '  ⚠');
       // Continue without permission checks
     }
 
@@ -202,7 +209,8 @@ class Daemon {
       pluginsDir: pluginsDir,
     );
     await _pluginMarketplaceUI!.start();
-    TerminalUI.success('Plugin marketplace UI listening on port 9877', prefix: '  ✓');
+    TerminalUI.success('Plugin marketplace UI listening on port 9877',
+        prefix: '  ✓');
 
     // Start unified API server for Web UI integration
     TerminalUI.printInitStep('Starting unified API server', last: true);
@@ -212,10 +220,12 @@ class Daemon {
       port: 9529,
     );
     await _unifiedApiServer!.start();
-    TerminalUI.success('Unified API server listening on port 9529', prefix: '  ✓');
+    TerminalUI.success('Unified API server listening on port 9529',
+        prefix: '  ✓');
 
     // Auto-start Web UI (optional, can be disabled via config)
-    final autoStartWebUI = Platform.environment['OPENCLI_AUTO_START_WEB_UI'] != 'false';
+    final autoStartWebUI =
+        Platform.environment['OPENCLI_AUTO_START_WEB_UI'] != 'false';
     if (autoStartWebUI) {
       TerminalUI.printSection('Optional Services', emoji: '🌟');
       TerminalUI.info('Auto-starting Web UI...', prefix: '🌐');
@@ -292,9 +302,9 @@ class Daemon {
   String _findPluginsDirectory() {
     // Try multiple possible locations for plugins directory
     final candidates = [
-      'plugins',           // Same level as daemon
-      '../plugins',        // Parent directory (from daemon/)
-      '../../plugins',     // Two levels up
+      'plugins', // Same level as daemon
+      '../plugins', // Parent directory (from daemon/)
+      '../../plugins', // Two levels up
     ];
 
     for (final candidate in candidates) {

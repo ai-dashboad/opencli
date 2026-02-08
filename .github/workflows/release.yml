@@ -28,6 +28,8 @@ jobs:
 
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.7.2
 
       - name: Sync documentation
         run: dart scripts/sync_docs.dart
@@ -144,6 +146,8 @@ jobs:
 
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.7.2
 
       - name: Install dependencies
         working-directory: daemon

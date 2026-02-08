@@ -35,13 +35,16 @@ class HealthMonitor {
     final stats = daemon.getStats();
 
     // Log stats periodically
-    if (uptimeSeconds % 300 == 0) { // Every 5 minutes
-      print('Health check - Uptime: ${uptimeSeconds}s, Memory: ${memoryUsageMb.toStringAsFixed(1)}MB');
+    if (uptimeSeconds % 300 == 0) {
+      // Every 5 minutes
+      print(
+          'Health check - Uptime: ${uptimeSeconds}s, Memory: ${memoryUsageMb.toStringAsFixed(1)}MB');
     }
 
     // Check memory limits
     if (memoryUsageMb > 200) {
-      print('WARNING: Memory usage high: ${memoryUsageMb.toStringAsFixed(1)}MB');
+      print(
+          'WARNING: Memory usage high: ${memoryUsageMb.toStringAsFixed(1)}MB');
     }
   }
 }

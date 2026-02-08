@@ -42,7 +42,8 @@ class DesktopController {
   /// Check if application is running
   Future<bool> isApplicationRunning(String appName) async {
     final processes = await processManager.listProcesses();
-    return processes.any((p) => p.name.toLowerCase().contains(appName.toLowerCase()));
+    return processes
+        .any((p) => p.name.toLowerCase().contains(appName.toLowerCase()));
   }
 
   // ==================== File System Operations ====================
@@ -139,7 +140,8 @@ class DesktopController {
     } else if (Platform.isLinux) {
       await Process.run('systemctl', ['suspend']);
     } else if (Platform.isWindows) {
-      await Process.run('rundll32.exe', ['powrprof.dll,SetSuspendState', '0,1,0']);
+      await Process.run(
+          'rundll32.exe', ['powrprof.dll,SetSuspendState', '0,1,0']);
     }
   }
 
@@ -302,4 +304,3 @@ class ProcessInfo {
     this.memoryUsage = 0,
   });
 }
-

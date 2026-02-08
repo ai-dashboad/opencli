@@ -133,7 +133,8 @@ class DatabaseManager {
   }
 
   /// Execute raw query (use with caution)
-  Future<List<Map<String, dynamic>>> query(String sql, [List<dynamic>? params]) async {
+  Future<List<Map<String, dynamic>>> query(String sql,
+      [List<dynamic>? params]) async {
     _ensureInitialized();
     return await _adapter.query(sql, params);
   }
@@ -380,9 +381,9 @@ class SQLiteAdapter implements DatabaseAdapter {
   @override
   Future<Map<String, dynamic>?> getUserByUsername(String username) async {
     return _storage['users']!.values.firstWhere(
-      (u) => u['username'] == username,
-      orElse: () => <String, dynamic>{},
-    );
+          (u) => u['username'] == username,
+          orElse: () => <String, dynamic>{},
+        );
   }
 
   @override
@@ -440,7 +441,8 @@ class SQLiteAdapter implements DatabaseAdapter {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> query(String sql, [List<dynamic>? params]) async {
+  Future<List<Map<String, dynamic>>> query(String sql,
+      [List<dynamic>? params]) async {
     // Simple implementation - would need proper SQL parsing
     return [];
   }
@@ -548,7 +550,8 @@ class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> query(String sql, [List<dynamic>? params]) async {
+  Future<List<Map<String, dynamic>>> query(String sql,
+      [List<dynamic>? params]) async {
     throw UnimplementedError();
   }
 

@@ -352,7 +352,8 @@ class DailySchedule implements Schedule {
   bool get isRecurring => true;
 
   @override
-  String get description => 'Daily at ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  String get description =>
+      'Daily at ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 }
 
 /// Weekly schedule
@@ -414,7 +415,8 @@ class MonthlySchedule implements Schedule {
   bool get isRecurring => true;
 
   @override
-  String get description => 'Monthly on day $day at ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  String get description =>
+      'Monthly on day $day at ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 }
 
 /// One-time schedule

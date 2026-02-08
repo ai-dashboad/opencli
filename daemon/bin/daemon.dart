@@ -44,7 +44,6 @@ Future<void> main(List<String> arguments) async {
 
     // Keep running
     await daemon.wait();
-
   } catch (e, stack) {
     TerminalUI.error('Fatal error: $e');
     print(TerminalUI.dim(stack.toString()));

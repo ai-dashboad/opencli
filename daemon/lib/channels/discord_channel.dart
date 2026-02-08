@@ -51,7 +51,8 @@ class DiscordChannel extends BaseChannel {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('✓ Discord bot connected: ${data['username']}#${data['discriminator']}');
+        print(
+            '✓ Discord bot connected: ${data['username']}#${data['discriminator']}');
         _isActive = true;
       } else {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
@@ -177,13 +178,17 @@ class DiscordChannel extends BaseChannel {
     final messageId = messageData['id'] as String?;
     final channelId = messageData['channel_id'] as String?;
 
-    if (userId == null || content == null || messageId == null || channelId == null) {
+    if (userId == null ||
+        content == null ||
+        messageId == null ||
+        channelId == null) {
       return;
     }
 
     // Check authorization
     if (!await isAuthorized(userId)) {
-      await sendMessage(channelId, '⚠️ Unauthorized. Please contact the administrator.');
+      await sendMessage(
+          channelId, '⚠️ Unauthorized. Please contact the administrator.');
       return;
     }
 

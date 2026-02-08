@@ -7,7 +7,8 @@ class ContactsDomain extends TaskDomain {
   @override
   String get name => 'Contacts';
   @override
-  String get description => 'Find contacts and make calls via Contacts.app and FaceTime';
+  String get description =>
+      'Find contacts and make calls via Contacts.app and FaceTime';
   @override
   String get icon => 'contacts';
   @override
@@ -18,47 +19,68 @@ class ContactsDomain extends TaskDomain {
 
   @override
   List<DomainIntentPattern> get intentPatterns => [
-    DomainIntentPattern(
-      pattern: RegExp(r"^(?:find\s+contact|look\s+up|search\s+contacts?\s+for|what'?s?\s+.+?'?s?\s+(?:number|phone|email))\s+(.+)$", caseSensitive: false),
-      taskType: 'contacts_find',
-      extractData: (m) => {'name': m.group(1)!.trim()},
-    ),
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:call|phone|dial|facetime)\s+(.+)$', caseSensitive: false),
-      taskType: 'contacts_call',
-      extractData: (m) => {'name': m.group(1)!.trim()},
-    ),
-  ];
+        DomainIntentPattern(
+          pattern: RegExp(
+              r"^(?:find\s+contact|look\s+up|search\s+contacts?\s+for|what'?s?\s+.+?'?s?\s+(?:number|phone|email))\s+(.+)$",
+              caseSensitive: false),
+          taskType: 'contacts_find',
+          extractData: (m) => {'name': m.group(1)!.trim()},
+        ),
+        DomainIntentPattern(
+          pattern: RegExp(r'^(?:call|phone|dial|facetime)\s+(.+)$',
+              caseSensitive: false),
+          taskType: 'contacts_call',
+          extractData: (m) => {'name': m.group(1)!.trim()},
+        ),
+      ];
 
   @override
   List<DomainOllamaIntent> get ollamaIntents => [
-    DomainOllamaIntent(
-      intentName: 'contacts_find',
-      description: 'Search for a contact by name',
-      parameters: {'name': 'contact name to search'},
-      examples: [
-        OllamaExample(input: 'find contact John', intentJson: '{"intent": "contacts_find", "confidence": 0.95, "parameters": {"name": "John"}}'),
-        OllamaExample(input: "what's mom's number", intentJson: '{"intent": "contacts_find", "confidence": 0.95, "parameters": {"name": "mom"}}'),
-      ],
-    ),
-    DomainOllamaIntent(
-      intentName: 'contacts_call',
-      description: 'Call a contact via FaceTime',
-      parameters: {'name': 'person to call'},
-      examples: [
-        OllamaExample(input: 'call mom', intentJson: '{"intent": "contacts_call", "confidence": 0.95, "parameters": {"name": "mom"}}'),
-      ],
-    ),
-  ];
+        DomainOllamaIntent(
+          intentName: 'contacts_find',
+          description: 'Search for a contact by name',
+          parameters: {'name': 'contact name to search'},
+          examples: [
+            OllamaExample(
+                input: 'find contact John',
+                intentJson:
+                    '{"intent": "contacts_find", "confidence": 0.95, "parameters": {"name": "John"}}'),
+            OllamaExample(
+                input: "what's mom's number",
+                intentJson:
+                    '{"intent": "contacts_find", "confidence": 0.95, "parameters": {"name": "mom"}}'),
+          ],
+        ),
+        DomainOllamaIntent(
+          intentName: 'contacts_call',
+          description: 'Call a contact via FaceTime',
+          parameters: {'name': 'person to call'},
+          examples: [
+            OllamaExample(
+                input: 'call mom',
+                intentJson:
+                    '{"intent": "contacts_call", "confidence": 0.95, "parameters": {"name": "mom"}}'),
+          ],
+        ),
+      ];
 
   @override
   Map<String, DomainDisplayConfig> get displayConfigs => {
-    'contacts_find': const DomainDisplayConfig(cardType: 'contacts', titleTemplate: 'Contact', icon: 'person', colorHex: 0xFF4CAF50),
-    'contacts_call': const DomainDisplayConfig(cardType: 'contacts', titleTemplate: 'Calling', icon: 'phone', colorHex: 0xFF4CAF50),
-  };
+        'contacts_find': const DomainDisplayConfig(
+            cardType: 'contacts',
+            titleTemplate: 'Contact',
+            icon: 'person',
+            colorHex: 0xFF4CAF50),
+        'contacts_call': const DomainDisplayConfig(
+            cardType: 'contacts',
+            titleTemplate: 'Calling',
+            icon: 'phone',
+            colorHex: 0xFF4CAF50),
+      };
 
   @override
-  Future<Map<String, dynamic>> executeTask(String taskType, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> executeTask(
+      String taskType, Map<String, dynamic> data) async {
     switch (taskType) {
       case 'contacts_find':
         return _findContact(data);
@@ -110,7 +132,8 @@ end tell''';
         'query': name,
         'contacts': contacts,
         'count': contacts.length,
-        'domain': 'contacts', 'card_type': 'contacts',
+        'domain': 'contacts',
+        'card_type': 'contacts',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'contacts'};
@@ -144,7 +167,8 @@ end tell''';
         'success': result.exitCode == 0 && output.startsWith('Calling'),
         'name': name,
         'message': output,
-        'domain': 'contacts', 'card_type': 'contacts',
+        'domain': 'contacts',
+        'card_type': 'contacts',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'contacts'};

@@ -37,14 +37,14 @@ class PairedDevice {
   }
 
   Map<String, dynamic> toJson() => {
-    'deviceId': deviceId,
-    'deviceName': deviceName,
-    'platform': platform,
-    'pairedAt': pairedAt.toIso8601String(),
-    'lastSeen': lastSeen.toIso8601String(),
-    'sharedSecret': sharedSecret,
-    'permissions': permissions,
-  };
+        'deviceId': deviceId,
+        'deviceName': deviceName,
+        'platform': platform,
+        'pairedAt': pairedAt.toIso8601String(),
+        'lastSeen': lastSeen.toIso8601String(),
+        'sharedSecret': sharedSecret,
+        'permissions': permissions,
+      };
 
   PairedDevice copyWith({
     DateTime? lastSeen,
@@ -97,13 +97,13 @@ class PairingRequest {
   }
 
   Map<String, dynamic> toJson() => {
-    'pairingCode': pairingCode,
-    'hostDeviceId': hostDeviceId,
-    'hostName': hostName,
-    'port': port,
-    'createdAt': createdAt.toIso8601String(),
-    'expiresAt': expiresAt.toIso8601String(),
-  };
+        'pairingCode': pairingCode,
+        'hostDeviceId': hostDeviceId,
+        'hostName': hostName,
+        'port': port,
+        'createdAt': createdAt.toIso8601String(),
+        'expiresAt': expiresAt.toIso8601String(),
+      };
 }
 
 /// Manages device pairing and authentication
@@ -248,15 +248,15 @@ class DevicePairingManager {
   /// Get default permissions for new devices
   Map<String, bool> _getDefaultPermissions() {
     return {
-      'query': true,           // Read-only queries
-      'open_app': true,        // Open applications
-      'open_url': true,        // Open URLs
-      'screenshot': true,      // Take screenshots
-      'file_read': true,       // Read files
-      'file_write': false,     // Write files (needs confirmation)
-      'file_delete': false,    // Delete files (needs confirmation)
-      'run_command': false,    // Run shell commands (needs confirmation)
-      'close_app': false,      // Close applications (needs confirmation)
+      'query': true, // Read-only queries
+      'open_app': true, // Open applications
+      'open_url': true, // Open URLs
+      'screenshot': true, // Take screenshots
+      'file_read': true, // Read files
+      'file_write': false, // Write files (needs confirmation)
+      'file_delete': false, // Delete files (needs confirmation)
+      'run_command': false, // Run shell commands (needs confirmation)
+      'close_app': false, // Close applications (needs confirmation)
       'system_settings': false, // Modify system settings (needs confirmation)
     };
   }
@@ -277,7 +277,8 @@ class DevicePairingManager {
     }
 
     // Verify HMAC
-    final expectedToken = _generateAuthToken(deviceId, device.sharedSecret, timestamp);
+    final expectedToken =
+        _generateAuthToken(deviceId, device.sharedSecret, timestamp);
     if (authToken != expectedToken) {
       print('[DevicePairing] Auth failed: invalid token');
       return false;
@@ -314,7 +315,8 @@ class DevicePairingManager {
   }
 
   /// Update device permissions
-  Future<void> updatePermissions(String deviceId, Map<String, bool> permissions) async {
+  Future<void> updatePermissions(
+      String deviceId, Map<String, bool> permissions) async {
     final device = _pairedDevices[deviceId];
     if (device == null) return;
 
@@ -345,13 +347,14 @@ class DevicePairingManager {
     return {
       'pairedDevices': _pairedDevices.length,
       'pendingPairings': _pendingPairings.length,
-      'devices': _pairedDevices.values.map((d) => {
-        'deviceId': d.deviceId.substring(0, 8) + '...',
-        'deviceName': d.deviceName,
-        'platform': d.platform,
-        'lastSeen': d.lastSeen.toIso8601String(),
-      }).toList(),
+      'devices': _pairedDevices.values
+          .map((d) => {
+                'deviceId': d.deviceId.substring(0, 8) + '...',
+                'deviceName': d.deviceName,
+                'platform': d.platform,
+                'lastSeen': d.lastSeen.toIso8601String(),
+              })
+          .toList(),
     };
   }
 }
-

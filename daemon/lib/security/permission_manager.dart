@@ -68,8 +68,7 @@ class ConfirmationRequest {
     this.timeout = const Duration(seconds: 30),
   }) : completer = Completer<bool>();
 
-  bool get isExpired =>
-      DateTime.now().difference(createdAt) > timeout;
+  bool get isExpired => DateTime.now().difference(createdAt) > timeout;
 
   void approve() {
     if (!completer.isCompleted) {
@@ -90,13 +89,13 @@ class ConfirmationRequest {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'deviceId': deviceId,
-    'operation': operation,
-    'details': details,
-    'createdAt': createdAt.toIso8601String(),
-    'timeoutSeconds': timeout.inSeconds,
-  };
+        'id': id,
+        'deviceId': deviceId,
+        'operation': operation,
+        'details': details,
+        'createdAt': createdAt.toIso8601String(),
+        'timeoutSeconds': timeout.inSeconds,
+      };
 }
 
 /// Manages operation permissions and confirmation flows
@@ -128,44 +127,61 @@ class PermissionManager {
   /// Initialize default permission levels
   void _initializeDefaultPermissions() {
     // Query operations - auto-execute
-    _setPermission('system_info', PermissionLevel.auto, OperationCategory.query);
+    _setPermission(
+        'system_info', PermissionLevel.auto, OperationCategory.query);
     _setPermission('list_apps', PermissionLevel.auto, OperationCategory.query);
-    _setPermission('list_processes', PermissionLevel.auto, OperationCategory.query);
-    _setPermission('check_process', PermissionLevel.auto, OperationCategory.query);
+    _setPermission(
+        'list_processes', PermissionLevel.auto, OperationCategory.query);
+    _setPermission(
+        'check_process', PermissionLevel.auto, OperationCategory.query);
 
     // Open operations - notify
     _setPermission('open_app', PermissionLevel.notify, OperationCategory.open);
     _setPermission('open_url', PermissionLevel.notify, OperationCategory.open);
-    _setPermission('web_search', PermissionLevel.notify, OperationCategory.open);
+    _setPermission(
+        'web_search', PermissionLevel.notify, OperationCategory.open);
     _setPermission('open_file', PermissionLevel.notify, OperationCategory.open);
 
     // Capture operations - notify
-    _setPermission('screenshot', PermissionLevel.notify, OperationCategory.capture);
+    _setPermission(
+        'screenshot', PermissionLevel.notify, OperationCategory.capture);
 
     // File read operations - auto
-    _setPermission('read_file', PermissionLevel.auto, OperationCategory.fileRead);
-    _setPermission('file_operation:list', PermissionLevel.auto, OperationCategory.fileRead);
-    _setPermission('file_operation:search', PermissionLevel.auto, OperationCategory.fileRead);
+    _setPermission(
+        'read_file', PermissionLevel.auto, OperationCategory.fileRead);
+    _setPermission('file_operation:list', PermissionLevel.auto,
+        OperationCategory.fileRead);
+    _setPermission('file_operation:search', PermissionLevel.auto,
+        OperationCategory.fileRead);
 
     // File write operations - confirm
-    _setPermission('create_file', PermissionLevel.confirm, OperationCategory.fileWrite);
-    _setPermission('file_operation:create', PermissionLevel.confirm, OperationCategory.fileWrite);
-    _setPermission('file_operation:move', PermissionLevel.confirm, OperationCategory.fileWrite);
-    _setPermission('file_operation:organize', PermissionLevel.confirm, OperationCategory.fileWrite);
+    _setPermission(
+        'create_file', PermissionLevel.confirm, OperationCategory.fileWrite);
+    _setPermission('file_operation:create', PermissionLevel.confirm,
+        OperationCategory.fileWrite);
+    _setPermission('file_operation:move', PermissionLevel.confirm,
+        OperationCategory.fileWrite);
+    _setPermission('file_operation:organize', PermissionLevel.confirm,
+        OperationCategory.fileWrite);
 
     // File delete operations - confirm
-    _setPermission('delete_file', PermissionLevel.confirm, OperationCategory.fileDelete);
-    _setPermission('file_operation:delete', PermissionLevel.confirm, OperationCategory.fileDelete);
+    _setPermission(
+        'delete_file', PermissionLevel.confirm, OperationCategory.fileDelete);
+    _setPermission('file_operation:delete', PermissionLevel.confirm,
+        OperationCategory.fileDelete);
 
     // Command operations - confirm
-    _setPermission('run_command', PermissionLevel.confirm, OperationCategory.command);
+    _setPermission(
+        'run_command', PermissionLevel.confirm, OperationCategory.command);
 
     // Close operations - confirm
-    _setPermission('close_app', PermissionLevel.confirm, OperationCategory.close);
+    _setPermission(
+        'close_app', PermissionLevel.confirm, OperationCategory.close);
 
     // AI operations - notify
     _setPermission('ai_query', PermissionLevel.notify, OperationCategory.other);
-    _setPermission('ai_analyze_image', PermissionLevel.notify, OperationCategory.other);
+    _setPermission(
+        'ai_analyze_image', PermissionLevel.notify, OperationCategory.other);
   }
 
   /// Set permission for an operation
@@ -398,10 +414,18 @@ class PermissionManager {
       'defaultPermissions': _defaultPermissions.length,
       'pendingConfirmations': _pendingConfirmations.length,
       'permissionsByLevel': {
-        'auto': _defaultPermissions.values.where((l) => l == PermissionLevel.auto).length,
-        'notify': _defaultPermissions.values.where((l) => l == PermissionLevel.notify).length,
-        'confirm': _defaultPermissions.values.where((l) => l == PermissionLevel.confirm).length,
-        'deny': _defaultPermissions.values.where((l) => l == PermissionLevel.deny).length,
+        'auto': _defaultPermissions.values
+            .where((l) => l == PermissionLevel.auto)
+            .length,
+        'notify': _defaultPermissions.values
+            .where((l) => l == PermissionLevel.notify)
+            .length,
+        'confirm': _defaultPermissions.values
+            .where((l) => l == PermissionLevel.confirm)
+            .length,
+        'deny': _defaultPermissions.values
+            .where((l) => l == PermissionLevel.deny)
+            .length,
       },
     };
   }
@@ -433,9 +457,9 @@ class PermissionCheckResult {
   });
 
   Map<String, dynamic> toJson() => {
-    'allowed': allowed,
-    'reason': reason,
-    'requiresConfirmation': requiresConfirmation,
-    'shouldNotify': shouldNotify,
-  };
+        'allowed': allowed,
+        'reason': reason,
+        'requiresConfirmation': requiresConfirmation,
+        'shouldNotify': shouldNotify,
+      };
 }

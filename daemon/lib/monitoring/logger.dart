@@ -18,28 +18,38 @@ class Logger {
         defaultContext = defaultContext ?? {};
 
   /// Log debug message
-  void debug(String message, {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
-    _log(LogLevel.debug, message, context: context, error: error, stackTrace: stackTrace);
+  void debug(String message,
+      {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
+    _log(LogLevel.debug, message,
+        context: context, error: error, stackTrace: stackTrace);
   }
 
   /// Log info message
-  void info(String message, {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
-    _log(LogLevel.info, message, context: context, error: error, stackTrace: stackTrace);
+  void info(String message,
+      {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
+    _log(LogLevel.info, message,
+        context: context, error: error, stackTrace: stackTrace);
   }
 
   /// Log warning message
-  void warn(String message, {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
-    _log(LogLevel.warn, message, context: context, error: error, stackTrace: stackTrace);
+  void warn(String message,
+      {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
+    _log(LogLevel.warn, message,
+        context: context, error: error, stackTrace: stackTrace);
   }
 
   /// Log error message
-  void error(String message, {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
-    _log(LogLevel.error, message, context: context, error: error, stackTrace: stackTrace);
+  void error(String message,
+      {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
+    _log(LogLevel.error, message,
+        context: context, error: error, stackTrace: stackTrace);
   }
 
   /// Log fatal message
-  void fatal(String message, {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
-    _log(LogLevel.fatal, message, context: context, error: error, stackTrace: stackTrace);
+  void fatal(String message,
+      {Map<String, dynamic>? context, Object? error, StackTrace? stackTrace}) {
+    _log(LogLevel.fatal, message,
+        context: context, error: error, stackTrace: stackTrace);
   }
 
   /// Internal logging method
@@ -238,7 +248,8 @@ class FileLogOutput implements LogOutput {
   String _getFilePath() {
     if (rotateDaily) {
       final date = DateTime.now();
-      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final dateStr =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       return '$filePath.$dateStr.log';
     }
     return filePath;

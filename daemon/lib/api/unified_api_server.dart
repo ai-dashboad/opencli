@@ -108,8 +108,7 @@ class UnifiedApiServer {
       final result = await _requestRouter.route(ipcRequest);
 
       // Calculate duration
-      final duration =
-          DateTime.now().difference(startTime).inMicroseconds;
+      final duration = DateTime.now().difference(startTime).inMicroseconds;
 
       // Build response
       final ipcResponse = IpcResponse(

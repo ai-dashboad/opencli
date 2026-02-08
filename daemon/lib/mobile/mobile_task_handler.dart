@@ -6,6 +6,7 @@ import '../services/ollama_service.dart';
 import '../capabilities/capabilities.dart';
 import '../security/device_pairing.dart';
 import '../security/permission_manager.dart';
+import '../domains/domain_plugin_adapter.dart';
 
 /// Handles task execution for mobile-submitted tasks
 /// Integrates with desktop automation, task queue, and capability system
@@ -44,7 +45,8 @@ class MobileTaskHandler {
 
     final pairing = pairingManager ?? connectionManager.pairingManager;
     if (pairing == null) {
-      print('[MobileTaskHandler] Warning: No pairing manager available, permissions disabled');
+      print(
+          '[MobileTaskHandler] Warning: No pairing manager available, permissions disabled');
       return;
     }
 
@@ -113,7 +115,8 @@ class MobileTaskHandler {
     _capabilityUpdater!.start();
 
     _capabilitiesInitialized = true;
-    print('[MobileTaskHandler] Capability system initialized with ${_capabilityRegistry!.getAll().length} capabilities');
+    print(
+        '[MobileTaskHandler] Capability system initialized with ${_capabilityRegistry!.getAll().length} capabilities');
   }
 
   /// Register capability action handlers that map to existing executors
@@ -253,26 +256,39 @@ class MobileTaskHandler {
 
       Map<String, dynamic> result;
 
-      // Try capability system first if initialized
-      if (_capabilitiesInitialized && _capabilityRegistry != null) {
-        // Check if this is a capability-based task
-        final capability = await _capabilityRegistry!.get(taskType);
-        if (capability != null) {
-          // Execute via capability system
-          final capResult = await _capabilityExecutor!.execute(taskType, taskData);
+      // Progress callback that sends intermediate task_update messages
+      void onProgress(Map<String, dynamic> progressData) {
+        connectionManager.sendTaskUpdate(
+          deviceId,
+          taskId,
+          'running',
+          result: progressData,
+        );
+      }
 
+      // Prefer direct executor (includes domain tasks) — avoids slow remote
+      // capability lookups. Only fall back to capability system for unknown types.
+      if (_executors.containsKey(taskType)) {
+        result = await _executeWithExecutor(taskType, taskData,
+            onProgress: onProgress);
+      } else if (_capabilitiesInitialized && _capabilityRegistry != null) {
+        // Check if this is a capability-based task (local only, skip remote)
+        final capability = _capabilityRegistry!.getLocal(taskType);
+        if (capability != null) {
+          final capResult =
+              await _capabilityExecutor!.execute(taskType, taskData);
           if (capResult.success) {
             result = capResult.result;
           } else {
             throw Exception(capResult.error ?? 'Capability execution failed');
           }
         } else {
-          // Fall back to direct executor
-          result = await _executeWithExecutor(taskType, taskData);
+          result = await _executeWithExecutor(taskType, taskData,
+              onProgress: onProgress);
         }
       } else {
-        // Use direct executor
-        result = await _executeWithExecutor(taskType, taskData);
+        result = await _executeWithExecutor(taskType, taskData,
+            onProgress: onProgress);
       }
 
       // Send success status
@@ -314,7 +330,8 @@ class MobileTaskHandler {
   }
 
   /// Format operation message for notification
-  String _formatOperationMessage(String taskType, Map<String, dynamic> taskData) {
+  String _formatOperationMessage(
+      String taskType, Map<String, dynamic> taskData) {
     switch (taskType) {
       case 'open_app':
         return 'Opening ${taskData['app_name'] ?? 'application'}';
@@ -329,15 +346,22 @@ class MobileTaskHandler {
     }
   }
 
-  /// Execute task with direct executor
+  /// Execute task with direct executor, optionally with progress reporting.
   Future<Map<String, dynamic>> _executeWithExecutor(
     String taskType,
-    Map<String, dynamic> taskData,
-  ) async {
+    Map<String, dynamic> taskData, {
+    void Function(Map<String, dynamic>)? onProgress,
+  }) async {
     final executor = _executors[taskType];
 
     if (executor == null) {
       throw Exception('Unknown task type: $taskType');
+    }
+
+    // Use progress-aware path for domain executors
+    if (executor is DomainTaskExecutor && onProgress != null) {
+      return await executor.executeWithProgress(taskData,
+          onProgress: onProgress);
     }
 
     return await executor.execute(taskData);
@@ -381,16 +405,13 @@ class MobileTaskHandler {
       'executorCount': _executors.length,
       'executors': _executors.keys.toList(),
       'capabilitiesInitialized': _capabilitiesInitialized,
-      'capabilities': _capabilitiesInitialized
-          ? _capabilityRegistry?.getStats()
-          : null,
-      'updates': _capabilitiesInitialized
-          ? _capabilityUpdater?.getStatus()
-          : null,
+      'capabilities':
+          _capabilitiesInitialized ? _capabilityRegistry?.getStats() : null,
+      'updates':
+          _capabilitiesInitialized ? _capabilityUpdater?.getStatus() : null,
       'permissionsInitialized': _permissionsInitialized,
-      'permissions': _permissionsInitialized
-          ? _permissionManager?.getStats()
-          : null,
+      'permissions':
+          _permissionsInitialized ? _permissionManager?.getStats() : null,
     };
   }
 
@@ -625,7 +646,8 @@ class RunCommandExecutor extends TaskExecutor {
     // Resolve ~ in working directory
     String? resolvedDir;
     if (workingDir != null) {
-      resolvedDir = workingDir.replaceFirst('~', Platform.environment['HOME'] ?? '/tmp');
+      resolvedDir =
+          workingDir.replaceFirst('~', Platform.environment['HOME'] ?? '/tmp');
       if (!await Directory(resolvedDir).exists()) {
         resolvedDir = null; // Fall back to default
       }
@@ -671,7 +693,8 @@ class CheckProcessExecutor extends TaskExecutor {
     if (Platform.isMacOS || Platform.isLinux) {
       result = await Process.run('pgrep', ['-i', '-f', processName]);
     } else if (Platform.isWindows) {
-      result = await Process.run('tasklist', ['/FI', 'IMAGENAME eq $processName*', '/NH']);
+      result = await Process.run(
+          'tasklist', ['/FI', 'IMAGENAME eq $processName*', '/NH']);
     } else {
       throw UnsupportedError('Platform not supported');
     }
@@ -717,8 +740,10 @@ class FileOperationExecutor extends TaskExecutor {
 
   /// List files with rich metadata
   Future<Map<String, dynamic>> _listFiles(Map<String, dynamic> taskData) async {
-    final directory = taskData['directory'] as String? ?? Platform.environment['HOME'] ?? '/';
-    final expandedDir = directory.replaceFirst('~', Platform.environment['HOME'] ?? '~');
+    final directory =
+        taskData['directory'] as String? ?? Platform.environment['HOME'] ?? '/';
+    final expandedDir =
+        directory.replaceFirst('~', Platform.environment['HOME'] ?? '~');
 
     final dir = Directory(expandedDir);
 
@@ -735,7 +760,11 @@ class FileOperationExecutor extends TaskExecutor {
       final stat = await entity.stat();
       final isDirectory = entity is Directory;
       final name = entity.path.split('/').last;
-      final extension = isDirectory ? '' : name.contains('.') ? name.split('.').last.toLowerCase() : '';
+      final extension = isDirectory
+          ? ''
+          : name.contains('.')
+              ? name.split('.').last.toLowerCase()
+              : '';
 
       files.add({
         'name': name,
@@ -768,10 +797,13 @@ class FileOperationExecutor extends TaskExecutor {
   }
 
   /// Search files by pattern
-  Future<Map<String, dynamic>> _searchFiles(Map<String, dynamic> taskData) async {
-    final directory = taskData['directory'] as String? ?? Platform.environment['HOME'] ?? '/';
+  Future<Map<String, dynamic>> _searchFiles(
+      Map<String, dynamic> taskData) async {
+    final directory =
+        taskData['directory'] as String? ?? Platform.environment['HOME'] ?? '/';
     final pattern = taskData['pattern'] as String;
-    final expandedDir = directory.replaceFirst('~', Platform.environment['HOME'] ?? '~');
+    final expandedDir =
+        directory.replaceFirst('~', Platform.environment['HOME'] ?? '~');
 
     final dir = Directory(expandedDir);
     final results = <Map<String, dynamic>>[];
@@ -781,7 +813,11 @@ class FileOperationExecutor extends TaskExecutor {
       if (name.toLowerCase().contains(pattern.toLowerCase())) {
         final stat = await entity.stat();
         final isDirectory = entity is Directory;
-        final extension = isDirectory ? '' : name.contains('.') ? name.split('.').last.toLowerCase() : '';
+        final extension = isDirectory
+            ? ''
+            : name.contains('.')
+                ? name.split('.').last.toLowerCase()
+                : '';
 
         results.add({
           'name': name,
@@ -808,10 +844,12 @@ class FileOperationExecutor extends TaskExecutor {
   }
 
   /// Create a new file
-  Future<Map<String, dynamic>> _createFile(Map<String, dynamic> taskData) async {
+  Future<Map<String, dynamic>> _createFile(
+      Map<String, dynamic> taskData) async {
     final filePath = taskData['path'] as String;
     final content = taskData['content'] as String? ?? '';
-    final expandedPath = filePath.replaceFirst('~', Platform.environment['HOME'] ?? '~');
+    final expandedPath =
+        filePath.replaceFirst('~', Platform.environment['HOME'] ?? '~');
 
     final file = File(expandedPath);
     await file.create(recursive: true);
@@ -827,8 +865,10 @@ class FileOperationExecutor extends TaskExecutor {
 
   /// Move a file
   Future<Map<String, dynamic>> _moveFile(Map<String, dynamic> taskData) async {
-    final from = (taskData['from'] as String).replaceFirst('~', Platform.environment['HOME'] ?? '~');
-    final to = (taskData['to'] as String).replaceFirst('~', Platform.environment['HOME'] ?? '~');
+    final from = (taskData['from'] as String)
+        .replaceFirst('~', Platform.environment['HOME'] ?? '~');
+    final to = (taskData['to'] as String)
+        .replaceFirst('~', Platform.environment['HOME'] ?? '~');
 
     final file = File(from);
     if (!await file.exists()) {
@@ -849,8 +889,10 @@ class FileOperationExecutor extends TaskExecutor {
   }
 
   /// Delete a file
-  Future<Map<String, dynamic>> _deleteFile(Map<String, dynamic> taskData) async {
-    final filePath = (taskData['path'] as String).replaceFirst('~', Platform.environment['HOME'] ?? '~');
+  Future<Map<String, dynamic>> _deleteFile(
+      Map<String, dynamic> taskData) async {
+    final filePath = (taskData['path'] as String)
+        .replaceFirst('~', Platform.environment['HOME'] ?? '~');
     final file = File(filePath);
 
     if (!await file.exists()) {
@@ -870,8 +912,12 @@ class FileOperationExecutor extends TaskExecutor {
   }
 
   /// Organize files by type
-  Future<Map<String, dynamic>> _organizeFiles(Map<String, dynamic> taskData) async {
-    final directory = (taskData['directory'] as String? ?? Platform.environment['HOME'] ?? '/').replaceFirst('~', Platform.environment['HOME'] ?? '~');
+  Future<Map<String, dynamic>> _organizeFiles(
+      Map<String, dynamic> taskData) async {
+    final directory = (taskData['directory'] as String? ??
+            Platform.environment['HOME'] ??
+            '/')
+        .replaceFirst('~', Platform.environment['HOME'] ?? '~');
 
     final dir = Directory(directory);
     final moved = <String, String>{};
@@ -879,7 +925,8 @@ class FileOperationExecutor extends TaskExecutor {
     await for (var entity in dir.list()) {
       if (entity is File) {
         final name = entity.path.split('/').last;
-        final extension = name.contains('.') ? name.split('.').last.toLowerCase() : '';
+        final extension =
+            name.contains('.') ? name.split('.').last.toLowerCase() : '';
         final category = _getFileType(extension);
         final targetDir = '$directory/$category';
 
@@ -979,7 +1026,8 @@ class FileOperationExecutor extends TaskExecutor {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -992,7 +1040,8 @@ class FileOperationExecutor extends TaskExecutor {
     if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
     if (difference.inHours < 24) return '${difference.inHours} hours ago';
     if (difference.inDays < 30) return '${difference.inDays} days ago';
-    if (difference.inDays < 365) return '${(difference.inDays / 30).floor()} months ago';
+    if (difference.inDays < 365)
+      return '${(difference.inDays / 30).floor()} months ago';
     return '${(difference.inDays / 365).floor()} years ago';
   }
 }
@@ -1019,7 +1068,8 @@ class WebSearchExecutor extends TaskExecutor {
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> taskData) async {
     final query = taskData['query'] as String;
-    final searchUrl = 'https://www.google.com/search?q=${Uri.encodeComponent(query)}';
+    final searchUrl =
+        'https://www.google.com/search?q=${Uri.encodeComponent(query)}';
 
     if (Platform.isMacOS) {
       await Process.run('open', [searchUrl]);
@@ -1056,7 +1106,8 @@ class AIQueryExecutor extends TaskExecutor {
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> taskData) async {
     final query = taskData['query'] as String;
-    final mode = taskData['mode'] as String? ?? 'general'; // general | intent_recognition
+    final mode = taskData['mode'] as String? ??
+        'general'; // general | intent_recognition
 
     if (mode == 'intent_recognition') {
       // Intent recognition mode
@@ -1068,7 +1119,8 @@ class AIQueryExecutor extends TaskExecutor {
         final response = await ollama.query(query);
         return {'success': true, 'query': query, 'response': response};
       } else {
-        final response = '💡 Ollama is not running.\n\nInstallation:\nbrew install ollama\nollama run qwen2.5';
+        final response =
+            '💡 Ollama is not running.\n\nInstallation:\nbrew install ollama\nollama run qwen2.5';
         return {'success': false, 'query': query, 'response': response};
       }
     }
@@ -1093,7 +1145,16 @@ class AIQueryExecutor extends TaskExecutor {
     final lowerQuery = query.toLowerCase();
 
     // Heuristic rules + smart matching
-    if (_containsAny(lowerQuery, ['chrome', 'safari', 'firefox', 'edge', 'vscode', 'xcode', 'wechat', 'browser'])) {
+    if (_containsAny(lowerQuery, [
+      'chrome',
+      'safari',
+      'firefox',
+      'edge',
+      'vscode',
+      'xcode',
+      'wechat',
+      'browser'
+    ])) {
       final appName = _extractAppName(query);
       return {
         'success': true,
@@ -1148,7 +1209,8 @@ class AIQueryExecutor extends TaskExecutor {
     }
 
     // Extract first word as app name
-    final match = RegExp(r'(?:open|launch|start)\s+(\S+)').firstMatch(query.toLowerCase());
+    final match = RegExp(r'(?:open|launch|start)\s+(\S+)')
+        .firstMatch(query.toLowerCase());
     return match?.group(1) ?? query;
   }
 }

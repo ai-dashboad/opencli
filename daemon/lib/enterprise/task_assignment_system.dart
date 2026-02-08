@@ -113,7 +113,8 @@ class TaskAssignmentSystem {
 
     // Factor 2: Workload (0-30 points)
     // Prefer workers with lighter workload
-    final workloadFactor = 1.0 - (worker.currentTaskCount / 5.0).clamp(0.0, 1.0);
+    final workloadFactor =
+        1.0 - (worker.currentTaskCount / 5.0).clamp(0.0, 1.0);
     score += workloadFactor * 30;
 
     // Factor 3: Performance history (0-20 points)
@@ -122,7 +123,8 @@ class TaskAssignmentSystem {
     // Factor 4: Worker type preference (0-10 points)
     if (task.type == TaskType.creative && worker.type == WorkerType.ai) {
       score += 10;
-    } else if (task.type == TaskType.manual && worker.type == WorkerType.human) {
+    } else if (task.type == TaskType.manual &&
+        worker.type == WorkerType.human) {
       score += 10;
     } else {
       score += 5;
@@ -201,7 +203,8 @@ class TaskAssignmentSystem {
   void _reassignWorkerTasks(String workerId) {
     final tasksToReassign = _assignedTasks.values
         .where((t) => t.workerId == workerId)
-        .where((t) => t.status != TaskStatus.completed && t.status != TaskStatus.failed)
+        .where((t) =>
+            t.status != TaskStatus.completed && t.status != TaskStatus.failed)
         .toList();
 
     for (final task in tasksToReassign) {
@@ -231,9 +234,8 @@ class TaskAssignmentSystem {
       throw Exception('Worker not found: $workerId');
     }
 
-    final assignedTasks = _assignedTasks.values
-        .where((t) => t.workerId == workerId)
-        .length;
+    final assignedTasks =
+        _assignedTasks.values.where((t) => t.workerId == workerId).length;
 
     return {
       'worker_id': workerId,
@@ -251,15 +253,15 @@ class TaskAssignmentSystem {
   /// Get overall system statistics
   Map<String, dynamic> getSystemStats() {
     final totalWorkers = _workers.length;
-    final availableWorkers = _workers.values
-        .where((w) => w.status == WorkerStatus.available)
-        .length;
-    final busyWorkers = _workers.values
-        .where((w) => w.status == WorkerStatus.busy)
-        .length;
+    final availableWorkers =
+        _workers.values.where((w) => w.status == WorkerStatus.available).length;
+    final busyWorkers =
+        _workers.values.where((w) => w.status == WorkerStatus.busy).length;
     final pendingTasks = _taskQueue.length;
     final activeTasks = _assignedTasks.values
-        .where((t) => t.status == TaskStatus.assigned || t.status == TaskStatus.inProgress)
+        .where((t) =>
+            t.status == TaskStatus.assigned ||
+            t.status == TaskStatus.inProgress)
         .length;
     final completedTasks = _assignedTasks.values
         .where((t) => t.status == TaskStatus.completed)
@@ -328,6 +330,7 @@ class Worker {
 }
 
 enum WorkerType { human, ai, hybrid }
+
 enum WorkerStatus { available, busy, offline }
 
 /// Task request

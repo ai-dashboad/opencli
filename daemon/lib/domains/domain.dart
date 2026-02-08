@@ -58,6 +58,9 @@ class DomainDisplayConfig {
   });
 }
 
+/// Callback for reporting progress during long-running tasks.
+typedef ProgressCallback = void Function(Map<String, dynamic> progressData);
+
 /// Abstract base class for all task domains.
 ///
 /// Each domain provides:
@@ -101,6 +104,16 @@ abstract class TaskDomain {
 
   /// Display configuration for Flutter result rendering
   Map<String, DomainDisplayConfig> get displayConfigs => {};
+
+  /// Execute a task with optional progress reporting for long-running tasks.
+  /// Default implementation delegates to executeTask() ignoring progress.
+  Future<Map<String, dynamic>> executeTaskWithProgress(
+    String taskType,
+    Map<String, dynamic> taskData, {
+    ProgressCallback? onProgress,
+  }) async {
+    return executeTask(taskType, taskData);
+  }
 
   /// Optional initialization (e.g., check if app is accessible)
   Future<void> initialize() async {}

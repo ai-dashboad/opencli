@@ -50,7 +50,8 @@ class MobileConnectionManager {
       _pairingManager = DevicePairingManager();
       await _pairingManager!.initialize();
       _hostDeviceId = await _loadOrGenerateHostDeviceId();
-      print('✓ Device pairing initialized (host: ${_hostDeviceId!.substring(0, 8)}...)');
+      print(
+          '✓ Device pairing initialized (host: ${_hostDeviceId!.substring(0, 8)}...)');
     }
 
     var currentPort = port;
@@ -67,7 +68,8 @@ class MobileConnectionManager {
         break;
       } catch (e) {
         if (e.toString().contains('Address already in use')) {
-          print('⚠️  Port $currentPort is in use, trying ${currentPort + 1}...');
+          print(
+              '⚠️  Port $currentPort is in use, trying ${currentPort + 1}...');
           currentPort++;
           retryCount++;
         } else {
@@ -77,13 +79,14 @@ class MobileConnectionManager {
     }
 
     if (retryCount >= maxRetries) {
-      throw Exception('Failed to find available port after $maxRetries attempts');
+      throw Exception(
+          'Failed to find available port after $maxRetries attempts');
     }
 
     _server.transform(WebSocketTransformer()).listen(
-      _handleConnection,
-      onError: (error) => print('Server error: $error'),
-    );
+          _handleConnection,
+          onError: (error) => print('Server error: $error'),
+        );
   }
 
   /// Load or generate host device ID
@@ -214,7 +217,8 @@ class MobileConnectionManager {
     if (useDevicePairing && _pairingManager != null) {
       if (_pairingManager!.isPaired(deviceId)) {
         // Verify using paired device credentials
-        if (!_pairingManager!.verifyAuthentication(deviceId, token, timestamp)) {
+        if (!_pairingManager!
+            .verifyAuthentication(deviceId, token, timestamp)) {
           _sendError(channel, 'Invalid authentication token');
           return null;
         }
@@ -509,7 +513,8 @@ class MobileConnectionManager {
   ) async {
     // TODO: Integrate with Firebase Cloud Messaging for Android
     // TODO: Integrate with Apple Push Notification Service for iOS
-    print('Would send push notification to $pushToken: Task $taskId is $status');
+    print(
+        'Would send push notification to $pushToken: Task $taskId is $status');
   }
 
   /// Send message to mobile client

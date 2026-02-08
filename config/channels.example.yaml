@@ -1,3 +1,4 @@
+---
 # Multi-Channel Configuration
 # Enable various messaging platforms to control your computer
 
@@ -49,7 +50,8 @@ channels:
 
 # Example usage:
 # 1. Create a Telegram bot: https://t.me/BotFather
-# 2. Get your bot token and add it to environment: export TELEGRAM_BOT_TOKEN="your-token"
+# 2. Get your bot token and add it to environment:
+#    export TELEGRAM_BOT_TOKEN="your-token"
 # 3. Get your user ID from @userinfobot and add it to allowed_users
 # 4. Restart OpenCLI daemon
 # 5. Send a message to your bot to control your computer!

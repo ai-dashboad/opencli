@@ -58,6 +58,12 @@
 	<string>OpenCLI needs access to your microphone for voice commands</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>OpenCLI needs speech recognition to understand your voice commands</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>OpenCLI needs access to your photo library to select images for video creation</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>OpenCLI needs permission to save generated videos to your photo library</string>
+	<key>NSCameraUsageDescription</key>
+	<string>OpenCLI needs camera access to capture photos for video creation</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

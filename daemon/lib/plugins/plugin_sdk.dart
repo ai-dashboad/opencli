@@ -192,9 +192,8 @@ class PluginMetadata {
       name: yaml['name'] as String,
       version: yaml['version'] as String,
       description: yaml['description'] as String,
-      author: yaml['author'] != null
-          ? PluginAuthor.fromYaml(yaml['author'])
-          : null,
+      author:
+          yaml['author'] != null ? PluginAuthor.fromYaml(yaml['author']) : null,
       license: yaml['license'] as String? ?? 'MIT',
       capabilities: (yaml['capabilities'] as List?)
               ?.map((c) => PluginCapability(

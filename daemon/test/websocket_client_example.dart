@@ -54,7 +54,6 @@ void main() async {
     // Keep the program running
     await Future.delayed(Duration(seconds: 30));
     await channel.sink.close();
-
   } catch (e) {
     print('❌ Failed to connect: $e');
     print('\nMake sure the daemon is running:');

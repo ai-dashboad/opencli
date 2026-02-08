@@ -170,7 +170,8 @@ end run
   /// 保存 base64 音频数据到临时文件
   Future<String> _saveAudioData(String base64Audio) async {
     final bytes = base64Decode(base64Audio);
-    final tempFile = File('/tmp/audio_${DateTime.now().millisecondsSinceEpoch}.m4a');
+    final tempFile =
+        File('/tmp/audio_${DateTime.now().millisecondsSinceEpoch}.m4a');
     await tempFile.writeAsBytes(bytes);
     return tempFile.path;
   }

@@ -32,14 +32,14 @@ class ErrorReport {
   });
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'timestamp': timestamp.toIso8601String(),
-    'severity': severity.name,
-    'message': message,
-    'stackTrace': stackTrace,
-    'context': context,
-    'systemInfo': systemInfo.toJson(),
-  };
+        'id': id,
+        'timestamp': timestamp.toIso8601String(),
+        'severity': severity.name,
+        'message': message,
+        'stackTrace': stackTrace,
+        'context': context,
+        'systemInfo': systemInfo.toJson(),
+      };
 
   /// Sanitize sensitive information from the error report
   Map<String, dynamic> toSanitizedJson() {
@@ -48,17 +48,26 @@ class ErrorReport {
     // Sanitize paths - replace home directory with ~
     final home = Platform.environment['HOME'] ?? '';
     if (home.isNotEmpty) {
-      sanitized['message'] = (sanitized['message'] as String).replaceAll(home, '~');
+      sanitized['message'] =
+          (sanitized['message'] as String).replaceAll(home, '~');
       if (sanitized['stackTrace'] != null) {
-        sanitized['stackTrace'] = (sanitized['stackTrace'] as String).replaceAll(home, '~');
+        sanitized['stackTrace'] =
+            (sanitized['stackTrace'] as String).replaceAll(home, '~');
       }
     }
 
     // Remove sensitive context keys
-    final sensitiveKeys = ['api_key', 'password', 'token', 'secret', 'auth', 'credential'];
+    final sensitiveKeys = [
+      'api_key',
+      'password',
+      'token',
+      'secret',
+      'auth',
+      'credential'
+    ];
     final context = Map<String, dynamic>.from(sanitized['context'] as Map);
-    context.removeWhere((key, _) =>
-      sensitiveKeys.any((s) => key.toLowerCase().contains(s)));
+    context.removeWhere(
+        (key, _) => sensitiveKeys.any((s) => key.toLowerCase().contains(s)));
     sanitized['context'] = context;
 
     return sanitized;
@@ -108,14 +117,14 @@ class SystemInfo {
   }
 
   Map<String, dynamic> toJson() => {
-    'platform': platform,
-    'platformVersion': platformVersion,
-    'hostname': hostname,
-    'processorCount': processorCount,
-    'dartVersion': dartVersion,
-    'appVersion': appVersion,
-    'deviceId': deviceId,
-  };
+        'platform': platform,
+        'platformVersion': platformVersion,
+        'hostname': hostname,
+        'processorCount': processorCount,
+        'dartVersion': dartVersion,
+        'appVersion': appVersion,
+        'deviceId': deviceId,
+      };
 }
 
 /// Collects and manages error reports
@@ -126,7 +135,8 @@ class ErrorCollector {
   final int maxStoredErrors;
 
   final List<ErrorReport> _errors = [];
-  final StreamController<ErrorReport> _errorStream = StreamController.broadcast();
+  final StreamController<ErrorReport> _errorStream =
+      StreamController.broadcast();
 
   late final SystemInfo _systemInfo;
   int _errorCounter = 0;
@@ -232,7 +242,8 @@ class ErrorCollector {
   /// Log error locally
   void _logError(ErrorReport report) {
     final prefix = '[${report.severity.name.toUpperCase()}]';
-    final message = '$prefix ${report.timestamp.toIso8601String()} - ${report.message}';
+    final message =
+        '$prefix ${report.timestamp.toIso8601String()} - ${report.message}';
 
     if (report.severity == ErrorSeverity.critical ||
         report.severity == ErrorSeverity.error) {
@@ -292,7 +303,8 @@ class ErrorCollector {
 
 /// Extension for easy error collection on futures
 extension ErrorCollectorFutureExtension<T> on Future<T> {
-  Future<T> collectErrors(ErrorCollector collector, {Map<String, dynamic>? context}) {
+  Future<T> collectErrors(ErrorCollector collector,
+      {Map<String, dynamic>? context}) {
     return catchError((error, stackTrace) {
       collector.collectException(error, stackTrace, context);
       throw error;

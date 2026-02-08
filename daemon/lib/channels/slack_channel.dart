@@ -179,7 +179,8 @@ class SlackChannel extends BaseChannel {
 
     // Check authorization
     if (!await isAuthorized(userId)) {
-      await sendMessage(channel, '⚠️ Unauthorized. Please contact the administrator.');
+      await sendMessage(
+          channel, '⚠️ Unauthorized. Please contact the administrator.');
       return;
     }
 

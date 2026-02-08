@@ -7,8 +7,10 @@ import 'issue_reporter.dart';
 enum ConsentStatus {
   /// User has not been asked yet
   notAsked,
+
   /// User has granted consent
   granted,
+
   /// User has denied consent
   denied,
 }
@@ -73,9 +75,9 @@ class TelemetryConfig {
       maxIssuesPerHour: yaml['max_issues_per_hour'] as int? ?? 5,
       githubRepo: yaml['github_repo'] as String?,
       customEndpoint: yaml['custom_endpoint'] as String?,
-      excludeCategories: (yaml['exclude_categories'] as YamlList?)
-          ?.cast<String>()
-          .toList() ?? [],
+      excludeCategories:
+          (yaml['exclude_categories'] as YamlList?)?.cast<String>().toList() ??
+              [],
     );
   }
 
@@ -157,17 +159,17 @@ class TelemetryConfig {
   bool get shouldReportUsage => isActive && reportUsage;
 
   Map<String, dynamic> toJson() => {
-    'enabled': enabled,
-    'anonymous': anonymous,
-    'reportErrors': reportErrors,
-    'reportUsage': reportUsage,
-    'consent': consent.name,
-    'minSeverity': minSeverity.name,
-    'maxIssuesPerHour': maxIssuesPerHour,
-    'githubRepo': githubRepo,
-    'customEndpoint': customEndpoint,
-    'excludeCategories': excludeCategories,
-  };
+        'enabled': enabled,
+        'anonymous': anonymous,
+        'reportErrors': reportErrors,
+        'reportUsage': reportUsage,
+        'consent': consent.name,
+        'minSeverity': minSeverity.name,
+        'maxIssuesPerHour': maxIssuesPerHour,
+        'githubRepo': githubRepo,
+        'customEndpoint': customEndpoint,
+        'excludeCategories': excludeCategories,
+      };
 }
 
 /// Manages telemetry consent and configuration
@@ -209,7 +211,8 @@ class TelemetryManager {
       );
       print('[Telemetry] Error reporting enabled');
     } else {
-      print('[Telemetry] Error reporting disabled (consent: ${config.consent.name})');
+      print(
+          '[Telemetry] Error reporting disabled (consent: ${config.consent.name})');
     }
   }
 
@@ -253,7 +256,9 @@ class TelemetryManager {
     );
 
     // If consent granted and not already reporting, start
-    if (newConsent == ConsentStatus.granted && issueReporter == null && errorCollector != null) {
+    if (newConsent == ConsentStatus.granted &&
+        issueReporter == null &&
+        errorCollector != null) {
       issueReporter = IssueReporter(
         config: config.toIssueReporterConfig(),
         errorCollector: errorCollector!,

@@ -60,7 +60,8 @@ class AITaskOrchestrator {
         workflow.stepResults[step.id] = result.result ?? '';
 
         // Check if we should continue
-        if (step.condition != null && !_evaluateCondition(step.condition!, results)) {
+        if (step.condition != null &&
+            !_evaluateCondition(step.condition!, results)) {
           break;
         }
       }
@@ -89,8 +90,8 @@ class AITaskOrchestrator {
   }
 
   /// Execute predefined workflow patterns
-  Future<WorkflowResult> executePattern(WorkflowPattern pattern,
-      Map<String, dynamic> inputs) async {
+  Future<WorkflowResult> executePattern(
+      WorkflowPattern pattern, Map<String, dynamic> inputs) async {
     switch (pattern) {
       case WorkflowPattern.codeGeneration:
         return _executeCodeGenerationWorkflow(inputs);

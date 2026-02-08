@@ -14,7 +14,8 @@ class PluginRegistry {
   final String pluginsDirectory;
   final Map<String, PluginMetadata> _installedPlugins = {};
   final Map<String, OpenCLIPlugin> _loadedPlugins = {};
-  final Map<String, List<String>> _capabilityIndex = {}; // capability -> plugin IDs
+  final Map<String, List<String>> _capabilityIndex =
+      {}; // capability -> plugin IDs
 
   PluginRegistry({required this.pluginsDirectory});
 
@@ -130,8 +131,8 @@ class PluginRegistry {
 
     if (capabilities != null && capabilities.isNotEmpty) {
       results = results.where((p) {
-        return capabilities.any((cap) =>
-            p.capabilities.any((c) => c.id.contains(cap)));
+        return capabilities
+            .any((cap) => p.capabilities.any((c) => c.id.contains(cap)));
       }).toList();
     }
 

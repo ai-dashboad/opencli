@@ -22,8 +22,10 @@ class ChannelManager {
   Stream<ChannelError> get errorStream => _errorController.stream;
 
   /// Get list of active channel types
-  List<String> get activeChannels =>
-      _channels.values.where((c) => c.isActive).map((c) => c.channelType).toList();
+  List<String> get activeChannels => _channels.values
+      .where((c) => c.isActive)
+      .map((c) => c.channelType)
+      .toList();
 
   /// Initialize all channels from configuration
   Future<void> initialize(Map<String, ChannelConfig> configs) async {
@@ -68,7 +70,8 @@ class ChannelManager {
       }
     }
 
-    print('✓ Channel manager initialized (${_channels.length} channels active)');
+    print(
+        '✓ Channel manager initialized (${_channels.length} channels active)');
   }
 
   /// Create a channel instance by type

@@ -316,7 +316,8 @@ class LocalFileStorageAdapter implements FileStorageAdapter {
 
   @override
   Future<void> initialize() async {
-    _basePath = config.basePath ?? path.join(Directory.systemTemp.path, 'opencli_storage');
+    _basePath = config.basePath ??
+        path.join(Directory.systemTemp.path, 'opencli_storage');
     final dir = Directory(_basePath);
     await dir.create(recursive: true);
 

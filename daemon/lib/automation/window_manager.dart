@@ -63,7 +63,8 @@ class WindowManager {
         'tell application "System Events" to set bounds of window id $windowId to {0, 0, 1920, 1080}'
       ]);
     } else if (Platform.isLinux) {
-      await Process.run('wmctrl', ['-ir', windowId, '-b', 'add,maximized_vert,maximized_horz']);
+      await Process.run('wmctrl',
+          ['-ir', windowId, '-b', 'add,maximized_vert,maximized_horz']);
     }
   }
 
@@ -87,7 +88,8 @@ class WindowManager {
         'tell application "System Events" to set size of window id $windowId to {$width, $height}'
       ]);
     } else if (Platform.isLinux) {
-      await Process.run('wmctrl', ['-ir', windowId, '-e', '0,-1,-1,$width,$height']);
+      await Process.run(
+          'wmctrl', ['-ir', windowId, '-e', '0,-1,-1,$width,$height']);
     }
   }
 
@@ -106,9 +108,9 @@ class WindowManager {
   /// Get windows by app name
   Future<List<Window>> getWindowsByApp(String appName) async {
     final windows = await getWindows();
-    return windows.where((w) =>
-      w.appName.toLowerCase().contains(appName.toLowerCase())
-    ).toList();
+    return windows
+        .where((w) => w.appName.toLowerCase().contains(appName.toLowerCase()))
+        .toList();
   }
 
   // Platform-specific implementations
@@ -207,4 +209,3 @@ class WindowManager {
     return windows;
   }
 }
-

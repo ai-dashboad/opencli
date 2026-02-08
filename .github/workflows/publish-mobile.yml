@@ -26,20 +26,20 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.5'
+          flutter-version: '3.32.2'
           channel: 'stable'
 
       - name: Get dependencies
-        working-directory: opencli_mobile
+        working-directory: opencli_app
         run: flutter pub get
 
       - name: Decode keystore
-        working-directory: opencli_mobile/android
+        working-directory: opencli_app/android
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
 
       - name: Create keystore.properties
-        working-directory: opencli_mobile/android
+        working-directory: opencli_app/android
         run: |
           cat > keystore.properties << EOF
           storeFile=app/release.keystore
@@ -49,24 +49,24 @@ jobs:
           EOF
 
       - name: Build APK
-        working-directory: opencli_mobile
+        working-directory: opencli_app
         run: flutter build apk --release
 
       - name: Build App Bundle
-        working-directory: opencli_mobile
+        working-directory: opencli_app
         run: flutter build appbundle --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: opencli-mobile-android-apk
-          path: opencli_mobile/build/app/outputs/flutter-apk/app-release.apk
+          path: opencli_app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: opencli-mobile-android-aab
-          path: opencli_mobile/build/app/outputs/bundle/release/app-release.aab
+          path: opencli_app/build/app/outputs/bundle/release/app-release.aab
 
   build-ios:
     name: Build iOS
@@ -78,24 +78,24 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.5'
+          flutter-version: '3.32.2'
           channel: 'stable'
 
       - name: Get dependencies
-        working-directory: opencli_mobile
+        working-directory: opencli_app
         run: flutter pub get
 
       - name: Install CocoaPods
         run: |
-          cd opencli_mobile/ios
+          cd opencli_app/ios
           pod install
 
       - name: Build iOS (no codesign)
-        working-directory: opencli_mobile
+        working-directory: opencli_app
         run: flutter build ios --release --no-codesign
 
       - name: Create IPA
-        working-directory: opencli_mobile/ios
+        working-directory: opencli_app/ios
         run: |
           mkdir -p Payload
           cp -r build/ios/iphoneos/Runner.app Payload/
@@ -105,7 +105,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: opencli-mobile-ios-ipa
-          path: opencli_mobile/ios/opencli-mobile.ipa
+          path: opencli_app/ios/opencli-mobile.ipa
 
   publish-to-release:
     name: Publish to GitHub Release

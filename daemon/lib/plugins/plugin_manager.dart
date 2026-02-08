@@ -21,7 +21,9 @@ class PluginManager {
       await _loadPlugin(pluginName);
     }
 
-    TerminalUI.success('Loaded ${_loadedPlugins.length} plugin${_loadedPlugins.length == 1 ? '' : 's'}', prefix: '  ✓');
+    TerminalUI.success(
+        'Loaded ${_loadedPlugins.length} plugin${_loadedPlugins.length == 1 ? '' : 's'}',
+        prefix: '  ✓');
   }
 
   Future<void> unloadAll() async {

@@ -80,7 +80,8 @@ class BrowserAutomationTasks {
       // Get headers if exists
       List<String>? headers;
       if (hasHeader) {
-        final headerCells = await browser.findElements('$tableSelector thead th');
+        final headerCells =
+            await browser.findElements('$tableSelector thead th');
         headers = await Future.wait(headerCells.map((cell) => cell.getText()));
       }
 
@@ -89,7 +90,8 @@ class BrowserAutomationTasks {
 
       for (final row in rows) {
         final cells = await browser.findElements('${row.id} td');
-        final cellTexts = await Future.wait(cells.map((cell) => cell.getText()));
+        final cellTexts =
+            await Future.wait(cells.map((cell) => cell.getText()));
 
         if (headers != null && headers.length == cellTexts.length) {
           final rowData = <String, String>{};
@@ -162,7 +164,9 @@ class BrowserAutomationTasks {
 
     await browser.executeScript(
       'arguments[0].scrollIntoView({behavior: "smooth", block: "center"});',
-      args: [{'element-6066-11e4-a52e-4f735466cecf': element.id}],
+      args: [
+        {'element-6066-11e4-a52e-4f735466cecf': element.id}
+      ],
     );
 
     await Future.delayed(Duration(milliseconds: 500));
@@ -400,7 +404,8 @@ class BrowserAutomationTasks {
     bool accept = true,
   }) async {
     try {
-      final alertText = await browser.executeScript('return window.alert.toString();');
+      final alertText =
+          await browser.executeScript('return window.alert.toString();');
 
       if (accept) {
         await browser.executeScript('window.alert = function() {};');

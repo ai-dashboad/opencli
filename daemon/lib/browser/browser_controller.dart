@@ -20,7 +20,8 @@ class BrowserController {
     bool headless = false,
     Map<String, dynamic>? options,
   }) async {
-    final capabilities = _buildCapabilities(headless: headless, options: options);
+    final capabilities =
+        _buildCapabilities(headless: headless, options: options);
 
     final response = await http.post(
       Uri.parse('$webDriverUrl/session'),
@@ -106,7 +107,8 @@ class BrowserController {
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final elementId = data['value']['element-6066-11e4-a52e-4f735466cecf'] as String;
+      final elementId =
+          data['value']['element-6066-11e4-a52e-4f735466cecf'] as String;
 
       return WebElement(
         id: elementId,
@@ -119,7 +121,8 @@ class BrowserController {
   }
 
   /// Find multiple elements by selector
-  Future<List<WebElement>> findElements(String selector, {By by = By.css}) async {
+  Future<List<WebElement>> findElements(String selector,
+      {By by = By.css}) async {
     _ensureSession();
 
     try {
@@ -237,7 +240,9 @@ class BrowserController {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final cookies = data['value'] as List<dynamic>;
 
-    return cookies.map((c) => Cookie.fromJson(c as Map<String, dynamic>)).toList();
+    return cookies
+        .map((c) => Cookie.fromJson(c as Map<String, dynamic>))
+        .toList();
   }
 
   /// Add cookie

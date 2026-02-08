@@ -14,64 +14,99 @@ class FilesMediaDomain extends TaskDomain {
   int get colorHex => 0xFF795548;
 
   @override
-  List<String> get taskTypes => ['files_compress', 'files_convert', 'files_organize'];
+  List<String> get taskTypes =>
+      ['files_compress', 'files_convert', 'files_organize'];
 
   @override
   List<DomainIntentPattern> get intentPatterns => [
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:compress|zip)\s+(?:images?\s+in\s+|files?\s+in\s+)?(.+)$', caseSensitive: false),
-      taskType: 'files_compress',
-      extractData: (m) => {'path': _resolveDir(m.group(1)!.trim())},
-    ),
-    DomainIntentPattern(
-      pattern: RegExp(r'^convert\s+(\w+)\s+to\s+(\w+)(?:\s+in\s+(.+))?$', caseSensitive: false),
-      taskType: 'files_convert',
-      extractData: (m) => {'from_format': m.group(1)!, 'to_format': m.group(2)!, 'path': m.group(3) != null ? _resolveDir(m.group(3)!) : '~/Desktop'},
-    ),
-    DomainIntentPattern(
-      pattern: RegExp(r'^(?:organize|sort\s+files?\s+in)\s+(.+)$', caseSensitive: false),
-      taskType: 'files_organize',
-      extractData: (m) => {'path': _resolveDir(m.group(1)!.trim())},
-    ),
-  ];
+        DomainIntentPattern(
+          pattern: RegExp(
+              r'^(?:compress|zip)\s+(?:images?\s+in\s+|files?\s+in\s+)?(.+)$',
+              caseSensitive: false),
+          taskType: 'files_compress',
+          extractData: (m) => {'path': _resolveDir(m.group(1)!.trim())},
+        ),
+        DomainIntentPattern(
+          pattern: RegExp(r'^convert\s+(\w+)\s+to\s+(\w+)(?:\s+in\s+(.+))?$',
+              caseSensitive: false),
+          taskType: 'files_convert',
+          extractData: (m) => {
+            'from_format': m.group(1)!,
+            'to_format': m.group(2)!,
+            'path': m.group(3) != null ? _resolveDir(m.group(3)!) : '~/Desktop'
+          },
+        ),
+        DomainIntentPattern(
+          pattern: RegExp(r'^(?:organize|sort\s+files?\s+in)\s+(.+)$',
+              caseSensitive: false),
+          taskType: 'files_organize',
+          extractData: (m) => {'path': _resolveDir(m.group(1)!.trim())},
+        ),
+      ];
 
   @override
   List<DomainOllamaIntent> get ollamaIntents => [
-    DomainOllamaIntent(
-      intentName: 'files_compress',
-      description: 'Compress files in a directory into a zip archive',
-      parameters: {'path': 'directory path'},
-      examples: [
-        OllamaExample(input: 'compress images in downloads', intentJson: '{"intent": "files_compress", "confidence": 0.95, "parameters": {"path": "~/Downloads"}}'),
-      ],
-    ),
-    DomainOllamaIntent(
-      intentName: 'files_convert',
-      description: 'Convert image files between formats (PNG, JPG, etc.)',
-      parameters: {'from_format': 'source format', 'to_format': 'target format', 'path': 'directory'},
-      examples: [
-        OllamaExample(input: 'convert PNG to JPG', intentJson: '{"intent": "files_convert", "confidence": 0.95, "parameters": {"from_format": "png", "to_format": "jpg", "path": "~/Desktop"}}'),
-      ],
-    ),
-    DomainOllamaIntent(
-      intentName: 'files_organize',
-      description: 'Organize files in a directory by type',
-      parameters: {'path': 'directory to organize'},
-      examples: [
-        OllamaExample(input: 'organize my downloads', intentJson: '{"intent": "files_organize", "confidence": 0.95, "parameters": {"path": "~/Downloads"}}'),
-      ],
-    ),
-  ];
+        DomainOllamaIntent(
+          intentName: 'files_compress',
+          description: 'Compress files in a directory into a zip archive',
+          parameters: {'path': 'directory path'},
+          examples: [
+            OllamaExample(
+                input: 'compress images in downloads',
+                intentJson:
+                    '{"intent": "files_compress", "confidence": 0.95, "parameters": {"path": "~/Downloads"}}'),
+          ],
+        ),
+        DomainOllamaIntent(
+          intentName: 'files_convert',
+          description: 'Convert image files between formats (PNG, JPG, etc.)',
+          parameters: {
+            'from_format': 'source format',
+            'to_format': 'target format',
+            'path': 'directory'
+          },
+          examples: [
+            OllamaExample(
+                input: 'convert PNG to JPG',
+                intentJson:
+                    '{"intent": "files_convert", "confidence": 0.95, "parameters": {"from_format": "png", "to_format": "jpg", "path": "~/Desktop"}}'),
+          ],
+        ),
+        DomainOllamaIntent(
+          intentName: 'files_organize',
+          description: 'Organize files in a directory by type',
+          parameters: {'path': 'directory to organize'},
+          examples: [
+            OllamaExample(
+                input: 'organize my downloads',
+                intentJson:
+                    '{"intent": "files_organize", "confidence": 0.95, "parameters": {"path": "~/Downloads"}}'),
+          ],
+        ),
+      ];
 
   @override
   Map<String, DomainDisplayConfig> get displayConfigs => {
-    'files_compress': const DomainDisplayConfig(cardType: 'files', titleTemplate: 'Compressed', icon: 'archive', colorHex: 0xFF795548),
-    'files_convert': const DomainDisplayConfig(cardType: 'files', titleTemplate: 'Converted', icon: 'transform', colorHex: 0xFF795548),
-    'files_organize': const DomainDisplayConfig(cardType: 'files', titleTemplate: 'Organized', icon: 'create_new_folder', colorHex: 0xFF795548),
-  };
+        'files_compress': const DomainDisplayConfig(
+            cardType: 'files',
+            titleTemplate: 'Compressed',
+            icon: 'archive',
+            colorHex: 0xFF795548),
+        'files_convert': const DomainDisplayConfig(
+            cardType: 'files',
+            titleTemplate: 'Converted',
+            icon: 'transform',
+            colorHex: 0xFF795548),
+        'files_organize': const DomainDisplayConfig(
+            cardType: 'files',
+            titleTemplate: 'Organized',
+            icon: 'create_new_folder',
+            colorHex: 0xFF795548),
+      };
 
   @override
-  Future<Map<String, dynamic>> executeTask(String taskType, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> executeTask(
+      String taskType, Map<String, dynamic> data) async {
     switch (taskType) {
       case 'files_compress':
         return _compress(data);
@@ -90,14 +125,19 @@ class FilesMediaDomain extends TaskDomain {
     final archivePath = '$path/$archiveName';
 
     try {
-      final result = await Process.run('bash', ['-c', 'cd "$path" && zip -r "$archivePath" . -x ".*" -x "__MACOSX/*"'])
-          .timeout(const Duration(seconds: 120));
+      final result = await Process.run('bash', [
+        '-c',
+        'cd "$path" && zip -r "$archivePath" . -x ".*" -x "__MACOSX/*"'
+      ]).timeout(const Duration(seconds: 120));
       return {
         'success': result.exitCode == 0,
         'archive': archivePath,
         'stdout': (result.stdout as String).trim(),
-        'message': result.exitCode == 0 ? 'Created archive: $archiveName' : (result.stderr as String).trim(),
-        'domain': 'files_media', 'card_type': 'files',
+        'message': result.exitCode == 0
+            ? 'Created archive: $archiveName'
+            : (result.stderr as String).trim(),
+        'domain': 'files_media',
+        'card_type': 'files',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'files_media'};
@@ -111,7 +151,8 @@ class FilesMediaDomain extends TaskDomain {
 
     try {
       // Use sips for image conversion on macOS
-      final result = await Process.run('bash', ['-c',
+      final result = await Process.run('bash', [
+        '-c',
         'cd "$path" && count=0; for f in *.$fromFmt; do [ -f "\$f" ] && sips -s format $toFmt "\$f" --out "\${f%.$fromFmt}.$toFmt" && count=\$((count+1)); done; echo "Converted \$count files"'
       ]).timeout(const Duration(seconds: 120));
 
@@ -122,7 +163,8 @@ class FilesMediaDomain extends TaskDomain {
         'to': toFmt,
         'path': path,
         'message': output,
-        'domain': 'files_media', 'card_type': 'files',
+        'domain': 'files_media',
+        'card_type': 'files',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'files_media'};
@@ -167,7 +209,8 @@ echo "Organized \$moved files in $path"
         'success': result.exitCode == 0,
         'path': path,
         'message': (result.stdout as String).trim(),
-        'domain': 'files_media', 'card_type': 'files',
+        'domain': 'files_media',
+        'card_type': 'files',
       };
     } catch (e) {
       return {'success': false, 'error': 'Error: $e', 'domain': 'files_media'};

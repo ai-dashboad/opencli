@@ -357,7 +357,8 @@ message_queue:
 
   /// Get default config directory
   static String _getDefaultConfigDir() {
-    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    final home =
+        Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
     return '$home/.opencli';
   }
 

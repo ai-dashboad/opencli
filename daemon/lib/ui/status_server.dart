@@ -41,7 +41,8 @@ class StatusServer {
         .addHandler(router.call);
 
     try {
-      _server = await shelf_io.serve(handler, InternetAddress.loopbackIPv4, port);
+      _server =
+          await shelf_io.serve(handler, InternetAddress.loopbackIPv4, port);
       print('✓ Status server listening on http://localhost:${_server!.port}');
       print('  - REST API: http://localhost:${_server!.port}/status');
       print('  - WebSocket: ws://localhost:${_server!.port}/ws');

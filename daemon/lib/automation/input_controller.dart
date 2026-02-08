@@ -110,7 +110,8 @@ class InputController {
   // ==================== Keyboard Control ====================
 
   /// Type text
-  Future<void> typeText(String text, {
+  Future<void> typeText(
+    String text, {
     Duration delayBetweenKeys = const Duration(milliseconds: 50),
   }) async {
     for (final char in text.split('')) {
@@ -168,7 +169,8 @@ class InputController {
   }
 
   Future<Screenshot> _macOSCaptureScreen(Rectangle? region) async {
-    final tempFile = '/tmp/screenshot_${DateTime.now().millisecondsSinceEpoch}.png';
+    final tempFile =
+        '/tmp/screenshot_${DateTime.now().millisecondsSinceEpoch}.png';
 
     if (region != null) {
       await Process.run('screencapture', [
@@ -191,12 +193,15 @@ class InputController {
   }
 
   Future<Screenshot> _linuxCaptureScreen(Rectangle? region) async {
-    final tempFile = '/tmp/screenshot_${DateTime.now().millisecondsSinceEpoch}.png';
+    final tempFile =
+        '/tmp/screenshot_${DateTime.now().millisecondsSinceEpoch}.png';
 
     if (region != null) {
       await Process.run('import', [
-        '-window', 'root',
-        '-crop', '${region.width}x${region.height}+${region.x}+${region.y}',
+        '-window',
+        'root',
+        '-crop',
+        '${region.width}x${region.height}+${region.x}+${region.y}',
         tempFile,
       ]);
     } else {
@@ -245,7 +250,8 @@ class InputController {
     final screenshot = await captureScreen();
 
     // Save screenshot temporarily
-    final screenshotFile = '/tmp/screen_${DateTime.now().millisecondsSinceEpoch}.png';
+    final screenshotFile =
+        '/tmp/screen_${DateTime.now().millisecondsSinceEpoch}.png';
     await File(screenshotFile).writeAsBytes(screenshot.data);
 
     // Use ImageMagick or OpenCV for template matching
@@ -300,4 +306,3 @@ else:
     return null;
   }
 }
-

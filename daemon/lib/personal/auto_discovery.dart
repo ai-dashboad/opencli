@@ -97,7 +97,8 @@ class AutoDiscoveryService {
 
       // Check if it's a discovery query
       if (_isDiscoveryQuery(message)) {
-        print('[AutoDiscovery] Received discovery query from ${datagram.address}');
+        print(
+            '[AutoDiscovery] Received discovery query from ${datagram.address}');
         _respondToQuery(datagram.address, datagram.port);
       }
     } catch (e) {
@@ -108,7 +109,7 @@ class AutoDiscoveryService {
   /// Check if message is a discovery query
   bool _isDiscoveryQuery(String message) {
     return message.contains(serviceType) ||
-           message.contains('_services._dns-sd._udp.local');
+        message.contains('_services._dns-sd._udp.local');
   }
 
   /// Respond to discovery query
@@ -156,7 +157,8 @@ class AutoDiscoveryService {
   }
 
   /// Send message to specific address
-  void _sendMessage(Map<String, dynamic> message, InternetAddress address, int port) {
+  void _sendMessage(
+      Map<String, dynamic> message, InternetAddress address, int port) {
     try {
       final data = utf8.encode(jsonEncode(message));
       _socket?.send(data, address, port);
@@ -212,7 +214,8 @@ class DiscoveryClient {
         AutoDiscoveryService.multicastPort,
       );
 
-      _socket!.joinMulticast(InternetAddress(AutoDiscoveryService.multicastAddress));
+      _socket!.joinMulticast(
+          InternetAddress(AutoDiscoveryService.multicastAddress));
       _socket!.broadcastEnabled = true;
       _socket!.listen(_handleResponse);
 

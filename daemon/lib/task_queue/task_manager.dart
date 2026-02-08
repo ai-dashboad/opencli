@@ -34,6 +34,7 @@ class TaskManager {
 }
 
 enum TaskStatus { pending, assigned, inProgress, completed }
+
 enum Role { developer, designer, qa }
 
 class Task {

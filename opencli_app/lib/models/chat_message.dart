@@ -43,6 +43,7 @@ class ChatMessage {
     if (result != null) {
       filteredResult = Map<String, dynamic>.from(result!);
       filteredResult.remove('image_base64');
+      filteredResult.remove('video_base64');
     }
 
     return {

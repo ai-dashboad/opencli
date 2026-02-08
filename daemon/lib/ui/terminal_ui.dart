@@ -69,7 +69,13 @@ class TerminalUI {
 
     print('');
     print(cyan('┏' + '━' * (width - 2) + '┓'));
-    print(cyan('┃') + ' ' * padding + bold(brightCyan(appName)) + ' ' + dim(version) + ' ' * padding + cyan('┃'));
+    print(cyan('┃') +
+        ' ' * padding +
+        bold(brightCyan(appName)) +
+        ' ' +
+        dim(version) +
+        ' ' * padding +
+        cyan('┃'));
     print(cyan('┗' + '━' * (width - 2) + '┛'));
     print('');
   }
@@ -142,8 +148,12 @@ class TerminalUI {
     if (rows.isEmpty) return;
 
     // 计算列宽
-    final labelWidth = rows.map((r) => r['label']?.length ?? 0).reduce((a, b) => a > b ? a : b);
-    final statusWidth = rows.map((r) => r['status']?.length ?? 0).reduce((a, b) => a > b ? a : b);
+    final labelWidth = rows
+        .map((r) => r['label']?.length ?? 0)
+        .reduce((a, b) => a > b ? a : b);
+    final statusWidth = rows
+        .map((r) => r['status']?.length ?? 0)
+        .reduce((a, b) => a > b ? a : b);
 
     print('');
     for (final row in rows) {
@@ -174,7 +184,18 @@ class TerminalUI {
   }
 
   /// 打印加载动画帧（需要在循环中调用）
-  static const List<String> _spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  static const List<String> _spinnerFrames = [
+    '⠋',
+    '⠙',
+    '⠹',
+    '⠸',
+    '⠼',
+    '⠴',
+    '⠦',
+    '⠧',
+    '⠇',
+    '⠏'
+  ];
   static int _spinnerIndex = 0;
 
   static void printSpinner(String message) {

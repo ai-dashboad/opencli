@@ -11,6 +11,7 @@ import 'contacts/contacts_domain.dart';
 import 'messages/messages_domain.dart';
 import 'translation/translation_domain.dart';
 import 'files_media/files_media_domain.dart';
+import 'media_creation/media_creation_domain.dart';
 
 /// Central registry that collects all TaskDomain instances and provides:
 /// 1. Executor registration into MobileTaskHandler
@@ -52,7 +53,10 @@ class DomainRegistry {
   ) async {
     final domain = _domainByTaskType[taskType];
     if (domain == null) {
-      return {'success': false, 'error': 'No domain handles task type: $taskType'};
+      return {
+        'success': false,
+        'error': 'No domain handles task type: $taskType'
+      };
     }
     return await domain.executeTask(taskType, taskData);
   }
@@ -74,7 +78,8 @@ class DomainRegistry {
 
     for (final domain in _domains) {
       for (final intent in domain.ollamaIntents) {
-        buffer.write('$intentNumber. **${intent.intentName}** - ${intent.description}');
+        buffer.write(
+            '$intentNumber. **${intent.intentName}** - ${intent.description}');
 
         if (intent.parameters.isNotEmpty) {
           final paramStr = intent.parameters.entries
@@ -85,8 +90,7 @@ class DomainRegistry {
         buffer.writeln();
 
         for (final example in intent.examples) {
-          buffer.writeln(
-              '    "${example.input}" -> ${example.intentJson}');
+          buffer.writeln('    "${example.input}" -> ${example.intentJson}');
         }
         buffer.writeln();
         intentNumber++;
@@ -108,12 +112,15 @@ class DomainRegistry {
     for (final domain in _domains) {
       try {
         await domain.initialize();
-        print('[DomainRegistry] Initialized domain: ${domain.id} (${domain.taskTypes.length} task types)');
+        print(
+            '[DomainRegistry] Initialized domain: ${domain.id} (${domain.taskTypes.length} task types)');
       } catch (e) {
-        print('[DomainRegistry] Warning: Failed to initialize domain ${domain.id}: $e');
+        print(
+            '[DomainRegistry] Warning: Failed to initialize domain ${domain.id}: $e');
       }
     }
-    print('[DomainRegistry] Registered ${_domains.length} domains with ${_domainByTaskType.length} task types');
+    print(
+        '[DomainRegistry] Registered ${_domains.length} domains with ${_domainByTaskType.length} task types');
   }
 
   /// Dispose all domains
@@ -122,7 +129,8 @@ class DomainRegistry {
       try {
         await domain.dispose();
       } catch (e) {
-        print('[DomainRegistry] Warning: Failed to dispose domain ${domain.id}: $e');
+        print(
+            '[DomainRegistry] Warning: Failed to dispose domain ${domain.id}: $e');
       }
     }
   }
@@ -132,13 +140,15 @@ class DomainRegistry {
     return {
       'domainCount': _domains.length,
       'taskTypeCount': _domainByTaskType.length,
-      'domains': _domains.map((d) => <String, dynamic>{
-          'id': d.id,
-          'name': d.name,
-          'taskTypes': d.taskTypes,
-          'intentPatterns': d.intentPatterns.length,
-          'ollamaIntents': d.ollamaIntents.length,
-      }).toList(),
+      'domains': _domains
+          .map((d) => <String, dynamic>{
+                'id': d.id,
+                'name': d.name,
+                'taskTypes': d.taskTypes,
+                'intentPatterns': d.intentPatterns.length,
+                'ollamaIntents': d.ollamaIntents.length,
+              })
+          .toList(),
     };
   }
 }
@@ -158,5 +168,6 @@ DomainRegistry createBuiltinDomainRegistry() {
   registry.register(MessagesDomain());
   registry.register(TranslationDomain());
   registry.register(FilesMediaDomain());
+  registry.register(MediaCreationDomain());
   return registry;
 }

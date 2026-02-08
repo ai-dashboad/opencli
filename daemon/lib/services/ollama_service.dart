@@ -27,7 +27,8 @@ class OllamaService {
 
   /// 识别用户意图
   Future<Map<String, dynamic>> recognizeIntent(String userInput) async {
-    final prompt = '''You are an intent classifier for a macOS automation assistant. Analyze the user's input and return JSON.
+    final prompt =
+        '''You are an intent classifier for a macOS automation assistant. Analyze the user's input and return JSON.
 
 User input: $userInput
 

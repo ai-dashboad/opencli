@@ -223,7 +223,9 @@ class QueueMessage {
       delay: json['delay'] != null
           ? Duration(milliseconds: json['delay'] as int)
           : null,
-      ttl: json['ttl'] != null ? Duration(milliseconds: json['ttl'] as int) : null,
+      ttl: json['ttl'] != null
+          ? Duration(milliseconds: json['ttl'] as int)
+          : null,
       retryCount: json['retry_count'] as int? ?? 0,
     );
   }
@@ -343,7 +345,10 @@ class InMemoryAdapter implements MessageQueueAdapter {
       final queue = _queues[queueName];
       final handlers = _subscribers[queueName];
 
-      if (queue == null || queue.isEmpty || handlers == null || handlers.isEmpty) {
+      if (queue == null ||
+          queue.isEmpty ||
+          handlers == null ||
+          handlers.isEmpty) {
         return;
       }
 

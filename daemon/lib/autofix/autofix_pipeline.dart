@@ -66,19 +66,19 @@ class Fix {
   });
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'issueId': issueId,
-    'analysis': analysis.toJson(),
-    'createdAt': createdAt.toIso8601String(),
-    'status': status.name,
-    'fixDescription': fixDescription,
-    'codeChanges': codeChanges,
-    'pullRequestUrl': pullRequestUrl,
-    'rolloutPercentage': rolloutPercentage,
-    'affectedFiles': affectedFiles,
-    'testResults': testResults,
-    'failureReason': failureReason,
-  };
+        'id': id,
+        'issueId': issueId,
+        'analysis': analysis.toJson(),
+        'createdAt': createdAt.toIso8601String(),
+        'status': status.name,
+        'fixDescription': fixDescription,
+        'codeChanges': codeChanges,
+        'pullRequestUrl': pullRequestUrl,
+        'rolloutPercentage': rolloutPercentage,
+        'affectedFiles': affectedFiles,
+        'testResults': testResults,
+        'failureReason': failureReason,
+      };
 }
 
 /// Configuration for the autofix pipeline
@@ -153,8 +153,8 @@ class AutofixPipeline {
     required IssueAnalyzer analyzer,
     ErrorCollector? errorCollector,
     this.config = const AutofixConfig(),
-  }) : _analyzer = analyzer,
-       _errorCollector = errorCollector;
+  })  : _analyzer = analyzer,
+        _errorCollector = errorCollector;
 
   /// Start the pipeline
   void start() {
@@ -194,7 +194,8 @@ class AutofixPipeline {
 
     // Only auto-fix high confidence issues
     if (analysis.confidence < config.minConfidenceForAutofix) {
-      print('[AutofixPipeline] Low confidence (${analysis.confidence}), skipping auto-fix');
+      print(
+          '[AutofixPipeline] Low confidence (${analysis.confidence}), skipping auto-fix');
       return;
     }
 
@@ -300,15 +301,17 @@ class AutofixPipeline {
       // Try local Ollama
       final prompt = _buildFixPrompt(fix);
 
-      final response = await http.post(
-        Uri.parse('http://localhost:11434/api/generate'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'model': 'qwen2.5:3b',
-          'prompt': prompt,
-          'stream': false,
-        }),
-      ).timeout(const Duration(seconds: 60));
+      final response = await http
+          .post(
+            Uri.parse('http://localhost:11434/api/generate'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'model': 'qwen2.5:3b',
+              'prompt': prompt,
+              'stream': false,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -322,7 +325,8 @@ class AutofixPipeline {
     if (fix.analysis.suggestedFixes.isNotEmpty) {
       return {
         'description': fix.analysis.suggestedFixes.first,
-        'code': '// Manual fix required\n// ${fix.analysis.suggestedFixes.join('\n// ')}',
+        'code':
+            '// Manual fix required\n// ${fix.analysis.suggestedFixes.join('\n// ')}',
         'files': [],
       };
     }
@@ -475,7 +479,8 @@ ${jsonEncode(fix.testResults)}
           .fold(0, (sum, s) => sum + s.durationHours),
     ));
 
-    final stageEndTime = stageStartTime.add(Duration(hours: currentStage.durationHours));
+    final stageEndTime =
+        stageStartTime.add(Duration(hours: currentStage.durationHours));
 
     if (DateTime.now().isAfter(stageEndTime)) {
       // Check error rate
@@ -487,7 +492,8 @@ ${jsonEncode(fix.testResults)}
         final nextStage = config.rolloutStages[currentIndex + 1];
         fix.rolloutPercentage = nextStage.percentage.toDouble();
         fix.status = FixStatus.rollout;
-        print('[AutofixPipeline] Fix ${fix.id} advanced to ${nextStage.name} (${nextStage.percentage}%)');
+        print(
+            '[AutofixPipeline] Fix ${fix.id} advanced to ${nextStage.name} (${nextStage.percentage}%)');
       } else {
         fix.rolloutPercentage = 100;
         fix.status = FixStatus.released;
@@ -550,11 +556,13 @@ ${jsonEncode(fix.testResults)}
       'fixesToday': _fixesToday,
       'maxFixesPerDay': config.maxFixesPerDay,
       'byStatus': byStatus,
-      'rolloutStages': config.rolloutStages.map((s) => {
-        'name': s.name,
-        'percentage': s.percentage,
-        'durationHours': s.durationHours,
-      }).toList(),
+      'rolloutStages': config.rolloutStages
+          .map((s) => {
+                'name': s.name,
+                'percentage': s.percentage,
+                'durationHours': s.durationHours,
+              })
+          .toList(),
     };
   }
 }

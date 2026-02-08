@@ -57,7 +57,8 @@ class MessageHandler {
         },
         onDone: () {
           _clients.remove(clientId);
-          print('📱 Client disconnected: $clientId (Total: ${_clients.length})');
+          print(
+              '📱 Client disconnected: $clientId (Total: ${_clients.length})');
         },
         onError: (error) {
           print('❌ WebSocket error for $clientId: $error');
@@ -91,7 +92,8 @@ class MessageHandler {
       // 解析消息
       final message = OpenCLIMessage.fromJsonString(rawMessage as String);
 
-      print('📨 Message from $clientId: ${message.type.name} - ${message.payload['action']}');
+      print(
+          '📨 Message from $clientId: ${message.type.name} - ${message.payload['action']}');
 
       // 根据消息类型处理
       if (message.type == MessageType.command) {
@@ -156,7 +158,8 @@ class MessageHandler {
   // ========== 命令处理器 ==========
 
   /// 处理执行任务命令
-  Future<Map<String, dynamic>> _handleExecuteTask(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _handleExecuteTask(
+      Map<String, dynamic> payload) async {
     final taskId = payload['taskId'] as String;
     final params = payload['params'] as Map<String, dynamic>? ?? {};
 
@@ -192,7 +195,8 @@ class MessageHandler {
   }
 
   /// 处理停止任务命令
-  Future<Map<String, dynamic>> _handleStopTask(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _handleStopTask(
+      Map<String, dynamic> payload) async {
     final taskId = payload['taskId'] as String;
 
     print('🛑 Stopping task: $taskId');
@@ -206,7 +210,8 @@ class MessageHandler {
   }
 
   /// 处理获取任务列表命令
-  Future<Map<String, dynamic>> _handleGetTasks(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _handleGetTasks(
+      Map<String, dynamic> payload) async {
     final filter = payload['filter'] as String?;
 
     print('📋 Getting tasks (filter: $filter)');
@@ -244,7 +249,8 @@ class MessageHandler {
   }
 
   /// 处理获取 AI 模型列表命令
-  Future<Map<String, dynamic>> _handleGetModels(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _handleGetModels(
+      Map<String, dynamic> payload) async {
     print('🤖 Getting AI models');
 
     // TODO: 从配置获取可用模型
@@ -277,12 +283,14 @@ class MessageHandler {
   }
 
   /// 处理发送聊天消息命令
-  Future<Map<String, dynamic>> _handleSendChat(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _handleSendChat(
+      Map<String, dynamic> payload) async {
     final message = payload['message'] as String;
     final conversationId = payload['conversationId'] as String?;
     final modelId = payload['modelId'] as String?;
 
-    print('💬 Chat message: $message (conversation: $conversationId, model: $modelId)');
+    print(
+        '💬 Chat message: $message (conversation: $conversationId, model: $modelId)');
 
     // TODO: 调用 AI API
 
@@ -297,7 +305,8 @@ class MessageHandler {
   }
 
   /// 处理获取状态命令
-  Future<Map<String, dynamic>> _handleGetStatus(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> _handleGetStatus(
+      Map<String, dynamic> payload) async {
     return {
       'daemon': {
         'version': '0.2.0',
@@ -326,7 +335,8 @@ class MessageHandler {
 
   /// 广播消息给所有客户端
   void _broadcast(OpenCLIMessage message) {
-    print('📢 Broadcasting: ${message.type.name} - ${message.payload['event']}');
+    print(
+        '📢 Broadcasting: ${message.type.name} - ${message.payload['event']}');
 
     for (final entry in _clients.entries) {
       _sendToClient(entry.key, message);
@@ -334,7 +344,8 @@ class MessageHandler {
   }
 
   /// 发送错误响应
-  void _sendErrorResponse(String clientId, String requestId, String errorMessage) {
+  void _sendErrorResponse(
+      String clientId, String requestId, String errorMessage) {
     final response = ResponseMessageBuilder.error(
       requestId: requestId,
       errorMessage: errorMessage,

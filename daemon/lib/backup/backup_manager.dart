@@ -100,7 +100,8 @@ class BackupManager {
   }
 
   /// Restore from backup
-  Future<RestoreResult> restore(String backupName, {
+  Future<RestoreResult> restore(
+    String backupName, {
     String? targetDirectory,
     bool overwrite = false,
   }) async {
@@ -195,7 +196,8 @@ class BackupManager {
         // Compressed backup
         final stats = await entity.stat();
         backups.add(BackupInfo(
-          name: path.basenameWithoutExtension(path.basenameWithoutExtension(entity.path)),
+          name: path.basenameWithoutExtension(
+              path.basenameWithoutExtension(entity.path)),
           path: entity.path,
           type: BackupType.full,
           createdAt: stats.modified,
@@ -277,11 +279,12 @@ class BackupManager {
   }) async {
     final files = <String, String>{};
 
-    final includes = includePaths ?? [
-      'config',
-      'data',
-      'logs',
-    ];
+    final includes = includePaths ??
+        [
+          'config',
+          'data',
+          'logs',
+        ];
 
     for (final includePath in includes) {
       final dir = Directory(includePath);
@@ -292,7 +295,8 @@ class BackupManager {
           final relativePath = path.relative(entity.path);
 
           // Check exclude paths
-          if (excludePaths != null && excludePaths.any((ex) => relativePath.startsWith(ex))) {
+          if (excludePaths != null &&
+              excludePaths.any((ex) => relativePath.startsWith(ex))) {
             continue;
           }
 
@@ -527,7 +531,8 @@ class BackupInfo {
   String get sizeFormatted {
     if (size < 1024) return '$size B';
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(2)} KB';
-    if (size < 1024 * 1024 * 1024) return '${(size / (1024 * 1024)).toStringAsFixed(2)} MB';
+    if (size < 1024 * 1024 * 1024)
+      return '${(size / (1024 * 1024)).toStringAsFixed(2)} MB';
     return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }

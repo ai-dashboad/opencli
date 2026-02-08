@@ -21,13 +21,13 @@ class CapabilityExecutionResult {
   });
 
   Map<String, dynamic> toJson() => {
-    'capabilityId': capabilityId,
-    'success': success,
-    'result': result,
-    'error': error,
-    'durationMs': duration.inMilliseconds,
-    'steps': stepResults.map((s) => s.toJson()).toList(),
-  };
+        'capabilityId': capabilityId,
+        'success': success,
+        'result': result,
+        'error': error,
+        'durationMs': duration.inMilliseconds,
+        'steps': stepResults.map((s) => s.toJson()).toList(),
+      };
 }
 
 /// Result of a single workflow step
@@ -47,12 +47,12 @@ class WorkflowStepResult {
   });
 
   Map<String, dynamic> toJson() => {
-    'action': action,
-    'success': success,
-    'result': result,
-    'error': error,
-    'durationMs': duration.inMilliseconds,
-  };
+        'action': action,
+        'success': success,
+        'result': result,
+        'error': error,
+        'durationMs': duration.inMilliseconds,
+      };
 }
 
 /// Execution context for a capability workflow
@@ -68,8 +68,8 @@ class ExecutionContext {
 
   ExecutionContext({
     required this.parameters,
-  }) : variables = {...parameters},
-       stepResults = [];
+  })  : variables = {...parameters},
+        stepResults = [];
 
   /// Resolve a template string with variables
   String resolveTemplate(String template) {
@@ -298,10 +298,10 @@ class CapabilityExecutor {
 
       // Execute with timeout
       final timeout = action.timeout ?? defaultTimeout;
-      final result = await handler(resolvedParams, context)
-          .timeout(timeout, onTimeout: () {
-            throw TimeoutException('Action timed out after ${timeout.inSeconds}s');
-          });
+      final result = await handler(resolvedParams, context).timeout(timeout,
+          onTimeout: () {
+        throw TimeoutException('Action timed out after ${timeout.inSeconds}s');
+      });
 
       return WorkflowStepResult(
         action: action.action,
@@ -340,9 +340,9 @@ class CapabilityExecutor {
 
     // Truthy check
     return template.isNotEmpty &&
-           template != 'false' &&
-           template != 'null' &&
-           template != '0';
+        template != 'false' &&
+        template != 'null' &&
+        template != '0';
   }
 
   /// Get execution statistics

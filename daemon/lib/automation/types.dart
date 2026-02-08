@@ -15,11 +15,11 @@ class Rectangle {
   });
 
   Map<String, dynamic> toJson() => {
-    'x': x,
-    'y': y,
-    'width': width,
-    'height': height,
-  };
+        'x': x,
+        'y': y,
+        'width': width,
+        'height': height,
+      };
 }
 
 /// Represents a point on screen
@@ -47,11 +47,11 @@ class Screenshot {
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
-    'width': width,
-    'height': height,
-    'size': data.length,
-    'timestamp': timestamp.toIso8601String(),
-  };
+        'width': width,
+        'height': height,
+        'size': data.length,
+        'timestamp': timestamp.toIso8601String(),
+      };
 }
 
 /// Represents a window

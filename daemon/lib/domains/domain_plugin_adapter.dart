@@ -57,7 +57,8 @@ class DomainPluginAdapter extends OpenCLIPlugin {
       return PluginCapability(
         id: taskType,
         name: _taskTypeToName(taskType),
-        description: ollamaIntent?.description ?? '$taskType via ${domain.name}',
+        description:
+            ollamaIntent?.description ?? '$taskType via ${domain.name}',
         parameters: params,
       );
     }).toList();
@@ -131,6 +132,15 @@ class DomainTaskExecutor extends TaskExecutor {
   Future<Map<String, dynamic>> execute(Map<String, dynamic> taskData) {
     return domain.executeTask(taskType, taskData);
   }
+
+  /// Execute with progress reporting for long-running tasks like AI video generation.
+  Future<Map<String, dynamic>> executeWithProgress(
+    Map<String, dynamic> taskData, {
+    ProgressCallback? onProgress,
+  }) {
+    return domain.executeTaskWithProgress(taskType, taskData,
+        onProgress: onProgress);
+  }
 }
 
 /// Generates MCP tool definitions from domain metadata.
@@ -179,11 +189,13 @@ class DomainMcpToolProvider {
 
   /// Generate a JSON Schema-compatible tool list for MCP servers
   List<Map<String, dynamic>> generateToolSchemas() {
-    return generateTools().map((tool) => {
-      'name': tool.name,
-      'description': tool.description,
-      'inputSchema': tool.parameters,
-    }).toList();
+    return generateTools()
+        .map((tool) => {
+              'name': tool.name,
+              'description': tool.description,
+              'inputSchema': tool.parameters,
+            })
+        .toList();
   }
 }
 
@@ -199,7 +211,8 @@ extension DomainRegistryIntegration on DomainRegistry {
         );
       }
     }
-    print('[DomainRegistry] Registered ${allTaskTypes.length} domain executors into MobileTaskHandler');
+    print(
+        '[DomainRegistry] Registered ${allTaskTypes.length} domain executors into MobileTaskHandler');
   }
 
   /// Create plugin adapters for all domains
@@ -223,9 +236,8 @@ extension DomainRegistryIntegration on DomainRegistry {
     Map<String, dynamic> args,
   ) async {
     // Strip opencli_ prefix if present
-    final taskType = toolName.startsWith('opencli_')
-        ? toolName.substring(8)
-        : toolName;
+    final taskType =
+        toolName.startsWith('opencli_') ? toolName.substring(8) : toolName;
 
     return executeTask(taskType, args);
   }
@@ -233,27 +245,29 @@ extension DomainRegistryIntegration on DomainRegistry {
   /// Get a combined view of all domain capabilities for API discovery
   Map<String, dynamic> getApiDiscovery() {
     return {
-      'domains': domains.map((d) => {
-        'id': d.id,
-        'name': d.name,
-        'description': d.description,
-        'icon': d.icon,
-        'color': d.colorHex,
-        'platforms': d.supportedPlatforms,
-        'capabilities': d.taskTypes.map((taskType) {
-          final intent = d.ollamaIntents
-              .where((i) => i.intentName == taskType)
-              .firstOrNull;
-          return {
-            'id': taskType,
-            'name': _taskTypeToName(taskType),
-            'description': intent?.description ?? taskType,
-            'parameters': intent?.parameters ?? {},
-            'mcp_tool': 'opencli_$taskType',
-            'api_route': '${d.id}.$taskType',
-          };
-        }).toList(),
-      }).toList(),
+      'domains': domains
+          .map((d) => {
+                'id': d.id,
+                'name': d.name,
+                'description': d.description,
+                'icon': d.icon,
+                'color': d.colorHex,
+                'platforms': d.supportedPlatforms,
+                'capabilities': d.taskTypes.map((taskType) {
+                  final intent = d.ollamaIntents
+                      .where((i) => i.intentName == taskType)
+                      .firstOrNull;
+                  return {
+                    'id': taskType,
+                    'name': _taskTypeToName(taskType),
+                    'description': intent?.description ?? taskType,
+                    'parameters': intent?.parameters ?? {},
+                    'mcp_tool': 'opencli_$taskType',
+                    'api_route': '${d.id}.$taskType',
+                  };
+                }).toList(),
+              })
+          .toList(),
       'total_domains': domains.length,
       'total_capabilities': allTaskTypes.length,
     };

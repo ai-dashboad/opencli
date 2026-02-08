@@ -39,7 +39,8 @@ class TrayApplication {
       } else if (Platform.isWindows) {
         await _startWindowsTray();
       } else {
-        throw TrayException('Unsupported platform: ${Platform.operatingSystem}');
+        throw TrayException(
+            'Unsupported platform: ${Platform.operatingSystem}');
       }
 
       _isRunning = true;

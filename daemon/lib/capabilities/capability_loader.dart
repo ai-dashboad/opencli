@@ -120,14 +120,17 @@ class CapabilityLoader {
     if (!forceRefresh &&
         _manifest != null &&
         _lastManifestFetch != null &&
-        DateTime.now().difference(_lastManifestFetch!) < manifestCacheDuration) {
+        DateTime.now().difference(_lastManifestFetch!) <
+            manifestCacheDuration) {
       return _manifest;
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$repositoryUrl/manifest.json'),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$repositoryUrl/manifest.json'),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -177,8 +180,8 @@ class CapabilityLoader {
 
       final url = info?.downloadUrl ?? '$repositoryUrl/packages/$id.yaml';
 
-      final response = await http.get(Uri.parse(url))
-          .timeout(const Duration(seconds: 30));
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return CapabilityPackage.fromYamlString(response.body);
@@ -229,7 +232,8 @@ class CapabilityLoader {
       buffer.writeln('author: ${package.author}');
     }
     buffer.writeln('min_executor_version: ${package.minExecutorVersion}');
-    buffer.writeln('platforms: [${package.platforms.map((p) => p.name).join(', ')}]');
+    buffer.writeln(
+        'platforms: [${package.platforms.map((p) => p.name).join(', ')}]');
 
     if (package.parameters.isNotEmpty) {
       buffer.writeln('parameters:');
@@ -257,7 +261,8 @@ class CapabilityLoader {
     }
 
     if (package.requiresExecutors.isNotEmpty) {
-      buffer.writeln('requires_executors: [${package.requiresExecutors.join(', ')}]');
+      buffer.writeln(
+          'requires_executors: [${package.requiresExecutors.join(', ')}]');
     }
 
     if (package.tags.isNotEmpty) {

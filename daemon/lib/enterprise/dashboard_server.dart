@@ -315,7 +315,8 @@ class DashboardServer {
     );
   }
 
-  Future<Response> _handleUpdateTaskStatus(Request request, String taskId) async {
+  Future<Response> _handleUpdateTaskStatus(
+      Request request, String taskId) async {
     final body = await request.readAsString();
     final data = jsonDecode(body) as Map<String, dynamic>;
     final status = data['status'] as String;
@@ -671,4 +672,5 @@ class WorkerNode {
 }
 
 enum WorkerType { human, ai }
+
 enum WorkerStatus { idle, busy, offline }

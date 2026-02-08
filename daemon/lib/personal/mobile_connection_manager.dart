@@ -97,7 +97,8 @@ class MobileConnectionManager {
     try {
       final socket = await WebSocketTransformer.upgrade(request);
 
-      print('[MobileConnMgr] WebSocket connection from ${request.connectionInfo?.remoteAddress}');
+      print(
+          '[MobileConnMgr] WebSocket connection from ${request.connectionInfo?.remoteAddress}');
 
       // Create mobile connection
       final connection = MobileConnection(
@@ -115,7 +116,6 @@ class MobileConnectionManager {
 
       // Send welcome message
       _sendWelcome(connection);
-
     } catch (e) {
       print('[MobileConnMgr] WebSocket upgrade failed: $e');
     }
@@ -166,7 +166,6 @@ class MobileConnectionManager {
         ..close();
 
       print('[MobileConnMgr] Device paired: $deviceName');
-
     } catch (e) {
       request.response
         ..statusCode = HttpStatus.badRequest
@@ -277,7 +276,8 @@ class MobileConnectionManager {
   }
 
   /// Handle status request
-  void _handleStatusRequest(MobileConnection connection, Map<String, dynamic> data) {
+  void _handleStatusRequest(
+      MobileConnection connection, Map<String, dynamic> data) {
     final status = {
       'type': 'status_response',
       'connections': _connections.length,

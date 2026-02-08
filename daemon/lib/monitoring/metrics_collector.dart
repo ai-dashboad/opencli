@@ -50,7 +50,8 @@ class MetricsCollector {
     final key = _metricKey(name, labels);
     return _summaries.putIfAbsent(
       key,
-      () => Summary(name: name, help: help, labels: labels, quantiles: quantiles),
+      () =>
+          Summary(name: name, help: help, labels: labels, quantiles: quantiles),
     );
   }
 
@@ -97,7 +98,8 @@ class MetricsCollector {
 
   String _metricKey(String name, Map<String, String>? labels) {
     if (labels == null || labels.isEmpty) return name;
-    final labelStr = labels.entries.map((e) => '${e.key}="${e.value}"').join(',');
+    final labelStr =
+        labels.entries.map((e) => '${e.key}="${e.value}"').join(',');
     return '$name{$labelStr}';
   }
 }
@@ -132,7 +134,8 @@ class Counter {
     buffer.writeln('# TYPE $name counter');
     buffer.write(name);
     if (labels != null && labels!.isNotEmpty) {
-      final labelStr = labels!.entries.map((e) => '${e.key}="${e.value}"').join(',');
+      final labelStr =
+          labels!.entries.map((e) => '${e.key}="${e.value}"').join(',');
       buffer.write('{$labelStr}');
     }
     buffer.writeln(' $_value');
@@ -194,7 +197,8 @@ class Gauge {
     buffer.writeln('# TYPE $name gauge');
     buffer.write(name);
     if (labels != null && labels!.isNotEmpty) {
-      final labelStr = labels!.entries.map((e) => '${e.key}="${e.value}"').join(',');
+      final labelStr =
+          labels!.entries.map((e) => '${e.key}="${e.value}"').join(',');
       buffer.write('{$labelStr}');
     }
     buffer.writeln(' $_value');
@@ -226,7 +230,8 @@ class Histogram {
     this.help,
     this.labels,
     List<double>? buckets,
-  }) : buckets = buckets ?? [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10] {
+  }) : buckets = buckets ??
+            [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10] {
     for (final bucket in this.buckets) {
       _bucketCounts[bucket] = 0;
     }
@@ -269,7 +274,8 @@ class Histogram {
         : '';
 
     for (final entry in _bucketCounts.entries) {
-      final bucketLabel = entry.key == double.infinity ? '+Inf' : entry.key.toString();
+      final bucketLabel =
+          entry.key == double.infinity ? '+Inf' : entry.key.toString();
       buffer.write('${name}_bucket{');
       if (labelStr.isNotEmpty) buffer.write('$labelStr,');
       buffer.writeln('le="$bucketLabel"} ${entry.value}');
@@ -402,22 +408,26 @@ class SystemMetricsCollector {
 
   void _collect() {
     // CPU usage
-    final cpuGauge = metrics.gauge('system_cpu_usage', help: 'System CPU usage');
+    final cpuGauge =
+        metrics.gauge('system_cpu_usage', help: 'System CPU usage');
     // Note: Getting actual CPU usage requires platform-specific code
     // This is a placeholder
     cpuGauge.set(0.0);
 
     // Memory usage
-    final memoryGauge = metrics.gauge('system_memory_bytes', help: 'System memory usage in bytes');
+    final memoryGauge = metrics.gauge('system_memory_bytes',
+        help: 'System memory usage in bytes');
     // Note: Getting actual memory usage requires platform-specific code
     memoryGauge.set(0.0);
 
     // Process count
-    final processGauge = metrics.gauge('system_process_count', help: 'Number of running processes');
+    final processGauge = metrics.gauge('system_process_count',
+        help: 'Number of running processes');
     processGauge.set(ProcessInfo.currentRss.toDouble());
 
     // Uptime
-    final uptimeGauge = metrics.gauge('system_uptime_seconds', help: 'System uptime in seconds');
+    final uptimeGauge = metrics.gauge('system_uptime_seconds',
+        help: 'System uptime in seconds');
     uptimeGauge.setToCurrentTime();
   }
 }

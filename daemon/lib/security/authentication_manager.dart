@@ -257,7 +257,8 @@ class AuthenticationManager {
   }
 
   /// Update user permissions
-  Future<void> updatePermissions(String userId, Set<Permission> permissions) async {
+  Future<void> updatePermissions(
+      String userId, Set<Permission> permissions) async {
     final user = _users[userId];
     if (user == null) {
       throw Exception('User not found');
@@ -382,7 +383,8 @@ class AuthenticationManager {
 
   /// Generate temporary password
   String _generateTemporaryPassword() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random.secure();
     return List.generate(12, (_) => chars[random.nextInt(chars.length)]).join();
   }

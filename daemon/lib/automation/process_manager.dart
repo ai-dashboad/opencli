@@ -7,7 +7,8 @@ class ProcessManager {
     final processes = <ProcessInfo>[];
 
     if (Platform.isMacOS || Platform.isLinux) {
-      final result = await Process.run('ps', ['-eo', 'pid,comm,%cpu,%mem,user']);
+      final result =
+          await Process.run('ps', ['-eo', 'pid,comm,%cpu,%mem,user']);
       final lines = result.stdout.toString().split('\n').skip(1); // Skip header
 
       for (final line in lines) {
@@ -32,7 +33,8 @@ class ProcessManager {
       for (final line in lines) {
         if (line.trim().isEmpty) continue;
 
-        final parts = line.split(',').map((s) => s.replaceAll('"', '')).toList();
+        final parts =
+            line.split(',').map((s) => s.replaceAll('"', '')).toList();
         if (parts.length >= 2) {
           processes.add(ProcessInfo(
             pid: int.tryParse(parts[1]) ?? 0,
@@ -57,9 +59,9 @@ class ProcessManager {
   /// Find processes by name
   Future<List<ProcessInfo>> findProcessesByName(String name) async {
     final processes = await listProcesses();
-    return processes.where((p) =>
-      p.name.toLowerCase().contains(name.toLowerCase())
-    ).toList();
+    return processes
+        .where((p) => p.name.toLowerCase().contains(name.toLowerCase()))
+        .toList();
   }
 
   /// Kill process by PID
@@ -114,7 +116,8 @@ class ProcessManager {
   }
 
   /// Monitor process (stream of updates)
-  Stream<ProcessInfo> monitorProcess(int pid, {
+  Stream<ProcessInfo> monitorProcess(
+    int pid, {
     Duration interval = const Duration(seconds: 1),
   }) async* {
     while (true) {

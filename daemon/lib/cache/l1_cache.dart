@@ -37,7 +37,8 @@ class L1Cache {
     String? oldestKey;
 
     for (final entry in _cache.entries) {
-      if (oldest == null || entry.value.accessedAt.isBefore(oldest.accessedAt)) {
+      if (oldest == null ||
+          entry.value.accessedAt.isBefore(oldest.accessedAt)) {
         oldest = entry.value;
         oldestKey = entry.key;
       }

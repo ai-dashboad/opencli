@@ -136,7 +136,8 @@ class PersonalMode {
       _isRunning = true;
 
       print('[PersonalMode] All services started');
-      print('[PersonalMode] Ready for mobile connections on port ${config.port}');
+      print(
+          '[PersonalMode] Ready for mobile connections on port ${config.port}');
     } catch (e) {
       print('[PersonalMode] Failed to start: $e');
       rethrow;
@@ -203,8 +204,10 @@ class PersonalMode {
       'initialized': _isInitialized,
       'running': _isRunning,
       'port': config.port,
-      'paired_devices': _isInitialized ? _pairingManager.getPairedDevices().length : 0,
-      'active_connections': _isRunning ? _connectionManager.getActiveConnections().length : 0,
+      'paired_devices':
+          _isInitialized ? _pairingManager.getPairedDevices().length : 0,
+      'active_connections':
+          _isRunning ? _connectionManager.getActiveConnections().length : 0,
       'discovery_enabled': _discoveryService.isRunning,
       'tray_enabled': _trayApp.isRunning,
     };

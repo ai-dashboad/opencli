@@ -37,15 +37,18 @@ class WhatsAppChannel extends BaseChannel {
         .toList();
 
     if (_accountSid == null || _authToken == null || _phoneNumber == null) {
-      throw Exception('WhatsApp configuration incomplete (account_sid, auth_token, phone_number required)');
+      throw Exception(
+          'WhatsApp configuration incomplete (account_sid, auth_token, phone_number required)');
     }
 
     // Test Twilio credentials
     try {
       final response = await http.get(
-        Uri.parse('https://api.twilio.com/2010-04-01/Accounts/$_accountSid.json'),
+        Uri.parse(
+            'https://api.twilio.com/2010-04-01/Accounts/$_accountSid.json'),
         headers: {
-          'Authorization': 'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}',
+          'Authorization':
+              'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}',
         },
       );
 
@@ -53,7 +56,8 @@ class WhatsAppChannel extends BaseChannel {
         print('✓ WhatsApp channel connected via Twilio');
         _isActive = true;
       } else {
-        throw Exception('Failed to verify Twilio credentials: ${response.body}');
+        throw Exception(
+            'Failed to verify Twilio credentials: ${response.body}');
       }
     } catch (e) {
       _errorController.add(ChannelError(
@@ -80,9 +84,11 @@ class WhatsAppChannel extends BaseChannel {
     };
 
     final response = await http.post(
-      Uri.parse('https://api.twilio.com/2010-04-01/Accounts/$_accountSid/Messages.json'),
+      Uri.parse(
+          'https://api.twilio.com/2010-04-01/Accounts/$_accountSid/Messages.json'),
       headers: {
-        'Authorization': 'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}',
+        'Authorization':
+            'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}',
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params,
@@ -108,9 +114,11 @@ class WhatsAppChannel extends BaseChannel {
     };
 
     final response = await http.post(
-      Uri.parse('https://api.twilio.com/2010-04-01/Accounts/$_accountSid/Messages.json'),
+      Uri.parse(
+          'https://api.twilio.com/2010-04-01/Accounts/$_accountSid/Messages.json'),
       headers: {
-        'Authorization': 'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}',
+        'Authorization':
+            'Basic ${base64Encode(utf8.encode('$_accountSid:$_authToken'))}',
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params,
@@ -158,7 +166,8 @@ class WhatsAppChannel extends BaseChannel {
 
     // Check authorization
     if (!await isAuthorized(userId)) {
-      await sendMessage(userId, '⚠️ Unauthorized. Please contact the administrator.');
+      await sendMessage(
+          userId, '⚠️ Unauthorized. Please contact the administrator.');
       return;
     }
 

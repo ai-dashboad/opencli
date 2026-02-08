@@ -124,7 +124,8 @@ class CapabilityParameter {
     switch (type) {
       case ParameterType.string:
         if (value is! String) return false;
-        if (allowedValues != null && !allowedValues!.contains(value)) return false;
+        if (allowedValues != null && !allowedValues!.contains(value))
+          return false;
         return true;
       case ParameterType.int:
         return value is int;
@@ -143,13 +144,13 @@ class CapabilityParameter {
   }
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'type': type.name,
-    'required': required,
-    'description': description,
-    'defaultValue': defaultValue,
-    'allowedValues': allowedValues,
-  };
+        'name': name,
+        'type': type.name,
+        'required': required,
+        'description': description,
+        'defaultValue': defaultValue,
+        'allowedValues': allowedValues,
+      };
 }
 
 /// Workflow action step
@@ -213,13 +214,13 @@ class WorkflowAction {
   }
 
   Map<String, dynamic> toJson() => {
-    'action': action,
-    'params': params,
-    'onError': onError,
-    'timeout': timeout?.inMilliseconds,
-    'condition': condition,
-    'storeResult': storeResult,
-  };
+        'action': action,
+        'params': params,
+        'onError': onError,
+        'timeout': timeout?.inMilliseconds,
+        'condition': condition,
+        'storeResult': storeResult,
+      };
 }
 
 /// Capability package definition
@@ -301,9 +302,9 @@ class CapabilityPackage {
       platforms: _parsePlatforms(yaml['platforms']),
       parameters: _parseParameters(yaml['parameters']),
       workflow: _parseWorkflow(yaml['workflow']),
-      requiresExecutors: (yaml['requires_executors'] as YamlList?)
-          ?.cast<String>()
-          .toList() ?? [],
+      requiresExecutors:
+          (yaml['requires_executors'] as YamlList?)?.cast<String>().toList() ??
+              [],
       tags: (yaml['tags'] as YamlList?)?.cast<String>().toList() ?? [],
       isSystem: yaml['is_system'] as bool? ?? false,
       checksum: yaml['checksum'] as String?,
@@ -404,21 +405,21 @@ class CapabilityPackage {
   bool isNewerThan(String other) => compareVersion(other) > 0;
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'version': version,
-    'name': name,
-    'description': description,
-    'author': author,
-    'minExecutorVersion': minExecutorVersion,
-    'platforms': platforms.map((p) => p.name).toList(),
-    'parameters': parameters.map((p) => p.toJson()).toList(),
-    'workflow': workflow.map((w) => w.toJson()).toList(),
-    'requiresExecutors': requiresExecutors,
-    'tags': tags,
-    'isSystem': isSystem,
-    'checksum': checksum,
-    'updatedAt': updatedAt?.toIso8601String(),
-  };
+        'id': id,
+        'version': version,
+        'name': name,
+        'description': description,
+        'author': author,
+        'minExecutorVersion': minExecutorVersion,
+        'platforms': platforms.map((p) => p.name).toList(),
+        'parameters': parameters.map((p) => p.toJson()).toList(),
+        'workflow': workflow.map((w) => w.toJson()).toList(),
+        'requiresExecutors': requiresExecutors,
+        'tags': tags,
+        'isSystem': isSystem,
+        'checksum': checksum,
+        'updatedAt': updatedAt?.toIso8601String(),
+      };
 
   @override
   String toString() => 'CapabilityPackage($id@$version)';
@@ -450,11 +451,11 @@ class CapabilityManifest {
   }
 
   Map<String, dynamic> toJson() => {
-    'repository_url': repositoryUrl,
-    'repository_version': repositoryVersion,
-    'packages': packages.map((p) => p.toJson()).toList(),
-    'updated_at': updatedAt.toIso8601String(),
-  };
+        'repository_url': repositoryUrl,
+        'repository_version': repositoryVersion,
+        'packages': packages.map((p) => p.toJson()).toList(),
+        'updated_at': updatedAt.toIso8601String(),
+      };
 }
 
 /// Summary info about a capability package
@@ -493,13 +494,13 @@ class CapabilityPackageInfo {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'version': version,
-    'name': name,
-    'description': description,
-    'platforms': platforms,
-    'download_url': downloadUrl,
-    'checksum': checksum,
-    'size': size,
-  };
+        'id': id,
+        'version': version,
+        'name': name,
+        'description': description,
+        'platforms': platforms,
+        'download_url': downloadUrl,
+        'checksum': checksum,
+        'size': size,
+      };
 }

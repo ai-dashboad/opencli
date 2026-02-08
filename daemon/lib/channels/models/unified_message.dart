@@ -80,8 +80,7 @@ class UnifiedMessage {
   }
 
   @override
-  String toString() =>
-      'UnifiedMessage($channelType:$userId): $content';
+  String toString() => 'UnifiedMessage($channelType:$userId): $content';
 }
 
 /// Message type enumeration
