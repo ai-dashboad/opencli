@@ -14,6 +14,9 @@ class MobileTaskHandler {
   final MobileConnectionManager connectionManager;
   final Map<String, TaskExecutor> _executors = {};
 
+  /// Access to registered executors (for pipeline system).
+  Map<String, TaskExecutor> get executors => _executors;
+
   /// Capability system components (optional, can be initialized separately)
   CapabilityLoader? _capabilityLoader;
   CapabilityRegistry? _capabilityRegistry;

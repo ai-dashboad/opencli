@@ -18,6 +18,9 @@ import 'package:opencli_daemon/api/unified_api_server.dart';
 import 'package:opencli_daemon/api/message_handler.dart';
 import 'package:opencli_daemon/domains/domain_registry.dart';
 import 'package:opencli_daemon/domains/domain_plugin_adapter.dart';
+import 'package:opencli_daemon/pipeline/pipeline_store.dart';
+import 'package:opencli_daemon/pipeline/pipeline_executor.dart';
+import 'package:opencli_daemon/pipeline/pipeline_api.dart';
 
 class Daemon {
   static const String version = '0.2.0';
@@ -212,12 +215,30 @@ class Daemon {
     TerminalUI.success('Plugin marketplace UI listening on port 9877',
         prefix: '  ✓');
 
+    // Initialize pipeline system
+    TerminalUI.printInitStep('Initializing pipeline system');
+    final pipelineStore = PipelineStore();
+    await pipelineStore.initialize();
+    final pipelineExecutor = PipelineExecutor(
+      store: pipelineStore,
+      executors: _mobileTaskHandler.executors,
+    );
+    _mobileTaskHandler.registerExecutor('pipeline_execute', pipelineExecutor);
+    final pipelineApi = PipelineApi(
+      store: pipelineStore,
+      executor: pipelineExecutor,
+      domainRegistry: _domainRegistry,
+      connectionManager: _mobileManager,
+    );
+    TerminalUI.success('Pipeline system initialized', prefix: '  ✓');
+
     // Start unified API server for Web UI integration
     TerminalUI.printInitStep('Starting unified API server', last: true);
     _unifiedApiServer = UnifiedApiServer(
       requestRouter: _router,
       messageHandler: MessageHandler(), // Create new instance for unified API
       port: 9529,
+      pipelineApi: pipelineApi,
     );
     await _unifiedApiServer!.start();
     TerminalUI.success('Unified API server listening on port 9529',

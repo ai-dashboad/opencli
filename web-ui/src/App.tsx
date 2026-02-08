@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import PipelineEditor from './pages/PipelineEditor';
 import './App.css';
 
 interface DaemonStatus {
@@ -387,6 +389,18 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  const location = useLocation();
+
+  // Pipeline editor has its own layout
+  if (location.pathname.startsWith('/pipelines')) {
+    return (
+      <Routes>
+        <Route path="/pipelines" element={<PipelineEditor />} />
+        <Route path="/pipelines/:id" element={<PipelineEditor />} />
+      </Routes>
+    );
+  }
+
   if (!status && !error) {
     return (
       <div className="loading-screen">
@@ -409,6 +423,8 @@ function App() {
           <div className="title-main">OPENCLI_PORTAL</div>
           <div className="title-sub">REALTIME_MONITORING_SYSTEM v{status?.daemon.version || '0.1.0'}</div>
         </div>
+
+        <Link to="/pipelines" className="pipeline-nav-link">PIPELINE_EDITOR</Link>
 
         <div className="header-metrics">
           <div className="metric-item">

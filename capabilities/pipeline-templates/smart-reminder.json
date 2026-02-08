@@ -1,0 +1,51 @@
+{
+  "id": "template_smart_reminder",
+  "name": "Smart Reminder",
+  "description": "Calculate a future time and create a reminder",
+  "nodes": [
+    {
+      "id": "node_1",
+      "type": "calculator_date_math",
+      "domain": "calculator",
+      "label": "Calculate Time",
+      "position": { "x": 100, "y": 200 },
+      "params": {
+        "expression": "{{params.offset}}"
+      }
+    },
+    {
+      "id": "node_2",
+      "type": "reminders_add",
+      "domain": "reminders",
+      "label": "Create Reminder",
+      "position": { "x": 400, "y": 200 },
+      "params": {
+        "title": "{{params.reminder_text}}",
+        "due_date": "{{node_1.result}}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1",
+      "source": "node_1",
+      "source_port": "output",
+      "target": "node_2",
+      "target_port": "input"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "offset",
+      "type": "string",
+      "default": "+2 hours",
+      "description": "Time offset for reminder"
+    },
+    {
+      "name": "reminder_text",
+      "type": "string",
+      "default": "Follow up",
+      "description": "Reminder text"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import 'package:opencli_daemon/core/request_router.dart';
 import 'package:opencli_daemon/ipc/ipc_protocol.dart';
 import 'package:opencli_daemon/api/api_translator.dart';
 import 'package:opencli_daemon/api/message_handler.dart';
+import 'package:opencli_daemon/pipeline/pipeline_api.dart';
 
 /// Unified API server on port 9529 for Web UI integration
 ///
@@ -18,13 +19,21 @@ class UnifiedApiServer {
   final MessageHandler _messageHandler;
   final int port;
   HttpServer? _server;
+  PipelineApi? _pipelineApi;
 
   UnifiedApiServer({
     required RequestRouter requestRouter,
     required MessageHandler messageHandler,
     this.port = 9529,
+    PipelineApi? pipelineApi,
   })  : _requestRouter = requestRouter,
-        _messageHandler = messageHandler;
+        _messageHandler = messageHandler,
+        _pipelineApi = pipelineApi;
+
+  /// Set pipeline API (can be configured after construction).
+  void setPipelineApi(PipelineApi api) {
+    _pipelineApi = api;
+  }
 
   Future<void> start() async {
     final router = Router();
@@ -40,6 +49,9 @@ class UnifiedApiServer {
 
     // WebSocket /ws - Real-time messaging
     router.get('/ws', _messageHandler.handler);
+
+    // Pipeline API routes
+    _pipelineApi?.registerRoutes(router);
 
     final handler = const shelf.Pipeline()
         .addMiddleware(shelf.logRequests())
@@ -178,7 +190,7 @@ class UnifiedApiServer {
 
   Map<String, String> get _corsHeaders => {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       };
 

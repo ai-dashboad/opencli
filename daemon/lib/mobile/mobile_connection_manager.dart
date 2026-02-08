@@ -533,6 +533,11 @@ class MobileConnectionManager {
     }
   }
 
+  /// Public broadcast for pipeline execution progress and other subsystems.
+  void broadcastMessage(Map<String, dynamic> message) {
+    _broadcastMessage(message);
+  }
+
   /// Send error message to mobile client
   void _sendError(WebSocketChannel channel, String error) {
     _sendMessage(channel, {
