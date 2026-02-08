@@ -1,10 +1,13 @@
 use crate::error::{OpenCliError, Result};
 use serde::{Deserialize, Serialize};
+
+#[cfg(unix)]
 use std::io::{Read, Write};
 
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 
+#[cfg(unix)]
 const SOCKET_PATH: &str = "/tmp/opencli.sock";
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,35 +52,30 @@ impl IpcClient {
     }
 
     pub fn send_request(&mut self, method: &str, params: &[String]) -> Result<IpcResponse> {
-        let request = IpcRequest {
-            method: method.to_string(),
-            params: params.to_vec(),
-            context: std::collections::HashMap::new(),
-            request_id: Some(uuid::Uuid::new_v4().to_string()),
-            timeout_ms: Some(30000),
-        };
-
-        // Serialize request to MessagePack
-        let payload = rmp_serde::to_vec(&request)?;
-        let length = (payload.len() as u32).to_le_bytes();
-
-        // Send length prefix + payload
         #[cfg(unix)]
         {
+            let request = IpcRequest {
+                method: method.to_string(),
+                params: params.to_vec(),
+                context: std::collections::HashMap::new(),
+                request_id: Some(uuid::Uuid::new_v4().to_string()),
+                timeout_ms: Some(30000),
+            };
+
+            let payload = rmp_serde::to_vec(&request)?;
+            let length = (payload.len() as u32).to_le_bytes();
+
             self.stream.write_all(&length)?;
             self.stream.write_all(&payload)?;
             self.stream.flush()?;
 
-            // Read response length
             let mut len_buf = [0u8; 4];
             self.stream.read_exact(&mut len_buf)?;
             let response_len = u32::from_le_bytes(len_buf) as usize;
 
-            // Read response payload
             let mut response_buf = vec![0u8; response_len];
             self.stream.read_exact(&mut response_buf)?;
 
-            // Deserialize response
             let response: IpcResponse = rmp_serde::from_slice(&response_buf)?;
 
             if !response.success {
@@ -93,7 +91,7 @@ impl IpcClient {
 
         #[cfg(windows)]
         {
-            // Windows named pipe implementation coming soon
+            let _ = (method, params);
             Err(OpenCliError::RequestFailed(
                 "Windows IPC support is not yet implemented".to_string(),
             ))
