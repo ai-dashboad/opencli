@@ -1,6 +1,6 @@
 name: opencli_daemon
 description: OpenCLI Daemon - Core backend process
-version: 0.3.2
+version: 0.3.3
 publish_to: 'none'
 
 environment:
