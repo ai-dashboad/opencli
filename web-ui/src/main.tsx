@@ -7,6 +7,7 @@ import CreateVideoPage from './pages/CreateVideoPage';
 import CreateImagePage from './pages/CreateImagePage';
 import AssetsPage from './pages/AssetsPage';
 import StatusPage from './pages/StatusPage';
+import SettingsPage from './pages/SettingsPage';
 import PipelineEditor from './pages/PipelineEditor';
 import './styles/theme.css';
 
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="status" element={<StatusPage />} />
           <Route path="pipelines" element={<PipelineEditor />} />
           <Route path="pipelines/:id" element={<PipelineEditor />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

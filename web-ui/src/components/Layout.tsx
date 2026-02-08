@@ -11,6 +11,7 @@ const navItems = [
 
 const bottomItems = [
   { icon: 'monitor_heart', label: 'Status', path: '/status' },
+  { icon: 'settings', label: 'Settings', path: '/settings' },
 ];
 
 export default function Layout() {
