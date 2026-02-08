@@ -238,6 +238,140 @@ class PipelineExecutor extends TaskExecutor {
     return resolved;
   }
 
+  /// Execute a pipeline starting from a specific node.
+  /// Upstream nodes are marked completed with cached results.
+  Future<Map<String, dynamic>> executeFromNode(
+    PipelineDefinition pipeline,
+    String startNodeId,
+    Map<String, dynamic> overrideParams,
+    Map<String, dynamic> previousResults,
+  ) async {
+    final stopwatch = Stopwatch()..start();
+    final nodeResults = <String, Map<String, dynamic>>{};
+    final nodeStatuses = <String, NodeStatus>{};
+
+    // Build adjacency info
+    final dependents = <String, List<String>>{};
+    final dependencies = <String, Set<String>>{};
+
+    for (final node in pipeline.nodes) {
+      dependents[node.id] = [];
+      dependencies[node.id] = {};
+    }
+
+    for (final edge in pipeline.edges) {
+      dependents[edge.sourceNode]?.add(edge.targetNode);
+      dependencies[edge.targetNode]?.add(edge.sourceNode);
+    }
+
+    // Find all upstream nodes of startNodeId
+    final upstream = <String>{};
+    void collectUpstream(String nodeId) {
+      for (final dep in dependencies[nodeId] ?? {}) {
+        if (upstream.add(dep)) {
+          collectUpstream(dep);
+        }
+      }
+    }
+    collectUpstream(startNodeId);
+
+    // Mark upstream nodes as completed with cached results
+    for (final node in pipeline.nodes) {
+      if (upstream.contains(node.id)) {
+        nodeStatuses[node.id] = NodeStatus.completed;
+        if (previousResults.containsKey(node.id)) {
+          final prev = previousResults[node.id];
+          nodeResults[node.id] = prev is Map<String, dynamic>
+              ? prev
+              : {'success': true, 'output': prev};
+        } else {
+          nodeResults[node.id] = {'success': true, 'output': 'cached'};
+        }
+      } else {
+        nodeStatuses[node.id] = NodeStatus.pending;
+      }
+    }
+
+    // Build in-degree for nodes from startNodeId onwards
+    final inDegree = <String, int>{};
+    for (final node in pipeline.nodes) {
+      if (!upstream.contains(node.id)) {
+        int degree = 0;
+        for (final dep in dependencies[node.id] ?? {}) {
+          if (!upstream.contains(dep)) degree++;
+        }
+        inDegree[node.id] = degree;
+      }
+    }
+
+    // Start with nodes that have all upstream deps satisfied
+    final queue = <String>[];
+    for (final entry in inDegree.entries) {
+      if (entry.value == 0) {
+        queue.add(entry.key);
+      }
+    }
+
+    int completedCount = 0;
+    final totalNodes = inDegree.length;
+    bool hasFailed = false;
+
+    while (queue.isNotEmpty) {
+      final currentLevel = List<String>.from(queue);
+      queue.clear();
+
+      final futures = <Future<void>>[];
+      for (final nodeId in currentLevel) {
+        futures.add(_executeNode(
+          nodeId,
+          pipeline,
+          nodeResults,
+          nodeStatuses,
+          overrideParams,
+        ));
+      }
+
+      await Future.wait(futures);
+
+      for (final nodeId in currentLevel) {
+        completedCount++;
+        final status = nodeStatuses[nodeId]!;
+
+        _emitProgress(pipeline.id, nodeId, pipeline, nodeStatuses, nodeResults,
+            completedCount / totalNodes);
+
+        if (status == NodeStatus.failed) {
+          hasFailed = true;
+          _skipDownstream(nodeId, dependents, nodeStatuses);
+          continue;
+        }
+
+        for (final dep in dependents[nodeId]!) {
+          if (inDegree.containsKey(dep)) {
+            inDegree[dep] = (inDegree[dep] ?? 1) - 1;
+            if (inDegree[dep] == 0 &&
+                nodeStatuses[dep] != NodeStatus.skipped) {
+              queue.add(dep);
+            }
+          }
+        }
+      }
+    }
+
+    stopwatch.stop();
+
+    return {
+      'success': !hasFailed,
+      'pipeline_id': pipeline.id,
+      'pipeline_name': pipeline.name,
+      'node_results': nodeResults,
+      'duration_ms': stopwatch.elapsedMilliseconds,
+      'nodes_executed': completedCount,
+      'nodes_total': totalNodes,
+      'started_from': startNodeId,
+    };
+  }
+
   /// Check for cycles using DFS.
   bool _hasCycle(
     String nodeId,
