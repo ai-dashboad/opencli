@@ -1,125 +1,144 @@
-# Coolify 5分钟快速部署
+# Coolify Quick Deploy (5 Minutes)
 
-## 前提
+## Prerequisites
 
-- ✅ 仓库: https://github.com/ai-dashboad/opencli
-- ✅ Coolify: https://cicd.dtok.io
-- ✅ GitHub Token (从 https://github.com/settings/tokens 获取)
+- Repository: <https://github.com/ai-dashboad/opencli>
+- Coolify: <https://cicd.dtok.io>
+- GitHub Token (from <https://github.com/settings/tokens>)
 
 ---
 
-## 🚀 步骤一：部署 CDN (2分钟)
+## Step 1: Deploy CDN (2 minutes)
 
-### 1. 打开 Coolify
-访问 https://cicd.dtok.io
+### 1. Open Coolify
 
-### 2. 新建应用
-点击 **`+ New Resource`** → **`Application`**
+Visit <https://cicd.dtok.io>
 
-### 3. 选择源
-```
+### 2. Create New Application
+
+Click **`+ New Resource`** -> **`Application`**
+
+### 3. Select Source
+
+```text
 Source Type: [x] Public Repository (GitHub)
 Repository URL: https://github.com/ai-dashboad/opencli
 Branch: main
 ```
 
-### 4. 构建设置
-```
+### 4. Build Settings
+
+```text
 Build Pack: [x] Dockerfile
 Dockerfile Location: cloud/capability-cdn/Dockerfile
 Base Directory: /
 Docker Build Context: /
 ```
 
-### 5. 网络设置
-```
+### 5. Network Settings
+
+```text
 Port: 80
 Publicly Accessible: [x] Yes
 Domain: opencli.ai
 Path Prefix: /api/capabilities
 ```
 
-### 6. 启用自动部署
-```
+### 6. Enable Auto Deploy
+
+```text
 [x] Automatic Deployment
 ```
-勾选后，每次推送到 main 分支时自动部署。
 
-### 7. 点击 Deploy
-等待 2-3 分钟构建完成。
+Once enabled, every push to the main branch will trigger auto deployment.
 
-### 8. 验证
-访问: https://opencli.ai/health
-应该显示: `OK`
+### 7. Click Deploy
+
+Wait 2-3 minutes for the build to complete.
+
+### 8. Verify
+
+Visit: <https://opencli.ai/health>
+Should display: `OK`
 
 ---
 
-## 🔔 步骤二：部署 API (3分钟)
+## Step 2: Deploy API (3 minutes)
 
-### 1. 再次新建应用
-点击 **`+ New Resource`** → **`Application`**
+### 1. Create Another Application
 
-### 2. 选择源
-```
+Click **`+ New Resource`** -> **`Application`**
+
+### 2. Select Source
+
+```text
 Source Type: [x] Public Repository (GitHub)
 Repository URL: https://github.com/ai-dashboad/opencli
 Branch: main
 ```
 
-### 3. 构建设置
-```
+### 3. Build Settings
+
+```text
 Build Pack: [x] Dockerfile
 Dockerfile Location: cloud/telemetry-api/Dockerfile
 Base Directory: /cloud/telemetry-api
 Docker Build Context: /cloud/telemetry-api
 ```
 
-### 4. 环境变量（重要！）
-点击 **`Environment Variables`** 标签，添加：
+### 4. Environment Variables (Important!)
+
+Click the **`Environment Variables`** tab and add:
 
 | Key | Value | Secret? |
 |-----|-------|---------|
-| `GITHUB_TOKEN` | `ghp_你的token` | ✅ |
-| `GITHUB_OWNER` | `ai-dashboad` | ❌ |
-| `GITHUB_REPO` | `opencli` | ❌ |
-| `PORT` | `3000` | ❌ |
+| `GITHUB_TOKEN` | `ghp_your_token` | Yes |
+| `GITHUB_OWNER` | `ai-dashboad` | No |
+| `GITHUB_REPO` | `opencli` | No |
+| `PORT` | `3000` | No |
 
-### 5. 网络设置
-```
+### 5. Network Settings
+
+```text
 Port: 3000
 Publicly Accessible: [x] Yes
 Domain: opencli.ai
 Path Prefix: /api/telemetry
 ```
 
-### 6. 启用自动部署
-```
+### 6. Enable Auto Deploy
+
+```text
 [x] Automatic Deployment
 ```
 
-### 7. 点击 Deploy
-等待 3-5 分钟构建完成。
+### 7. Click Deploy
 
-### 8. 验证
-访问: https://opencli.ai/api/telemetry/health
-应该显示: `{"status":"ok",...}`
+Wait 3-5 minutes for the build to complete.
+
+### 8. Verify
+
+Visit: <https://opencli.ai/api/telemetry/health>
+Should display: `{"status":"ok",...}`
 
 ---
 
-## ✅ 验证部署成功
+## Verify Deployment
 
-### 测试 CDN
+### Test CDN
+
 ```bash
 curl https://opencli.ai/health
 curl https://opencli.ai/api/capabilities/manifest.json
 ```
 
-### 测试 API
+### Test API
+
 ```bash
-# 健康检查
+# Health check
 curl https://opencli.ai/api/telemetry/health
 
-# 测试错误上报
+# Test error reporting
 curl -X POST https://opencli.ai/api/telemetry/report \
   -H "Content-Type: application/json" \
   -d '{
@@ -129,90 +148,103 @@ curl -X POST https://opencli.ai/api/telemetry/report \
   }'
 ```
 
-检查 GitHub Issues，应该会看到自动创建的 Issue。
+Check GitHub Issues - you should see an auto-created Issue.
 
 ---
 
-## 🔄 自动部署工作流
+## Auto Deployment Workflow
 
-部署完成后：
+After deployment is complete:
 
+```text
+Push code to GitHub
+    |
+GitHub triggers webhook
+    |
+Coolify receives notification
+    |
+Auto pulls latest code
+    |
+Rebuilds Docker image
+    |
+Zero-downtime deployment
+    |
+Done!
 ```
-你推送代码到 GitHub
-    ↓
-GitHub 触发 webhook
-    ↓
-Coolify 接收通知
-    ↓
-自动拉取最新代码
-    ↓
-重新构建 Docker 镜像
-    ↓
-零停机部署
-    ↓
-完成！
-```
 
-**无需手动操作，全自动！**
+**No manual intervention needed, fully automated!**
 
 ---
 
-## 📊 监控和日志
+## Monitoring and Logs
 
-### 查看日志
-在 Coolify 中:
-1. 进入应用详情页
-2. 点击 **`Logs`** 标签
-3. 实时查看日志
+### View Logs
 
-### 查看状态
-在应用列表中可以看到:
-- ✅ 运行状态
-- 📊 资源使用
-- 🔄 最后部署时间
+In Coolify:
 
----
+1. Go to the application detail page
+2. Click the **`Logs`** tab
+3. View logs in real time
 
-## 🎯 常见问题
+### View Status
 
-### Q: 构建失败怎么办？
-**A:** 在 Coolify 中查看构建日志，常见原因：
-- Dockerfile 路径错误
-- 依赖安装失败
-- 端口冲突
+In the application list you can see:
 
-### Q: 域名无法访问？
-**A:** 检查:
-1. DNS 是否指向 Coolify 服务器
-2. Coolify Proxy 是否运行
-3. SSL 证书是否配置
-
-### Q: 如何手动触发重新部署？
-**A:** 在应用详情页点击 **`Redeploy`** 按钮
-
-### Q: 如何回滚到之前的版本？
-**A:** Coolify 会保留历史部署，可以在部署历史中选择回滚
+- Running status
+- Resource usage
+- Last deployment time
 
 ---
 
-## 📝 配置参考
+## FAQ
 
-完整配置保存在:
-- `cloud/coolify.yaml` - 配置文件
-- `cloud/docker-compose.yml` - Docker Compose 配置
-- `cloud/DEPLOYMENT_CHECKLIST.md` - 详细检查清单
+### Q: What if the build fails?
+
+**A:** Check the build logs in Coolify. Common causes:
+
+- Incorrect Dockerfile path
+- Dependency installation failure
+- Port conflict
+
+### Q: Domain is not accessible?
+
+**A:** Check:
+
+1. Is DNS pointing to the Coolify server?
+2. Is Coolify Proxy running?
+3. Is the SSL certificate configured?
+
+### Q: How to manually trigger a redeployment?
+
+**A:** Click the **`Redeploy`** button on the application detail page.
+
+### Q: How to rollback to a previous version?
+
+**A:** Coolify keeps deployment history. You can rollback
+from the deployment history page.
 
 ---
 
-## 🎉 完成！
+## Configuration Reference
 
-现在你的 OpenCLI 云端服务已经部署完成，并且会自动更新！
+Full configuration is stored in:
 
-每次你推送代码到 `main` 分支，Coolify 会自动：
-1. 拉取最新代码
-2. 重新构建
-3. 部署新版本
-4. 健康检查
-5. 完成
+- `cloud/coolify.yaml` - Configuration file
+- `cloud/docker-compose.yml` - Docker Compose configuration
+- `cloud/DEPLOYMENT_CHECKLIST.md` - Detailed checklist
 
-**零人工干预，全自动化！** 🚀
+---
+
+## Done!
+
+Your OpenCLI cloud services are now deployed and will auto-update!
+
+Every time you push code to the `main` branch, Coolify will automatically:
+
+1. Pull the latest code
+2. Rebuild
+3. Deploy the new version
+4. Run health checks
+5. Complete
+
+**Zero manual intervention, fully automated!**

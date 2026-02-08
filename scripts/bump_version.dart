@@ -34,6 +34,9 @@ void main(List<String> arguments) {
     // Web UI
     'web-ui/package.json': (content) => _updatePackageJson(content, version),
 
+    // Flutter Mobile App (version: X.Y.Z+buildNumber)
+    'opencli_app/pubspec.yaml': (content) => _updateFlutterPubspec(content, version),
+
     // Flutter Skill Plugin
     'plugins/flutter-skill/pubspec.yaml': (content) => _updatePubspecYaml(content, version),
 
@@ -103,6 +106,17 @@ String _updatePackageJson(String content, String version) {
   return content.replaceFirst(
     RegExp(r'"version":\s*"[^"]+"'),
     '"version": "$version"',
+  );
+}
+
+String _updateFlutterPubspec(String content, String version) {
+  // Flutter uses version: X.Y.Z+buildNumber
+  // Extract current build number and increment it
+  final match = RegExp(r'^version:\s*\S+\+(\d+)', multiLine: true).firstMatch(content);
+  final buildNumber = match != null ? int.parse(match.group(1)!) + 1 : 1;
+  return content.replaceFirst(
+    RegExp(r'^version:\s*\S+', multiLine: true),
+    'version: $version+$buildNumber',
   );
 }
 
