@@ -94,3 +94,4 @@ jobs:
           globs: |
             **/*.md
             !**/node_modules/**
+            !test-results/**

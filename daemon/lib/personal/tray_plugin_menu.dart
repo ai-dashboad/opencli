@@ -185,6 +185,3 @@ class TrayPluginMenu {
     // TODO: Confirm and uninstall
   }
 }
-
-// Add to imports at top of file
-import 'dart:io';

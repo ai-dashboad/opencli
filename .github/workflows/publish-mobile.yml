@@ -95,17 +95,18 @@ jobs:
         run: flutter build ios --release --no-codesign
 
       - name: Create IPA
-        working-directory: opencli_app/ios
+        working-directory: opencli_app
         run: |
           mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
+          cp -r build/ios/iphoneos/Runner.app Payload/ || \
+            cp -r ios/build/Release-iphoneos/Runner.app Payload/
           zip -r opencli-mobile.ipa Payload
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: opencli-mobile-ios-ipa
-          path: opencli_app/ios/opencli-mobile.ipa
+          path: opencli_app/opencli-mobile.ipa
 
   publish-to-release:
     name: Publish to GitHub Release

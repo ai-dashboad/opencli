@@ -35,7 +35,7 @@ jobs:
         run: |
           # Start services
           cd cloud
-          docker-compose up -d
+          docker compose up -d
 
           # Wait for services to start
           sleep 10
@@ -49,7 +49,7 @@ jobs:
           echo "✓ API health check passed"
 
           # Cleanup
-          docker-compose down
+          docker compose down
 
       - name: Deploy to Coolify
         if: success()
