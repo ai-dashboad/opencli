@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ReactFlow,
@@ -21,13 +21,17 @@ import DomainNode from '../components/pipeline/DomainNode';
 import type { DomainNodeData } from '../components/pipeline/DomainNode';
 import NodeCatalog from '../components/pipeline/NodeCatalog';
 import NodeConfigPanel from '../components/pipeline/NodeConfigPanel';
+import { PipelineProvider } from '../components/pipeline/PipelineContext';
+import { getTypeColor } from '../components/pipeline/dataTypeColors';
 import type { NodeCatalogEntry, PipelineDefinition } from '../api/pipeline-api';
 import {
   savePipeline,
   getPipeline,
   runPipeline,
+  runPipelineFromNode,
   listPipelines,
   deletePipeline,
+  getNodeCatalog,
 } from '../api/pipeline-api';
 
 import '../components/pipeline/pipeline.css';
@@ -51,7 +55,14 @@ function PipelineEditorInner() {
   const [executionLog, setExecutionLog] = useState<string[]>([]);
   const [showPipelineList, setShowPipelineList] = useState(false);
   const [savedPipelines, setSavedPipelines] = useState<any[]>([]);
+  const [nodeResults, setNodeResults] = useState<Record<string, Record<string, any>>>({});
+  const [catalogCache, setCatalogCache] = useState<NodeCatalogEntry[]>([]);
   const reactFlowInstance = useRef<any>(null);
+
+  // Load catalog for output type lookups
+  useEffect(() => {
+    getNodeCatalog().then(setCatalogCache).catch(() => {});
+  }, []);
 
   // Load pipeline if ID provided
   useEffect(() => {
@@ -65,39 +76,51 @@ function PipelineEditorInner() {
       const pipeline = await getPipeline(id);
       if (!pipeline) return;
 
+      const catalog = catalogCache.length ? catalogCache : await getNodeCatalog();
+
       setPipelineName(pipeline.name);
       setPipelineDescription(pipeline.description);
       setCurrentPipelineId(pipeline.id);
 
       // Convert pipeline nodes to React Flow nodes
-      const rfNodes: Node[] = pipeline.nodes.map((n) => ({
-        id: n.id,
-        type: 'domain',
-        position: n.position,
-        data: {
-          label: n.label,
-          taskType: n.type,
-          domain: n.domain,
-          domainName: n.domain,
-          color: '',
-          icon: '',
-          description: '',
-          params: n.params,
-          inputs: [{ name: 'input', type: 'any' }],
-          outputs: [{ name: 'output', type: 'any' }],
-        } as DomainNodeData,
-      }));
+      const rfNodes: Node[] = pipeline.nodes.map((n) => {
+        const catalogEntry = catalog.find((c) => c.type === n.type);
+        return {
+          id: n.id,
+          type: 'domain',
+          position: n.position,
+          data: {
+            label: n.label,
+            taskType: n.type,
+            domain: n.domain,
+            domainName: catalogEntry?.domain_name || n.domain,
+            color: catalogEntry?.color || '',
+            icon: catalogEntry?.icon || '',
+            description: catalogEntry?.description || '',
+            params: n.params,
+            inputs: catalogEntry?.inputs || [{ name: 'input', type: 'any' }],
+            outputs: catalogEntry?.outputs || [{ name: 'output', type: 'any' }],
+          } as DomainNodeData,
+        };
+      });
 
-      // Convert pipeline edges to React Flow edges
-      const rfEdges: Edge[] = pipeline.edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        sourceHandle: e.source_port,
-        target: e.target,
-        targetHandle: e.target_port,
-        animated: false,
-        style: { stroke: '#00f0ff', strokeWidth: 2 },
-      }));
+      // Convert pipeline edges to React Flow edges with color-coding
+      const rfEdges: Edge[] = pipeline.edges.map((e) => {
+        const sourceNode = rfNodes.find((n) => n.id === e.source);
+        const sourceData = sourceNode?.data as DomainNodeData | undefined;
+        const outputPort = sourceData?.outputs?.find((o) => o.name === e.source_port);
+        const edgeColor = outputPort ? getTypeColor(outputPort.type) : '#00BCD4';
+
+        return {
+          id: e.id,
+          source: e.source,
+          sourceHandle: e.source_port,
+          target: e.target,
+          targetHandle: e.target_port,
+          animated: false,
+          style: { stroke: edgeColor, strokeWidth: 2 },
+        };
+      });
 
       setNodes(rfNodes);
       setEdges(rfEdges);
@@ -109,18 +132,26 @@ function PipelineEditorInner() {
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      // Look up source port type for color-coded edge
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      const sourceData = sourceNode?.data as DomainNodeData | undefined;
+      const outputPort = sourceData?.outputs?.find(
+        (o) => o.name === connection.sourceHandle
+      );
+      const edgeColor = outputPort ? getTypeColor(outputPort.type) : '#00BCD4';
+
       setEdges((eds) =>
         addEdge(
           {
             ...connection,
             animated: false,
-            style: { stroke: '#00f0ff', strokeWidth: 2 },
+            style: { stroke: edgeColor, strokeWidth: 2 },
           },
           eds
         )
       );
     },
-    [setEdges]
+    [setEdges, nodes]
   );
 
   const onNodeClick = useCallback((_: any, node: Node) => {
@@ -192,7 +223,6 @@ function PipelineEditorInner() {
             : n
         )
       );
-      // Also update selectedNode
       setSelectedNode((prev) =>
         prev && prev.id === nodeId
           ? { ...prev, data: { ...prev.data, ...dataUpdate } }
@@ -242,118 +272,154 @@ function PipelineEditorInner() {
     }
   };
 
-  // Run pipeline
+  // Connect WS and run pipeline
+  const connectAndRun = useCallback(
+    async (pipelineId: string, fromNodeId?: string) => {
+      setIsRunning(true);
+      setExecutionLog([]);
+      addLog(fromNodeId ? `Running from node ${fromNodeId}...` : 'Starting pipeline execution...');
+
+      // Reset all node statuses
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          data: { ...n.data, status: 'pending', result: undefined, error: undefined },
+        }))
+      );
+
+      // Animate edges
+      setEdges((eds) => eds.map((e) => ({ ...e, animated: true })));
+
+      try {
+        const ws = new WebSocket('ws://localhost:9876');
+        let authenticated = false;
+
+        ws.onopen = async () => {
+          const timestamp = Date.now();
+          const input = `web_pipeline:${timestamp}:opencli-dev-secret`;
+          const encoder = new TextEncoder();
+          const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(input));
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const token = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+          ws.send(
+            JSON.stringify({
+              type: 'auth',
+              device_id: 'web_pipeline',
+              token,
+              timestamp,
+            })
+          );
+        };
+
+        ws.onmessage = async (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+
+            if (msg.type === 'auth_success' && !authenticated) {
+              authenticated = true;
+              addLog('Connected to daemon');
+
+              let result;
+              if (fromNodeId) {
+                result = await runPipelineFromNode(pipelineId, fromNodeId, {}, nodeResults);
+              } else {
+                result = await runPipeline(pipelineId);
+              }
+
+              if (!result.success) {
+                addLog(`Execution failed: ${result.error}`);
+                setIsRunning(false);
+                setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+                ws.close();
+              }
+              return;
+            }
+
+            if (msg.type === 'task_update' && msg.task_type === 'pipeline_execute') {
+              const result = msg.result || {};
+
+              if (result.node_status) {
+                setNodes((nds) =>
+                  nds.map((n) => ({
+                    ...n,
+                    data: {
+                      ...n.data,
+                      status: result.node_status[n.id] || 'pending',
+                      result: result.node_results?.[n.id],
+                      error: result.node_results?.[n.id]?.error,
+                    },
+                  }))
+                );
+              }
+
+              // Cache node results for play-from-here
+              if (result.node_results) {
+                setNodeResults((prev) => ({ ...prev, ...result.node_results }));
+              }
+
+              if (result.current_node) {
+                addLog(
+                  `Node ${result.current_node}: ${result.node_status?.[result.current_node] || 'running'}`
+                );
+              }
+
+              if (msg.status === 'completed' || msg.status === 'failed') {
+                setIsRunning(false);
+                setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+                addLog(`Pipeline ${msg.status}. Duration: ${result.duration_ms || 0}ms`);
+                ws.close();
+              }
+            }
+          } catch (e) {
+            // ignore parse errors
+          }
+        };
+
+        ws.onerror = () => {
+          addLog('WebSocket connection error');
+          setIsRunning(false);
+          setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+        };
+      } catch (e) {
+        addLog(`Error: ${e}`);
+        setIsRunning(false);
+        setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+      }
+    },
+    [setNodes, setEdges, nodeResults]
+  );
+
+  // Run full pipeline
   const handleRun = async () => {
-    let pipelineId = currentPipelineId;
-    if (!pipelineId) {
+    let id = currentPipelineId;
+    if (!id) {
       const savedId = await handleSave();
       if (!savedId) {
         addLog('Save pipeline first');
         return;
       }
-      pipelineId = savedId;
+      id = savedId;
     }
-
-    setIsRunning(true);
-    setExecutionLog([]);
-    addLog('Starting pipeline execution...');
-
-    // Reset all node statuses
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: { ...n.data, status: 'pending' },
-      }))
-    );
-
-    // Animate edges
-    setEdges((eds) =>
-      eds.map((e) => ({ ...e, animated: true }))
-    );
-
-    try {
-      // Connect to WebSocket for real-time updates
-      const ws = new WebSocket('ws://localhost:9876');
-      let authenticated = false;
-
-      ws.onopen = async () => {
-        // Authenticate
-        const timestamp = Date.now();
-        const input = `web_pipeline:${timestamp}:opencli-dev-secret`;
-        const encoder = new TextEncoder();
-        const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(input));
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const token = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-        ws.send(JSON.stringify({
-          type: 'auth',
-          device_id: 'web_pipeline',
-          token,
-          timestamp,
-        }));
-      };
-
-      ws.onmessage = async (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-
-          // After auth success, trigger pipeline execution
-          if (msg.type === 'auth_success' && !authenticated) {
-            authenticated = true;
-            addLog('Connected to daemon');
-            const result = await runPipeline(pipelineId);
-            if (!result.success) {
-              addLog(`Execution failed: ${result.error}`);
-              setIsRunning(false);
-              setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
-              ws.close();
-            }
-            return;
-          }
-
-          if (msg.type === 'task_update' && msg.task_type === 'pipeline_execute') {
-            const result = msg.result || {};
-
-            if (result.node_status) {
-              // Update node visual states
-              setNodes((nds) =>
-                nds.map((n) => ({
-                  ...n,
-                  data: {
-                    ...n.data,
-                    status: result.node_status[n.id] || 'pending',
-                  },
-                }))
-              );
-            }
-
-            if (result.current_node) {
-              addLog(`Node ${result.current_node}: ${result.node_status?.[result.current_node] || 'running'}`);
-            }
-
-            if (msg.status === 'completed' || msg.status === 'failed') {
-              setIsRunning(false);
-              setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
-              addLog(`Pipeline ${msg.status}. Duration: ${result.duration_ms || 0}ms`);
-              ws.close();
-            }
-          }
-        } catch (e) {
-          // ignore parse errors
-        }
-      };
-
-      ws.onerror = () => {
-        addLog('WebSocket connection error');
-        setIsRunning(false);
-        setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
-      };
-    } catch (e) {
-      addLog(`Error: ${e}`);
-      setIsRunning(false);
-      setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
-    }
+    connectAndRun(id);
   };
+
+  // Play from a specific node
+  const handlePlayFromHere = useCallback(
+    async (nodeId: string) => {
+      let id = currentPipelineId;
+      if (!id) {
+        const savedId = await handleSave();
+        if (!savedId) {
+          addLog('Save pipeline first');
+          return;
+        }
+        id = savedId;
+      }
+      connectAndRun(id, nodeId);
+    },
+    [currentPipelineId, connectAndRun]
+  );
 
   // New pipeline
   const handleNew = () => {
@@ -364,6 +430,7 @@ function PipelineEditorInner() {
     setCurrentPipelineId('');
     setSelectedNode(null);
     setExecutionLog([]);
+    setNodeResults({});
     nodeIdCounter = 0;
   };
 
@@ -389,150 +456,164 @@ function PipelineEditorInner() {
     setExecutionLog((prev) => [...prev, `[${time}] ${message}`]);
   };
 
+  // Pipeline context value (memoized to avoid re-render loops)
+  const pipelineContextValue = useMemo(
+    () => ({
+      onPlayFromHere: handlePlayFromHere,
+      isRunning,
+      nodeResults,
+    }),
+    [handlePlayFromHere, isRunning, nodeResults]
+  );
+
   return (
-    <div className="pipeline-page">
-      {/* Top toolbar */}
-      <div className="pipeline-toolbar">
-        <Link to="/" className="toolbar-back">DASHBOARD</Link>
-        <div className="toolbar-divider" />
+    <PipelineProvider value={pipelineContextValue}>
+      <div className="pipeline-page">
+        {/* Top toolbar */}
+        <div className="pipeline-toolbar">
+          <Link to="/" className="toolbar-back">DASHBOARD</Link>
+          <div className="toolbar-divider" />
 
-        <input
-          type="text"
-          className="toolbar-name"
-          value={pipelineName}
-          onChange={(e) => setPipelineName(e.target.value)}
-          placeholder="Pipeline name..."
-        />
+          <input
+            type="text"
+            className="toolbar-name"
+            value={pipelineName}
+            onChange={(e) => setPipelineName(e.target.value)}
+            placeholder="Pipeline name..."
+          />
 
-        <div className="toolbar-actions">
-          <button className="toolbar-btn" onClick={handleNew}>New</button>
-          <button className="toolbar-btn" onClick={handleShowList}>Open</button>
-          <button className="toolbar-btn primary" onClick={handleSave}>Save</button>
-          <button
-            className={`toolbar-btn ${isRunning ? 'running' : 'run'}`}
-            onClick={handleRun}
-            disabled={isRunning || nodes.length === 0}
-          >
-            {isRunning ? 'Running...' : 'Run'}
-          </button>
+          <div className="toolbar-actions">
+            <button className="toolbar-btn" onClick={handleNew}>New</button>
+            <button className="toolbar-btn" onClick={handleShowList}>Open</button>
+            <button className="toolbar-btn primary" onClick={handleSave}>Save</button>
+            <button
+              className={`toolbar-btn ${isRunning ? 'running' : 'run'}`}
+              onClick={handleRun}
+              disabled={isRunning || nodes.length === 0}
+            >
+              {isRunning ? 'Running...' : 'Run'}
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="pipeline-main">
-        {/* Left: Node Catalog */}
-        <NodeCatalog onDragStart={onDragStart} />
+        <div className="pipeline-main">
+          {/* Left: Node Catalog */}
+          <NodeCatalog onDragStart={onDragStart} />
 
-        {/* Center: React Flow Canvas */}
-        <div className="pipeline-canvas" ref={reactFlowWrapper}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            onInit={(instance) => { reactFlowInstance.current = instance; }}
-            nodeTypes={nodeTypes}
-            fitView
-            proOptions={{ hideAttribution: true }}
-            defaultEdgeOptions={{
-              style: { stroke: '#00f0ff', strokeWidth: 2 },
-              type: 'smoothstep',
-            }}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1a1a2e" />
-            <Controls />
-            <MiniMap
-              nodeColor={(n) => {
-                const d = n.data as DomainNodeData;
-                if (d.status === 'completed') return '#4CAF50';
-                if (d.status === 'failed') return '#f44336';
-                if (d.status === 'running') return '#2196F3';
-                return '#333';
+          {/* Center: React Flow Canvas */}
+          <div className="pipeline-canvas" ref={reactFlowWrapper}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              onInit={(instance) => {
+                reactFlowInstance.current = instance;
               }}
-              style={{ background: '#0a0118' }}
-            />
-          </ReactFlow>
+              nodeTypes={nodeTypes}
+              fitView
+              proOptions={{ hideAttribution: true }}
+              defaultEdgeOptions={{
+                style: { stroke: '#00BCD4', strokeWidth: 2 },
+                type: 'smoothstep',
+              }}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1a1a2e" />
+              <Controls />
+              <MiniMap
+                nodeColor={(n) => {
+                  const d = n.data as DomainNodeData;
+                  if (d.status === 'completed') return '#4CAF50';
+                  if (d.status === 'failed') return '#f44336';
+                  if (d.status === 'running') return '#2196F3';
+                  return '#333';
+                }}
+                style={{ background: '#0a0118' }}
+              />
+            </ReactFlow>
 
-          {/* Empty state */}
-          {nodes.length === 0 && (
-            <div className="canvas-empty">
-              Drag nodes from the catalog to start building your pipeline
-            </div>
-          )}
+            {/* Empty state */}
+            {nodes.length === 0 && (
+              <div className="canvas-empty">
+                Drag nodes from the catalog to start building your pipeline
+              </div>
+            )}
+          </div>
+
+          {/* Right: Config Panel */}
+          <NodeConfigPanel
+            node={selectedNode}
+            onUpdate={onUpdateNode}
+            onClose={() => setSelectedNode(null)}
+          />
         </div>
 
-        {/* Right: Config Panel */}
-        <NodeConfigPanel
-          node={selectedNode}
-          onUpdate={onUpdateNode}
-          onClose={() => setSelectedNode(null)}
-        />
-      </div>
-
-      {/* Bottom: Execution Log */}
-      {executionLog.length > 0 && (
-        <div className="execution-log">
-          <div className="log-header">
-            <span>EXECUTION LOG</span>
-            <button className="log-clear" onClick={() => setExecutionLog([])}>Clear</button>
-          </div>
-          <div className="log-content">
-            {executionLog.map((line, i) => (
-              <div key={i} className="log-line">{line}</div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Pipeline list modal */}
-      {showPipelineList && (
-        <div className="pipeline-modal-overlay" onClick={() => setShowPipelineList(false)}>
-          <div className="pipeline-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <span>Saved Pipelines</span>
-              <button className="modal-close" onClick={() => setShowPipelineList(false)}>&times;</button>
+        {/* Bottom: Execution Log */}
+        {executionLog.length > 0 && (
+          <div className="execution-log">
+            <div className="log-header">
+              <span>EXECUTION LOG</span>
+              <button className="log-clear" onClick={() => setExecutionLog([])}>Clear</button>
             </div>
-            <div className="modal-body">
-              {savedPipelines.length === 0 ? (
-                <div className="modal-empty">No saved pipelines</div>
-              ) : (
-                savedPipelines.map((p) => (
-                  <div key={p.id} className="pipeline-list-item">
-                    <div className="pipeline-list-info">
-                      <div className="pipeline-list-name">{p.name}</div>
-                      <div className="pipeline-list-meta">
-                        {p.node_count} nodes | {new Date(p.updated_at).toLocaleDateString()}
+            <div className="log-content">
+              {executionLog.map((line, i) => (
+                <div key={i} className="log-line">{line}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pipeline list modal */}
+        {showPipelineList && (
+          <div className="pipeline-modal-overlay" onClick={() => setShowPipelineList(false)}>
+            <div className="pipeline-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <span>Saved Pipelines</span>
+                <button className="modal-close" onClick={() => setShowPipelineList(false)}>&times;</button>
+              </div>
+              <div className="modal-body">
+                {savedPipelines.length === 0 ? (
+                  <div className="modal-empty">No saved pipelines</div>
+                ) : (
+                  savedPipelines.map((p) => (
+                    <div key={p.id} className="pipeline-list-item">
+                      <div className="pipeline-list-info">
+                        <div className="pipeline-list-name">{p.name}</div>
+                        <div className="pipeline-list-meta">
+                          {p.node_count} nodes | {new Date(p.updated_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="pipeline-list-actions">
+                        <button
+                          className="toolbar-btn"
+                          onClick={() => {
+                            loadPipeline(p.id);
+                            setShowPipelineList(false);
+                          }}
+                        >
+                          Open
+                        </button>
+                        <button
+                          className="toolbar-btn danger"
+                          onClick={() => handleDeletePipeline(p.id)}
+                        >
+                          Del
+                        </button>
                       </div>
                     </div>
-                    <div className="pipeline-list-actions">
-                      <button
-                        className="toolbar-btn"
-                        onClick={() => {
-                          loadPipeline(p.id);
-                          setShowPipelineList(false);
-                        }}
-                      >
-                        Open
-                      </button>
-                      <button
-                        className="toolbar-btn danger"
-                        onClick={() => handleDeletePipeline(p.id)}
-                      >
-                        Del
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </PipelineProvider>
   );
 }
 

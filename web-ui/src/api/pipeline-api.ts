@@ -38,6 +38,24 @@ export interface PipelineSummary {
   updated_at: string;
 }
 
+export interface NodeInputPort {
+  name: string;
+  type: string;
+  description?: string;
+  required?: boolean;
+  inputType?: 'text' | 'textarea' | 'select' | 'slider' | 'file' | 'toggle';
+  options?: string[];
+  defaultValue?: any;
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+export interface NodeOutputPort {
+  name: string;
+  type: string;
+}
+
 export interface NodeCatalogEntry {
   type: string;
   domain: string;
@@ -46,8 +64,8 @@ export interface NodeCatalogEntry {
   description: string;
   icon: string;
   color: string;
-  inputs: { name: string; type: string; description?: string; required?: boolean }[];
-  outputs: { name: string; type: string }[];
+  inputs: NodeInputPort[];
+  outputs: NodeOutputPort[];
 }
 
 export async function listPipelines(): Promise<PipelineSummary[]> {
@@ -87,6 +105,23 @@ export async function runPipeline(id: string, parameters?: Record<string, any>):
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ parameters: parameters || {} }),
+  });
+  return res.json();
+}
+
+export async function runPipelineFromNode(
+  id: string,
+  nodeId: string,
+  parameters?: Record<string, any>,
+  previousResults?: Record<string, any>,
+): Promise<any> {
+  const res = await fetch(`${API_BASE}/pipelines/${id}/run-from/${nodeId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      parameters: parameters || {},
+      previous_results: previousResults || {},
+    }),
   });
   return res.json();
 }
