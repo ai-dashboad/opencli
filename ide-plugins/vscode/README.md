@@ -499,7 +499,7 @@ If you find OpenCLI useful, please consider giving it a star!
 
 ---
 
-**Status**: ✅ 88% Production Ready | **Version**: 0.3.5 | **Last Updated**: 2026-02-04
+**Status**: ✅ 88% Production Ready | **Version**: 0.3.6 | **Last Updated**: 2026-02-04
 
 **Latest**: System architecture documented | MicroVM security proposal | Mobile integration tested
 
