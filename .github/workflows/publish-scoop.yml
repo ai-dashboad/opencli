@@ -1,0 +1,151 @@
+name: Publish to Scoop
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+
+jobs:
+  update-manifest:
+    name: Update Scoop Manifest
+    runs-on: windows-latest
+
+    steps:
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Publishing Scoop manifest for version: $VERSION"
+
+      - name: Download Windows binary
+        shell: bash
+        run: |
+          curl -L -o opencli-windows-x86_64.exe \
+            "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-windows-x86_64.exe"
+
+      - name: Calculate SHA256 checksum
+        id: checksum
+        shell: powershell
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 opencli-windows-x86_64.exe).Hash.ToLower()
+          "sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Output "✅ SHA256: $hash"
+
+      - name: Checkout Scoop bucket repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/scoop-bucket
+          token: ${{ secrets.SCOOP_BUCKET_TOKEN || secrets.GITHUB_TOKEN }}
+          path: scoop-bucket
+
+      - name: Create bucket directory
+        shell: bash
+        run: mkdir -p scoop-bucket/bucket
+
+      - name: Generate Scoop manifest
+        shell: powershell
+        run: |
+          $manifest = @"
+          {
+            "version": "${{ steps.version.outputs.version }}",
+            "description": "Universal AI Development Platform - Enterprise Autonomous Company Operating System",
+            "homepage": "https://opencli.ai",
+            "license": "MIT",
+            "architecture": {
+              "64bit": {
+                "url": "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-windows-x86_64.exe",
+                "hash": "${{ steps.checksum.outputs.sha256 }}"
+              }
+            },
+            "bin": [["opencli-windows-x86_64.exe", "opencli"]],
+            "checkver": {
+              "github": "https://github.com/${{ github.repository }}"
+            },
+            "autoupdate": {
+              "architecture": {
+                "64bit": {
+                  "url": "https://github.com/${{ github.repository }}/releases/download/v`$version/opencli-windows-x86_64.exe"
+                }
+              }
+            },
+            "post_install": [
+              "Write-Host '✅ OpenCLI installed successfully!' -ForegroundColor Green",
+              "Write-Host ''",
+              "Write-Host 'Quick Start:' -ForegroundColor Yellow",
+              "Write-Host '  1. Start daemon:  opencli daemon start'",
+              "Write-Host '  2. Submit task:   opencli task submit \"Your task\"'",
+              "Write-Host '  3. Check status:  opencli status'",
+              "Write-Host ''",
+              "Write-Host 'Documentation: https://docs.opencli.ai' -ForegroundColor Cyan"
+            ]
+          }
+          "@
+
+          $manifest | Out-File -FilePath scoop-bucket/bucket/opencli.json -Encoding utf8
+          Get-Content scoop-bucket/bucket/opencli.json
+
+      - name: Commit and push manifest
+        shell: bash
+        working-directory: scoop-bucket
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add bucket/opencli.json
+          git commit -m "Update opencli to v${{ steps.version.outputs.version }}"
+          git push
+
+      - name: Create bucket README if missing
+        shell: bash
+        working-directory: scoop-bucket
+        run: |
+          if [ ! -f README.md ]; then
+            cat > README.md << 'EOF'
+          # Scoop Bucket for OpenCLI
+
+          Official Scoop bucket for [OpenCLI](https://opencli.ai).
+
+          ## Installation
+
+          ```powershell
+          scoop bucket add opencli https://github.com/${{ github.repository_owner }}/scoop-bucket
+          scoop install opencli
+          ```
+
+          ## Updating
+
+          ```powershell
+          scoop update opencli
+          ```
+
+          ## Uninstall
+
+          ```powershell
+          scoop uninstall opencli
+          ```
+          EOF
+
+            git add README.md
+            git commit -m "Add README"
+            git push
+          fi
+
+      - name: Summary
+        shell: bash
+        run: |
+          echo "✅ Successfully updated Scoop manifest to v${{ steps.version.outputs.version }}"
+          echo ""
+          echo "Users can now install with:"
+          echo "  scoop bucket add opencli https://github.com/${{ github.repository_owner }}/scoop-bucket"
+          echo "  scoop install opencli"

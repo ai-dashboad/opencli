@@ -1,0 +1,41 @@
+{
+  "name": "@opencli/kubernetes-manager",
+  "version": "1.0.0",
+  "description": "Kubernetes cluster management and operations",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "kubernetes",
+    "k8s",
+    "devops",
+    "containers"
+  ],
+  "author": "OpenCLI Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@kubernetes/client-node": "^0.20.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "mcp": {
+    "name": "kubernetes-manager",
+    "description": "Cluster management",
+    "capabilities": [
+      "k8s.list_pods",
+      "k8s.get_pod_logs",
+      "k8s.list_services",
+      "k8s.list_deployments",
+      "k8s.scale_deployment",
+      "k8s.apply_manifest"
+    ],
+    "permissions": [
+      "network",
+      "credentials.read"
+    ]
+  }
+}

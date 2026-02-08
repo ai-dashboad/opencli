@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.dart_tool/
+*.app
+build/
+dist/
+
+# Test files
+test_audio.aiff
+*.aiff
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

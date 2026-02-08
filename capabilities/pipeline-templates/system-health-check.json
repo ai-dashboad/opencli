@@ -1,0 +1,52 @@
+{
+  "id": "template_system_health",
+  "name": "System Health Check",
+  "description": "Check system info and processes, then generate a health report",
+  "nodes": [
+    {
+      "id": "node_1",
+      "type": "system_info",
+      "domain": "system",
+      "label": "System Info",
+      "position": { "x": 100, "y": 150 },
+      "params": {}
+    },
+    {
+      "id": "node_2",
+      "type": "run_command",
+      "domain": "system",
+      "label": "Disk Usage",
+      "position": { "x": 100, "y": 350 },
+      "params": {
+        "command": "df -h /"
+      }
+    },
+    {
+      "id": "node_3",
+      "type": "ai_query",
+      "domain": "ai",
+      "label": "Health Report",
+      "position": { "x": 450, "y": 250 },
+      "params": {
+        "query": "Generate a brief system health report. System: {{node_1.output}}. Disk: {{node_2.stdout}}. Flag any concerns."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1",
+      "source": "node_1",
+      "source_port": "output",
+      "target": "node_3",
+      "target_port": "input"
+    },
+    {
+      "id": "edge_2",
+      "source": "node_2",
+      "source_port": "output",
+      "target": "node_3",
+      "target_port": "input"
+    }
+  ],
+  "parameters": []
+}

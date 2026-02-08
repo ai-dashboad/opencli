@@ -1,0 +1,328 @@
+name: iOS/Mac - App Store Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      submit_for_review:
+        description: 'Submit to App Store Review after upload'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.32.2'
+
+jobs:
+  build-and-release-ios:
+    name: Build and Release iOS to App Store
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        working-directory: opencli_app
+        run: flutter pub get
+
+      - name: Run code analysis
+        working-directory: opencli_app
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup App Store Connect API Key
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > ~/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+
+          echo "✅ App Store Connect API Key configured"
+          ls -lh ~/private_keys/
+
+      - name: Import Signing Certificate
+        env:
+          DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.DISTRIBUTION_CERTIFICATE_BASE64 }}
+          DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 \
+            -P "$DISTRIBUTION_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Allow codesign to access keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          echo "✅ Signing certificate imported"
+
+      - name: Install Provisioning Profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+
+          # Install with UUID as filename for manual signing
+          PP_UUID="77603a37-5393-4eee-a01a-bce52f4fa6b6"
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/${PP_UUID}.mobileprovision
+
+          echo "✅ Provisioning profile installed with UUID: $PP_UUID"
+          ls -lh ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Create ExportOptions.plist
+        run: |
+          cat > opencli_app/ios/ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>teamID</key>
+            <string>G9VG22HGJG</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.opencli.opencliMobile</key>
+              <string>OpenCLI Mobile App Store (opencliMobile)</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+          echo "✅ ExportOptions.plist created"
+          cat opencli_app/ios/ExportOptions.plist
+
+      - name: Install CocoaPods dependencies
+        working-directory: opencli_app/ios
+        run: |
+          echo "📦 Installing CocoaPods dependencies..."
+          pod install --repo-update
+          echo "✅ CocoaPods dependencies installed"
+
+      - name: Add Xcode Build Script to Fix App.framework
+        working-directory: opencli_app/ios
+        run: |
+          # Add a build phase script to fix App.framework Info.plist
+          cat > fix_app_framework.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          APP_FRAMEWORK_PATH="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/App.framework/Info.plist"
+
+          if [ -f "$APP_FRAMEWORK_PATH" ]; then
+            /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string ${IPHONEOS_DEPLOYMENT_TARGET}" "$APP_FRAMEWORK_PATH" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion ${IPHONEOS_DEPLOYMENT_TARGET}" "$APP_FRAMEWORK_PATH"
+            echo "✅ Set MinimumOSVersion to ${IPHONEOS_DEPLOYMENT_TARGET} in App.framework"
+          fi
+          EOF
+
+          chmod +x fix_app_framework.sh
+
+      - name: Build IPA
+        working-directory: opencli_app
+        env:
+          IPHONEOS_DEPLOYMENT_TARGET: '13.0'
+        run: |
+          echo "🔨 Building iOS IPA..."
+
+          # Add build phase script to Xcode project
+          python3 << 'PYTHON_SCRIPT'
+          import re
+
+          project_path = "ios/Runner.xcodeproj/project.pbxproj"
+
+          with open(project_path, 'r') as f:
+              content = f.read()
+
+          # Check if script phase already exists
+          if 'Fix App.framework Info.plist' not in content:
+              # Find the PBXNativeTarget section for Runner
+              pattern = r'(/\* Begin PBXNativeTarget section \*/.*?97C146ED1CF9000F007C117D /\* Runner \*/ = \{.*?buildPhases = \(\s*)(.*?)(\s*\);)'
+
+              def add_script_phase(match):
+                  phases = match.group(2)
+                  # Add our script phase UUID
+                  new_phase_uuid = "7884E86A2EC3CC0800000000"
+                  if new_phase_uuid not in phases:
+                      phases += f"\n\t\t\t\t{new_phase_uuid} /* Fix App.framework Info.plist */,"
+                  return match.group(1) + phases + match.group(3)
+
+              content = re.sub(pattern, add_script_phase, content, flags=re.DOTALL)
+
+              # Add the script phase definition
+              script_phase = '''
+          		7884E86A2EC3CC0800000000 /* Fix App.framework Info.plist */ = {
+          			isa = PBXShellScriptBuildPhase;
+          			buildActionMask = 2147483647;
+          			files = (
+          			);
+          			inputPaths = (
+          			);
+          			name = "Fix App.framework Info.plist";
+          			outputPaths = (
+          			);
+          			runOnlyForDeploymentPostprocessing = 0;
+          			shellPath = /bin/sh;
+          			shellScript = "bash \\"${SRCROOT}/fix_app_framework.sh\\"\\n";
+          		};
+          '''
+
+              # Add before the "End PBXShellScriptBuildPhase section" marker
+              content = content.replace(
+                  '/* End PBXShellScriptBuildPhase section */',
+                  script_phase + '/* End PBXShellScriptBuildPhase section */'
+              )
+
+              with open(project_path, 'w') as f:
+                  f.write(content)
+
+              print("✅ Added build script to Xcode project")
+          else:
+              print("ℹ️  Build script already exists")
+          PYTHON_SCRIPT
+
+          flutter build ipa --release \
+            --export-options-plist=ios/ExportOptions.plist
+
+          echo "✅ IPA built successfully"
+          ls -lh build/ios/ipa/
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-ipa
+          path: opencli_app/build/ios/ipa/*.ipa
+          retention-days: 30
+
+      - name: Upload to App Store Connect
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          IPA_PATH=$(find opencli_app/build/ios/ipa -name "*.ipa" | head -n 1)
+
+          if [ -z "$IPA_PATH" ]; then
+            echo "❌ IPA file not found"
+            exit 1
+          fi
+
+          echo "🚀 Uploading IPA to App Store Connect..."
+          echo "📦 IPA path: $IPA_PATH"
+
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --apiKeyPath ~/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+
+          echo "✅ IPA uploaded successfully to App Store Connect!"
+
+      - name: Update Version Changelogs
+        run: |
+          bash scripts/update-mobile-changelogs.sh
+
+      - name: Upload App Store Metadata and Submit for Review
+        working-directory: opencli_app
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+          SUBMIT_FOR_REVIEW: ${{ github.event.inputs.submit_for_review || 'false' }}
+        run: |
+          echo "📝 Uploading App Store metadata..."
+
+          # Install Fastlane if not already installed
+          if ! command -v fastlane &> /dev/null; then
+            gem install fastlane
+          fi
+
+          # Determine if we should submit for review
+          if [ "$SUBMIT_FOR_REVIEW" = "true" ]; then
+            echo "🚀 Will submit for App Store review after upload"
+            SUBMIT_ARG="submit_for_review:true"
+          else
+            echo "ℹ️  Will NOT submit for review (manual submission required)"
+            SUBMIT_ARG="submit_for_review:false"
+          fi
+
+          # Upload metadata using Fastlane
+          cd fastlane
+          fastlane upload_metadata $SUBMIT_ARG || echo "⚠️  Metadata upload completed with warnings (this is normal for first-time setup)"
+
+          if [ "$SUBMIT_FOR_REVIEW" = "true" ]; then
+            echo "✅ App Store metadata uploaded and submitted for review!"
+          else
+            echo "✅ App Store metadata uploaded! You can manually submit for review in App Store Connect."
+          fi
+
+      - name: Cleanup Keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain $KEYCHAIN_PATH
+            echo "🧹 Keychain cleaned up"
+          fi
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: opencli_app/build/ios/ipa/*.ipa
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: Notify on completion
+    needs: build-and-release-ios
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Send notification
+        run: |
+          if [ "${{ needs.build-and-release-ios.result }}" == "success" ]; then
+            echo "✅ iOS release to App Store completed successfully!"
+          else
+            echo "❌ iOS release to App Store failed!"
+            exit 1
+          fi

@@ -1,0 +1,161 @@
+name: Publish to Winget
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+
+jobs:
+  generate-manifest:
+    name: Generate Winget Manifest
+    runs-on: windows-latest
+
+    steps:
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Generating Winget manifest for version: $VERSION"
+
+      - name: Download Windows binary
+        shell: bash
+        run: |
+          curl -L -o opencli-windows-x86_64.exe \
+            "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-windows-x86_64.exe"
+
+      - name: Calculate SHA256 checksum
+        id: checksum
+        shell: powershell
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 opencli-windows-x86_64.exe).Hash
+          "sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Output "✅ SHA256: $hash"
+
+      - name: Create manifests directory
+        shell: bash
+        run: mkdir -p winget-manifests
+
+      - name: Generate version manifest
+        shell: powershell
+        run: |
+          $manifest = @"
+          PackageIdentifier: OpenCLI.OpenCLI
+          PackageVersion: ${{ steps.version.outputs.version }}
+          DefaultLocale: en-US
+          ManifestType: version
+          ManifestVersion: 1.6.0
+          "@
+
+          $manifest | Out-File -FilePath winget-manifests/OpenCLI.OpenCLI.yaml -Encoding utf8
+
+      - name: Generate installer manifest
+        shell: powershell
+        run: |
+          $manifest = @"
+          PackageIdentifier: OpenCLI.OpenCLI
+          PackageVersion: ${{ steps.version.outputs.version }}
+          Platform:
+            - Windows.Desktop
+          MinimumOSVersion: 10.0.0.0
+          InstallerType: portable
+          Commands:
+            - opencli
+          Installers:
+            - Architecture: x64
+              InstallerUrl: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-windows-x86_64.exe
+              InstallerSha256: ${{ steps.checksum.outputs.sha256 }}
+          ManifestType: installer
+          ManifestVersion: 1.6.0
+          "@
+
+          $manifest | Out-File -FilePath winget-manifests/OpenCLI.OpenCLI.installer.yaml -Encoding utf8
+
+      - name: Generate locale manifest
+        shell: powershell
+        run: |
+          $manifest = @"
+          PackageIdentifier: OpenCLI.OpenCLI
+          PackageVersion: ${{ steps.version.outputs.version }}
+          PackageLocale: en-US
+          Publisher: OpenCLI
+          PublisherUrl: https://opencli.ai
+          PublisherSupportUrl: https://github.com/${{ github.repository }}/issues
+          Author: OpenCLI Team
+          PackageName: OpenCLI
+          PackageUrl: https://opencli.ai
+          License: MIT
+          LicenseUrl: https://github.com/${{ github.repository }}/blob/main/LICENSE
+          Copyright: Copyright (c) 2026 OpenCLI
+          ShortDescription: Universal AI Development Platform
+          Description: |
+            OpenCLI is an enterprise-grade autonomous company operating system that combines
+            AI workforce management, desktop automation, mobile integration, and enterprise
+            infrastructure into a unified platform.
+
+            Features:
+            - AI Workforce: Multi-provider AI integration (Claude, GPT, Gemini, Local models)
+            - Desktop Automation: Full computer control across macOS, Linux, Windows
+            - Browser Automation: WebDriver-based automation for Chrome, Firefox, Safari
+            - Mobile Integration: Real-time task submission from mobile devices
+            - Enterprise Dashboard: Web-based management with real-time updates
+            - Security: Bank-level authentication, RBAC, audit logging
+            - Monitoring: Prometheus metrics, structured logging, health checks
+          Tags:
+            - ai
+            - automation
+            - cli
+            - developer-tools
+            - enterprise
+            - mcp
+            - workflow
+          ReleaseNotesUrl: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}
+          ManifestType: defaultLocale
+          ManifestVersion: 1.6.0
+          "@
+
+          $manifest | Out-File -FilePath winget-manifests/OpenCLI.OpenCLI.locale.en-US.yaml -Encoding utf8
+
+      - name: Display manifests
+        shell: powershell
+        run: |
+          Write-Output "`n=== Version Manifest ==="
+          Get-Content winget-manifests/OpenCLI.OpenCLI.yaml
+
+          Write-Output "`n=== Installer Manifest ==="
+          Get-Content winget-manifests/OpenCLI.OpenCLI.installer.yaml
+
+          Write-Output "`n=== Locale Manifest ==="
+          Get-Content winget-manifests/OpenCLI.OpenCLI.locale.en-US.yaml
+
+      - name: Upload manifest artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests-v${{ steps.version.outputs.version }}
+          path: winget-manifests/*.yaml
+
+      - name: Instructions
+        shell: bash
+        run: |
+          echo "✅ Winget manifests generated successfully!"
+          echo ""
+          echo "📝 Next Steps (Manual):"
+          echo ""
+          echo "1. Download the manifest artifacts from this workflow run"
+          echo "2. Fork https://github.com/microsoft/winget-pkgs"
+          echo "3. Create directory: manifests/o/OpenCLI/OpenCLI/${{ steps.version.outputs.version }}"
+          echo "4. Copy the manifest files to that directory"
+          echo "5. Commit and create a Pull Request"
+          echo ""
+          echo "Or use the automated tool:"
+          echo "  winget-create update OpenCLI.OpenCLI -u https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/opencli-windows-x86_64.exe -v ${{ steps.version.outputs.version }} -t ${{ secrets.GITHUB_TOKEN }}"

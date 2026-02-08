@@ -3,6 +3,7 @@ use thiserror::Error;
 pub type Result<T> = std::result::Result<T, OpenCliError>;
 
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum OpenCliError {
     #[error("IPC connection failed: {0}")]
     IpcConnectionFailed(String),
@@ -26,12 +27,11 @@ pub enum OpenCliError {
     ResourceError(String),
 }
 
+#[allow(dead_code)]
 impl OpenCliError {
     pub fn suggest_fix(&self) -> Option<String> {
         match self {
-            OpenCliError::DaemonNotRunning => {
-                Some("Try running: opencli daemon start".to_string())
-            }
+            OpenCliError::DaemonNotRunning => Some("Try running: opencli daemon start".to_string()),
             OpenCliError::IpcConnectionFailed(_) => {
                 Some("Check if daemon is running: opencli daemon status".to_string())
             }

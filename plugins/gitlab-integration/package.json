@@ -1,0 +1,42 @@
+{
+  "name": "@opencli/gitlab-integration",
+  "version": "1.0.0",
+  "description": "GitLab integration - repos, CI/CD, merge requests, issues",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "gitlab",
+    "git",
+    "cicd",
+    "devops"
+  ],
+  "author": "OpenCLI Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@gitbeaker/rest": "^39.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "mcp": {
+    "name": "gitlab-integration",
+    "description": "GitLab repos, CI/CD, MRs, issues",
+    "capabilities": [
+      "gitlab.list_projects",
+      "gitlab.create_merge_request",
+      "gitlab.list_merge_requests",
+      "gitlab.create_issue",
+      "gitlab.list_issues",
+      "gitlab.trigger_pipeline",
+      "gitlab.get_pipeline_status"
+    ],
+    "permissions": [
+      "network",
+      "credentials.read"
+    ]
+  }
+}

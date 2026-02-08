@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "twitter-api": {
+      "command": "node",
+      "args": ["plugins/twitter-api/index.js"],
+      "env": {
+        "TWITTER_API_KEY": "",
+        "TWITTER_API_SECRET": "",
+        "TWITTER_ACCESS_TOKEN": "",
+        "TWITTER_ACCESS_SECRET": ""
+      }
+    },
+    "github-automation": {
+      "command": "node",
+      "args": ["plugins/github-automation/index.js"],
+      "env": {
+        "GITHUB_TOKEN": ""
+      }
+    },
+    "slack-integration": {
+      "command": "node",
+      "args": ["plugins/slack-integration/index.js"],
+      "env": {
+        "SLACK_TOKEN": ""
+      }
+    },
+    "docker-manager": {
+      "command": "node",
+      "args": ["plugins/docker-manager/index.js"]
+    }
+  }
+}

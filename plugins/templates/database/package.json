@@ -1,0 +1,37 @@
+{
+  "name": "@opencli/my-database-plugin",
+  "version": "1.0.0",
+  "description": "Database integration MCP plugin for OpenCLI",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "database",
+    "sql"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "mcp": {
+    "name": "my-database-plugin",
+    "description": "Database operations for [Database Type]",
+    "capabilities": [
+      "db.query",
+      "db.list_tables",
+      "db.describe_table",
+      "db.execute"
+    ],
+    "permissions": [
+      "network",
+      "credentials.read"
+    ]
+  }
+}

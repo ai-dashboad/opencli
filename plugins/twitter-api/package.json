@@ -1,0 +1,41 @@
+{
+  "name": "@opencli/twitter-api-mcp",
+  "version": "1.0.0",
+  "description": "Twitter/X API MCP plugin for OpenCLI - Post tweets, monitor keywords, auto-reply",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "twitter",
+    "x",
+    "social-media",
+    "automation"
+  ],
+  "author": "OpenCLI Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "twitter-api-v2": "^1.15.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node test.js"
+  },
+  "mcp": {
+    "name": "twitter-api",
+    "description": "Twitter/X automation - post tweets, monitor keywords, auto-reply",
+    "capabilities": [
+      "twitter.post",
+      "twitter.reply",
+      "twitter.monitor",
+      "twitter.search"
+    ],
+    "permissions": [
+      "network",
+      "credentials.read"
+    ]
+  }
+}

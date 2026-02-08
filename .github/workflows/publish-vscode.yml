@@ -1,0 +1,115 @@
+name: Publish VSCode Extension
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+
+jobs:
+  publish:
+    name: Publish to VSCode Marketplace
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Publishing VSCode extension version: $VERSION"
+
+      - name: Validate version
+        working-directory: ide-plugins/vscode
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [ "${{ steps.version.outputs.version }}" != "$PACKAGE_VERSION" ]; then
+            echo "❌ Version mismatch!"
+            echo "   Tag: ${{ steps.version.outputs.version }}"
+            echo "   package.json: $PACKAGE_VERSION"
+            exit 1
+          fi
+          echo "✅ Version validated: $PACKAGE_VERSION"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ide-plugins/vscode/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ide-plugins/vscode
+        run: npm ci
+
+      - name: Lint
+        working-directory: ide-plugins/vscode
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Compile
+        working-directory: ide-plugins/vscode
+        run: npm run compile
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package extension
+        working-directory: ide-plugins/vscode
+        run: |
+          vsce package
+          ls -lh *.vsix
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension-v${{ steps.version.outputs.version }}
+          path: ide-plugins/vscode/*.vsix
+
+      - name: Publish to VSCode Marketplace
+        working-directory: ide-plugins/vscode
+        run: vsce publish -p ${{ secrets.VSCE_TOKEN }}
+        continue-on-error: true
+        if: env.VSCE_TOKEN != ''
+        env:
+          VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
+
+      - name: Publish to Open VSX Registry
+        working-directory: ide-plugins/vscode
+        run: npx ovsx publish *.vsix -p ${{ secrets.OVSX_TOKEN }}
+        continue-on-error: true
+        if: env.OVSX_TOKEN != ''
+        env:
+          OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "✅ VSCode extension v${{ steps.version.outputs.version }} processed!"
+          echo ""
+          if [ -n "${{ secrets.VSCE_TOKEN }}" ]; then
+            echo "✅ Published to VSCode Marketplace"
+            echo "   https://marketplace.visualstudio.com/items?itemName=opencli.opencli-vscode"
+          else
+            echo "⚠️  VSCE_TOKEN not set - skipped VSCode Marketplace"
+            echo "   To publish: Add VSCE_TOKEN secret in GitHub Settings"
+          fi
+          echo ""
+          if [ -n "${{ secrets.OVSX_TOKEN }}" ]; then
+            echo "✅ Published to Open VSX Registry"
+            echo "   https://open-vsx.org/extension/opencli/opencli-vscode"
+          else
+            echo "⚠️  OVSX_TOKEN not set - skipped Open VSX Registry"
+          fi
+          echo ""
+          echo "Extension artifact uploaded to workflow artifacts"

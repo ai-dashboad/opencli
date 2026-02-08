@@ -1,10 +1,10 @@
 mod args;
-mod ipc;
 mod error;
+mod ipc;
 mod resource;
 
-use clap::Parser;
 use args::Cli;
+use clap::Parser;
 use error::Result;
 
 fn main() {

@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Capability Package CDN
+  capability-cdn:
+    build:
+      context: ..
+      dockerfile: cloud/capability-cdn/Dockerfile
+    container_name: opencli-capability-cdn
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    labels:
+      - "coolify.managed=true"
+      - "coolify.name=OpenCLI Capability CDN"
+      - "coolify.domain=opencli.ai"
+      - "coolify.port=80"
+      - "coolify.type=static"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Telemetry API
+  telemetry-api:
+    build:
+      context: telemetry-api
+      dockerfile: Dockerfile
+    container_name: opencli-telemetry-api
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_OWNER=ai-dashboad
+      - GITHUB_REPO=opencli
+    labels:
+      - "coolify.managed=true"
+      - "coolify.name=OpenCLI Telemetry API"
+      - "coolify.domain=opencli.ai"
+      - "coolify.path=/api/telemetry"
+      - "coolify.port=3000"
+      - "coolify.type=application"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+networks:
+  default:
+    name: opencli-network

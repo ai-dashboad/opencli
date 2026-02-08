@@ -1,4 +1,5 @@
 import 'package:opencli_daemon/core/config.dart';
+import 'package:opencli_daemon/ui/terminal_ui.dart';
 
 class PluginManager {
   final Config config;
@@ -9,19 +10,24 @@ class PluginManager {
   int get loadedCount => _loadedPlugins.length;
 
   Future<void> loadAll() async {
-    print('Loading plugins...');
-
     final enabledPlugins = config.plugins['enabled'] as List? ?? [];
+
+    if (enabledPlugins.isEmpty) {
+      TerminalUI.info('No plugins to load', prefix: '  ℹ');
+      return;
+    }
 
     for (final pluginName in enabledPlugins) {
       await _loadPlugin(pluginName);
     }
 
-    print('✓ Loaded ${_loadedPlugins.length} plugins');
+    TerminalUI.success(
+        'Loaded ${_loadedPlugins.length} plugin${_loadedPlugins.length == 1 ? '' : 's'}',
+        prefix: '  ✓');
   }
 
   Future<void> unloadAll() async {
-    print('Unloading plugins...');
+    TerminalUI.info('Unloading plugins...', prefix: '🔌');
     _loadedPlugins.clear();
   }
 
@@ -32,7 +38,7 @@ class PluginManager {
 
   Future<void> _loadPlugin(String pluginName) async {
     // TODO: Implement dynamic plugin loading
-    print('  Loading plugin: $pluginName');
+    TerminalUI.printPluginLoaded(pluginName);
     _loadedPlugins[pluginName] = {};
   }
 

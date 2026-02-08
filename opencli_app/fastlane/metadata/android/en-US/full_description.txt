@@ -1,0 +1,49 @@
+OpenCLI - AI-Powered Task Orchestration on Android
+
+Transform your Android device into a powerful AI assistant with OpenCLI. Execute complex tasks, automate workflows, and interact with AI agents seamlessly on mobile.
+
+🤖 KEY FEATURES
+
+• AI-Powered Automation
+Leverage advanced AI models to automate complex tasks and workflows directly from your Android device.
+
+• Intelligent Task Orchestration
+Chain multiple operations together and let AI handle the execution with smart decision-making.
+
+• Cross-Platform Integration
+Connect with various services and platforms through a unified interface.
+
+• Secure & Private
+Your data stays on your device with end-to-end encryption and privacy-first design.
+
+• Extensible Architecture
+Support for plugins and custom integrations to extend functionality.
+
+• Developer-Friendly
+Built with developers in mind, offering powerful CLI-like capabilities on mobile.
+
+✨ PERFECT FOR
+
+- Developers who need AI assistance on the go
+- Power users who want to automate mobile workflows
+- Teams looking for intelligent task management
+- Anyone who wants AI-powered productivity tools
+
+🚀 WHY OPENCLI?
+
+OpenCLI brings the power of command-line AI tools to your Android device with an intuitive interface designed for touch interactions. Whether you're automating repetitive tasks, managing complex workflows, or exploring AI capabilities, OpenCLI makes it simple and efficient.
+
+🔒 PRIVACY & SECURITY
+
+- End-to-end encryption for all data
+- No cloud storage required
+- Open source and transparent
+- Full control over your data
+
+📱 GET STARTED
+
+Download OpenCLI today and experience the future of mobile AI automation. Join thousands of users who are already transforming how they work on mobile devices.
+
+For support, documentation, and feature requests, visit: https://opencli.ai
+
+Open source on GitHub: https://github.com/ai-dashboad/opencli

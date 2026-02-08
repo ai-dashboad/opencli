@@ -1,0 +1,196 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Upload IPA to App Store Connect using API Key"
+  lane :upload_ipa_with_api_key do |options|
+    ipa_path = options[:ipa_path]
+
+    # Validate IPA path
+    ipa_path_exists = File.exist?(ipa_path)
+    UI.user_error!("IPA path does not exist: #{ipa_path}") unless ipa_path_exists
+
+    # Get environment variables
+    key_id = ENV["SPACESHIP_CONNECT_API_KEY_ID"] || ENV["APP_STORE_CONNECT_API_KEY_ID"]
+    issuer_id = ENV["SPACESHIP_CONNECT_API_ISSUER_ID"] || ENV["APP_STORE_CONNECT_ISSUER_ID"]
+    key_filepath = ENV["SPACESHIP_CONNECT_API_KEY_FILEPATH"] || ENV["FASTLANE_API_KEY_PATH"]
+
+    # Debug info
+    UI.message("API Key Information:")
+    UI.message("  Key ID: #{key_id}")
+    UI.message("  Issuer ID: #{issuer_id}")
+    UI.message("  Key Filepath: #{key_filepath}")
+    UI.message("  Key File exists?: #{File.exist?(key_filepath)}") if key_filepath
+
+    if !key_filepath || !File.exist?(key_filepath)
+      UI.user_error!("API Key file does not exist: #{key_filepath}")
+    end
+
+    # Use xcrun altool for more reliable upload
+    UI.important("Uploading IPA using xcrun altool...")
+
+    # Build altool command
+    cmd = [
+      "xcrun altool",
+      "--upload-app",
+      "--type ios",
+      "--file \"#{ipa_path}\"",
+      "--apiKey \"#{key_id}\"",
+      "--apiIssuer \"#{issuer_id}\"",
+      "--apiKeyPath \"#{key_filepath}\""
+    ].join(" ")
+
+    UI.important("Executing command: #{cmd}")
+
+    # Execute command
+    begin
+      result = sh(cmd)
+      if result.include?("No errors uploading") || result.include?("successfully uploaded") || result.include?("UPLOAD SUCCEEDED")
+        UI.success("✅ IPA successfully uploaded to App Store Connect")
+        true
+      else
+        UI.error("Upload may not have succeeded, but no explicit error. Please check App Store Connect.")
+        UI.important(result)
+        false
+      end
+    rescue => ex
+      UI.error("Error during upload: #{ex.message}")
+
+      # Try alternative method
+      UI.important("Trying alternative method...")
+      begin
+        if ENV["SPACESHIP_CONNECT_API_KEY_CONTENT"] || ENV["APP_STORE_CONNECT_API_KEY_CONTENT"]
+          require 'tempfile'
+          require 'json'
+
+          temp_file = Tempfile.new(['api_key_content', '.json'])
+          key_data = {
+            "key_id" => key_id,
+            "issuer_id" => issuer_id,
+            "key" => (ENV["SPACESHIP_CONNECT_API_KEY_CONTENT"] || ENV["APP_STORE_CONNECT_API_KEY_CONTENT"]).strip
+          }
+          temp_file.write(JSON.generate(key_data))
+          temp_file.close
+
+          alt_cmd = [
+            "xcrun altool",
+            "--upload-app",
+            "--type ios",
+            "--file \"#{ipa_path}\"",
+            "--apiKey \"#{key_id}\"",
+            "--apiIssuer \"#{issuer_id}\"",
+            "--apiKeyContent \"$(cat \"#{temp_file.path}\")\""
+          ].join(" ")
+
+          UI.important("Executing alternative command: #{alt_cmd}")
+          result = sh(alt_cmd)
+          temp_file.unlink
+
+          if result.include?("No errors uploading") || result.include?("successfully uploaded") || result.include?("UPLOAD SUCCEEDED")
+            UI.success("✅ IPA successfully uploaded via alternative method")
+            true
+          else
+            UI.error("Alternative upload may not have succeeded. Please check App Store Connect.")
+            UI.important(result)
+            false
+          end
+        else
+          UI.error("No API key content found, cannot try alternative method")
+          false
+        end
+      rescue => alt_ex
+        UI.error("Alternative method also failed: #{alt_ex.message}")
+        false
+      end
+    end
+  end
+
+  desc "Build iOS app with manual signing for GitHub Actions"
+  lane :build_for_appstore do |options|
+    # Get provisioning profile info from environment or parameters
+    pp_name = options[:provisioning_profile_name] || ENV["PROVISIONING_PROFILE_NAME"] || "OpenCLI Mobile App Store (opencliMobile)"
+    pp_uuid = ENV["PROVISIONING_PROFILE_UUID"] || ""
+
+    UI.message("Building with provisioning profile: #{pp_name}")
+    UI.message("Provisioning profile UUID: #{pp_uuid}")
+
+    # Build app with manual signing, passing CODE_SIGN_STYLE as xcarg
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: "G9VG22HGJG",
+        provisioningProfiles: {
+          "com.opencli.opencliMobile" => pp_name
+        },
+        uploadBitcode: false,
+        uploadSymbols: true,
+        signingCertificate: "Apple Distribution"
+      },
+      output_directory: "build/ipa",
+      output_name: "OpenCLI.ipa",
+      include_bitcode: false,
+      include_symbols: true,
+      skip_profile_detection: true,
+      codesigning_identity: "Apple Distribution",
+      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=G9VG22HGJG PROVISIONING_PROFILE_SPECIFIER='#{pp_name}'"
+    )
+
+    UI.success("✅ IPA built successfully!")
+  end
+
+  desc "Complete iOS build and upload workflow"
+  lane :release do |options|
+    # Increment build number
+    increment_build_number(
+      xcodeproj: "Runner.xcodeproj"
+    )
+
+    # Build app
+    build_for_appstore
+
+    # Upload to App Store
+    ipa_path = lane_context[SharedValues::IPA_OUTPUT_PATH]
+    upload_ipa_with_api_key(ipa_path: ipa_path)
+
+    UI.success("✅ iOS release completed successfully!")
+  end
+
+  desc "Build Ad-hoc version for testing"
+  lane :beta do
+    increment_build_number(xcodeproj: "ios/Runner.xcodeproj")
+
+    build_app(
+      workspace: "ios/Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "ad-hoc",
+      export_options: {
+        provisioningProfiles: {
+          "com.opencli.mobile" => "OpenCLI Mobile Ad-hoc"
+        }
+      }
+    )
+
+    UI.success("✅ Ad-hoc build completed!")
+    # Distribute to Firebase or other testing platforms
+    # firebase_app_distribution(...)
+  end
+
+  desc "Initialize certificates and provisioning profiles"
+  lane :setup_certificates do
+    # Automatically manage certificates and provisioning profiles
+    match(
+      type: "development",
+      app_identifier: "com.opencli.mobile"
+    )
+    match(
+      type: "appstore",
+      app_identifier: "com.opencli.mobile"
+    )
+
+    UI.success("✅ Certificates and provisioning profiles configured!")
+  end
+end

@@ -1,0 +1,46 @@
+{
+  "name": "@opencli/aws-integration",
+  "version": "1.0.0",
+  "description": "AWS cloud services integration - S3, EC2, Lambda management",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "aws",
+    "cloud",
+    "s3",
+    "ec2",
+    "lambda"
+  ],
+  "author": "OpenCLI Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/client-ec2": "^3.0.0",
+    "@aws-sdk/client-lambda": "^3.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "mcp": {
+    "name": "aws-integration",
+    "description": "AWS S3, EC2, Lambda management",
+    "capabilities": [
+      "aws.s3.upload",
+      "aws.s3.download",
+      "aws.s3.list",
+      "aws.ec2.list_instances",
+      "aws.ec2.start_instance",
+      "aws.ec2.stop_instance",
+      "aws.lambda.invoke",
+      "aws.lambda.list"
+    ],
+    "permissions": [
+      "network",
+      "credentials.read"
+    ]
+  }
+}

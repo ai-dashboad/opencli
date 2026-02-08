@@ -77,7 +77,8 @@ class IpcServer {
       // Read length prefix (4 bytes LE)
       if (data.length < 4) return;
 
-      final length = ByteData.sublistView(data, 0, 4).getUint32(0, Endian.little);
+      final length =
+          ByteData.sublistView(data, 0, 4).getUint32(0, Endian.little);
 
       if (data.length < 4 + length) return;
 
@@ -104,7 +105,6 @@ class IpcServer {
 
       // Send response
       await _sendResponse(socket, response);
-
     } catch (e) {
       // Send error response
       final errorResponse = IpcResponse(

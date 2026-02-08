@@ -1,0 +1,59 @@
+{
+  "id": "template_morning_briefing",
+  "name": "Morning Briefing",
+  "description": "Get weather and calendar events, then summarize with AI",
+  "nodes": [
+    {
+      "id": "node_1",
+      "type": "weather_current",
+      "domain": "weather",
+      "label": "Get Weather",
+      "position": { "x": 100, "y": 150 },
+      "params": {
+        "location": "{{params.location}}"
+      }
+    },
+    {
+      "id": "node_2",
+      "type": "calendar_today",
+      "domain": "calendar",
+      "label": "Today's Events",
+      "position": { "x": 100, "y": 350 },
+      "params": {}
+    },
+    {
+      "id": "node_3",
+      "type": "ai_query",
+      "domain": "ai",
+      "label": "Create Briefing",
+      "position": { "x": 450, "y": 250 },
+      "params": {
+        "query": "Create a concise morning briefing. Weather: {{node_1.condition}} {{node_1.temperature_c}}C. Events: {{node_2.events}}. Keep it short and actionable."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1",
+      "source": "node_1",
+      "source_port": "output",
+      "target": "node_3",
+      "target_port": "input"
+    },
+    {
+      "id": "edge_2",
+      "source": "node_2",
+      "source_port": "output",
+      "target": "node_3",
+      "target_port": "input"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "location",
+      "type": "string",
+      "default": "San Francisco",
+      "description": "Weather location"
+    }
+  ]
+}

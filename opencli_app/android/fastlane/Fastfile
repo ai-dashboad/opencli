@@ -1,0 +1,155 @@
+default_platform(:android)
+
+platform :android do
+  desc "Upload metadata and screenshots to Google Play Console"
+  lane :upload_metadata do |options|
+    project_root = File.expand_path('../../', __FILE__)
+    metadata_path = File.join(project_root, 'fastlane/metadata/android')
+
+    supply(
+      json_key_data: ENV['PLAY_STORE_JSON_KEY'],
+      package_name: 'com.opencli.mobile',
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      metadata_path: metadata_path,
+      validate_only: false
+    )
+
+    UI.success("✅ Successfully uploaded metadata to Google Play Console!")
+  end
+
+  desc "Setup Google Play Console basic configuration"
+  lane :setup do |options|
+    project_root = File.expand_path('../../', __FILE__)
+    metadata_path = File.join(project_root, 'fastlane/metadata/android')
+
+    supply(
+      json_key_data: ENV['PLAY_STORE_JSON_KEY'],
+      package_name: 'com.opencli.mobile',
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+      metadata_path: metadata_path
+    )
+  end
+
+  desc "Deploy to Google Play Internal Testing track"
+  lane :internal do |options|
+    # Get AAB file path
+    aab_path = options[:aab]
+    if aab_path.nil?
+      # Default relative path from project root
+      aab_path = "../build/app/outputs/bundle/release/app-release.aab"
+    end
+
+    # Check if file exists
+    UI.user_error!("AAB file not found: #{aab_path}") unless File.exist?(aab_path)
+
+    # Print AAB file info
+    UI.message("Using AAB file: #{aab_path}")
+    UI.message("File size: #{File.size(aab_path) / (1024 * 1024)}MB")
+
+    upload_to_play_store(
+      track: 'internal',
+      aab: aab_path,
+      json_key_data: ENV['PLAY_STORE_JSON_KEY'],
+      release_status: 'draft',
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Successfully uploaded to Google Play Internal Testing track!")
+  end
+
+  desc "Deploy to Google Play Beta (Closed Testing) track"
+  lane :beta do |options|
+    aab_path = options[:aab]
+    if aab_path.nil?
+      aab_path = "../build/app/outputs/bundle/release/app-release.aab"
+    end
+
+    UI.user_error!("AAB file not found: #{aab_path}") unless File.exist?(aab_path)
+
+    UI.message("Using AAB file: #{aab_path}")
+    UI.message("File size: #{File.size(aab_path) / (1024 * 1024)}MB")
+
+    upload_to_play_store(
+      track: 'beta',
+      aab: aab_path,
+      json_key_data: ENV['PLAY_STORE_JSON_KEY'],
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Successfully uploaded to Google Play Beta track!")
+  end
+
+  desc "Deploy to Google Play Production track"
+  lane :production do |options|
+    # Get project root absolute path
+    project_root = File.expand_path('../../', __FILE__)
+    # Use custom path if provided, otherwise use default path
+    aab_path = options[:aab] || File.join(project_root, 'build/app/outputs/bundle/release/app-release.aab')
+    metadata_path = File.join(project_root, 'fastlane/metadata/android')
+
+    # Check if file exists
+    UI.user_error!("AAB file not found: #{aab_path}") unless File.exist?(aab_path)
+
+    UI.message("Using AAB file: #{aab_path}")
+    UI.message("File size: #{File.size(aab_path) / (1024 * 1024)}MB")
+
+    # Confirm production release
+    UI.important("⚠️  You are about to release to PRODUCTION track!")
+    UI.important("This will make the app available to all users.")
+
+    upload_to_play_store(
+      track: 'production',
+      aab: aab_path,
+      json_key_data: ENV['PLAY_STORE_JSON_KEY'],
+      skip_upload_metadata: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      metadata_path: metadata_path
+    )
+
+    UI.success("✅ Successfully uploaded to Google Play Production track!")
+  end
+
+  desc "Promote from internal to beta"
+  lane :promote_to_beta do
+    supply(
+      track: 'internal',
+      track_promote_to: 'beta',
+      json_key_data: ENV['PLAY_STORE_JSON_KEY'],
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Successfully promoted from Internal to Beta!")
+  end
+
+  desc "Promote from beta to production"
+  lane :promote_to_production do
+    supply(
+      track: 'beta',
+      track_promote_to: 'production',
+      json_key_data: ENV['PLAY_STORE_JSON_KEY'],
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Successfully promoted from Beta to Production!")
+  end
+end

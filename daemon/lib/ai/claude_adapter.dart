@@ -42,7 +42,7 @@ class ClaudeAdapter implements ModelAdapter {
 
   @override
   Future<ChatResponse> chat(ChatRequest request) async {
-    final messages = <Map<String, String>>[];
+    final messages = <Map<String, dynamic>>[];
 
     // Add history
     for (final msg in request.history) {
@@ -61,7 +61,8 @@ class ClaudeAdapter implements ModelAdapter {
       'max_tokens': request.maxTokens ?? 8192,
       if (request.temperature != null) 'temperature': request.temperature,
       if (request.systemPrompt != null) 'system': request.systemPrompt,
-      if (request.stopSequences != null) 'stop_sequences': request.stopSequences,
+      if (request.stopSequences != null)
+        'stop_sequences': request.stopSequences,
     };
 
     final response = await _makeRequest('/messages', body);
@@ -186,7 +187,8 @@ class ClaudeAdapter implements ModelAdapter {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('API request failed: ${response.statusCode} ${response.body}');
+      throw Exception(
+          'API request failed: ${response.statusCode} ${response.body}');
     }
 
     return jsonDecode(response.body);

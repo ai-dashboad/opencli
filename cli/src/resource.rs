@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use crate::error::Result;
 use std::fs;
-use crate::error::{OpenCliError, Result};
+use std::path::PathBuf;
 
 const DAEMON_BINARY: &[u8] = &[]; // Will be embedded at build time
 

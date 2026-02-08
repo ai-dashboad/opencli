@@ -5,9 +5,49 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.7.2
+
+      - name: Sync documentation
+        run: dart scripts/sync_docs.dart
+        continue-on-error: true
+
+      - name: Upload synced docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: synced-docs
+          path: |
+            ide-plugins/vscode/README.md
+            npm/README.md
+            web-ui/README.md
+          retention-days: 1
+
   build-cli:
     name: Build CLI - ${{ matrix.target }}
+    needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -27,6 +67,13 @@ jobs:
             artifact_name: opencli
             asset_name: opencli-linux-x86_64
 
+          # TODO: 添加 Linux ARM64 交叉编译支持
+          # 需要配置 gcc-aarch64-linux-gnu 和正确的链接器
+          # - os: ubuntu-latest
+          #   target: aarch64-unknown-linux-musl
+          #   artifact_name: opencli
+          #   asset_name: opencli-linux-arm64
+
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_name: opencli.exe
@@ -41,8 +88,13 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install musl tools (Linux)
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: sudo apt-get install -y musl-tools
+        if: contains(matrix.target, 'linux-musl')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
 
       - name: Build CLI
         working-directory: cli
@@ -52,79 +104,153 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: strip cli/target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
 
+      - name: Calculate SHA256
+        id: sha256
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            SHA256=$(powershell -Command "(Get-FileHash -Path cli/target/${{ matrix.target }}/release/${{ matrix.artifact_name }} -Algorithm SHA256).Hash.ToLower()")
+          else
+            SHA256=$(shasum -a 256 cli/target/${{ matrix.target }}/release/${{ matrix.artifact_name }} | cut -d' ' -f1)
+          fi
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "$SHA256  ${{ matrix.asset_name }}" > cli/target/${{ matrix.target }}/release/${{ matrix.asset_name }}.sha256
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: cli/target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          path: |
+            cli/target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+            cli/target/${{ matrix.target }}/release/${{ matrix.asset_name }}.sha256
 
   build-daemon:
     name: Build Daemon - ${{ matrix.os }}
+    needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: macos-latest
             asset_name: opencli-daemon-macos
+            binary_name: opencli-daemon
           - os: ubuntu-latest
             asset_name: opencli-daemon-linux
+            binary_name: opencli-daemon
           - os: windows-latest
             asset_name: opencli-daemon-windows.exe
+            binary_name: opencli-daemon.exe
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.7.2
 
       - name: Install dependencies
         working-directory: daemon
         run: dart pub get
 
-      - name: Compile daemon (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Compile daemon
         working-directory: daemon
-        run: dart compile exe bin/daemon.dart -o opencli-daemon
+        run: dart compile exe bin/daemon.dart -o ${{ matrix.binary_name }}
 
-      - name: Compile daemon (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Calculate SHA256
+        id: sha256
+        shell: bash
         working-directory: daemon
-        run: dart compile exe bin/daemon.dart -o opencli-daemon.exe
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            SHA256=$(powershell -Command "(Get-FileHash -Path ${{ matrix.binary_name }} -Algorithm SHA256).Hash.ToLower()")
+          else
+            SHA256=$(shasum -a 256 ${{ matrix.binary_name }} | cut -d' ' -f1)
+          fi
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "$SHA256  ${{ matrix.asset_name }}" > ${{ matrix.asset_name }}.sha256
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: daemon/opencli-daemon*
+          path: |
+            daemon/${{ matrix.binary_name }}
+            daemon/${{ matrix.asset_name }}.sha256
 
   create-release:
     name: Create GitHub Release
-    needs: [build-cli, build-daemon]
+    needs: [prepare, build-cli, build-daemon]
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts/
 
-      - name: Create checksums
+      - name: Organize release assets
         run: |
-          cd artifacts
-          for dir in */; do
-            cd "$dir"
-            sha256sum * > checksums.txt
-            cd ..
+          mkdir -p release-assets
+
+          # Copy all binaries and checksums
+          find artifacts -type f \( -name "opencli*" -o -name "*.sha256" \) -exec cp {} release-assets/ \;
+
+          # List files for verification
+          ls -lah release-assets/
+
+      - name: Generate combined checksums
+        working-directory: release-assets
+        run: |
+          echo "# SHA256 Checksums for OpenCLI v${{ needs.prepare.outputs.version }}" > SHA256SUMS.txt
+          echo "" >> SHA256SUMS.txt
+
+          for file in *.sha256; do
+            cat "$file" >> SHA256SUMS.txt
           done
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
+          name: v${{ needs.prepare.outputs.version }}
+          files: release-assets/*
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
+          body: |
+            ## OpenCLI v${{ needs.prepare.outputs.version }}
+
+            ### Installation
+
+            **macOS:**
+            ```bash
+            brew install opencli/tap/opencli
+            ```
+
+            **Windows:**
+            ```powershell
+            scoop bucket add opencli https://github.com/opencli/scoop-bucket
+            scoop install opencli
+            ```
+
+            **Linux:**
+            ```bash
+            curl -sSL https://opencli.ai/install.sh | sh
+            ```
+
+            **npm:**
+            ```bash
+            npm install -g @opencli/cli
+            ```
+
+            ### Download Binaries
+
+            Download the appropriate binary for your platform below, or use one of the package managers above.
+
+            All binaries are signed and include SHA256 checksums for verification.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

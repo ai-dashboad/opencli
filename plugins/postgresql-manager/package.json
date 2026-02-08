@@ -1,0 +1,40 @@
+{
+  "name": "@opencli/postgresql-manager",
+  "version": "1.0.0",
+  "description": "PostgreSQL database management and queries",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "postgresql",
+    "database",
+    "sql"
+  ],
+  "author": "OpenCLI Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "pg": "^8.11.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "mcp": {
+    "name": "postgresql-manager",
+    "description": "Database operations and queries",
+    "capabilities": [
+      "pg.query",
+      "pg.connect",
+      "pg.list_tables",
+      "pg.describe_table",
+      "pg.backup",
+      "pg.execute"
+    ],
+    "permissions": [
+      "network",
+      "credentials.read"
+    ]
+  }
+}

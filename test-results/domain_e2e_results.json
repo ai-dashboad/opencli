@@ -1,0 +1,212 @@
+{
+  "timestamp": "2026-02-06T21:51:13.435Z",
+  "summary": {
+    "total": 34,
+    "passed": 29,
+    "failed": 4,
+    "timeout": 1
+  },
+  "results": {
+    "timer_set": {
+      "success": true,
+      "result": "{\"success\":true,\"timer_id\":\"timer_1770414553475\",\"minutes\":1,\"label\":\"E2E Test\",\"ends_at\":\"2026-02-07T00:50:13.475413\",\"domain\":\"timer\",\"card_type\":\"timer\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "timer_status": {
+      "success": true,
+      "result": "{\"success\":true,\"active\":true,\"timers\":[{\"id\":\"timer_1770414553475\",\"label\":\"E2E Test\",\"remaining_seconds\":59,\"ends_at\":\"2026-02-07T00:50:13.475413\"}],\"domain\":\"timer\",\"card_type\":\"timer\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "timer_cancel": {
+      "success": true,
+      "result": "{\"success\":true,\"message\":\"Cancelled 1 timer(s)\",\"domain\":\"timer\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "timer_pomodoro": {
+      "success": true,
+      "result": "{\"success\":true,\"timer_id\":\"timer_1770414554088\",\"minutes\":1,\"label\":\"Pomodoro Focus\",\"ends_at\":\"2026-02-07T00:50:14.088383\",\"domain\":\"timer\",\"card_type\":\"timer\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "calculator_eval": {
+      "success": true,
+      "result": "{\"success\":true,\"expression\":\"15 * 7 + 3\",\"result\":\"108\",\"domain\":\"calculator\",\"card_type\":\"calculator\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "calculator_convert": {
+      "success": true,
+      "result": "{\"success\":true,\"value\":100,\"from\":\"km\",\"to\":\"miles\",\"result\":\"62.14\",\"display\":\"100 km = 62.14 miles\",\"domain\":\"calculator\",\"card_type\":\"calculator\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "calculator_timezone": {
+      "success": true,
+      "result": "{\"success\":true,\"location\":\"tokyo\",\"time\":\"06:49\",\"date\":\"2026-02-07\",\"offset\":\"UTC+9\",\"display\":\"It's 06:49 in Tokyo (2026-02-07, UTC+9)\",\"domain\":\"calculator\",\"card_type\":\"calculator\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "calculator_date_math": {
+      "success": true,
+      "result": "{\"success\":true,\"days\":30,\"date\":\"2026-03-09\",\"display\":\"30 days from now is 2026-03-09\",\"domain\":\"calculator\",\"card_type\":\"calculator\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "music_now_playing": {
+      "success": true,
+      "result": "{\"success\":true,\"playing\":false,\"message\":\"Nothing is playing\",\"domain\":\"music\",\"card_type\":\"music\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "music_play": {
+      "success": true,
+      "result": "{\"success\":true,\"stdout\":\"\",\"stderr\":\"\",\"exit_code\":0,\"domain\":\"music\",\"card_type\":\"music\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "music_pause": {
+      "success": true,
+      "result": "{\"success\":true,\"stdout\":\"\",\"stderr\":\"\",\"exit_code\":0,\"domain\":\"music\",\"card_type\":\"music\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "music_next": {
+      "success": true,
+      "result": "{\"success\":true,\"stdout\":\"\",\"stderr\":\"\",\"exit_code\":0,\"domain\":\"music\",\"card_type\":\"music\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "music_previous": {
+      "success": true,
+      "result": "{\"success\":true,\"stdout\":\"\",\"stderr\":\"\",\"exit_code\":0,\"domain\":\"music\",\"card_type\":\"music\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "music_playlist": {
+      "success": false,
+      "result": "{\"success\":false,\"stdout\":\"\",\"stderr\":\"28:48: execution error: Music got an error: Can’t make some data into the expected type. (-1700)\",\"exit_code\":1,\"domain\":\"music\",\"card_type\":\"music\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "reminders_list": {
+      "success": true,
+      "result": "{\"success\":true,\"items\":[\"E2E Test Reminder (due: missing value)\"],\"count\":1,\"raw\":\"E2E Test Reminder (due: missing value)\",\"domain\":\"reminders\",\"card_type\":\"reminders\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "reminders_add": {
+      "success": true,
+      "result": "{\"success\":true,\"title\":\"E2E Test Reminder\",\"list\":\"Reminders\",\"message\":\"Reminder \\\"E2E Test Reminder\\\" added to Reminders\",\"domain\":\"reminders\",\"card_type\":\"reminders\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "reminders_complete": {
+      "success": true,
+      "result": "{\"success\":true,\"title\":\"E2E Test Reminder\",\"message\":\"Completed: E2E Test Reminder\",\"domain\":\"reminders\",\"card_type\":\"reminders\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "calendar_list_events": {
+      "status": "timeout"
+    },
+    "calendar_add_event": {
+      "success": true,
+      "result": "{\"success\":true,\"title\":\"E2E Test Event\",\"datetime\":\"tomorrow at 3pm\",\"message\":\"Created: E2E Test Event at Sunday, February 8, 2026 at 15:00:00\",\"domain\":\"calendar\",\"card_type\":\"calendar\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "calendar_delete_event": {
+      "success": false,
+      "result": "{\"success\":false,\"title\":\"E2E Test Event\",\"message\":\"\",\"domain\":\"calendar\",\"card_type\":\"calendar\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "notes_create": {
+      "success": true,
+      "result": "{\"success\":true,\"title\":\"E2E Test Note\",\"message\":\"Created note: E2E Test Note\",\"domain\":\"notes\",\"card_type\":\"notes\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "notes_list": {
+      "success": true,
+      "result": "{\"success\":true,\"items\":[\"E2E Test Note\",\"E2E Test Note\",\"OpenCLI Test\",\"Dear CHENGLIN   WANG, please choose from the following list of doctors…\",\"Stripe\",\"BN Wallet\",\"npx figma-developer-mcp --figma-",
+      "error": null,
+      "status": "completed"
+    },
+    "notes_search": {
+      "success": true,
+      "result": "{\"success\":true,\"query\":\"E2E Test\",\"items\":[\"E2E Test Note\",\"E2E Test Note\"],\"count\":2,\"domain\":\"notes\",\"card_type\":\"notes\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "weather_current": {
+      "success": true,
+      "result": "{\"success\":true,\"location\":\"Coffee, United States of America\",\"temperature_c\":\"15\",\"temperature_f\":\"60\",\"feels_like_c\":\"15\",\"condition\":\"Sunny\",\"humidity\":\"33\",\"wind_mph\":\"5\",\"wind_dir\":\"S\",\"domain\":\"",
+      "error": null,
+      "status": "completed"
+    },
+    "weather_forecast": {
+      "success": true,
+      "result": "{\"success\":true,\"location\":\"Coffee\",\"days\":[{\"date\":\"2026-02-06\",\"max_c\":\"16\",\"min_c\":\"7\",\"max_f\":\"61\",\"min_f\":\"45\",\"condition\":\"Sunny\"},{\"date\":\"2026-02-07\",\"max_c\":\"13\",\"min_c\":\"1\",\"max_f\":\"56\",\"min",
+      "error": null,
+      "status": "completed"
+    },
+    "email_check": {
+      "success": true,
+      "result": "{\"success\":true,\"unread_count\":26474,\"message\":\"You have 26474 unread email(s)\",\"domain\":\"email\",\"card_type\":\"email\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "email_compose": {
+      "success": true,
+      "result": "{\"success\":true,\"to\":\"test@example.com\",\"subject\":\"E2E Test\",\"message\":\"Email draft opened for test@example.com\",\"domain\":\"email\",\"card_type\":\"email\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "contacts_find": {
+      "success": true,
+      "result": "{\"success\":true,\"query\":\"John\",\"contacts\":[{\"name\":\"No contacts found matching: John\",\"phone\":\"\",\"email\":\"\"}],\"count\":1,\"domain\":\"contacts\",\"card_type\":\"contacts\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "contacts_call": {
+      "success": false,
+      "result": "{\"success\":false,\"name\":\"John\",\"message\":\"Contact not found: John\",\"domain\":\"contacts\",\"card_type\":\"contacts\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "messages_send": {
+      "success": false,
+      "result": "{\"success\":false,\"recipient\":\"test\",\"message_text\":\"E2E test\",\"result\":\"Contact not found: test\",\"domain\":\"messages\",\"card_type\":\"messages\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "translation_translate": {
+      "success": true,
+      "result": "{\"success\":true,\"original\":\"hello\",\"translated\":\"hola\",\"target_language\":\"Spanish\",\"domain\":\"translation\",\"card_type\":\"translation\"}",
+      "error": null,
+      "status": "completed"
+    },
+    "files_compress": {
+      "success": true,
+      "result": "{\"success\":true,\"archive\":\"/tmp/opencli-e2e-test/archive_1770414559748.zip\",\"stdout\":\"adding: Archives/ (stored 0%)\\n  adding: Archives/archive_1770414487811.zip (stored 0%)\\n  adding: test.txt (store",
+      "error": null,
+      "status": "completed"
+    },
+    "files_convert": {
+      "success": true,
+      "result": "{\"success\":true,\"from\":\"png\",\"to\":\"jpg\",\"path\":\"/tmp\",\"message\":\"/private/tmp/android_emu_after_dismiss.png\\n  /private/tmp/android_emu_after_dismiss.jpg\\n/private/tmp/android_emu_chat.png\\n  /private",
+      "error": null,
+      "status": "completed"
+    },
+    "files_organize": {
+      "success": true,
+      "result": "{\"success\":true,\"path\":\"/tmp/opencli-e2e-test\",\"message\":\"Organized 2 files in /tmp/opencli-e2e-test\",\"domain\":\"files_media\",\"card_type\":\"files\"}",
+      "error": null,
+      "status": "completed"
+    }
+  }
+}

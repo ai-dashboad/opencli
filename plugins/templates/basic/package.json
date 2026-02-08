@@ -1,0 +1,35 @@
+{
+  "name": "@opencli/my-plugin",
+  "version": "1.0.0",
+  "description": "MCP plugin for OpenCLI",
+  "type": "module",
+  "main": "index.js",
+  "keywords": [
+    "mcp",
+    "opencli",
+    "plugin"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node test.js"
+  },
+  "mcp": {
+    "name": "my-plugin",
+    "description": "Description of your plugin",
+    "capabilities": [
+      "tool1",
+      "tool2",
+      "tool3"
+    ],
+    "permissions": [
+      "network"
+    ]
+  }
+}

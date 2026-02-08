@@ -1,0 +1,75 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+LICENSE
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+target/
+cli/target/
+daemon/.dart_tool/
+daemon/build/
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Dependencies
+node_modules/
+.pub-cache/
+
+# Test
+tests/
+test/
+*.test
+coverage/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Config
+config/config.yaml
+config/*.local.yaml
+*.env
+*.env.*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+*.pid
+
+# macOS
+.DS_Store
+
+# Mobile
+mobile/
+*.apk
+*.ipa
+
+# Web UI
+web-ui/node_modules/
+web-ui/dist/
+web-ui/build/
+
+# Plugins
+plugins/
+
+# Scripts
+scripts/
+*.sh
