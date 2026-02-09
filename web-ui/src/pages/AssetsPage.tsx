@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAssets, deleteAsset, type Asset } from '../utils/assetStorage';
+import { getAssetsAsync, deleteAsset, type Asset } from '../utils/assetStorage';
 import '../styles/assets.css';
 
 type FilterType = 'all' | 'video' | 'image';
@@ -11,14 +11,14 @@ export default function AssetsPage() {
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
 
   useEffect(() => {
-    setAssets(getAssets());
+    getAssetsAsync().then(setAssets);
   }, []);
 
   const filtered = filter === 'all' ? assets : assets.filter(a => a.type === filter);
 
   const handleDelete = (id: string) => {
     deleteAsset(id);
-    setAssets(getAssets());
+    getAssetsAsync().then(setAssets);
     if (previewAsset?.id === id) setPreviewAsset(null);
   };
 
@@ -73,8 +73,8 @@ export default function AssetsPage() {
             Generated content will appear here.
           </p>
           <div className="ap-empty-actions">
-            <Link to="/create/video" className="ap-empty-btn">Create Video</Link>
-            <Link to="/create/image" className="ap-empty-btn">Create Image</Link>
+            <Link to="/create?mode=txt2vid" className="ap-empty-btn">Create Video</Link>
+            <Link to="/create?mode=txt2img" className="ap-empty-btn">Create Image</Link>
           </div>
         </div>
       ) : (
