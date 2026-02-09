@@ -132,8 +132,18 @@ class LocalModelManager {
 
   bool get isAvailable => _inferScriptPath != null && _pythonPath != null;
 
+  /// Re-detect Python executable (e.g., after setup.sh runs).
+  Future<void> refreshPython() async {
+    _pythonPath = await _findPython();
+    _inferScriptPath ??= await _findInferScript();
+    print('[LocalModelManager] Refreshed Python: $_pythonPath');
+  }
+
   /// Check the Python environment status.
   Future<LocalEnvironment> checkEnvironment() async {
+    // Re-detect python in case venv was just created
+    await refreshPython();
+
     // Check if venv exists
     final venvDir = _findVenvDir();
     final venvExists = venvDir != null && await Directory(venvDir).exists();
