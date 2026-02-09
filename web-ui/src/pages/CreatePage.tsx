@@ -70,6 +70,7 @@ const SCENARIOS: Scenario[] = [
 ];
 
 const VIDEO_PROVIDERS = [
+  { id: 'pollinations', label: 'Pollinations', sub: 'Seedance (Free)' },
   { id: 'replicate', label: 'Replicate', sub: '~$0.28' },
   { id: 'runway', label: 'Runway Gen-4', sub: '~$0.75' },
   { id: 'kling', label: 'Kling AI', sub: '~$0.90' },
@@ -464,7 +465,7 @@ export default function CreatePage() {
     } else if (m === 'style') {
       updateForm({ style: 'face_paint_512_v2' });
     } else {
-      updateForm({ style: 'cinematic', provider: 'replicate' });
+      updateForm({ style: 'cinematic', provider: 'pollinations' });
     }
   };
 

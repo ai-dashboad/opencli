@@ -786,7 +786,7 @@ class PipelineApi {
   /// Known option lists for select inputs.
   static const _knownOptions = <String, List<String>>{
     'model': ['llama3.2', 'mistral', 'codellama', 'gemma2'],
-    'provider': ['replicate', 'runway', 'kling', 'luma'],
+    'provider': ['pollinations', 'replicate', 'runway', 'kling', 'luma'],
     'style': [
       'cinematic',
       'adPromo',
@@ -854,7 +854,16 @@ class PipelineApi {
       {'name': 'display', 'type': 'string'},
     ],
     'media_ai_generate_video': [
-      {'name': 'video_path', 'type': 'file'},
+      {'name': 'video_base64', 'type': 'video'},
+      {'name': 'display', 'type': 'string'},
+    ],
+    'media_ai_generate_image': [
+      {'name': 'image_base64', 'type': 'image'},
+      {'name': 'prompt', 'type': 'string'},
+      {'name': 'display', 'type': 'string'},
+    ],
+    'media_animate_photo': [
+      {'name': 'video_base64', 'type': 'video'},
       {'name': 'display', 'type': 'string'},
     ],
     'timezone_current': [

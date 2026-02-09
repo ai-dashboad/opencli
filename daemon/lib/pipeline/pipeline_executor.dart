@@ -2,6 +2,7 @@ import 'dart:async';
 import 'pipeline_definition.dart';
 import 'pipeline_store.dart';
 import '../mobile/mobile_task_handler.dart';
+import '../domains/domain_plugin_adapter.dart';
 
 /// Callback for pipeline execution progress updates.
 typedef PipelineProgressCallback = void Function(Map<String, dynamic> update);
@@ -181,11 +182,29 @@ class PipelineExecutor extends TaskExecutor {
         throw Exception('No executor for task type: ${node.type}');
       }
 
-      final result = await executor.execute(resolvedParams).timeout(
-            const Duration(seconds: 120),
-            onTimeout: () =>
-                {'success': false, 'error': 'Node execution timed out'},
-          );
+      // Use executeWithProgress for domain tasks (supports progress callbacks)
+      Map<String, dynamic> result;
+      if (executor is DomainTaskExecutor) {
+        result = await executor.executeWithProgress(resolvedParams,
+            onProgress: (update) {
+          // Emit per-node progress
+          onProgress?.call({
+            'pipeline_id': pipeline.id,
+            'current_node': nodeId,
+            'node_progress': update,
+          });
+        }).timeout(
+              const Duration(minutes: 5),
+              onTimeout: () =>
+                  {'success': false, 'error': 'Node execution timed out'},
+            );
+      } else {
+        result = await executor.execute(resolvedParams).timeout(
+              const Duration(seconds: 120),
+              onTimeout: () =>
+                  {'success': false, 'error': 'Node execution timed out'},
+            );
+      }
 
       nodeResults[nodeId] = result;
       nodeStatuses[nodeId] =

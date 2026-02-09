@@ -431,6 +431,21 @@ class MediaCreationDomain extends TaskDomain {
     ProgressCallback? onProgress,
   }) async {
     final imageBase64 = data['image_base64'] as String?;
+
+    // Route to Pollinations first — it supports txt2vid (no image needed)
+    final requestedProvider = data['provider'] as String?;
+    if (requestedProvider == 'pollinations') {
+      final prompt = data['custom_prompt'] as String? ??
+          data['input_text'] as String? ??
+          'A cinematic scene';
+      final style = data['style'] as String? ?? 'cinematic';
+      final aspectRatio = data['aspect_ratio'] as String? ?? '16:9';
+      final duration = (data['duration'] as num?)?.toInt() ?? 5;
+      return await _generateVideoPollinations(
+          prompt, aspectRatio, style, duration, imageBase64, onProgress);
+    }
+
+    // Non-Pollinations providers require an image for img2vid
     if (imageBase64 == null || imageBase64.isEmpty) {
       return {
         'success': false,
@@ -1056,6 +1071,142 @@ class MediaCreationDomain extends TaskDomain {
         'error': 'Pollinations.ai error: $e',
         'provider': 'pollinations',
         'generation_type': 'ai_image',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+  }
+
+  /// Generate a video using Pollinations.ai (free, no API key needed).
+  /// Supports both text-to-video and image-to-video via seedance model.
+  Future<Map<String, dynamic>> _generateVideoPollinations(
+    String prompt,
+    String aspectRatio,
+    String style,
+    int duration,
+    String? imageBase64,
+    ProgressCallback? onProgress,
+  ) async {
+    // Clamp duration for seedance: 2-10 seconds
+    final clampedDuration = duration.clamp(2, 10);
+
+    onProgress?.call({
+      'progress': 0.05,
+      'status_message': 'Submitting video to Pollinations.ai...',
+      'provider': 'pollinations',
+      'style': style,
+      'generation_type': 'ai_video',
+    });
+
+    try {
+      // Build URL — same endpoint as images, but with video model
+      final params = <String, String>{
+        'model': 'seedance',
+        'duration': '$clampedDuration',
+        'aspectRatio': aspectRatio.replaceAll(':', ':'), // 16:9 format
+        'nologo': 'true',
+      };
+
+      // For image-to-video, save the image as a temp file and pass its URL
+      // Pollinations expects an image URL for img2vid
+      if (imageBase64 != null && imageBase64.isNotEmpty) {
+        // Write temp image file for reference
+        final home = Platform.environment['HOME'] ?? '/tmp';
+        final tempDir = Directory('$home/.opencli/temp');
+        if (!await tempDir.exists()) await tempDir.create(recursive: true);
+        final tempFile = File('${tempDir.path}/pollinations_ref_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await tempFile.writeAsBytes(base64Decode(imageBase64));
+        // Pollinations img2vid requires a public URL — use data URI instead
+        params['image'] = 'data:image/jpeg;base64,$imageBase64';
+      }
+
+      final queryString = params.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+
+      final url = Uri.parse(
+        'https://image.pollinations.ai/prompt/'
+        '${Uri.encodeComponent(prompt)}'
+        '?$queryString',
+      );
+
+      print('[MediaCreationDomain] Pollinations video request: model=seedance, duration=$clampedDuration');
+
+      onProgress?.call({
+        'progress': 0.15,
+        'status_message': 'Generating video via Pollinations.ai (this may take 30-60s)...',
+        'provider': 'pollinations',
+        'style': style,
+        'generation_type': 'ai_video',
+      });
+
+      // Pollinations video is synchronous — single GET, returns mp4 bytes
+      // Can take 30-120 seconds for video generation
+      final client = http.Client();
+      try {
+        final request = http.Request('GET', url);
+        final streamedResponse = await client.send(request).timeout(
+              const Duration(minutes: 5),
+            );
+
+        if (streamedResponse.statusCode != 200) {
+          final body = await streamedResponse.stream.bytesToString();
+          return {
+            'success': false,
+            'error': 'Pollinations.ai video returned HTTP ${streamedResponse.statusCode}: $body',
+            'provider': 'pollinations',
+            'generation_type': 'ai_video',
+            'domain': 'media_creation',
+            'card_type': 'media_creation',
+          };
+        }
+
+        onProgress?.call({
+          'progress': 0.5,
+          'status_message': 'Downloading video from Pollinations.ai...',
+          'provider': 'pollinations',
+          'style': style,
+          'generation_type': 'ai_video',
+        });
+
+        final videoBytes = await streamedResponse.stream.toBytes();
+        final videoBase64 = base64Encode(videoBytes);
+        final sizeMB = (videoBytes.length / 1024 / 1024).toStringAsFixed(1);
+
+        print('[MediaCreationDomain] Pollinations video received: $sizeMB MB');
+
+        onProgress?.call({
+          'progress': 1.0,
+          'status_message': 'Video generated!',
+          'provider': 'pollinations',
+          'style': style,
+          'generation_type': 'ai_video',
+        });
+
+        return {
+          'success': true,
+          'video_base64': videoBase64,
+          'provider': 'pollinations',
+          'provider_name': 'Pollinations.ai',
+          'model': 'seedance',
+          'style': style,
+          'prompt': prompt,
+          'duration': clampedDuration,
+          'size_bytes': videoBytes.length,
+          'generation_type': 'ai_video',
+          'message': 'AI video generated via Pollinations.ai Seedance ($sizeMB MB)',
+          'domain': 'media_creation',
+          'card_type': 'media_creation',
+        };
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Pollinations.ai video error: $e',
+        'provider': 'pollinations',
+        'generation_type': 'ai_video',
         'domain': 'media_creation',
         'card_type': 'media_creation',
       };

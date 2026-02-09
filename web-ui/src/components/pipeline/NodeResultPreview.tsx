@@ -39,7 +39,34 @@ function NodeResultPreviewInner({ status, result, error }: NodeResultPreviewProp
   // completed
   if (!result) return null;
 
-  // Check for video/image output
+  // Check for base64 image output (from AI image generation)
+  if (result.image_base64 && typeof result.image_base64 === 'string') {
+    return (
+      <div className="node-result-preview result-completed">
+        <img
+          src={`data:image/png;base64,${result.image_base64}`}
+          alt="generated"
+          className="result-image"
+        />
+      </div>
+    );
+  }
+
+  // Check for base64 video output (from AI video generation)
+  if (result.video_base64 && typeof result.video_base64 === 'string') {
+    const binary = atob(result.video_base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'video/mp4' });
+    const blobUrl = URL.createObjectURL(blob);
+    return (
+      <div className="node-result-preview result-completed">
+        <video src={blobUrl} className="result-video" controls muted />
+      </div>
+    );
+  }
+
+  // Check for video/image URL output
   const mediaUrl = result.video_url || result.video_path || result.image_url;
   if (mediaUrl && typeof mediaUrl === 'string') {
     const isVideo = /\.(mp4|webm|mov)$/i.test(mediaUrl);
