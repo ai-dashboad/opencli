@@ -7,15 +7,6 @@ import '../styles/create.css';
 
 type Mode = 'img2vid' | 'txt2vid' | 'txt2img' | 'style';
 
-interface Scenario {
-  id: string;
-  label: string;
-  desc: string;
-  icon: string;
-  defaultMode: Mode;
-  defaults: Partial<FormState>;
-}
-
 interface FormState {
   prompt: string;
   provider: string;
@@ -35,54 +26,19 @@ const MODES: { id: Mode; label: string; icon: string; needsImage: boolean }[] = 
   { id: 'style', label: 'Style Transfer', icon: 'style', needsImage: true },
 ];
 
-const SCENARIOS: Scenario[] = [
-  {
-    id: 'product',
-    label: 'Product Promo',
-    desc: 'Professional ad-ready videos for products',
-    icon: 'campaign',
-    defaultMode: 'img2vid',
-    defaults: { style: 'adPromo', aspectRatio: '16:9', duration: 10 },
-  },
-  {
-    id: 'portrait',
-    label: 'Portrait Effects',
-    desc: 'Cinematic portrait transformations',
-    icon: 'face_retouching_natural',
-    defaultMode: 'img2vid',
-    defaults: { style: 'cinematic', aspectRatio: '9:16', duration: 5 },
-  },
-  {
-    id: 'story',
-    label: 'Story to Video',
-    desc: 'Turn text narratives into video',
-    icon: 'auto_stories',
-    defaultMode: 'txt2vid',
-    defaults: { style: 'cinematic', aspectRatio: '16:9', duration: 10 },
-  },
-  {
-    id: 'custom',
-    label: 'Custom',
-    desc: 'Full control over all settings',
-    icon: 'tune',
-    defaultMode: 'img2vid',
-    defaults: {},
-  },
-];
-
 const VIDEO_PROVIDERS = [
-  { id: 'pollinations', label: 'Pollinations', sub: 'Seedance ~$0.04' },
-  { id: 'replicate', label: 'Replicate', sub: '~$0.28' },
-  { id: 'runway', label: 'Runway Gen-4', sub: '~$0.75' },
-  { id: 'kling', label: 'Kling AI', sub: '~$0.90' },
-  { id: 'luma', label: 'Luma Dream', sub: '~$0.20' },
+  { id: 'pollinations', label: 'Pollinations', sub: 'Seedance ~$0.04', icon: 'eco' },
+  { id: 'replicate', label: 'Replicate', sub: 'Hailuo ~$0.28', icon: 'memory' },
+  { id: 'runway', label: 'Runway Gen-4', sub: '~$0.75', icon: 'rocket_launch' },
+  { id: 'kling', label: 'Kling AI', sub: '~$0.90', icon: 'auto_fix_high' },
+  { id: 'luma', label: 'Luma Dream', sub: '~$0.20', icon: 'wb_twilight' },
 ];
 
 const IMAGE_PROVIDERS = [
-  { id: 'pollinations', label: 'Pollinations', sub: 'FLUX (Free)' },
-  { id: 'gemini', label: 'Google Gemini', sub: 'Imagen (Free)' },
-  { id: 'replicate', label: 'Replicate', sub: 'Flux Schnell' },
-  { id: 'luma', label: 'Luma', sub: 'Photon' },
+  { id: 'pollinations', label: 'Pollinations', sub: 'FLUX (Free)', icon: 'eco' },
+  { id: 'gemini', label: 'Google Gemini', sub: 'Imagen (Free)', icon: 'diamond' },
+  { id: 'replicate', label: 'Replicate', sub: 'Flux Schnell', icon: 'memory' },
+  { id: 'luma', label: 'Luma', sub: 'Photon', icon: 'wb_twilight' },
 ];
 
 const VIDEO_STYLES = [
@@ -110,9 +66,9 @@ const STYLE_PRESETS = [
 ];
 
 const DURATIONS = [5, 10];
-const ASPECT_RATIOS = ['16:9', '9:16', '1:1'];
+const ASPECT_RATIOS = ['16:9', '9:16', '1:1', '4:3', '3:4'];
+const MAX_PROMPT = 5000;
 
-// Step-based progress tracking
 const PROGRESS_STEPS = [
   { id: 'submit', label: 'Submitting', threshold: 0 },
   { id: 'queue', label: 'Queued', threshold: 0.05 },
@@ -121,7 +77,6 @@ const PROGRESS_STEPS = [
   { id: 'complete', label: 'Complete', threshold: 1.0 },
 ];
 
-// Average generation times by provider (seconds)
 const PROVIDER_ETA: Record<string, number> = {
   pollinations: 15,
   gemini: 10,
@@ -140,11 +95,6 @@ interface HistoryItem {
   resultType: 'video' | 'image';
   thumbnail?: string;
   timestamp: number;
-}
-
-function loadHistory(): HistoryItem[] {
-  // Synchronous: return empty initially, async load happens in component
-  return [];
 }
 
 function saveHistoryItem(item: HistoryItem) {
@@ -176,11 +126,11 @@ export default function CreatePage() {
   const [searchParams] = useSearchParams();
   const { connected, authenticated, submitTask, subscribe, send } = useDaemon({ deviceId: 'web_create' });
 
-  const [mode, setMode] = useState<Mode>('img2vid');
-  const [scenario, setScenario] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>('txt2img');
   const [form, setForm] = useState<FormState>({ ...DEFAULT_FORM });
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Generation state
   const [generating, setGenerating] = useState(false);
@@ -223,19 +173,15 @@ export default function CreatePage() {
         const configured = Object.entries(keys)
           .filter(([, v]) => v && typeof v === 'string' && !(v as string).startsWith('${'))
           .map(([k]) => k === 'kling_piapi' ? 'kling' : k);
-        // Pollinations: images free (no key), video requires paid key (seedance).
         const polKey = keys['pollinations'];
         const hasPolKey = polKey && typeof polKey === 'string' && !(polKey as string).startsWith('${');
         setPollinationsVideoKey(!!hasPolKey);
-        // Always add pollinations — it's free for images, daemon checks key for video.
         if (!configured.includes('pollinations')) configured.push('pollinations');
-        // Check if Gemini has a key in models config
         const geminiKey = data?.config?.models?.gemini?.api_key;
         if (geminiKey && typeof geminiKey === 'string' && !geminiKey.startsWith('${')) {
           if (!configured.includes('gemini')) configured.push('gemini');
         }
         setConfiguredProviders(configured);
-        // Auto-select first configured provider
         if (configured.length > 0 && !configured.includes(form.provider)) {
           updateForm({ provider: configured[0] });
         }
@@ -246,20 +192,15 @@ export default function CreatePage() {
   // Initialize from URL params
   useEffect(() => {
     const urlPrompt = searchParams.get('prompt');
-    if (urlPrompt) {
-      setForm(f => ({ ...f, prompt: urlPrompt }));
-    }
+    if (urlPrompt) setForm(f => ({ ...f, prompt: urlPrompt }));
     const urlMode = searchParams.get('mode') as Mode | null;
-    if (urlMode && MODES.find(m => m.id === urlMode)) {
-      setMode(urlMode);
-    }
+    if (urlMode && MODES.find(m => m.id === urlMode)) setMode(urlMode);
   }, [searchParams]);
 
   const updateForm = (updates: Partial<FormState>) => {
     setForm(f => ({ ...f, ...updates }));
   };
 
-  // Handle image file
   const handleImageFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) return;
     setError(null);
@@ -380,7 +321,6 @@ export default function CreatePage() {
 
   const handleGenerate = () => {
     if (generating) return;
-
     const currentMode = MODES.find(m => m.id === mode)!;
     if (currentMode.needsImage && !form.imageBase64) return;
     if (!currentMode.needsImage && !form.prompt.trim()) return;
@@ -403,20 +343,17 @@ export default function CreatePage() {
           style: form.style,
           provider: form.provider,
           ...(form.prompt ? { custom_prompt: form.prompt } : {}),
-          ...(scenario ? { scenario } : {}),
           duration: form.duration,
           aspect_ratio: form.aspectRatio,
           _task_id: id,
         });
         setResultType('video');
         break;
-
       case 'txt2vid':
         submitTask('media_ai_generate_video', {
           style: form.style,
           provider: form.provider,
           custom_prompt: form.prompt,
-          ...(scenario ? { scenario } : {}),
           duration: form.duration,
           aspect_ratio: form.aspectRatio,
           mode: 'production',
@@ -425,7 +362,6 @@ export default function CreatePage() {
         });
         setResultType('video');
         break;
-
       case 'txt2img':
         submitTask('media_ai_generate_image', {
           prompt: form.prompt.trim(),
@@ -438,7 +374,6 @@ export default function CreatePage() {
         });
         setResultType('image');
         break;
-
       case 'style':
         submitTask('media_local_style_transfer', {
           image_base64: form.imageBase64,
@@ -478,22 +413,13 @@ export default function CreatePage() {
     setTaskId(null);
   };
 
-  const selectScenario = (s: Scenario) => {
-    setScenario(s.id);
-    setMode(s.defaultMode);
-    updateForm({ ...DEFAULT_FORM, ...s.defaults });
-  };
-
   const selectMode = (m: Mode) => {
     setMode(m);
-    setScenario(null);
-    // Reset style to match mode
     if (m === 'txt2img') {
       updateForm({ style: 'photorealistic', provider: 'pollinations' });
     } else if (m === 'style') {
       updateForm({ style: 'face_paint_512_v2' });
     } else {
-      // Video modes: default to first configured video provider (pollinations needs paid key)
       const videoProviderIds = VIDEO_PROVIDERS.map(p => p.id);
       const firstConfigured = configuredProviders.find(
         id => videoProviderIds.includes(id) && (id !== 'pollinations' || pollinationsVideoKey)
@@ -514,34 +440,25 @@ export default function CreatePage() {
     : mode === 'style' ? 'Apply Style'
     : 'Generate Video';
 
-  return (
-    <div className="cr-page">
-      <div className="cr-header">
-        <h1>Create</h1>
-        <div className={`cr-status-dot${connected && authenticated ? ' online' : ''}`} />
-      </div>
+  const selectedProvider = providers.find(p => p.id === form.provider);
 
-      {/* Scenario Templates */}
-      <div className="cr-scenarios">
-        {SCENARIOS.map((s) => (
-          <div
-            key={s.id}
-            className={`cr-scenario-card${scenario === s.id ? ' selected' : ''}`}
-            onClick={() => selectScenario(s)}
-          >
-            <span className="material-icons cr-scenario-icon">{s.icon}</span>
-            <span className="cr-scenario-label">{s.label}</span>
-            <span className="cr-scenario-desc">{s.desc}</span>
-          </div>
-        ))}
+  return (
+    <div className="gen-page">
+      {/* Header */}
+      <div className="gen-header">
+        <h1 className="gen-title">Create</h1>
+        <div className={`gen-conn${connected && authenticated ? ' online' : ''}`}>
+          <span className="gen-conn-dot" />
+          {connected && authenticated ? 'Connected' : 'Offline'}
+        </div>
       </div>
 
       {/* Mode Tabs */}
-      <div className="cr-mode-tabs">
+      <div className="gen-tabs">
         {MODES.map((m) => (
           <button
             key={m.id}
-            className={`cr-mode-tab${mode === m.id ? ' active' : ''}`}
+            className={`gen-tab${mode === m.id ? ' active' : ''}`}
             onClick={() => selectMode(m.id)}
           >
             <span className="material-icons">{m.icon}</span>
@@ -550,226 +467,17 @@ export default function CreatePage() {
         ))}
       </div>
 
-      <div className="cr-form">
-        {/* Image Upload (for modes that need it) */}
+      {/* Main Form */}
+      <div className="gen-form-card">
+        {/* Image Upload */}
         {currentMode.needsImage && (
-          <div
-            className={`cr-upload${dragOver ? ' drag-over' : ''}`}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const file = e.dataTransfer.files[0];
-              if (file) handleImageFile(file);
-            }}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImageFile(file);
-              }}
-            />
-            {form.imagePreview ? (
-              <>
-                <img src={form.imagePreview} alt="Preview" className="cr-upload-preview" />
-                <span className="cr-upload-filename">{form.imageName}</span>
-                <button
-                  className="cr-upload-remove"
-                  onClick={(e) => { e.stopPropagation(); removeImage(); }}
-                >
-                  &times;
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="material-icons cr-upload-icon">cloud_upload</span>
-                <span className="cr-upload-text">Drop image here or click to browse</span>
-                <span className="cr-upload-hint">Supports PNG, JPG, WebP. You can also paste.</span>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Prompt */}
-        {mode !== 'style' && (
-          <div className="cr-section">
-            <label className="cr-label">
-              {mode === 'txt2img' ? 'Prompt' : 'Prompt (optional)'}
-            </label>
-            <div className="cr-prompt-wrap">
-              <textarea
-                className="cr-prompt"
-                placeholder={
-                  mode === 'txt2img'
-                    ? 'Describe the image you want to generate...'
-                    : mode === 'txt2vid'
-                    ? 'Describe the video scene you want to create...'
-                    : 'Describe the motion and camera movement...'
-                }
-                value={form.prompt}
-                onChange={(e) => updateForm({ prompt: e.target.value.slice(0, 2000) })}
-                maxLength={2000}
-              />
-              <div className="cr-char-count">{form.prompt.length} / 2000</div>
+          <div className="gen-section">
+            <div className="gen-section-header">
+              <label className="gen-label">Image</label>
+              <span className="gen-counter">{form.imageBase64 ? '1' : '0'}/1</span>
             </div>
-          </div>
-        )}
-
-        {/* Provider (not for style transfer) */}
-        {mode !== 'style' && (
-          <div className="cr-section">
-            <label className="cr-label">Provider</label>
-            <div className="cr-chips">
-              {providers.map((p, idx) => {
-                const baseConfigured = configuredProviders.includes(p.id);
-                // Pollinations video needs a paid key; images are free
-                const needsVideoKey = p.id === 'pollinations' && isVideoMode && !pollinationsVideoKey;
-                const isConfigured = baseConfigured && !needsVideoKey;
-                const isRecommended = idx === 0 && configuredProviders.length > 0 && isConfigured;
-                return (
-                  <button
-                    key={p.id}
-                    className={`cr-chip${form.provider === p.id ? ' selected' : ''}${!isConfigured ? ' unconfigured' : ''}`}
-                    onClick={() => updateForm({ provider: p.id })}
-                    title={!isConfigured ? 'API key not configured' : undefined}
-                  >
-                    {p.label}
-                    <span className="cr-chip-sub">{p.sub}</span>
-                    {isRecommended && <span className="cr-chip-badge">Best Value</span>}
-                    {!isConfigured && <span className="cr-chip-badge warn">No Key</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Style Grid */}
-        {styles.length > 0 && (
-          <div className="cr-section">
-            <label className="cr-label">Style</label>
-            <div className="cr-style-grid">
-              {styles.map((s) => (
-                <div
-                  key={s.id}
-                  className={`cr-style-card${form.style === s.id ? ' selected' : ''}`}
-                  onClick={() => updateForm({ style: s.id })}
-                >
-                  <div className="cr-style-icon">
-                    <span className="material-icons">{s.icon}</span>
-                  </div>
-                  <div className="cr-style-name">{s.label}</div>
-                  <div className="cr-style-desc">{s.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Style Transfer presets */}
-        {mode === 'style' && (
-          <div className="cr-section">
-            <label className="cr-label">Style Preset</label>
-            <div className="cr-chips">
-              {STYLE_PRESETS.map((s) => (
-                <button
-                  key={s.id}
-                  className={`cr-chip${form.style === s.id ? ' selected' : ''}`}
-                  onClick={() => updateForm({ style: s.id })}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Settings (duration + aspect ratio for video modes) */}
-        {isVideoMode && (
-          <div className="cr-section">
-            <label className="cr-label">Settings</label>
-            <div className="cr-settings-row">
-              <div className="cr-setting-group">
-                <span className="cr-setting-label">Duration</span>
-                <div className="cr-chips">
-                  {DURATIONS.map((d) => (
-                    <button
-                      key={d}
-                      className={`cr-chip${form.duration === d ? ' selected' : ''}`}
-                      onClick={() => updateForm({ duration: d })}
-                    >
-                      {d}s
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="cr-setting-group">
-                <span className="cr-setting-label">Aspect Ratio</span>
-                <div className="cr-chips">
-                  {ASPECT_RATIOS.map((ar) => (
-                    <button
-                      key={ar}
-                      className={`cr-chip${form.aspectRatio === ar ? ' selected' : ''}`}
-                      onClick={() => updateForm({ aspectRatio: ar })}
-                    >
-                      {ar}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Aspect ratio for image mode */}
-        {mode === 'txt2img' && (
-          <div className="cr-section">
-            <label className="cr-label">Settings</label>
-            <div className="cr-settings-row">
-              <div className="cr-setting-group">
-                <span className="cr-setting-label">Aspect Ratio</span>
-                <div className="cr-chips">
-                  {['1:1', '16:9', '9:16', '4:3'].map((ar) => (
-                    <button
-                      key={ar}
-                      className={`cr-chip${form.aspectRatio === ar ? ' selected' : ''}`}
-                      onClick={() => updateForm({ aspectRatio: ar })}
-                    >
-                      {ar}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Negative Prompt (image mode only) */}
-        {mode === 'txt2img' && (
-          <div className="cr-section">
-            <label className="cr-label">Negative Prompt (optional)</label>
-            <input
-              className="cr-input"
-              type="text"
-              placeholder="Things to avoid: blurry, low quality, text..."
-              value={form.negativePrompt}
-              onChange={(e) => updateForm({ negativePrompt: e.target.value })}
-            />
-          </div>
-        )}
-
-        {/* Reference Image for txt2img */}
-        {mode === 'txt2img' && (
-          <div className="cr-section">
-            <label className="cr-label">Reference Image (optional)</label>
             <div
-              className={`cr-ref-upload${dragOver ? ' drag-over' : ''}`}
+              className={`gen-upload${dragOver ? ' drag-over' : ''}${form.imagePreview ? ' has-image' : ''}`}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
@@ -780,60 +488,266 @@ export default function CreatePage() {
                 if (file) handleImageFile(file);
               }}
             >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageFile(file);
+                }}
+              />
               {form.imagePreview ? (
-                <>
-                  <img src={form.imagePreview} alt="Reference" className="cr-ref-preview" />
+                <div className="gen-upload-filled">
+                  <img src={form.imagePreview} alt="Preview" className="gen-upload-img" />
                   <button
-                    className="cr-ref-remove"
+                    className="gen-upload-remove"
                     onClick={(e) => { e.stopPropagation(); removeImage(); }}
                   >
-                    &times;
+                    <span className="material-icons">close</span>
                   </button>
-                </>
+                </div>
               ) : (
-                <span className="cr-ref-hint">Drop reference image or click to browse</span>
+                <div className="gen-upload-empty">
+                  <span className="material-icons gen-upload-icon">cloud_upload</span>
+                  <span className="gen-upload-label">Click to upload an image</span>
+                  <span className="gen-upload-hint">PNG, JPG, JPEG, WebP</span>
+                </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Generate / Cancel Button */}
+        {/* Prompt */}
+        {mode !== 'style' && (
+          <div className="gen-section">
+            <div className="gen-section-header">
+              <label className="gen-label">Prompt</label>
+              <span className="gen-counter">{form.prompt.length}/{MAX_PROMPT}</span>
+            </div>
+            <textarea
+              className="gen-textarea"
+              placeholder={
+                mode === 'txt2img'
+                  ? 'Describe the image you want to generate...'
+                  : mode === 'txt2vid'
+                  ? 'Describe the video scene you want to create...'
+                  : 'Describe the motion and camera movement...'
+              }
+              value={form.prompt}
+              onChange={(e) => updateForm({ prompt: e.target.value.slice(0, MAX_PROMPT) })}
+              rows={4}
+            />
+          </div>
+        )}
+
+        {/* Provider Selector */}
+        {mode !== 'style' && (
+          <div className="gen-section">
+            <label className="gen-label">Model</label>
+            <div className="gen-provider-grid">
+              {providers.map((p) => {
+                const baseConfigured = configuredProviders.includes(p.id);
+                const needsVideoKey = p.id === 'pollinations' && isVideoMode && !pollinationsVideoKey;
+                const isConfigured = baseConfigured && !needsVideoKey;
+                return (
+                  <button
+                    key={p.id}
+                    className={`gen-provider${form.provider === p.id ? ' selected' : ''}${!isConfigured ? ' disabled' : ''}`}
+                    onClick={() => updateForm({ provider: p.id })}
+                  >
+                    <span className="material-icons gen-provider-icon">{p.icon}</span>
+                    <div className="gen-provider-info">
+                      <span className="gen-provider-name">{p.label}</span>
+                      <span className="gen-provider-sub">{p.sub}</span>
+                    </div>
+                    {!isConfigured && <span className="gen-provider-badge">No Key</span>}
+                    {form.provider === p.id && <span className="material-icons gen-provider-check">check_circle</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Settings Row */}
+        <div className="gen-settings">
+          {/* Duration (video only) */}
+          {isVideoMode && (
+            <div className="gen-setting">
+              <label className="gen-setting-label">Duration</label>
+              <div className="gen-seg">
+                {DURATIONS.map((d) => (
+                  <button
+                    key={d}
+                    className={`gen-seg-btn${form.duration === d ? ' active' : ''}`}
+                    onClick={() => updateForm({ duration: d })}
+                  >
+                    {d}s
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Aspect Ratio */}
+          <div className="gen-setting">
+            <label className="gen-setting-label">Aspect Ratio</label>
+            <div className="gen-seg">
+              {ASPECT_RATIOS.map((ar) => (
+                <button
+                  key={ar}
+                  className={`gen-seg-btn${form.aspectRatio === ar ? ' active' : ''}`}
+                  onClick={() => updateForm({ aspectRatio: ar })}
+                >
+                  {ar}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Section (collapsible) */}
+        <div className="gen-advanced">
+          <button
+            className="gen-advanced-toggle"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            <span className="material-icons gen-advanced-arrow">
+              {showAdvanced ? 'expand_less' : 'expand_more'}
+            </span>
+            Advanced
+          </button>
+
+          {showAdvanced && (
+            <div className="gen-advanced-body">
+              {/* Style Grid */}
+              {styles.length > 0 && (
+                <div className="gen-section">
+                  <label className="gen-label">Style</label>
+                  <div className="gen-style-grid">
+                    {styles.map((s) => (
+                      <button
+                        key={s.id}
+                        className={`gen-style${form.style === s.id ? ' selected' : ''}`}
+                        onClick={() => updateForm({ style: s.id })}
+                      >
+                        <span className="material-icons">{s.icon}</span>
+                        <span className="gen-style-name">{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Style Transfer presets */}
+              {mode === 'style' && (
+                <div className="gen-section">
+                  <label className="gen-label">Style Preset</label>
+                  <div className="gen-seg">
+                    {STYLE_PRESETS.map((s) => (
+                      <button
+                        key={s.id}
+                        className={`gen-seg-btn${form.style === s.id ? ' active' : ''}`}
+                        onClick={() => updateForm({ style: s.id })}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Negative Prompt */}
+              {mode === 'txt2img' && (
+                <div className="gen-section">
+                  <label className="gen-label">Negative Prompt</label>
+                  <input
+                    className="gen-input"
+                    type="text"
+                    placeholder="Things to avoid: blurry, low quality, text..."
+                    value={form.negativePrompt}
+                    onChange={(e) => updateForm({ negativePrompt: e.target.value })}
+                  />
+                </div>
+              )}
+
+              {/* Reference Image for txt2img */}
+              {mode === 'txt2img' && (
+                <div className="gen-section">
+                  <label className="gen-label">Reference Image</label>
+                  <div
+                    className={`gen-ref-upload${dragOver ? ' drag-over' : ''}`}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOver(false);
+                      const file = e.dataTransfer.files[0];
+                      if (file) handleImageFile(file);
+                    }}
+                  >
+                    {form.imagePreview ? (
+                      <>
+                        <img src={form.imagePreview} alt="Reference" className="gen-ref-img" />
+                        <button
+                          className="gen-ref-remove"
+                          onClick={(e) => { e.stopPropagation(); removeImage(); }}
+                        >
+                          <span className="material-icons">close</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="gen-ref-hint">Drop reference image or click to browse</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Generate / Cancel */}
         {generating ? (
-          <button className="cr-cancel-btn" onClick={handleCancel}>
+          <button className="gen-btn cancel" onClick={handleCancel}>
+            <span className="material-icons">stop_circle</span>
             Cancel Generation
           </button>
         ) : (
           <button
-            className="cr-generate-btn"
+            className="gen-btn primary"
             disabled={!canGenerate}
             onClick={handleGenerate}
           >
+            <span className="material-icons">auto_awesome</span>
             {generateLabel}
           </button>
         )}
 
-        {/* Progress with Step Indicators */}
+        {/* Progress */}
         {generating && (
-          <div className="cr-progress">
-            <div className="cr-steps">
+          <div className="gen-progress">
+            <div className="gen-progress-steps">
               {PROGRESS_STEPS.map((step, i) => {
                 const isActive = progress >= step.threshold;
                 const isCurrent = isActive && (i === PROGRESS_STEPS.length - 1 || progress < PROGRESS_STEPS[i + 1].threshold);
                 return (
-                  <div key={step.id} className={`cr-step${isActive ? ' active' : ''}${isCurrent ? ' current' : ''}`}>
-                    <div className="cr-step-dot" />
-                    <span className="cr-step-label">{step.label}</span>
+                  <div key={step.id} className={`gen-step${isActive ? ' active' : ''}${isCurrent ? ' current' : ''}`}>
+                    <div className="gen-step-dot" />
+                    <span className="gen-step-label">{step.label}</span>
                   </div>
                 );
               })}
             </div>
-            <div className="cr-progress-bar">
-              <div className="cr-progress-fill" style={{ width: `${progress * 100}%` }} />
+            <div className="gen-progress-track">
+              <div className="gen-progress-fill" style={{ width: `${progress * 100}%` }} />
             </div>
-            <div className="cr-progress-info">
-              <span className="cr-status-message">{statusMessage}</span>
+            <div className="gen-progress-meta">
+              <span className="gen-progress-msg">{statusMessage}</span>
               {startTime > 0 && progress > 0 && progress < 1 && (
-                <span className="cr-eta">
+                <span className="gen-progress-eta">
                   {(() => {
                     const elapsed = (Date.now() - startTime) / 1000;
                     const avgTime = PROVIDER_ETA[form.provider] || 60;
@@ -848,61 +762,67 @@ export default function CreatePage() {
 
         {/* Error */}
         {error && (
-          <div className="cr-error">{error}</div>
-        )}
-
-        {/* Result */}
-        {resultUrl && (
-          <div className="cr-result">
-            {resultType === 'video' ? (
-              <video className="cr-result-media" src={resultUrl} controls autoPlay loop muted />
-            ) : (
-              <img className="cr-result-media" src={resultUrl} alt="Generated" />
-            )}
-            <div className="cr-result-actions">
-              <button className="cr-action-btn primary" onClick={handleDownload}>
-                Download
-              </button>
-              <button className="cr-action-btn" onClick={handleReset}>
-                Generate Another
-              </button>
-            </div>
-          </div>
-        )}
-        {/* Recent History */}
-        {history.length > 0 && !generating && !resultUrl && (
-          <div className="cr-history">
-            <div className="cr-history-header">
-              <span className="cr-label">Recent Generations</span>
-              <button
-                className="cr-history-clear"
-                onClick={() => { setHistory([]); storageApi.clearHistory().catch(() => {}); }}
-              >
-                Clear
-              </button>
-            </div>
-            <div className="cr-history-list">
-              {history.slice(0, 6).map((item) => (
-                <div key={item.id} className="cr-history-item">
-                  <div className="cr-history-icon">
-                    <span className="material-icons">
-                      {item.resultType === 'video' ? 'movie' : 'image'}
-                    </span>
-                  </div>
-                  <div className="cr-history-info">
-                    <span className="cr-history-prompt">
-                      {item.prompt || `${item.style} ${item.resultType}`}
-                    </span>
-                    <span className="cr-history-meta">
-                      {item.provider} · {item.style} · {new Date(item.timestamp).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="gen-error">
+            <span className="material-icons">error_outline</span>
+            {error}
           </div>
         )}
       </div>
+
+      {/* Result */}
+      {resultUrl && (
+        <div className="gen-result">
+          <div className="gen-result-media-wrap">
+            {resultType === 'video' ? (
+              <video className="gen-result-media" src={resultUrl} controls autoPlay loop muted />
+            ) : (
+              <img className="gen-result-media" src={resultUrl} alt="Generated" />
+            )}
+          </div>
+          <div className="gen-result-actions">
+            <button className="gen-btn primary" onClick={handleDownload}>
+              <span className="material-icons">download</span>
+              Download
+            </button>
+            <button className="gen-btn secondary" onClick={handleReset}>
+              <span className="material-icons">refresh</span>
+              Create Another
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* History */}
+      {history.length > 0 && !generating && !resultUrl && (
+        <div className="gen-history">
+          <div className="gen-history-head">
+            <span className="gen-label">Recent</span>
+            <button
+              className="gen-history-clear"
+              onClick={() => { setHistory([]); storageApi.clearHistory().catch(() => {}); }}
+            >
+              Clear All
+            </button>
+          </div>
+          <div className="gen-history-grid">
+            {history.slice(0, 8).map((item) => (
+              <div key={item.id} className="gen-history-card">
+                <div className="gen-history-thumb">
+                  <span className="material-icons">
+                    {item.resultType === 'video' ? 'movie' : 'image'}
+                  </span>
+                </div>
+                <span className="gen-history-label">
+                  {item.prompt || `${item.style} ${item.resultType}`}
+                </span>
+                <span className="gen-history-meta">
+                  {item.provider} &middot; {new Date(item.timestamp).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,7 @@
 /* ========== Settings Page ========== */
 .st-page {
-  padding: 48px;
-  max-width: 720px;
-  margin: 0 auto;
+  padding: 20px 32px 24px;
+  max-width: 100%;
   font-family: var(--font-sans);
   color: var(--text-primary);
 }
