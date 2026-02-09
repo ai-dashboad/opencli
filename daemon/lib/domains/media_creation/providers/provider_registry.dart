@@ -3,17 +3,22 @@ import 'replicate_provider.dart';
 import 'runway_provider.dart';
 import 'kling_provider.dart';
 import 'luma_provider.dart';
+import 'local_provider.dart';
+import '../local_model_manager.dart';
 
 /// Registry of all AI video providers.
 /// Configured from ~/.opencli/config.yaml during domain initialization.
 class VideoProviderRegistry {
   final Map<String, AIVideoProvider> _providers = {};
 
-  VideoProviderRegistry() {
+  VideoProviderRegistry({LocalModelManager? localModelManager}) {
     _register(ReplicateVideoProvider());
     _register(RunwayVideoProvider());
     _register(KlingVideoProvider());
     _register(LumaVideoProvider());
+    if (localModelManager != null) {
+      _register(LocalVideoProvider(localModelManager));
+    }
   }
 
   void _register(AIVideoProvider provider) {
@@ -45,6 +50,8 @@ class VideoProviderRegistry {
           _providers['kling']?.configure(value);
         case 'luma':
           _providers['luma']?.configure(value);
+        case 'local':
+          _providers['local']?.configure(value);
       }
     }
   }

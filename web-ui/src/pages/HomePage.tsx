@@ -4,10 +4,10 @@ import { listPipelines, PipelineSummary } from '../api/pipeline-api';
 import '../styles/home.css';
 
 const QUICK_ACTIONS = [
-  { icon: 'movie', label: 'Image to Video', path: '/create/video' },
-  { icon: 'smart_display', label: 'Text to Video', path: '/create/video' },
-  { icon: 'account_tree', label: 'Pipeline Editor', path: '/pipelines', external: true },
-  { icon: 'image', label: 'Image Gen', path: '/create/image' },
+  { icon: 'movie', label: 'Image to Video', path: '/create?mode=img2vid' },
+  { icon: 'smart_display', label: 'Text to Video', path: '/create?mode=txt2vid' },
+  { icon: 'image', label: 'Image Gen', path: '/create?mode=txt2img' },
+  { icon: 'account_tree', label: 'Pipeline Editor', path: '/pipelines' },
   { icon: 'monitor_heart', label: 'System Status', path: '/status' },
 ];
 
@@ -51,8 +51,8 @@ export default function HomePage() {
 
   const handlePromptSubmit = () => {
     const target = prompt.trim()
-      ? `/create/video?prompt=${encodeURIComponent(prompt.trim())}`
-      : '/create/video';
+      ? `/create?mode=txt2vid&prompt=${encodeURIComponent(prompt.trim())}`
+      : '/create?mode=txt2vid';
     navigate(target);
   };
 
@@ -86,19 +86,12 @@ export default function HomePage() {
 
       {/* Quick Actions */}
       <div className="hp-quick-actions">
-        {QUICK_ACTIONS.map((action) =>
-          action.external ? (
-            <a key={action.label} href={action.path} className="hp-quick-card">
-              <span className="material-icons">{action.icon}</span>
-              {action.label}
-            </a>
-          ) : (
-            <Link key={action.label} to={action.path} className="hp-quick-card">
-              <span className="material-icons">{action.icon}</span>
-              {action.label}
-            </Link>
-          )
-        )}
+        {QUICK_ACTIONS.map((action) => (
+          <Link key={action.label} to={action.path} className="hp-quick-card">
+            <span className="material-icons">{action.icon}</span>
+            {action.label}
+          </Link>
+        ))}
       </div>
 
       {/* Recent Pipelines */}

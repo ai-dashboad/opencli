@@ -31,6 +31,15 @@ class MobileConnectionManager {
   Stream<MobileTaskSubmission> get taskSubmissions =>
       _taskSubmissionController.stream;
 
+  /// Set of cancelled task IDs — checked during long-running operations.
+  final Set<String> _cancelledTasks = {};
+
+  /// Check if a task has been cancelled.
+  bool isTaskCancelled(String taskId) => _cancelledTasks.contains(taskId);
+
+  /// Remove a task from the cancelled set (cleanup after processing).
+  void clearCancelledTask(String taskId) => _cancelledTasks.remove(taskId);
+
   /// Get list of connected device IDs
   List<String> get connectedClients => _activeConnections.keys.toList();
 
@@ -159,6 +168,13 @@ class MobileConnectionManager {
             case 'submit_task':
               if (deviceId != null) {
                 await _handleTaskSubmission(deviceId!, data);
+              } else {
+                _sendError(channel, 'Not authenticated');
+              }
+              break;
+            case 'cancel_task':
+              if (deviceId != null) {
+                _handleCancelTask(deviceId!, data);
               } else {
                 _sendError(channel, 'Not authenticated');
               }
@@ -467,6 +483,35 @@ class MobileConnectionManager {
       'task_type': taskType,
       'task_data': taskData,
       'timestamp': submission.submittedAt.millisecondsSinceEpoch,
+    });
+  }
+
+  /// Handle task cancellation from client.
+  void _handleCancelTask(String deviceId, Map<String, dynamic> data) {
+    final taskId = data['task_id'] as String?;
+    if (taskId == null) {
+      final client = _activeConnections[deviceId];
+      if (client != null) {
+        _sendError(client.channel, 'Missing task_id for cancellation');
+      }
+      return;
+    }
+
+    _cancelledTasks.add(taskId);
+    print('[MobileConnectionManager] Task cancelled: $taskId by $deviceId');
+
+    // Broadcast cancellation to all connected clients
+    _broadcastMessage({
+      'type': 'task_update',
+      'task_type': data['task_type'] ?? 'unknown',
+      'status': 'cancelled',
+      'result': {'message': 'Task cancelled by user'},
+      'task_id': taskId,
+    });
+
+    // Auto-cleanup after 5 minutes
+    Future.delayed(const Duration(minutes: 5), () {
+      _cancelledTasks.remove(taskId);
     });
   }
 

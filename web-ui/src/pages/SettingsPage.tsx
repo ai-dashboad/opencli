@@ -3,7 +3,7 @@ import '../styles/settings.css';
 
 const API_BASE = 'http://localhost:9529';
 
-type Tab = 'generation' | 'models' | 'general';
+type Tab = 'generation' | 'models' | 'local' | 'general';
 
 interface ProviderConfig {
   id: string;
@@ -222,6 +222,28 @@ const LLM_MODELS: ModelConfig[] = [
   },
 ];
 
+interface LocalModel {
+  id: string;
+  name: string;
+  type: string;
+  capabilities: string[];
+  size_gb: number;
+  description: string;
+  tags: string[];
+  downloaded: boolean;
+  disk_size_mb: number;
+}
+
+interface LocalEnv {
+  ok: boolean;
+  python_version: string;
+  torch_version?: string;
+  device: string;
+  gpu?: string | null;
+  missing_packages: string[];
+  venv_exists: boolean;
+}
+
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>('generation');
   const [config, setConfig] = useState<any>(null);
@@ -232,6 +254,12 @@ export default function SettingsPage() {
   // Editable API key values
   const [providerKeys, setProviderKeys] = useState<Record<string, string>>({});
   const [modelKeys, setModelKeys] = useState<Record<string, string>>({});
+
+  // Local models state
+  const [localModels, setLocalModels] = useState<LocalModel[]>([]);
+  const [localEnv, setLocalEnv] = useState<LocalEnv | null>(null);
+  const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
+  const [settingUp, setSettingUp] = useState(false);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -259,9 +287,25 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const fetchLocalModels = useCallback(async () => {
+    try {
+      const [modelsRes, envRes] = await Promise.all([
+        fetch(`${API_BASE}/api/v1/local-models`),
+        fetch(`${API_BASE}/api/v1/local-models/environment`),
+      ]);
+      const modelsData = await modelsRes.json();
+      const envData = await envRes.json();
+      setLocalModels(modelsData.models || []);
+      setLocalEnv(envData);
+    } catch {
+      // Local models API may not be available
+    }
+  }, []);
+
   useEffect(() => {
     fetchConfig();
-  }, [fetchConfig]);
+    fetchLocalModels();
+  }, [fetchConfig, fetchLocalModels]);
 
   // Auto-dismiss banner
   useEffect(() => {
@@ -333,6 +377,90 @@ export default function SettingsPage() {
     }
   };
 
+  // Toggle a general setting
+  const toggleSetting = async (path: string, currentValue: boolean) => {
+    try {
+      let body: Record<string, unknown>;
+      if (path === 'auto_mode') {
+        body = { auto_mode: !currentValue };
+      } else if (path === 'cache.enabled') {
+        body = { cache: { enabled: !currentValue } };
+      } else if (path === 'plugins.auto_load') {
+        body = { plugins: { auto_load: !currentValue } };
+      } else return;
+      const res = await fetch(`${API_BASE}/api/v1/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBanner({ type: 'success', message: `Setting updated.` });
+        await fetchConfig();
+      } else {
+        setBanner({ type: 'error', message: data.error || 'Failed to update' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: 'Failed to update. Check daemon connection.' });
+    }
+  };
+
+  // Download a local model
+  const downloadLocalModel = async (modelId: string) => {
+    setDownloadingModel(modelId);
+    setBanner({ type: 'info', message: `Downloading ${modelId}... This may take a while.` });
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/local-models/${modelId}/download`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setBanner({ type: 'success', message: `${modelId} downloaded successfully!` });
+        await fetchLocalModels();
+      } else {
+        setBanner({ type: 'error', message: data.error || 'Download failed' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: 'Download failed. Check daemon connection.' });
+    } finally {
+      setDownloadingModel(null);
+    }
+  };
+
+  // Delete a local model
+  const deleteLocalModel = async (modelId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/local-models/${modelId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setBanner({ type: 'success', message: `${modelId} deleted.` });
+        await fetchLocalModels();
+      } else {
+        setBanner({ type: 'error', message: data.error || 'Delete failed' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: 'Delete failed.' });
+    }
+  };
+
+  // Setup local inference environment
+  const setupEnvironment = async () => {
+    setSettingUp(true);
+    setBanner({ type: 'info', message: 'Setting up Python environment... This may take a few minutes.' });
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/local-models/setup`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setBanner({ type: 'success', message: 'Environment setup complete! Python + PyTorch ready.' });
+        await fetchLocalModels();
+      } else {
+        setBanner({ type: 'error', message: data.message || data.error || 'Setup failed' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: 'Setup failed. Check daemon connection.' });
+    } finally {
+      setSettingUp(false);
+    }
+  };
+
   // Handle Enter key to save
   const handleProviderKeyDown = (e: React.KeyboardEvent, provider: ProviderConfig) => {
     if (e.key === 'Enter') saveProviderKey(provider);
@@ -377,6 +505,10 @@ export default function SettingsPage() {
         <button className={`st-tab${tab === 'models' ? ' active' : ''}`} onClick={() => setTab('models')}>
           <span className="material-icons">psychology</span>
           LLM Models
+        </button>
+        <button className={`st-tab${tab === 'local' ? ' active' : ''}`} onClick={() => setTab('local')}>
+          <span className="material-icons">computer</span>
+          Local Models
         </button>
         <button className={`st-tab${tab === 'general' ? ' active' : ''}`} onClick={() => setTab('general')}>
           <span className="material-icons">tune</span>
@@ -500,6 +632,247 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Local Models Tab */}
+      {tab === 'local' && (
+        <>
+          {/* Environment Status */}
+          <div className="st-section">
+            <div className="st-section-header">
+              <div className="st-section-icon green">
+                <span className="material-icons">memory</span>
+              </div>
+              <div>
+                <div className="st-section-title">Local Environment</div>
+                <div className="st-section-desc">Python + PyTorch inference runtime</div>
+              </div>
+            </div>
+
+            {localEnv ? (
+              <div className={`st-banner ${localEnv.ok ? 'success' : 'info'}`}>
+                <span className="material-icons">{localEnv.ok ? 'check_circle' : 'info'}</span>
+                <div>
+                  <div>Python: {localEnv.python_version?.split(' ')[0] || 'not found'}</div>
+                  {localEnv.torch_version && <div>PyTorch: {localEnv.torch_version}</div>}
+                  <div>Device: {localEnv.device === 'mps' ? 'Apple Silicon (MPS)' : localEnv.device === 'cuda' ? `CUDA (${localEnv.gpu || 'GPU'})` : 'CPU'}</div>
+                  {localEnv.missing_packages.length > 0 && (
+                    <div style={{ marginTop: 4, color: 'var(--red)' }}>
+                      Missing: {localEnv.missing_packages.join(', ')}
+                    </div>
+                  )}
+                  {!localEnv.venv_exists && (
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        className="st-key-btn save"
+                        onClick={setupEnvironment}
+                        disabled={settingUp}
+                        style={{ marginTop: 4 }}
+                      >
+                        {settingUp ? 'Setting up...' : 'Setup Environment'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="st-banner info">
+                <span className="material-icons">info</span>
+                <div>
+                  <div>Local inference environment not detected.</div>
+                  <button
+                    className="st-key-btn save"
+                    onClick={setupEnvironment}
+                    disabled={settingUp}
+                    style={{ marginTop: 8 }}
+                  >
+                    {settingUp ? 'Setting up...' : 'Setup Environment'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Image Models */}
+          <div className="st-section">
+            <div className="st-section-header">
+              <div className="st-section-icon purple">
+                <span className="material-icons">image</span>
+              </div>
+              <div>
+                <div className="st-section-title">Image Generation</div>
+                <div className="st-section-desc">Local text-to-image diffusion models — no API key required</div>
+              </div>
+            </div>
+
+            <div className="st-provider-list">
+              {(localModels.length > 0
+                ? localModels.filter((m) => m.type === 'text2img')
+                : [
+                    { id: 'waifu_diffusion', name: 'Waifu Diffusion', type: 'text2img', capabilities: ['image'], size_gb: 2.0, description: 'Anime-style image generation based on Stable Diffusion 1.5', tags: ['anime', 'illustration'], downloaded: false, disk_size_mb: 0 },
+                    { id: 'animagine_xl', name: 'Animagine XL 3.1', type: 'text2img', capabilities: ['image'], size_gb: 6.5, description: 'High-quality anime image generation based on SDXL', tags: ['anime', 'illustration', 'xl'], downloaded: false, disk_size_mb: 0 },
+                    { id: 'pony_diffusion', name: 'Pony Diffusion V6 XL', type: 'text2img', capabilities: ['image'], size_gb: 6.5, description: 'Versatile anime/illustration model based on SDXL', tags: ['anime', 'illustration', 'versatile', 'xl'], downloaded: false, disk_size_mb: 0 },
+                  ]
+              ).map((m) => (
+                <div key={m.id} className={`st-provider${m.downloaded ? ' configured' : ''}`}>
+                  <div className="st-provider-top">
+                    <div className="st-provider-info">
+                      <span className="st-provider-name">{m.name}</span>
+                      <span className={`st-provider-badge ${m.downloaded ? 'active' : 'inactive'}`}>
+                        {m.downloaded ? 'DOWNLOADED' : 'NOT INSTALLED'}
+                      </span>
+                      {m.tags.map((t) => (
+                        <span key={t} className="st-cap-badge">{t}</span>
+                      ))}
+                    </div>
+                    <span className="st-provider-meta">{m.size_gb} GB</span>
+                  </div>
+                  <div className="st-provider-meta">{m.description}</div>
+                  <div className="st-key-row" style={{ marginTop: 8 }}>
+                    {m.downloaded ? (
+                      <>
+                        <span className="st-provider-meta" style={{ flex: 1 }}>
+                          {m.disk_size_mb > 0 ? `${m.disk_size_mb.toFixed(0)} MB on disk` : 'Installed'}
+                        </span>
+                        <button className="st-key-btn" onClick={() => deleteLocalModel(m.id)}>
+                          Delete
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="st-key-btn save"
+                        disabled={downloadingModel !== null || !localEnv?.ok}
+                        onClick={() => downloadLocalModel(m.id)}
+                        style={{ width: '100%' }}
+                      >
+                        {downloadingModel === m.id ? 'Downloading...' : 'Download'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Video/Animation Models */}
+          <div className="st-section">
+            <div className="st-section-header">
+              <div className="st-section-icon blue">
+                <span className="material-icons">movie</span>
+              </div>
+              <div>
+                <div className="st-section-title">Video & Animation</div>
+                <div className="st-section-desc">Local video generation and animation models</div>
+              </div>
+            </div>
+
+            <div className="st-provider-list">
+              {(localModels.length > 0
+                ? localModels.filter((m) => m.type === 'text2video' || m.type === 'img2video')
+                : [
+                    { id: 'animatediff', name: 'AnimateDiff', type: 'text2video', capabilities: ['video', 'animation'], size_gb: 4.5, description: 'Generate short animated videos from text prompts', tags: ['animation', 'video', 'motion'], downloaded: false, disk_size_mb: 0 },
+                    { id: 'stable_video_diffusion', name: 'Stable Video Diffusion', type: 'img2video', capabilities: ['video'], size_gb: 4.0, description: 'Generate video from a single image', tags: ['video', 'img2vid'], downloaded: false, disk_size_mb: 0 },
+                  ]
+              ).map((m) => (
+                <div key={m.id} className={`st-provider${m.downloaded ? ' configured' : ''}`}>
+                  <div className="st-provider-top">
+                    <div className="st-provider-info">
+                      <span className="st-provider-name">{m.name}</span>
+                      <span className={`st-provider-badge ${m.downloaded ? 'active' : 'inactive'}`}>
+                        {m.downloaded ? 'DOWNLOADED' : 'NOT INSTALLED'}
+                      </span>
+                      {m.tags.map((t) => (
+                        <span key={t} className="st-cap-badge">{t}</span>
+                      ))}
+                    </div>
+                    <span className="st-provider-meta">{m.size_gb} GB</span>
+                  </div>
+                  <div className="st-provider-meta">{m.description}</div>
+                  <div className="st-key-row" style={{ marginTop: 8 }}>
+                    {m.downloaded ? (
+                      <>
+                        <span className="st-provider-meta" style={{ flex: 1 }}>
+                          {m.disk_size_mb > 0 ? `${m.disk_size_mb.toFixed(0)} MB on disk` : 'Installed'}
+                        </span>
+                        <button className="st-key-btn" onClick={() => deleteLocalModel(m.id)}>
+                          Delete
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="st-key-btn save"
+                        disabled={downloadingModel !== null || !localEnv?.ok}
+                        onClick={() => downloadLocalModel(m.id)}
+                        style={{ width: '100%' }}
+                      >
+                        {downloadingModel === m.id ? 'Downloading...' : 'Download'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Style Transfer */}
+          <div className="st-section">
+            <div className="st-section-header">
+              <div className="st-section-icon orange">
+                <span className="material-icons">style</span>
+              </div>
+              <div>
+                <div className="st-section-title">Style Transfer</div>
+                <div className="st-section-desc">Transform photos into artistic styles</div>
+              </div>
+            </div>
+
+            <div className="st-provider-list">
+              {(localModels.length > 0
+                ? localModels.filter((m) => m.type === 'style_transfer')
+                : [
+                    { id: 'animegan_v3', name: 'AnimeGAN v3', type: 'style_transfer', capabilities: ['image', 'style_transfer'], size_gb: 0.1, description: 'Transform photos into anime-style artwork', tags: ['anime', 'style_transfer', 'lightweight'], downloaded: false, disk_size_mb: 0 },
+                  ]
+              ).map((m) => (
+                <div key={m.id} className={`st-provider${m.downloaded ? ' configured' : ''}`}>
+                  <div className="st-provider-top">
+                    <div className="st-provider-info">
+                      <span className="st-provider-name">{m.name}</span>
+                      <span className={`st-provider-badge ${m.downloaded ? 'active' : 'inactive'}`}>
+                        {m.downloaded ? 'DOWNLOADED' : 'NOT INSTALLED'}
+                      </span>
+                      {m.tags.map((t) => (
+                        <span key={t} className="st-cap-badge">{t}</span>
+                      ))}
+                    </div>
+                    <span className="st-provider-meta">{m.size_gb} GB</span>
+                  </div>
+                  <div className="st-provider-meta">{m.description}</div>
+                  <div className="st-key-row" style={{ marginTop: 8 }}>
+                    {m.downloaded ? (
+                      <>
+                        <span className="st-provider-meta" style={{ flex: 1 }}>
+                          {m.disk_size_mb > 0 ? `${m.disk_size_mb.toFixed(0)} MB on disk` : 'Installed'}
+                        </span>
+                        <button className="st-key-btn" onClick={() => deleteLocalModel(m.id)}>
+                          Delete
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="st-key-btn save"
+                        disabled={downloadingModel !== null || !localEnv?.ok}
+                        onClick={() => downloadLocalModel(m.id)}
+                        style={{ width: '100%' }}
+                      >
+                        {downloadingModel === m.id ? 'Downloading...' : 'Download'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* General Tab */}
       {tab === 'general' && (
         <>
@@ -520,7 +893,7 @@ export default function SettingsPage() {
                 <div className="st-toggle-desc">Automatically select best model for each task</div>
               </div>
               <label className="st-toggle">
-                <input type="checkbox" checked={config?.auto_mode ?? true} readOnly />
+                <input type="checkbox" checked={config?.auto_mode ?? true} onChange={() => toggleSetting('auto_mode', config?.auto_mode ?? true)} />
                 <span className="st-toggle-track" />
               </label>
             </div>
@@ -531,7 +904,7 @@ export default function SettingsPage() {
                 <div className="st-toggle-desc">Cache AI responses for faster repeat queries</div>
               </div>
               <label className="st-toggle">
-                <input type="checkbox" checked={config?.cache?.enabled ?? true} readOnly />
+                <input type="checkbox" checked={config?.cache?.enabled ?? true} onChange={() => toggleSetting('cache.enabled', config?.cache?.enabled ?? true)} />
                 <span className="st-toggle-track" />
               </label>
             </div>
@@ -542,7 +915,7 @@ export default function SettingsPage() {
                 <div className="st-toggle-desc">Automatically load plugins from ~/.opencli/plugins</div>
               </div>
               <label className="st-toggle">
-                <input type="checkbox" checked={config?.plugins?.auto_load ?? true} readOnly />
+                <input type="checkbox" checked={config?.plugins?.auto_load ?? true} onChange={() => toggleSetting('plugins.auto_load', config?.plugins?.auto_load ?? true)} />
                 <span className="st-toggle-track" />
               </label>
             </div>

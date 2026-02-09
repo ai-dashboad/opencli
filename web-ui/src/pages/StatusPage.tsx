@@ -512,11 +512,25 @@ function StatusPage() {
           </div>
 
           <div className="action-buttons">
-            <button className="quantum-button">
+            <button className="quantum-button" onClick={() => {
+              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({
+                  type: 'submit_task',
+                  task_type: 'system_info',
+                  task_data: { _user_input: 'system info' },
+                }));
+                addSystemMessage('Test task sent: system_info', 'user');
+              } else {
+                addSystemMessage('WebSocket not connected', 'system');
+              }
+            }}>
               <span className="button-icon material-symbols-outlined" style={{fontSize: '18px'}}>send</span>
               <span className="button-text">Send Test</span>
             </button>
-            <button className="quantum-button secondary">
+            <button className="quantum-button secondary" onClick={() => {
+              loadStatus();
+              addSystemMessage('Status reloaded', 'user');
+            }}>
               <span className="button-icon material-symbols-outlined" style={{fontSize: '18px'}}>refresh</span>
               <span className="button-text">Reload</span>
             </button>

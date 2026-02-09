@@ -11,6 +11,7 @@ import 'package:opencli_daemon/ipc/ipc_protocol.dart';
 import 'package:opencli_daemon/api/api_translator.dart';
 import 'package:opencli_daemon/api/message_handler.dart';
 import 'package:opencli_daemon/pipeline/pipeline_api.dart';
+import 'package:opencli_daemon/domains/media_creation/local_model_manager.dart';
 
 /// Unified API server on port 9529 for Web UI integration
 ///
@@ -23,6 +24,7 @@ class UnifiedApiServer {
   HttpServer? _server;
   PipelineApi? _pipelineApi;
   Future<void> Function()? _onConfigSaved;
+  LocalModelManager? _localModelManager;
 
   UnifiedApiServer({
     required RequestRouter requestRouter,
@@ -30,10 +32,12 @@ class UnifiedApiServer {
     this.port = 9529,
     PipelineApi? pipelineApi,
     Future<void> Function()? onConfigSaved,
+    LocalModelManager? localModelManager,
   })  : _requestRouter = requestRouter,
         _messageHandler = messageHandler,
         _pipelineApi = pipelineApi,
-        _onConfigSaved = onConfigSaved;
+        _onConfigSaved = onConfigSaved,
+        _localModelManager = localModelManager;
 
   /// Set pipeline API (can be configured after construction).
   void setPipelineApi(PipelineApi api) {
@@ -58,6 +62,13 @@ class UnifiedApiServer {
     // Config API routes
     router.get('/api/v1/config', _handleGetConfig);
     router.post('/api/v1/config', _handleUpdateConfig);
+
+    // Local model API routes
+    router.get('/api/v1/local-models', _handleListLocalModels);
+    router.get('/api/v1/local-models/environment', _handleLocalEnv);
+    router.post('/api/v1/local-models/setup', _handleSetupEnvironment);
+    router.post('/api/v1/local-models/<modelId>/download', _handleDownloadModel);
+    router.delete('/api/v1/local-models/<modelId>', _handleDeleteModel);
 
     // Pipeline API routes
     _pipelineApi?.registerRoutes(router);
@@ -365,6 +376,173 @@ class UnifiedApiServer {
       return "'${s.replaceAll("'", "''")}'";
     }
     return s;
+  }
+
+  /// Handle GET /api/v1/local-models
+  Future<shelf.Response> _handleListLocalModels(shelf.Request request) async {
+    try {
+      if (_localModelManager == null) {
+        return shelf.Response.ok(
+          jsonEncode({'models': [], 'available': false}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final models = await _localModelManager!.listModels();
+      return shelf.Response.ok(
+        jsonEncode({
+          'models': models.map((m) => m.toJson()).toList(),
+          'available': _localModelManager!.isAvailable,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return shelf.Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to list models: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  /// Handle GET /api/v1/local-models/environment
+  Future<shelf.Response> _handleLocalEnv(shelf.Request request) async {
+    try {
+      if (_localModelManager == null) {
+        return shelf.Response.ok(
+          jsonEncode({
+            'ok': false,
+            'python_version': 'not configured',
+            'device': 'unknown',
+            'missing_packages': ['local-inference not initialized'],
+            'venv_exists': false,
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final env = await _localModelManager!.checkEnvironment();
+      return shelf.Response.ok(
+        jsonEncode(env.toJson()),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return shelf.Response.internalServerError(
+        body: jsonEncode({'error': 'Failed to check environment: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  /// Handle POST /api/v1/local-models/setup
+  /// Runs local-inference/setup.sh to create venv and install dependencies
+  Future<shelf.Response> _handleSetupEnvironment(shelf.Request request) async {
+    try {
+      // Find setup.sh relative to the daemon's working directory
+      final scriptPath = path.join(
+        Directory.current.path, '..', 'local-inference', 'setup.sh',
+      );
+      final scriptFile = File(path.normalize(scriptPath));
+
+      if (!await scriptFile.exists()) {
+        // Try from home dir
+        final home = Platform.environment['HOME'] ?? '.';
+        final altPath = path.join(home, 'development', 'opencli', 'local-inference', 'setup.sh');
+        final altFile = File(altPath);
+        if (!await altFile.exists()) {
+          return shelf.Response.notFound(
+            jsonEncode({'error': 'setup.sh not found. Expected at local-inference/setup.sh'}),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
+        return _runSetupScript(altPath);
+      }
+      return _runSetupScript(path.normalize(scriptPath));
+    } catch (e) {
+      return shelf.Response.internalServerError(
+        body: jsonEncode({'error': 'Setup failed: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  Future<shelf.Response> _runSetupScript(String scriptPath) async {
+    try {
+      final result = await Process.run(
+        'bash',
+        [scriptPath],
+        environment: Platform.environment,
+        workingDirectory: path.dirname(scriptPath),
+      ).timeout(const Duration(minutes: 10));
+
+      final success = result.exitCode == 0;
+      return shelf.Response.ok(
+        jsonEncode({
+          'success': success,
+          'exit_code': result.exitCode,
+          'stdout': result.stdout.toString(),
+          'stderr': result.stderr.toString(),
+          'message': success
+              ? 'Environment setup complete!'
+              : 'Setup failed with exit code ${result.exitCode}',
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } on TimeoutException {
+      return shelf.Response.internalServerError(
+        body: jsonEncode({'error': 'Setup timed out after 10 minutes'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  /// Handle POST /api/v1/local-models/:modelId/download
+  Future<shelf.Response> _handleDownloadModel(
+      shelf.Request request, String modelId) async {
+    try {
+      if (_localModelManager == null || !_localModelManager!.isAvailable) {
+        return shelf.Response.internalServerError(
+          body: jsonEncode({
+            'error': 'Local inference not available. Run local-inference/setup.sh first.'
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final result = await _localModelManager!.downloadModel(modelId);
+      return shelf.Response.ok(
+        jsonEncode(result),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return shelf.Response.internalServerError(
+        body: jsonEncode({'error': 'Download failed: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  /// Handle DELETE /api/v1/local-models/:modelId
+  Future<shelf.Response> _handleDeleteModel(
+      shelf.Request request, String modelId) async {
+    try {
+      if (_localModelManager == null) {
+        return shelf.Response.notFound(
+          jsonEncode({'error': 'Local model manager not available'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final result = await _localModelManager!.deleteModel(modelId);
+      return shelf.Response.ok(
+        jsonEncode(result),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return shelf.Response.internalServerError(
+        body: jsonEncode({'error': 'Delete failed: $e'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
   }
 
   /// CORS middleware for Web UI access

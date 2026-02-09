@@ -7,6 +7,7 @@ import '../domain.dart';
 import 'providers/video_provider.dart';
 import 'providers/provider_registry.dart';
 import 'prompt_builder.dart';
+import 'local_model_manager.dart';
 
 class MediaCreationDomain extends TaskDomain {
   @override
@@ -22,7 +23,8 @@ class MediaCreationDomain extends TaskDomain {
   int get colorHex => 0xFF7C4DFF;
 
   String? _ffmpegPath;
-  final VideoProviderRegistry _providerRegistry = VideoProviderRegistry();
+  final LocalModelManager _localModelManager = LocalModelManager();
+  late final VideoProviderRegistry _providerRegistry;
 
   @override
   List<String> get taskTypes => [
@@ -30,7 +32,13 @@ class MediaCreationDomain extends TaskDomain {
         'media_create_slideshow',
         'media_ai_generate_video',
         'media_ai_generate_image',
+        'media_local_generate_image',
+        'media_local_generate_video',
+        'media_local_style_transfer',
       ];
+
+  /// Expose the local model manager for API endpoints.
+  LocalModelManager get localModelManager => _localModelManager;
 
   @override
   List<DomainIntentPattern> get intentPatterns => [
@@ -243,6 +251,27 @@ class MediaCreationDomain extends TaskDomain {
           icon: 'auto_awesome',
           colorHex: 0xFF7C4DFF,
         ),
+        'media_local_generate_image': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Local Image',
+          subtitleTemplate: '\${model}',
+          icon: 'computer',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_local_generate_video': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Local Video',
+          subtitleTemplate: '\${model}',
+          icon: 'computer',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_local_style_transfer': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Style Transfer',
+          subtitleTemplate: 'AnimeGAN \${style}',
+          icon: 'style',
+          colorHex: 0xFF7C4DFF,
+        ),
       };
 
   @override
@@ -255,6 +284,21 @@ class MediaCreationDomain extends TaskDomain {
       _ffmpegPath = (result.stdout as String).trim();
       print('[MediaCreationDomain] FFmpeg found at: $_ffmpegPath');
     }
+
+    // Initialize local model manager
+    try {
+      await _localModelManager.initialize();
+      if (_localModelManager.isAvailable) {
+        print('[MediaCreationDomain] Local inference available');
+      }
+    } catch (e) {
+      print('[MediaCreationDomain] Local inference not available: $e');
+    }
+
+    // Create provider registry with local model support
+    _providerRegistry = VideoProviderRegistry(
+      localModelManager: _localModelManager.isAvailable ? _localModelManager : null,
+    );
 
     // Load AI video provider config from ~/.opencli/config.yaml
     try {
@@ -342,6 +386,12 @@ class MediaCreationDomain extends TaskDomain {
         return _aiGenerateVideo(taskData);
       case 'media_ai_generate_image':
         return _aiGenerateImage(taskData);
+      case 'media_local_generate_image':
+        return _localGenerateImage(taskData);
+      case 'media_local_generate_video':
+        return _localGenerateVideo(taskData);
+      case 'media_local_style_transfer':
+        return _localStyleTransfer(taskData);
       default:
         return {
           'success': false,
@@ -362,6 +412,15 @@ class MediaCreationDomain extends TaskDomain {
     }
     if (taskType == 'media_ai_generate_image') {
       return _aiGenerateImage(taskData, onProgress: onProgress);
+    }
+    if (taskType == 'media_local_generate_image') {
+      return _localGenerateImage(taskData, onProgress: onProgress);
+    }
+    if (taskType == 'media_local_generate_video') {
+      return _localGenerateVideo(taskData, onProgress: onProgress);
+    }
+    if (taskType == 'media_local_style_transfer') {
+      return _localStyleTransfer(taskData, onProgress: onProgress);
     }
     return executeTask(taskType, taskData);
   }
@@ -893,6 +952,203 @@ class MediaCreationDomain extends TaskDomain {
       return '$stylePrefix ${trimmed.substring(trimmed.indexOf(' ') + 1)}';
     }
     return '$stylePrefix $trimmed';
+  }
+
+  /// Generate an image using a local model (Waifu Diffusion, Animagine, Pony).
+  Future<Map<String, dynamic>> _localGenerateImage(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available. Run local-inference/setup.sh first.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final prompt = data['prompt'] as String?;
+    if (prompt == null || prompt.trim().isEmpty) {
+      return {
+        'success': false,
+        'error': 'No prompt provided.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final modelId = data['model'] as String? ?? 'waifu_diffusion';
+    final width = (data['width'] as num?)?.toInt();
+    final height = (data['height'] as num?)?.toInt();
+    final steps = (data['steps'] as num?)?.toInt() ?? 30;
+    final negativePrompt = data['negative_prompt'] as String?;
+
+    onProgress?.call({
+      'progress': 0.05,
+      'status_message': 'Starting local model ($modelId)...',
+      'provider': 'local',
+      'model': modelId,
+      'generation_type': 'local_image',
+    });
+
+    final result = await _localModelManager.generateImage(
+      modelId: modelId,
+      prompt: prompt,
+      negativePrompt: negativePrompt,
+      width: width,
+      height: height,
+      steps: steps,
+    );
+
+    if (result.success && result.imageBase64 != null) {
+      return {
+        'success': true,
+        'image_base64': result.imageBase64,
+        'provider': 'local',
+        'model': modelId,
+        'generation_type': 'local_image',
+        'message': 'Image generated locally via $modelId',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result.error ?? 'Local image generation failed',
+      'provider': 'local',
+      'model': modelId,
+      'generation_type': 'local_image',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  /// Generate a video using a local model (AnimateDiff or SVD).
+  Future<Map<String, dynamic>> _localGenerateVideo(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available. Run local-inference/setup.sh first.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final modelId = data['model'] as String? ?? 'animatediff';
+    final prompt = data['prompt'] as String?;
+    final imageBase64 = data['image_base64'] as String?;
+    final frames = (data['frames'] as num?)?.toInt() ?? 16;
+
+    onProgress?.call({
+      'progress': 0.05,
+      'status_message': 'Starting local video model ($modelId)...',
+      'provider': 'local',
+      'model': modelId,
+      'generation_type': 'local_video',
+    });
+
+    final result = await _localModelManager.generateVideo(
+      modelId: modelId,
+      prompt: prompt,
+      imageBase64: imageBase64,
+      frames: frames,
+    );
+
+    if (result.success && result.videoBase64 != null) {
+      final sizeBytes = result.videoBase64!.length * 3 ~/ 4;
+      final sizeMB = (sizeBytes / 1024 / 1024).toStringAsFixed(1);
+
+      return {
+        'success': true,
+        'video_base64': result.videoBase64,
+        'provider': 'local',
+        'model': modelId,
+        'generation_type': 'local_video',
+        'size_bytes': sizeBytes,
+        'message': 'Video generated locally via $modelId ($sizeMB MB)',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result.error ?? 'Local video generation failed',
+      'provider': 'local',
+      'model': modelId,
+      'generation_type': 'local_video',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  /// Apply style transfer using AnimeGAN.
+  Future<Map<String, dynamic>> _localStyleTransfer(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available. Run local-inference/setup.sh first.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final imageBase64 = data['image_base64'] as String?;
+    if (imageBase64 == null || imageBase64.isEmpty) {
+      return {
+        'success': false,
+        'error': 'No image provided for style transfer.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final style = data['style'] as String? ?? 'face_paint_512_v2';
+
+    onProgress?.call({
+      'progress': 0.1,
+      'status_message': 'Applying anime style transfer...',
+      'provider': 'local',
+      'model': 'animegan_v3',
+      'generation_type': 'style_transfer',
+    });
+
+    final result = await _localModelManager.styleTransfer(
+      imageBase64: imageBase64,
+      style: style,
+    );
+
+    if (result.success && result.imageBase64 != null) {
+      return {
+        'success': true,
+        'image_base64': result.imageBase64,
+        'provider': 'local',
+        'model': 'animegan_v3',
+        'style': style,
+        'generation_type': 'style_transfer',
+        'message': 'Style transfer applied via AnimeGAN v3',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result.error ?? 'Style transfer failed',
+      'provider': 'local',
+      'model': 'animegan_v3',
+      'generation_type': 'style_transfer',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
   }
 
   Future<Map<String, dynamic>> _animatePhoto(Map<String, dynamic> data) async {

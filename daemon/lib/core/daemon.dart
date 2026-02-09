@@ -234,12 +234,20 @@ class Daemon {
 
     // Start unified API server for Web UI integration
     TerminalUI.printInitStep('Starting unified API server', last: true);
+    // Get local model manager from media domain
+    final mediaDomain = _domainRegistry.getDomain('media_creation');
+    dynamic localModelMgr;
+    try {
+      localModelMgr = (mediaDomain as dynamic).localModelManager;
+    } catch (_) {}
+
     _unifiedApiServer = UnifiedApiServer(
       requestRouter: _router,
       messageHandler: MessageHandler(), // Create new instance for unified API
       port: 9529,
       pipelineApi: pipelineApi,
       onConfigSaved: reloadMediaProviders,
+      localModelManager: localModelMgr,
     );
     await _unifiedApiServer!.start();
     TerminalUI.success('Unified API server listening on port 9529',
