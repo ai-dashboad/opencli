@@ -5,6 +5,7 @@ const navItems = [
   { icon: 'home', label: 'Home', path: '/' },
   { icon: 'auto_awesome', label: 'Create', path: '/create' },
   { icon: 'account_tree', label: 'Pipeline', path: '/pipelines' },
+  { icon: 'theaters', label: 'Episodes', path: '/episodes' },
   { icon: 'folder', label: 'Assets', path: '/assets' },
 ];
 

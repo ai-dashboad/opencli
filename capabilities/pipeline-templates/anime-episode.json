@@ -1,0 +1,135 @@
+{
+  "id": "template_anime_episode",
+  "name": "Anime Episode (3 Scenes)",
+  "description": "Generate a mini anime episode with 3 scenes: opening, conflict, resolution. Each scene gets AI image generation, video animation, TTS voice acting, and subtitle overlay.",
+  "parameters": [
+    {
+      "name": "narrative_text",
+      "type": "string",
+      "description": "Novel text or story synopsis to convert into an anime episode",
+      "required": true
+    },
+    {
+      "name": "language",
+      "type": "string",
+      "description": "Language for dialogue and TTS (zh-CN, ja-JP, en-US)",
+      "defaultValue": "zh-CN"
+    },
+    {
+      "name": "style",
+      "type": "string",
+      "description": "Visual style preset (anime, cinematic, epic)",
+      "defaultValue": "anime"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "img_0",
+      "type": "media_ai_generate_image",
+      "domain": "media_creation",
+      "label": "Scene 1: Opening Image",
+      "position": { "x": 100, "y": 50 },
+      "params": {
+        "prompt": "{{params.narrative_text}} - Opening scene, anime style, establishing shot, cinematic lighting, 16:9",
+        "style": "anime",
+        "aspect_ratio": "16:9",
+        "provider": "pollinations"
+      }
+    },
+    {
+      "id": "img_1",
+      "type": "media_ai_generate_image",
+      "domain": "media_creation",
+      "label": "Scene 2: Conflict Image",
+      "position": { "x": 100, "y": 200 },
+      "params": {
+        "prompt": "{{params.narrative_text}} - Dramatic conflict scene, anime style, intense action, dynamic composition, 16:9",
+        "style": "anime",
+        "aspect_ratio": "16:9",
+        "provider": "pollinations"
+      }
+    },
+    {
+      "id": "img_2",
+      "type": "media_ai_generate_image",
+      "domain": "media_creation",
+      "label": "Scene 3: Resolution Image",
+      "position": { "x": 100, "y": 350 },
+      "params": {
+        "prompt": "{{params.narrative_text}} - Resolution scene, anime style, emotional moment, beautiful lighting, 16:9",
+        "style": "anime",
+        "aspect_ratio": "16:9",
+        "provider": "pollinations"
+      }
+    },
+    {
+      "id": "vid_0",
+      "type": "media_ai_generate_video",
+      "domain": "media_creation",
+      "label": "Scene 1: Video",
+      "position": { "x": 400, "y": 50 },
+      "params": {
+        "image_base64": "{{img_0.image_base64}}",
+        "custom_prompt": "Gentle camera pan, anime opening scene, soft lighting",
+        "style": "cinematic",
+        "duration": 5
+      }
+    },
+    {
+      "id": "vid_1",
+      "type": "media_ai_generate_video",
+      "domain": "media_creation",
+      "label": "Scene 2: Video",
+      "position": { "x": 400, "y": 200 },
+      "params": {
+        "image_base64": "{{img_1.image_base64}}",
+        "custom_prompt": "Dynamic camera movement, action scene, intense energy",
+        "style": "epic",
+        "duration": 5
+      }
+    },
+    {
+      "id": "vid_2",
+      "type": "media_ai_generate_video",
+      "domain": "media_creation",
+      "label": "Scene 3: Video",
+      "position": { "x": 400, "y": 350 },
+      "params": {
+        "image_base64": "{{img_2.image_base64}}",
+        "custom_prompt": "Slow zoom, emotional resolution, warm lighting",
+        "style": "calmAesthetic",
+        "duration": 5
+      }
+    },
+    {
+      "id": "tts_0",
+      "type": "media_tts_synthesize",
+      "domain": "media_creation",
+      "label": "Scene 1: Narration",
+      "position": { "x": 400, "y": 100 },
+      "params": {
+        "text": "The story begins...",
+        "voice": "zh-CN-YunjianNeural"
+      }
+    },
+    {
+      "id": "output",
+      "type": "output",
+      "domain": "system",
+      "label": "Final Episode",
+      "position": { "x": 700, "y": 200 },
+      "params": {
+        "format": "mp4"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "img_0", "source_port": "output", "target": "vid_0", "target_port": "input" },
+    { "id": "e2", "source": "img_1", "source_port": "output", "target": "vid_1", "target_port": "input" },
+    { "id": "e3", "source": "img_2", "source_port": "output", "target": "vid_2", "target_port": "input" },
+    { "id": "e4", "source": "vid_0", "source_port": "output", "target": "output", "target_port": "input" },
+    { "id": "e5", "source": "vid_1", "source_port": "output", "target": "output", "target_port": "input" },
+    { "id": "e6", "source": "vid_2", "source_port": "output", "target": "output", "target_port": "input" },
+    { "id": "e7", "source": "tts_0", "source_port": "output", "target": "output", "target_port": "input" }
+  ]
+}

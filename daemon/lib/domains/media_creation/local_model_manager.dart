@@ -62,6 +62,7 @@ class LocalInferenceResult {
   final String? error;
   final String? model;
   final Map<String, dynamic> metadata;
+  final Map<String, dynamic> data;
 
   LocalInferenceResult({
     required this.success,
@@ -70,6 +71,7 @@ class LocalInferenceResult {
     this.error,
     this.model,
     this.metadata = const {},
+    this.data = const {},
   });
 }
 
@@ -425,6 +427,341 @@ class LocalModelManager {
     }
   }
 
+  /// Generate video using AnimateDiff V3 with MotionLoRA camera control.
+  Future<LocalInferenceResult> generateVideoV3({
+    required String prompt,
+    String? negativePrompt,
+    String? cameraMotion,
+    String? styleLora,
+    double stylLoraWeight = 0.7,
+    int frames = 24,
+    int width = 512,
+    int height = 512,
+    int steps = 25,
+    int? seed,
+  }) async {
+    if (!isAvailable) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'Local inference not available',
+      );
+    }
+
+    try {
+      final params = {
+        'action': 'generate_video_v3',
+        'prompt': prompt,
+        if (negativePrompt != null) 'negative_prompt': negativePrompt,
+        if (cameraMotion != null) 'camera_motion': cameraMotion,
+        if (styleLora != null) 'style_lora': styleLora,
+        'style_lora_weight': stylLoraWeight,
+        'frames': frames,
+        'width': width,
+        'height': height,
+        'steps': steps,
+        if (seed != null) 'seed': seed,
+      };
+
+      final result = await _runInferAction(
+        params,
+        timeout: const Duration(minutes: 15),
+      );
+
+      if (result['success'] == true) {
+        return LocalInferenceResult(
+          success: true,
+          videoBase64: result['video_base64'] as String?,
+          model: 'animatediff_v3',
+          metadata: result,
+        );
+      } else {
+        return LocalInferenceResult(
+          success: false,
+          error: result['error'] as String? ?? 'Unknown error',
+          model: 'animatediff_v3',
+        );
+      }
+    } catch (e) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'V3 video inference error: $e',
+        model: 'animatediff_v3',
+      );
+    }
+  }
+
+  /// Upscale an image using Real-ESRGAN (anime-optimized 4x).
+  Future<LocalInferenceResult> upscaleImage({
+    required String imageBase64,
+    int scale = 4,
+  }) async {
+    if (!isAvailable) {
+      return LocalInferenceResult(success: false, error: 'Local inference not available');
+    }
+
+    try {
+      final result = await _runInferAction({
+        'action': 'upscale',
+        'input_type': 'image',
+        'image_base64': imageBase64,
+        'scale': scale,
+      }, timeout: const Duration(minutes: 5));
+
+      if (result['success'] == true) {
+        return LocalInferenceResult(
+          success: true,
+          imageBase64: result['image_base64'] as String?,
+          model: 'realesrgan',
+          metadata: result,
+        );
+      }
+      return LocalInferenceResult(
+        success: false,
+        error: result['error'] as String? ?? 'Upscale failed',
+        model: 'realesrgan',
+      );
+    } catch (e) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'Upscale error: $e',
+        model: 'realesrgan',
+      );
+    }
+  }
+
+  /// Generate video using ControlNet + AnimateDiff V3 hybrid pipeline.
+  ///
+  /// Takes a reference keyframe image, extracts lineart/pose/depth,
+  /// then generates consistent animated video using ControlNet guidance.
+  Future<LocalInferenceResult> generateControlNetVideo({
+    required String referenceImageBase64,
+    required String prompt,
+    String controlType = 'lineart_anime',
+    String? negativePrompt,
+    String? cameraMotion,
+    String? styleLora,
+    double controlnetConditioningScale = 0.7,
+    int frames = 24,
+    int width = 512,
+    int height = 512,
+    int steps = 25,
+    int? seed,
+  }) async {
+    if (!isAvailable) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'Local inference not available',
+      );
+    }
+
+    try {
+      final params = {
+        'action': 'generate_controlnet_video',
+        'reference_image_base64': referenceImageBase64,
+        'prompt': prompt,
+        'control_type': controlType,
+        'controlnet_conditioning_scale': controlnetConditioningScale,
+        'frames': frames,
+        'width': width,
+        'height': height,
+        'steps': steps,
+        if (negativePrompt != null) 'negative_prompt': negativePrompt,
+        if (cameraMotion != null) 'camera_motion': cameraMotion,
+        if (styleLora != null) 'style_lora': styleLora,
+        if (seed != null) 'seed': seed,
+      };
+
+      final result = await _runInferAction(
+        params,
+        timeout: const Duration(minutes: 20),
+      );
+
+      if (result['success'] == true) {
+        return LocalInferenceResult(
+          success: true,
+          videoBase64: result['video_base64'] as String?,
+          model: 'controlnet_animatediff_v3',
+          metadata: result,
+        );
+      } else {
+        return LocalInferenceResult(
+          success: false,
+          error: result['error'] as String? ?? 'Unknown error',
+          model: 'controlnet_animatediff_v3',
+        );
+      }
+    } catch (e) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'ControlNet video error: $e',
+        model: 'controlnet_animatediff_v3',
+      );
+    }
+  }
+
+  /// Extract a control signal (lineart/depth/pose) from an image.
+  Future<LocalInferenceResult> extractControlSignal({
+    required String imageBase64,
+    String controlType = 'lineart_anime',
+  }) async {
+    if (!isAvailable) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'Local inference not available',
+      );
+    }
+
+    try {
+      final result = await _runInferAction({
+        'action': 'extract_control',
+        'image_base64': imageBase64,
+        'control_type': controlType,
+      }, timeout: const Duration(minutes: 5));
+
+      if (result['success'] == true) {
+        return LocalInferenceResult(
+          success: true,
+          imageBase64: result['control_image_base64'] as String?,
+          metadata: result,
+        );
+      }
+      return LocalInferenceResult(
+        success: false,
+        error: result['error'] as String? ?? 'Extraction failed',
+      );
+    } catch (e) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'Control signal extraction error: $e',
+      );
+    }
+  }
+
+  /// Upscale a video file frame-by-frame using Real-ESRGAN.
+  Future<Map<String, dynamic>> upscaleVideoPath({
+    required String videoPath,
+    int scale = 4,
+  }) async {
+    if (!isAvailable) {
+      return {'success': false, 'error': 'Local inference not available'};
+    }
+
+    try {
+      final result = await _runInferAction({
+        'action': 'upscale_video_path',
+        'video_path': videoPath,
+        'scale': scale,
+      }, timeout: const Duration(minutes: 30));
+
+      return result;
+    } catch (e) {
+      return {'success': false, 'error': 'Video upscale error: $e'};
+    }
+  }
+
+  /// Interpolate video frames using RIFE for smoother motion.
+  /// Returns path to the interpolated video.
+  Future<Map<String, dynamic>> interpolateVideo({
+    required String videoPath,
+    int multiplier = 2,
+  }) async {
+    if (!isAvailable) {
+      return {'success': false, 'error': 'Local inference not available'};
+    }
+
+    try {
+      final result = await _runInferAction({
+        'action': 'interpolate',
+        'video_path': videoPath,
+        'multiplier': multiplier,
+      }, timeout: const Duration(minutes: 10));
+
+      return result;
+    } catch (e) {
+      return {'success': false, 'error': 'Interpolation error: $e'};
+    }
+  }
+
+  /// Run an IP-Adapter action (encode_reference, generate_with_reference, list_references).
+  Future<LocalInferenceResult> runIPAdapter({
+    required String action,
+    required Map<String, dynamic> params,
+  }) async {
+    if (!isAvailable) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'Local inference not available',
+      );
+    }
+
+    try {
+      // IP-Adapter uses its own script
+      final home = Platform.environment['HOME'] ?? '.';
+      final ipScript = [
+        'local-inference/ip_adapter.py',
+        '../local-inference/ip_adapter.py',
+        '$home/development/opencli/local-inference/ip_adapter.py',
+      ].map((p) => File(p)).firstWhere(
+        (f) => f.existsSync(),
+        orElse: () => File('ip_adapter.py'),
+      );
+
+      if (!ipScript.existsSync()) {
+        return LocalInferenceResult(
+          success: false,
+          error: 'ip_adapter.py not found',
+        );
+      }
+
+      final python = _pythonPath!;
+      final process = await Process.start(
+        python,
+        [ipScript.absolute.path],
+        environment: _pythonEnv(),
+      );
+
+      process.stdin.write(jsonEncode({...params, 'action': action}));
+      await process.stdin.close();
+
+      final stdout = StringBuffer();
+      await for (final line
+          in process.stdout.transform(utf8.decoder).transform(const LineSplitter())) {
+        stdout.writeln(line);
+      }
+      // Drain stderr
+      await process.stderr.drain<void>();
+
+      final exitCode = await process.exitCode
+          .timeout(const Duration(minutes: 5), onTimeout: () {
+        process.kill();
+        throw TimeoutException('IP-Adapter process timed out');
+      });
+
+      if (exitCode != 0) {
+        return LocalInferenceResult(
+          success: false,
+          error: 'IP-Adapter exited with code $exitCode',
+        );
+      }
+
+      final lines = stdout.toString().trim().split('\n');
+      final lastLine = lines.isNotEmpty ? lines.last : '{}';
+      final result = jsonDecode(lastLine) as Map<String, dynamic>;
+
+      return LocalInferenceResult(
+        success: result['success'] == true,
+        imageBase64: result['image_base64'] as String?,
+        error: result['error'] as String?,
+        data: result,
+      );
+    } catch (e) {
+      return LocalInferenceResult(
+        success: false,
+        error: 'IP-Adapter error: $e',
+      );
+    }
+  }
+
   // ---- Private helpers ----
 
   /// Run an action via the Python inference script.
@@ -648,6 +985,54 @@ class LocalModelManager {
       'size_gb': 0.1,
       'description': 'Transform photos into anime-style artwork',
       'tags': ['anime', 'style_transfer', 'lightweight'],
+    },
+    'animatediff_v3': {
+      'name': 'AnimateDiff V3',
+      'type': 'text2video',
+      'capabilities': ['video', 'animation', 'camera_control'],
+      'size_gb': 4.8,
+      'description': 'AnimateDiff V3 with MotionLoRA camera control for cinematic video',
+      'tags': ['animation', 'video', 'motion', 'camera', 'lora'],
+    },
+    'realesrgan': {
+      'name': 'Real-ESRGAN Anime',
+      'type': 'upscale',
+      'capabilities': ['upscale'],
+      'size_gb': 0.07,
+      'description': '4x anime-optimized upscaling via Real-ESRGAN',
+      'tags': ['upscale', 'super_resolution', 'anime'],
+    },
+    'controlnet_lineart_anime': {
+      'name': 'ControlNet Lineart Anime',
+      'type': 'controlnet',
+      'capabilities': ['controlnet', 'lineart'],
+      'size_gb': 1.4,
+      'description': 'ControlNet for anime lineart-guided generation (SD1.5)',
+      'tags': ['controlnet', 'lineart', 'anime', 'consistency'],
+    },
+    'controlnet_openpose': {
+      'name': 'ControlNet OpenPose',
+      'type': 'controlnet',
+      'capabilities': ['controlnet', 'pose'],
+      'size_gb': 1.4,
+      'description': 'ControlNet for pose-guided generation (SD1.5)',
+      'tags': ['controlnet', 'pose', 'skeleton', 'consistency'],
+    },
+    'controlnet_depth': {
+      'name': 'ControlNet Depth',
+      'type': 'controlnet',
+      'capabilities': ['controlnet', 'depth'],
+      'size_gb': 1.4,
+      'description': 'ControlNet for depth-guided generation (SD1.5)',
+      'tags': ['controlnet', 'depth', '3d', 'consistency'],
+    },
+    'ip_adapter_face': {
+      'name': 'IP-Adapter FaceID',
+      'type': 'ip_adapter',
+      'capabilities': ['face_consistency', 'ip_adapter'],
+      'size_gb': 1.5,
+      'description': 'IP-Adapter for character face consistency across shots',
+      'tags': ['face', 'consistency', 'ip_adapter', 'character'],
     },
   };
 }

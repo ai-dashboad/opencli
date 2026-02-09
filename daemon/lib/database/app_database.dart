@@ -28,8 +28,9 @@ class AppDatabase {
     _db = await databaseFactoryFfi.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 3,
         onCreate: _createTables,
+        onUpgrade: _upgradeTables,
       ),
     );
 
@@ -170,6 +171,167 @@ class AppDatabase {
       'applied_at': DateTime.now().millisecondsSinceEpoch,
       'description': 'Initial schema with 9 tables',
     });
+
+    // v2: Episode system tables
+    await _createEpisodeTables(db);
+
+    // v3: LoRA registry + generation recipes
+    await _createLoRATables(db);
+  }
+
+  Future<void> _upgradeTables(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createEpisodeTables(db);
+    }
+    if (oldVersion < 3) {
+      await _createLoRATables(db);
+    }
+  }
+
+  Future<void> _createEpisodeTables(Database db) async {
+    // Episodes table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS episodes (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        synopsis TEXT DEFAULT '',
+        script TEXT NOT NULL,
+        status TEXT DEFAULT 'draft',
+        progress REAL DEFAULT 0,
+        output_path TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_episodes_status ON episodes(status)');
+
+    // Character references for IP-Adapter consistency
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS character_references (
+        id TEXT PRIMARY KEY,
+        episode_id TEXT,
+        character_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        visual_description TEXT DEFAULT '',
+        reference_image BLOB,
+        embedding BLOB,
+        default_voice TEXT DEFAULT 'zh-CN-XiaoxiaoNeural',
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_charref_episode ON character_references(episode_id)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_charref_character ON character_references(character_id)');
+
+    // Record migration
+    try {
+      await db.insert('schema_migrations', {
+        'version': 2,
+        'applied_at': DateTime.now().millisecondsSinceEpoch,
+        'description': 'Episode system: episodes + character_references tables',
+      });
+    } catch (_) {} // May already exist
+  }
+
+  Future<void> _createLoRATables(Database db) async {
+    // LoRA model registry
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS lora_registry (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'style',
+        path TEXT NOT NULL,
+        trigger_word TEXT DEFAULT '',
+        weight REAL DEFAULT 0.7,
+        preview_base64 TEXT,
+        tags TEXT DEFAULT '[]',
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_lora_type ON lora_registry(type)');
+
+    // Generation recipes (reusable preset combos)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS generation_recipes (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        image_model TEXT DEFAULT 'animagine_xl',
+        video_model TEXT DEFAULT 'local_v3',
+        quality TEXT DEFAULT 'standard',
+        lora_ids TEXT DEFAULT '[]',
+        controlnet_type TEXT DEFAULT 'lineart_anime',
+        controlnet_scale REAL DEFAULT 0.7,
+        ip_adapter_scale REAL DEFAULT 0.6,
+        color_grade TEXT DEFAULT '',
+        export_platform TEXT DEFAULT '',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
+    // Record migration
+    try {
+      await db.insert('schema_migrations', {
+        'version': 3,
+        'applied_at': DateTime.now().millisecondsSinceEpoch,
+        'description': 'LoRA registry + generation recipes tables',
+      });
+    } catch (_) {}
+  }
+
+  // ── LoRA Registry CRUD ──
+
+  Future<List<Map<String, dynamic>>> listLoRAs({String? type}) async {
+    return await _db.query(
+      'lora_registry',
+      where: type != null ? 'type = ?' : null,
+      whereArgs: type != null ? [type] : null,
+      orderBy: 'created_at DESC',
+    );
+  }
+
+  Future<Map<String, dynamic>?> getLoRA(String id) async {
+    final rows = await _db.query('lora_registry',
+        where: 'id = ?', whereArgs: [id]);
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<void> upsertLoRA(Map<String, dynamic> data) async {
+    await _db.insert('lora_registry', data,
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<bool> deleteLoRA(String id) async {
+    final count = await _db.delete('lora_registry',
+        where: 'id = ?', whereArgs: [id]);
+    return count > 0;
+  }
+
+  // ── Generation Recipes CRUD ──
+
+  Future<List<Map<String, dynamic>>> listRecipes() async {
+    return await _db.query('generation_recipes', orderBy: 'updated_at DESC');
+  }
+
+  Future<Map<String, dynamic>?> getRecipe(String id) async {
+    final rows = await _db.query('generation_recipes',
+        where: 'id = ?', whereArgs: [id]);
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<void> upsertRecipe(Map<String, dynamic> data) async {
+    await _db.insert('generation_recipes', data,
+        conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<bool> deleteRecipe(String id) async {
+    final count = await _db.delete('generation_recipes',
+        where: 'id = ?', whereArgs: [id]);
+    return count > 0;
   }
 
   // ── Pipeline CRUD ──

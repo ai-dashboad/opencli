@@ -8,6 +8,7 @@ import 'providers/video_provider.dart';
 import 'providers/provider_registry.dart';
 import 'prompt_builder.dart';
 import 'local_model_manager.dart';
+import 'tts/tts_registry.dart';
 
 class MediaCreationDomain extends TaskDomain {
   @override
@@ -25,6 +26,10 @@ class MediaCreationDomain extends TaskDomain {
   String? _ffmpegPath;
   final LocalModelManager _localModelManager = LocalModelManager();
   late final VideoProviderRegistry _providerRegistry;
+  final TTSRegistry _ttsRegistry = TTSRegistry();
+
+  /// Expose the TTS registry for episode generation.
+  TTSRegistry get ttsRegistry => _ttsRegistry;
 
   @override
   List<String> get taskTypes => [
@@ -35,6 +40,18 @@ class MediaCreationDomain extends TaskDomain {
         'media_local_generate_image',
         'media_local_generate_video',
         'media_local_style_transfer',
+        'media_tts_synthesize',
+        'media_tts_list_voices',
+        'media_audio_mix',
+        'media_subtitle_overlay',
+        'media_scene_transition',
+        'media_video_assembly',
+        'media_local_generate_video_v3',
+        'media_upscale_video',
+        'media_interpolate_video',
+        'media_local_controlnet_video',
+        'media_local_extract_control',
+        'media_local_upscale_video_path',
       ];
 
   /// Expose the local model manager for API endpoints.
@@ -189,6 +206,24 @@ class MediaCreationDomain extends TaskDomain {
           ],
         ),
         DomainOllamaIntent(
+          intentName: 'media_tts_synthesize',
+          description:
+              'Convert text to speech audio using Edge TTS or ElevenLabs. Supports Chinese, Japanese, English.',
+          parameters: {
+            'text': 'text to convert to speech (required)',
+            'voice': 'TTS voice ID (default: zh-CN-XiaoxiaoNeural)',
+            'provider': 'TTS provider: edge_tts (free), elevenlabs (paid)',
+            'rate': 'speech rate multiplier: 0.5-2.0 (default: 1.0)',
+          },
+          examples: [
+            OllamaExample(
+              input: 'read this text aloud',
+              intentJson:
+                  '{"intent": "media_tts_synthesize", "confidence": 0.95, "parameters": {"voice": "zh-CN-XiaoxiaoNeural"}}',
+            ),
+          ],
+        ),
+        DomainOllamaIntent(
           intentName: 'media_ai_generate_image',
           description:
               'Generate an AI image from a text prompt using cloud AI services (Replicate Flux model). Can also transform a reference image.',
@@ -270,6 +305,66 @@ class MediaCreationDomain extends TaskDomain {
           titleTemplate: 'Style Transfer',
           subtitleTemplate: 'AnimeGAN \${style}',
           icon: 'style',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_tts_synthesize': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Text-to-Speech',
+          subtitleTemplate: '\${voice}',
+          icon: 'record_voice_over',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_tts_list_voices': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'TTS Voices',
+          icon: 'mic',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_audio_mix': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Audio Mix',
+          subtitleTemplate: 'Voice + BGM',
+          icon: 'graphic_eq',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_subtitle_overlay': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Subtitle Overlay',
+          icon: 'subtitles',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_scene_transition': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Scene Transition',
+          subtitleTemplate: '\${transition}',
+          icon: 'swap_horiz',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_video_assembly': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Video Assembly',
+          icon: 'video_library',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_local_generate_video_v3': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'AnimateDiff V3',
+          subtitleTemplate: '\${camera_motion}',
+          icon: 'movie_filter',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_upscale_video': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Upscale',
+          subtitleTemplate: 'Real-ESRGAN \${scale}x',
+          icon: 'hd',
+          colorHex: 0xFF7C4DFF,
+        ),
+        'media_interpolate_video': const DomainDisplayConfig(
+          cardType: 'media_creation',
+          titleTemplate: 'Frame Interpolation',
+          subtitleTemplate: 'RIFE \${multiplier}x',
+          icon: 'speed',
           colorHex: 0xFF7C4DFF,
         ),
       };
@@ -392,6 +487,30 @@ class MediaCreationDomain extends TaskDomain {
         return _localGenerateVideo(taskData);
       case 'media_local_style_transfer':
         return _localStyleTransfer(taskData);
+      case 'media_tts_synthesize':
+        return _ttsSynthesize(taskData);
+      case 'media_tts_list_voices':
+        return _ttsListVoices(taskData);
+      case 'media_audio_mix':
+        return _audioMix(taskData);
+      case 'media_subtitle_overlay':
+        return _subtitleOverlay(taskData);
+      case 'media_scene_transition':
+        return _sceneTransition(taskData);
+      case 'media_video_assembly':
+        return _videoAssembly(taskData);
+      case 'media_local_generate_video_v3':
+        return _localGenerateVideoV3(taskData);
+      case 'media_upscale_video':
+        return _upscaleVideo(taskData);
+      case 'media_interpolate_video':
+        return _interpolateVideo(taskData);
+      case 'media_local_controlnet_video':
+        return _localControlNetVideo(taskData);
+      case 'media_local_extract_control':
+        return _localExtractControl(taskData);
+      case 'media_local_upscale_video_path':
+        return _localUpscaleVideoPath(taskData);
       default:
         return {
           'success': false,
@@ -421,6 +540,15 @@ class MediaCreationDomain extends TaskDomain {
     }
     if (taskType == 'media_local_style_transfer') {
       return _localStyleTransfer(taskData, onProgress: onProgress);
+    }
+    if (taskType == 'media_local_generate_video_v3') {
+      return _localGenerateVideoV3(taskData, onProgress: onProgress);
+    }
+    if (taskType == 'media_upscale_video') {
+      return _upscaleVideo(taskData, onProgress: onProgress);
+    }
+    if (taskType == 'media_interpolate_video') {
+      return _interpolateVideo(taskData, onProgress: onProgress);
     }
     return executeTask(taskType, taskData);
   }
@@ -1637,6 +1765,665 @@ class MediaCreationDomain extends TaskDomain {
       'provider': 'local',
       'model': 'animegan_v3',
       'generation_type': 'style_transfer',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  // ═══ TTS Task Implementations ═══
+
+  Future<Map<String, dynamic>> _ttsSynthesize(Map<String, dynamic> data) async {
+    final text = data['text'] as String?;
+    if (text == null || text.trim().isEmpty) {
+      return {
+        'success': false,
+        'error': 'No text provided for TTS synthesis',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final providerId = data['provider'] as String? ?? 'edge_tts';
+    final voice = data['voice'] as String? ?? 'zh-CN-XiaoxiaoNeural';
+    final rate = (data['rate'] as num?)?.toDouble() ?? 1.0;
+    final pitch = (data['pitch'] as num?)?.toDouble() ?? 0.0;
+
+    final provider = _ttsRegistry.get(providerId) ?? _ttsRegistry.defaultProvider;
+    final result = await provider.synthesize(
+      text: text,
+      voice: voice,
+      rate: rate,
+      pitch: pitch,
+    );
+
+    if (result.success) {
+      return {
+        'success': true,
+        'audio_base64': result.audioBase64,
+        'duration_ms': result.durationMs,
+        'file_path': result.filePath,
+        'voice': voice,
+        'provider': provider.id,
+        'message': 'Speech synthesized via ${provider.displayName}',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result.error ?? 'TTS synthesis failed',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  Future<Map<String, dynamic>> _ttsListVoices(Map<String, dynamic> data) async {
+    final providerId = data['provider'] as String? ?? 'edge_tts';
+    final language = data['language'] as String?;
+
+    final provider = _ttsRegistry.get(providerId) ?? _ttsRegistry.defaultProvider;
+    final voices = await provider.listVoices(language: language);
+
+    return {
+      'success': true,
+      'voices': voices.map((v) => v.toJson()).toList(),
+      'provider': provider.id,
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  // ═══ FFmpeg Task Implementations ═══
+
+  Future<Map<String, dynamic>> _audioMix(Map<String, dynamic> data) async {
+    final voicePath = data['voice_path'] as String?;
+    final bgmPath = data['bgm_path'] as String?;
+
+    if (voicePath == null || bgmPath == null) {
+      return {
+        'success': false,
+        'error': 'Both voice_path and bgm_path are required',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final bgmVolume = (data['bgm_volume'] as num?)?.toDouble() ?? 0.3;
+    final home = Platform.environment['HOME'] ?? '/tmp';
+    final outputPath = '$home/.opencli/media_temp/mix_${DateTime.now().millisecondsSinceEpoch}.mp3';
+    await Directory('$home/.opencli/media_temp').create(recursive: true);
+
+    try {
+      if (_ffmpegPath == null) {
+        final check = await Process.run('which', ['ffmpeg']);
+        if (check.exitCode != 0) {
+          return {'success': false, 'error': 'FFmpeg not installed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+        }
+        _ffmpegPath = (check.stdout as String).trim();
+      }
+
+      final result = await Process.run(_ffmpegPath!, [
+        '-y', '-i', voicePath, '-i', bgmPath,
+        '-filter_complex',
+        '[0:a]volume=1.0[v];[1:a]volume=$bgmVolume,aloop=loop=-1:size=2e+09[b];[v][b]amix=inputs=2:duration=first:dropout_transition=2',
+        '-c:a', 'aac', '-b:a', '192k', outputPath,
+      ]).timeout(const Duration(seconds: 120));
+
+      if (result.exitCode != 0) {
+        return {'success': false, 'error': 'Audio mix failed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+      }
+
+      return {
+        'success': true,
+        'output_path': outputPath,
+        'message': 'Audio mixed successfully',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    } catch (e) {
+      return {'success': false, 'error': 'Audio mix error: $e', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _subtitleOverlay(Map<String, dynamic> data) async {
+    final videoPath = data['video_path'] as String?;
+    final assPath = data['ass_path'] as String?;
+
+    if (videoPath == null || assPath == null) {
+      return {'success': false, 'error': 'Both video_path and ass_path are required', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    }
+
+    final home = Platform.environment['HOME'] ?? '/tmp';
+    final outputPath = '$home/.opencli/media_temp/sub_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+    try {
+      if (_ffmpegPath == null) {
+        final check = await Process.run('which', ['ffmpeg']);
+        if (check.exitCode != 0) return {'success': false, 'error': 'FFmpeg not installed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+        _ffmpegPath = (check.stdout as String).trim();
+      }
+
+      final escapedPath = assPath.replaceAll(':', r'\:');
+      final result = await Process.run(_ffmpegPath!, [
+        '-y', '-i', videoPath, '-vf', 'ass=$escapedPath',
+        '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-c:a', 'copy', outputPath,
+      ]).timeout(const Duration(seconds: 120));
+
+      if (result.exitCode != 0) {
+        return {'success': false, 'error': 'Subtitle overlay failed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+      }
+
+      return {'success': true, 'output_path': outputPath, 'message': 'Subtitles added', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    } catch (e) {
+      return {'success': false, 'error': 'Subtitle error: $e', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _sceneTransition(Map<String, dynamic> data) async {
+    final clipAPath = data['clip_a_path'] as String?;
+    final clipBPath = data['clip_b_path'] as String?;
+
+    if (clipAPath == null || clipBPath == null) {
+      return {'success': false, 'error': 'Both clip_a_path and clip_b_path required', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    }
+
+    final transition = data['transition'] as String? ?? 'fade';
+    final duration = (data['duration'] as num?)?.toDouble() ?? 1.0;
+    final home = Platform.environment['HOME'] ?? '/tmp';
+    final outputPath = '$home/.opencli/media_temp/trans_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+    try {
+      if (_ffmpegPath == null) {
+        final check = await Process.run('which', ['ffmpeg']);
+        if (check.exitCode != 0) return {'success': false, 'error': 'FFmpeg not installed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+        _ffmpegPath = (check.stdout as String).trim();
+      }
+
+      // Get clip A duration for offset
+      final probe = await Process.run('ffprobe', [
+        '-v', 'error', '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1', clipAPath,
+      ]);
+      final clipADuration = double.tryParse((probe.stdout as String).trim()) ?? 5.0;
+      final offset = (clipADuration - duration).clamp(0.0, clipADuration);
+
+      final result = await Process.run(_ffmpegPath!, [
+        '-y', '-i', clipAPath, '-i', clipBPath,
+        '-filter_complex', '[0:v][1:v]xfade=transition=$transition:duration=$duration:offset=$offset[v]',
+        '-map', '[v]', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', outputPath,
+      ]).timeout(const Duration(seconds: 120));
+
+      if (result.exitCode != 0) {
+        return {'success': false, 'error': 'Transition failed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+      }
+
+      return {'success': true, 'output_path': outputPath, 'transition': transition, 'message': 'Transition applied', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    } catch (e) {
+      return {'success': false, 'error': 'Transition error: $e', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _videoAssembly(Map<String, dynamic> data) async {
+    final videoPaths = (data['video_paths'] as List?)?.cast<String>();
+    final videoPath = data['video_path'] as String?;
+
+    if ((videoPaths == null || videoPaths.isEmpty) && videoPath == null) {
+      return {'success': false, 'error': 'No video paths provided', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    }
+
+    final home = Platform.environment['HOME'] ?? '/tmp';
+    final outputPath = '$home/.opencli/media_temp/assembled_${DateTime.now().millisecondsSinceEpoch}.mp4';
+    await Directory('$home/.opencli/media_temp').create(recursive: true);
+
+    try {
+      if (_ffmpegPath == null) {
+        final check = await Process.run('which', ['ffmpeg']);
+        if (check.exitCode != 0) return {'success': false, 'error': 'FFmpeg not installed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+        _ffmpegPath = (check.stdout as String).trim();
+      }
+
+      // Single video — just mux with optional audio
+      if (videoPaths == null || videoPaths.length <= 1) {
+        final singlePath = videoPath ?? videoPaths!.first;
+        final audioPath = data['audio_path'] as String?;
+        if (audioPath != null) {
+          final result = await Process.run(_ffmpegPath!, [
+            '-y', '-i', singlePath, '-i', audioPath,
+            '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
+            '-shortest', '-movflags', '+faststart', outputPath,
+          ]).timeout(const Duration(seconds: 120));
+          if (result.exitCode != 0) {
+            return {'success': false, 'error': 'Assembly failed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+          }
+        } else {
+          await File(singlePath).copy(outputPath);
+        }
+      } else {
+        // Multiple videos — concat
+        final concatFile = '$home/.opencli/media_temp/concat_${DateTime.now().millisecondsSinceEpoch}.txt';
+        final lines = videoPaths.map((p) => "file '$p'").join('\n');
+        await File(concatFile).writeAsString(lines);
+
+        final result = await Process.run(_ffmpegPath!, [
+          '-y', '-f', 'concat', '-safe', '0', '-i', concatFile,
+          '-c', 'copy', '-movflags', '+faststart', outputPath,
+        ]).timeout(const Duration(seconds: 180));
+
+        try { await File(concatFile).delete(); } catch (_) {}
+
+        if (result.exitCode != 0) {
+          return {'success': false, 'error': 'Video concat failed', 'domain': 'media_creation', 'card_type': 'media_creation'};
+        }
+      }
+
+      final outFile = File(outputPath);
+      final sizeBytes = await outFile.exists() ? await outFile.length() : 0;
+
+      return {
+        'success': true,
+        'output_path': outputPath,
+        'size_bytes': sizeBytes,
+        'message': 'Video assembled (${ (sizeBytes / 1024 / 1024).toStringAsFixed(1)} MB)',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    } catch (e) {
+      return {'success': false, 'error': 'Assembly error: $e', 'domain': 'media_creation', 'card_type': 'media_creation'};
+    }
+  }
+
+  // ═══ AnimateDiff V3 + Upscale + Interpolate Task Implementations ═══
+
+  Future<Map<String, dynamic>> _localGenerateVideoV3(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available. Run local-inference/setup.sh first.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final prompt = data['prompt'] as String? ?? '';
+    final negativePrompt = data['negative_prompt'] as String?;
+    final cameraMotion = data['camera_motion'] as String?;
+    final styleLora = data['style_lora'] as String?;
+    final frames = (data['frames'] as num?)?.toInt() ?? 24;
+    final width = (data['width'] as num?)?.toInt() ?? 512;
+    final height = (data['height'] as num?)?.toInt() ?? 512;
+
+    onProgress?.call({
+      'progress': 0.05,
+      'status_message': 'Starting AnimateDiff V3 (camera: ${cameraMotion ?? "static"})...',
+      'provider': 'local',
+      'model': 'animatediff_v3',
+      'generation_type': 'local_video_v3',
+    });
+
+    final result = await _localModelManager.generateVideoV3(
+      prompt: prompt,
+      negativePrompt: negativePrompt,
+      cameraMotion: cameraMotion,
+      styleLora: styleLora,
+      frames: frames,
+      width: width,
+      height: height,
+    );
+
+    if (result.success && result.videoBase64 != null) {
+      final sizeBytes = result.videoBase64!.length * 3 ~/ 4;
+      final sizeMB = (sizeBytes / 1024 / 1024).toStringAsFixed(1);
+      return {
+        'success': true,
+        'video_base64': result.videoBase64,
+        'video_path': result.metadata['video_path'],
+        'provider': 'local',
+        'model': 'animatediff_v3',
+        'camera_motion': cameraMotion,
+        'generation_type': 'local_video_v3',
+        'size_bytes': sizeBytes,
+        'message': 'Video generated via AnimateDiff V3 ($sizeMB MB)',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result.error ?? 'AnimateDiff V3 generation failed',
+      'provider': 'local',
+      'model': 'animatediff_v3',
+      'generation_type': 'local_video_v3',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  Future<Map<String, dynamic>> _upscaleVideo(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available. Run local-inference/setup.sh first.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final imageBase64 = data['image_base64'] as String?;
+    if (imageBase64 == null || imageBase64.isEmpty) {
+      return {
+        'success': false,
+        'error': 'No image provided for upscaling.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final scale = (data['scale'] as num?)?.toInt() ?? 4;
+
+    onProgress?.call({
+      'progress': 0.1,
+      'status_message': 'Upscaling with Real-ESRGAN (${scale}x)...',
+      'provider': 'local',
+      'model': 'realesrgan',
+      'generation_type': 'upscale',
+    });
+
+    final result = await _localModelManager.upscaleImage(
+      imageBase64: imageBase64,
+      scale: scale,
+    );
+
+    if (result.success && result.imageBase64 != null) {
+      return {
+        'success': true,
+        'image_base64': result.imageBase64,
+        'provider': 'local',
+        'model': 'realesrgan',
+        'scale': scale,
+        'generation_type': 'upscale',
+        'message': 'Upscaled ${scale}x via Real-ESRGAN',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result.error ?? 'Upscale failed',
+      'provider': 'local',
+      'model': 'realesrgan',
+      'generation_type': 'upscale',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  Future<Map<String, dynamic>> _interpolateVideo(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available. Run local-inference/setup.sh first.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final videoPath = data['video_path'] as String?;
+    if (videoPath == null || videoPath.isEmpty) {
+      return {
+        'success': false,
+        'error': 'No video_path provided for interpolation.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final multiplier = (data['multiplier'] as num?)?.toInt() ?? 2;
+
+    onProgress?.call({
+      'progress': 0.1,
+      'status_message': 'Interpolating with RIFE (${multiplier}x)...',
+      'provider': 'local',
+      'model': 'rife',
+      'generation_type': 'interpolate',
+    });
+
+    final result = await _localModelManager.interpolateVideo(
+      videoPath: videoPath,
+      multiplier: multiplier,
+    );
+
+    if (result['success'] == true) {
+      return {
+        'success': true,
+        'video_base64': result['video_base64'],
+        'video_path': result['video_path'],
+        'provider': 'local',
+        'model': 'rife',
+        'multiplier': multiplier,
+        'original_fps': result['original_fps'],
+        'target_fps': result['target_fps'],
+        'generation_type': 'interpolate',
+        'message': 'Interpolated ${multiplier}x via RIFE',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result['error'] ?? 'Interpolation failed',
+      'provider': 'local',
+      'model': 'rife',
+      'generation_type': 'interpolate',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  Future<Map<String, dynamic>> _localControlNetVideo(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available. Run local-inference/setup.sh first.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final referenceBase64 = data['reference_image_base64'] as String?;
+    if (referenceBase64 == null || referenceBase64.isEmpty) {
+      return {
+        'success': false,
+        'error': 'No reference_image_base64 provided.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final prompt = data['prompt'] as String? ?? '';
+    final controlType = data['control_type'] as String? ?? 'lineart_anime';
+    final negativePrompt = data['negative_prompt'] as String?;
+    final cameraMotion = data['camera_motion'] as String?;
+    final styleLora = data['style_lora'] as String?;
+    final scale = (data['controlnet_conditioning_scale'] as num?)?.toDouble() ?? 0.7;
+    final frames = (data['frames'] as num?)?.toInt() ?? 24;
+    final width = (data['width'] as num?)?.toInt() ?? 512;
+    final height = (data['height'] as num?)?.toInt() ?? 512;
+    final steps = (data['steps'] as num?)?.toInt() ?? 25;
+    final seed = (data['seed'] as num?)?.toInt();
+
+    onProgress?.call({
+      'progress': 0.05,
+      'status_message': 'Generating ControlNet + AnimateDiff video...',
+      'provider': 'local',
+      'model': 'controlnet_animatediff_v3',
+      'generation_type': 'controlnet_video',
+    });
+
+    final result = await _localModelManager.generateControlNetVideo(
+      referenceImageBase64: referenceBase64,
+      prompt: prompt,
+      controlType: controlType,
+      negativePrompt: negativePrompt,
+      cameraMotion: cameraMotion,
+      styleLora: styleLora,
+      controlnetConditioningScale: scale,
+      frames: frames,
+      width: width,
+      height: height,
+      steps: steps,
+      seed: seed,
+    );
+
+    if (result.success && result.videoBase64 != null) {
+      return {
+        'success': true,
+        'video_base64': result.videoBase64,
+        'provider': 'local',
+        'model': 'controlnet_animatediff_v3',
+        'control_type': controlType,
+        'frames': frames,
+        'generation_type': 'controlnet_video',
+        'message': 'Generated ControlNet video ($frames frames, $controlType)',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result.error ?? 'ControlNet video generation failed',
+      'provider': 'local',
+      'model': 'controlnet_animatediff_v3',
+      'generation_type': 'controlnet_video',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  Future<Map<String, dynamic>> _localExtractControl(
+    Map<String, dynamic> data,
+  ) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final imageBase64 = data['image_base64'] as String?;
+    if (imageBase64 == null || imageBase64.isEmpty) {
+      return {
+        'success': false,
+        'error': 'No image_base64 provided.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final controlType = data['control_type'] as String? ?? 'lineart_anime';
+
+    final result = await _localModelManager.extractControlSignal(
+      imageBase64: imageBase64,
+      controlType: controlType,
+    );
+
+    if (result.success && result.imageBase64 != null) {
+      return {
+        'success': true,
+        'image_base64': result.imageBase64,
+        'control_type': controlType,
+        'generation_type': 'extract_control',
+        'message': 'Extracted $controlType control signal',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result.error ?? 'Control signal extraction failed',
+      'domain': 'media_creation',
+      'card_type': 'media_creation',
+    };
+  }
+
+  Future<Map<String, dynamic>> _localUpscaleVideoPath(
+    Map<String, dynamic> data, {
+    ProgressCallback? onProgress,
+  }) async {
+    if (!_localModelManager.isAvailable) {
+      return {
+        'success': false,
+        'error': 'Local inference not available.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final videoPath = data['video_path'] as String?;
+    if (videoPath == null || videoPath.isEmpty) {
+      return {
+        'success': false,
+        'error': 'No video_path provided.',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    final scale = (data['scale'] as num?)?.toInt() ?? 4;
+
+    onProgress?.call({
+      'progress': 0.05,
+      'status_message': 'Upscaling video with Real-ESRGAN (${scale}x)...',
+      'provider': 'local',
+      'model': 'realesrgan',
+      'generation_type': 'upscale_video',
+    });
+
+    final result = await _localModelManager.upscaleVideoPath(
+      videoPath: videoPath,
+      scale: scale,
+    );
+
+    if (result['success'] == true) {
+      return {
+        'success': true,
+        'video_base64': result['video_base64'],
+        'video_path': result['video_path'],
+        'provider': 'local',
+        'model': 'realesrgan',
+        'scale': scale,
+        'generation_type': 'upscale_video',
+        'message': 'Upscaled video ${scale}x via Real-ESRGAN',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    return {
+      'success': false,
+      'error': result['error'] ?? 'Video upscale failed',
+      'provider': 'local',
+      'model': 'realesrgan',
+      'generation_type': 'upscale_video',
       'domain': 'media_creation',
       'card_type': 'media_creation',
     };

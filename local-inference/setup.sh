@@ -86,5 +86,37 @@ elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
 else:
     print('GPU: None (CPU only - inference will be slow)')
 "
+# Create LoRA directory for user style LoRAs
+LORA_DIR="$HOME/.opencli/models/loras"
+if [ ! -d "$LORA_DIR" ]; then
+  echo "Creating LoRA directory: $LORA_DIR"
+  mkdir -p "$LORA_DIR"
+fi
+
+# Check for rife-ncnn-vulkan (frame interpolation)
+if command -v rife-ncnn-vulkan &>/dev/null; then
+  echo "RIFE: $(rife-ncnn-vulkan --version 2>&1 | head -1 || echo 'installed')"
+else
+  echo "RIFE: Not installed (optional - for frame interpolation)"
+  echo "  Install: brew install rife-ncnn-vulkan"
+fi
+
+# Check ControlNet aux (for lineart/depth/openpose extraction)
+python -c "import controlnet_aux; print(f'ControlNet Aux: {controlnet_aux.__version__}')" 2>/dev/null || \
+  echo "ControlNet Aux: Not yet installed (will install from requirements.txt)"
+
+# Create LUT directory for color grading presets
+LUT_DIR="$HOME/.opencli/luts"
+if [ ! -d "$LUT_DIR" ]; then
+  echo "Creating LUT directory: $LUT_DIR"
+  mkdir -p "$LUT_DIR"
+fi
+
+echo ""
+echo "=== Available ControlNet Models ==="
+echo "  controlnet_lineart_anime  (1.4 GB) — lllyasviel/control_v11p_sd15_lineart_anime"
+echo "  controlnet_openpose       (1.4 GB) — lllyasviel/control_v11p_sd15_openpose"
+echo "  controlnet_depth          (1.4 GB) — lllyasviel/control_v11f1p_sd15_depth"
+echo "  Download via: POST /api/v1/local-models/<model_id>/download"
 echo ""
 echo "Run inference: python $SCRIPT_DIR/infer.py --help"

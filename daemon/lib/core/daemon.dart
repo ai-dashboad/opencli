@@ -24,6 +24,12 @@ import 'package:opencli_daemon/pipeline/pipeline_api.dart';
 import 'package:opencli_daemon/database/app_database.dart';
 import 'package:opencli_daemon/database/data_migrator.dart';
 import 'package:opencli_daemon/api/storage_api.dart';
+import 'package:opencli_daemon/episode/episode_store.dart';
+import 'package:opencli_daemon/episode/script_generator.dart';
+import 'package:opencli_daemon/episode/episode_generator.dart';
+import 'package:opencli_daemon/episode/episode_api.dart';
+import 'package:opencli_daemon/episode/ffmpeg_composer.dart' show ensureBuiltinLUTs;
+import 'package:opencli_daemon/api/lora_api.dart';
 
 class Daemon {
   static const String version = '0.2.0';
@@ -253,6 +259,34 @@ class Daemon {
 
     final storageApi = StorageApi();
 
+    // Initialize episode system
+    final episodeStore = EpisodeStore(AppDatabase.instance);
+    final scriptGenerator = ScriptGenerator();
+    EpisodeGenerator? episodeGenerator;
+    try {
+      final mediaCreationDomain = _domainRegistry.getDomain('media_creation');
+      if (mediaCreationDomain != null) {
+        final ttsReg = (mediaCreationDomain as dynamic).ttsRegistry;
+        episodeGenerator = EpisodeGenerator(
+          domainRegistry: _domainRegistry,
+          ttsRegistry: ttsReg,
+        );
+      }
+    } catch (_) {}
+    final episodeApi = EpisodeApi(
+      store: episodeStore,
+      scriptGenerator: scriptGenerator,
+      episodeGenerator: episodeGenerator,
+    );
+
+    // Generate built-in LUT files for color grading
+    try {
+      await ensureBuiltinLUTs();
+    } catch (_) {}
+
+    // Initialize LoRA + Recipe API
+    final loraApi = LoRAApi(appDb);
+
     _unifiedApiServer = UnifiedApiServer(
       requestRouter: _router,
       messageHandler: MessageHandler(), // Create new instance for unified API
@@ -261,6 +295,8 @@ class Daemon {
       onConfigSaved: reloadMediaProviders,
       localModelManager: localModelMgr,
       storageApi: storageApi,
+      episodeApi: episodeApi,
+      loraApi: loraApi,
     );
     await _unifiedApiServer!.start();
     TerminalUI.success('Unified API server listening on port 9529',

@@ -13,6 +13,8 @@ import 'package:opencli_daemon/api/message_handler.dart';
 import 'package:opencli_daemon/pipeline/pipeline_api.dart';
 import 'package:opencli_daemon/domains/media_creation/local_model_manager.dart';
 import 'package:opencli_daemon/api/storage_api.dart';
+import 'package:opencli_daemon/episode/episode_api.dart';
+import 'package:opencli_daemon/api/lora_api.dart';
 
 /// Unified API server on port 9529 for Web UI integration
 ///
@@ -27,6 +29,8 @@ class UnifiedApiServer {
   Future<void> Function()? _onConfigSaved;
   LocalModelManager? _localModelManager;
   StorageApi? _storageApi;
+  EpisodeApi? _episodeApi;
+  LoRAApi? _loraApi;
 
   UnifiedApiServer({
     required RequestRouter requestRouter,
@@ -36,12 +40,16 @@ class UnifiedApiServer {
     Future<void> Function()? onConfigSaved,
     LocalModelManager? localModelManager,
     StorageApi? storageApi,
+    EpisodeApi? episodeApi,
+    LoRAApi? loraApi,
   })  : _requestRouter = requestRouter,
         _messageHandler = messageHandler,
         _pipelineApi = pipelineApi,
         _onConfigSaved = onConfigSaved,
         _localModelManager = localModelManager,
-        _storageApi = storageApi;
+        _storageApi = storageApi,
+        _episodeApi = episodeApi,
+        _loraApi = loraApi;
 
   /// Set pipeline API (can be configured after construction).
   void setPipelineApi(PipelineApi api) {
@@ -79,6 +87,12 @@ class UnifiedApiServer {
 
     // Storage API routes (history, assets, events, chat)
     _storageApi?.registerRoutes(router);
+
+    // Episode API routes (CRUD + generation)
+    _episodeApi?.registerRoutes(router);
+
+    // LoRA + Recipe API routes
+    _loraApi?.registerRoutes(router);
 
     final handler = const shelf.Pipeline()
         .addMiddleware(shelf.logRequests())

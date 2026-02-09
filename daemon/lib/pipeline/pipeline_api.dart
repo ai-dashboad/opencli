@@ -679,6 +679,107 @@ class PipelineApi {
         ],
       },
 
+      // ── Audio category ──────────────────────────────────────────────
+      {
+        'type': 'tts_synthesize',
+        'category': 'audio',
+        'name': 'Text-to-Speech',
+        'description': 'Generate spoken audio from text using Edge TTS or ElevenLabs',
+        'icon': '🗣',
+        'color': 0xFF4CAF50,
+        'inputs': [
+          {
+            'name': 'text',
+            'type': 'string',
+            'inputType': 'textarea',
+            'required': true,
+            'description': 'Text to convert to speech',
+          },
+          {
+            'name': 'voice',
+            'type': 'string',
+            'inputType': 'select',
+            'options': [
+              'zh-CN-XiaoxiaoNeural', 'zh-CN-YunxiNeural', 'zh-CN-YunjianNeural',
+              'ja-JP-NanamiNeural', 'ja-JP-KeitaNeural',
+              'en-US-JennyNeural', 'en-US-GuyNeural',
+            ],
+            'defaultValue': 'zh-CN-XiaoxiaoNeural',
+            'description': 'TTS voice',
+          },
+          {
+            'name': 'rate',
+            'type': 'number',
+            'inputType': 'slider',
+            'min': 0.5,
+            'max': 2.0,
+            'step': 0.1,
+            'defaultValue': 1.0,
+            'description': 'Speech rate',
+          },
+        ],
+        'outputs': [
+          {'name': 'audio', 'type': 'audio'},
+          {'name': 'file_path', 'type': 'string'},
+        ],
+      },
+      {
+        'type': 'audio_mix',
+        'category': 'audio',
+        'name': 'Audio Mix',
+        'description': 'Mix voice audio with background music',
+        'icon': '🎵',
+        'color': 0xFF4CAF50,
+        'inputs': [
+          {'name': 'voice', 'type': 'audio', 'description': 'Voice audio input'},
+          {'name': 'bgm', 'type': 'audio', 'description': 'Background music input'},
+          {
+            'name': 'bgm_volume',
+            'type': 'number',
+            'inputType': 'slider',
+            'min': 0.0,
+            'max': 1.0,
+            'step': 0.05,
+            'defaultValue': 0.3,
+            'description': 'BGM volume level',
+          },
+        ],
+        'outputs': [
+          {'name': 'audio', 'type': 'audio'},
+        ],
+      },
+      {
+        'type': 'subtitle_overlay',
+        'category': 'process',
+        'name': 'Subtitles',
+        'description': 'Burn ASS/SRT subtitles onto a video',
+        'icon': '🔤',
+        'color': 0xFF2196F3,
+        'inputs': [
+          {'name': 'video', 'type': 'video', 'description': 'Input video'},
+          {'name': 'subtitles', 'type': 'string', 'inputType': 'text', 'description': 'Path to ASS/SRT subtitle file'},
+        ],
+        'outputs': [
+          {'name': 'video', 'type': 'video'},
+        ],
+      },
+      {
+        'type': 'video_assembly',
+        'category': 'output',
+        'name': 'Assemble Video',
+        'description': 'Concatenate video clips and mux with audio into final output',
+        'icon': '🎬',
+        'color': 0xFFFF9800,
+        'inputs': [
+          {'name': 'videos', 'type': 'video', 'description': 'Video clips to concatenate'},
+          {'name': 'audio', 'type': 'audio', 'description': 'Audio track (optional)', 'required': false},
+          {'name': 'subtitles', 'type': 'string', 'description': 'Subtitle file path (optional)', 'required': false},
+        ],
+        'outputs': [
+          {'name': 'video', 'type': 'video'},
+        ],
+      },
+
       // ── Output category ─────────────────────────────────────────────
       {
         'type': 'output',
@@ -863,6 +964,33 @@ class PipelineApi {
       {'name': 'display', 'type': 'string'},
     ],
     'media_animate_photo': [
+      {'name': 'video_base64', 'type': 'video'},
+      {'name': 'display', 'type': 'string'},
+    ],
+    'media_tts_synthesize': [
+      {'name': 'audio_base64', 'type': 'audio'},
+      {'name': 'file_path', 'type': 'string'},
+      {'name': 'duration_ms', 'type': 'number'},
+      {'name': 'display', 'type': 'string'},
+    ],
+    'media_tts_list_voices': [
+      {'name': 'voices', 'type': 'string'},
+      {'name': 'display', 'type': 'string'},
+    ],
+    'media_audio_mix': [
+      {'name': 'output_path', 'type': 'string'},
+      {'name': 'display', 'type': 'string'},
+    ],
+    'media_subtitle_overlay': [
+      {'name': 'output_path', 'type': 'string'},
+      {'name': 'display', 'type': 'string'},
+    ],
+    'media_scene_transition': [
+      {'name': 'output_path', 'type': 'string'},
+      {'name': 'display', 'type': 'string'},
+    ],
+    'media_video_assembly': [
+      {'name': 'output_path', 'type': 'string'},
       {'name': 'video_base64', 'type': 'video'},
       {'name': 'display', 'type': 'string'},
     ],

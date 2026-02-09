@@ -10,6 +10,8 @@ import AssetsPage from './pages/AssetsPage';
 import StatusPage from './pages/StatusPage';
 import SettingsPage from './pages/SettingsPage';
 import PipelineEditor from './pages/PipelineEditor';
+import EpisodeEditor from './pages/EpisodeEditor';
+import EpisodeGenerator from './pages/EpisodeGenerator';
 import './styles/theme.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -25,6 +27,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="status" element={<StatusPage />} />
           <Route path="pipelines" element={<PipelineEditor />} />
           <Route path="pipelines/:id" element={<PipelineEditor />} />
+          <Route path="episodes" element={<EpisodeEditor />} />
+          <Route path="episodes/:id" element={<EpisodeGenerator />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
