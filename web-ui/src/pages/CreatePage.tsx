@@ -70,7 +70,7 @@ const SCENARIOS: Scenario[] = [
 ];
 
 const VIDEO_PROVIDERS = [
-  { id: 'pollinations', label: 'Pollinations', sub: 'Seedance (Free)' },
+  { id: 'pollinations', label: 'Pollinations', sub: 'Seedance ~$0.04' },
   { id: 'replicate', label: 'Replicate', sub: '~$0.28' },
   { id: 'runway', label: 'Runway Gen-4', sub: '~$0.75' },
   { id: 'kling', label: 'Kling AI', sub: '~$0.90' },
@@ -185,6 +185,7 @@ export default function CreatePage() {
 
   // Provider config & history
   const [configuredProviders, setConfiguredProviders] = useState<string[]>([]);
+  const [pollinationsVideoKey, setPollinationsVideoKey] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
 
   // Fetch configured providers from daemon
@@ -192,14 +193,18 @@ export default function CreatePage() {
     fetch('http://localhost:9529/api/v1/config')
       .then(r => r.json())
       .then(data => {
-        const keys = data?.ai_video?.api_keys || {};
+        const keys = data?.config?.ai_video?.api_keys || {};
         const configured = Object.entries(keys)
           .filter(([, v]) => v && typeof v === 'string' && !(v as string).startsWith('${'))
           .map(([k]) => k === 'kling_piapi' ? 'kling' : k);
-        // Pollinations is always available (no API key needed)
+        // Pollinations: images free (no key), video requires paid key (seedance).
+        const polKey = keys['pollinations'];
+        const hasPolKey = polKey && typeof polKey === 'string' && !(polKey as string).startsWith('${');
+        setPollinationsVideoKey(!!hasPolKey);
+        // Always add pollinations — it's free for images, daemon checks key for video.
         if (!configured.includes('pollinations')) configured.push('pollinations');
         // Check if Gemini has a key in models config
-        const geminiKey = data?.models?.gemini?.api_key;
+        const geminiKey = data?.config?.models?.gemini?.api_key;
         if (geminiKey && typeof geminiKey === 'string' && !geminiKey.startsWith('${')) {
           if (!configured.includes('gemini')) configured.push('gemini');
         }
@@ -267,7 +272,7 @@ export default function CreatePage() {
       if (!isVideo && !isImage && !isStyle) return;
 
       if (msg.status === 'running') {
-        setProgress(msg.result?.progress ?? 0);
+        setProgress(prev => Math.max(prev, msg.result?.progress ?? 0));
         setStatusMessage(msg.result?.status_message ?? 'Processing...');
       } else if (msg.status === 'completed') {
         setGenerating(false);
@@ -465,7 +470,12 @@ export default function CreatePage() {
     } else if (m === 'style') {
       updateForm({ style: 'face_paint_512_v2' });
     } else {
-      updateForm({ style: 'cinematic', provider: 'pollinations' });
+      // Video modes: default to first configured video provider (pollinations needs paid key)
+      const videoProviderIds = VIDEO_PROVIDERS.map(p => p.id);
+      const firstConfigured = configuredProviders.find(
+        id => videoProviderIds.includes(id) && (id !== 'pollinations' || pollinationsVideoKey)
+      );
+      updateForm({ style: 'cinematic', provider: firstConfigured || 'pollinations' });
     }
   };
 
@@ -594,14 +604,17 @@ export default function CreatePage() {
             <label className="cr-label">Provider</label>
             <div className="cr-chips">
               {providers.map((p, idx) => {
-                const isConfigured = configuredProviders.includes(p.id);
+                const baseConfigured = configuredProviders.includes(p.id);
+                // Pollinations video needs a paid key; images are free
+                const needsVideoKey = p.id === 'pollinations' && isVideoMode && !pollinationsVideoKey;
+                const isConfigured = baseConfigured && !needsVideoKey;
                 const isRecommended = idx === 0 && configuredProviders.length > 0 && isConfigured;
                 return (
                   <button
                     key={p.id}
                     className={`cr-chip${form.provider === p.id ? ' selected' : ''}${!isConfigured ? ' unconfigured' : ''}`}
                     onClick={() => updateForm({ provider: p.id })}
-                    title={isConfigured ? undefined : 'API key not configured'}
+                    title={!isConfigured ? 'API key not configured' : undefined}
                   >
                     {p.label}
                     <span className="cr-chip-sub">{p.sub}</span>

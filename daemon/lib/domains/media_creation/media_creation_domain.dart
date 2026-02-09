@@ -430,7 +430,7 @@ class MediaCreationDomain extends TaskDomain {
     Map<String, dynamic> data, {
     ProgressCallback? onProgress,
   }) async {
-    final imageBase64 = data['image_base64'] as String?;
+    var imageBase64 = data['image_base64'] as String?;
 
     // Route to Pollinations first — it supports txt2vid (no image needed)
     final requestedProvider = data['provider'] as String?;
@@ -445,14 +445,10 @@ class MediaCreationDomain extends TaskDomain {
           prompt, aspectRatio, style, duration, imageBase64, onProgress);
     }
 
-    // Non-Pollinations providers require an image for img2vid
-    if (imageBase64 == null || imageBase64.isEmpty) {
-      return {
-        'success': false,
-        'error': 'No image provided. Please attach a photo first.',
-        'domain': 'media_creation',
-        'card_type': 'media_creation',
-      };
+    // For txt2vid (no image), some providers support it natively (minimax/video-01).
+    // Set imageBase64 to empty string so the provider can decide whether to use it.
+    if (imageBase64 == null) {
+      imageBase64 = '';
     }
 
     // Select provider
@@ -1021,7 +1017,10 @@ class MediaCreationDomain extends TaskDomain {
         'generation_type': 'ai_image',
       });
 
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(
+        const Duration(minutes: 2),
+        onTimeout: () => http.Response('Timeout', 408),
+      );
 
       if (response.statusCode != 200) {
         return {
@@ -1077,7 +1076,8 @@ class MediaCreationDomain extends TaskDomain {
     }
   }
 
-  /// Generate a video using Pollinations.ai (free, no API key needed).
+  /// Generate a video using Pollinations.ai via gen.pollinations.ai.
+  /// Requires an API key (configured at ai_video.api_keys.pollinations).
   /// Supports both text-to-video and image-to-video via seedance model.
   Future<Map<String, dynamic>> _generateVideoPollinations(
     String prompt,
@@ -1099,7 +1099,48 @@ class MediaCreationDomain extends TaskDomain {
     });
 
     try {
-      // Build URL — same endpoint as images, but with video model
+      // Read API key from config
+      final home = Platform.environment['HOME'] ?? '/tmp';
+      final configFile = File('$home/.opencli/config.yaml');
+      String? apiKey;
+      try {
+        if (await configFile.exists()) {
+          final content = await configFile.readAsString();
+          final yaml = loadYaml(content);
+          if (yaml is YamlMap) {
+            final aiVideo = yaml['ai_video'];
+            if (aiVideo is YamlMap) {
+              var key = aiVideo['api_keys']?['pollinations'];
+              if (key is String &&
+                  key.startsWith(r'${') &&
+                  key.endsWith('}')) {
+                final envVar = key.substring(2, key.length - 1);
+                key = Platform.environment[envVar] ?? key;
+              }
+              if (key is String &&
+                  key.isNotEmpty &&
+                  !key.startsWith(r'${')) {
+                apiKey = key;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+
+      if (apiKey == null) {
+        return {
+          'success': false,
+          'error': 'Pollinations video requires an API key. '
+              'Add your key to ~/.opencli/config.yaml under ai_video.api_keys.pollinations, '
+              'or get one at https://pollinations.ai',
+          'provider': 'pollinations',
+          'generation_type': 'ai_video',
+          'domain': 'media_creation',
+          'card_type': 'media_creation',
+        };
+      }
+
+      // Build URL — gen.pollinations.ai/image/{prompt} with video model
       final params = <String, String>{
         'model': 'seedance',
         'duration': '$clampedDuration',
@@ -1107,16 +1148,8 @@ class MediaCreationDomain extends TaskDomain {
         'nologo': 'true',
       };
 
-      // For image-to-video, save the image as a temp file and pass its URL
-      // Pollinations expects an image URL for img2vid
+      // For image-to-video, pass image as data URI
       if (imageBase64 != null && imageBase64.isNotEmpty) {
-        // Write temp image file for reference
-        final home = Platform.environment['HOME'] ?? '/tmp';
-        final tempDir = Directory('$home/.opencli/temp');
-        if (!await tempDir.exists()) await tempDir.create(recursive: true);
-        final tempFile = File('${tempDir.path}/pollinations_ref_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        await tempFile.writeAsBytes(base64Decode(imageBase64));
-        // Pollinations img2vid requires a public URL — use data URI instead
         params['image'] = 'data:image/jpeg;base64,$imageBase64';
       }
 
@@ -1125,7 +1158,7 @@ class MediaCreationDomain extends TaskDomain {
           .join('&');
 
       final url = Uri.parse(
-        'https://image.pollinations.ai/prompt/'
+        'https://gen.pollinations.ai/image/'
         '${Uri.encodeComponent(prompt)}'
         '?$queryString',
       );
@@ -1145,6 +1178,7 @@ class MediaCreationDomain extends TaskDomain {
       final client = http.Client();
       try {
         final request = http.Request('GET', url);
+        request.headers['Authorization'] = 'Bearer $apiKey';
         final streamedResponse = await client.send(request).timeout(
               const Duration(minutes: 5),
             );
@@ -1154,6 +1188,23 @@ class MediaCreationDomain extends TaskDomain {
           return {
             'success': false,
             'error': 'Pollinations.ai video returned HTTP ${streamedResponse.statusCode}: $body',
+            'provider': 'pollinations',
+            'generation_type': 'ai_video',
+            'domain': 'media_creation',
+            'card_type': 'media_creation',
+          };
+        }
+
+        // Verify content type is video, not image
+        final contentType = streamedResponse.headers['content-type'] ?? '';
+        if (contentType.contains('image/') && !contentType.contains('video/')) {
+          await streamedResponse.stream.drain();
+          print('[MediaCreationDomain] WARNING: Pollinations returned image ($contentType) instead of video');
+          return {
+            'success': false,
+            'error': 'Pollinations returned an image instead of video. '
+                'The seedance video model may not be available. '
+                'Try again or use a different provider.',
             'provider': 'pollinations',
             'generation_type': 'ai_video',
             'domain': 'media_creation',
@@ -1173,7 +1224,7 @@ class MediaCreationDomain extends TaskDomain {
         final videoBase64 = base64Encode(videoBytes);
         final sizeMB = (videoBytes.length / 1024 / 1024).toStringAsFixed(1);
 
-        print('[MediaCreationDomain] Pollinations video received: $sizeMB MB');
+        print('[MediaCreationDomain] Pollinations video received: $sizeMB MB, content-type: $contentType');
 
         onProgress?.call({
           'progress': 1.0,

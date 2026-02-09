@@ -3,12 +3,12 @@ import 'package:http/http.dart' as http;
 import 'video_provider.dart';
 
 /// Replicate API provider for AI video generation.
-/// Uses Kling v2.6 image-to-video model by default.
+/// Uses minimax/video-01 (Hailuo) by default — supports both txt2vid and img2vid.
 class ReplicateVideoProvider extends AIVideoProvider {
   String? _apiToken;
   final _client = http.Client();
   static const _baseUrl = 'https://api.replicate.com/v1';
-  static const _defaultModel = 'kwaivgi/kling-v2.6-image-to-video';
+  static const _defaultModel = 'minimax/video-01';
 
   @override
   String get id => 'replicate';
@@ -32,17 +32,34 @@ class ReplicateVideoProvider extends AIVideoProvider {
     Map<String, dynamic> extraParams = const {},
   }) async {
     final model = extraParams['model'] as String? ?? _defaultModel;
+
+    // Build model-specific input
+    final input = <String, dynamic>{
+      'prompt': prompt,
+    };
+
+    // Add image if provided (img2vid mode)
+    if (imageBase64.isNotEmpty) {
+      if (model.startsWith('minimax/')) {
+        input['first_frame_image'] = 'data:image/jpeg;base64,$imageBase64';
+      } else if (model.startsWith('stability-ai/')) {
+        input['input_image'] = 'data:image/jpeg;base64,$imageBase64';
+      } else {
+        input['image'] = 'data:image/jpeg;base64,$imageBase64';
+      }
+    }
+
+    // Add extra params (excluding our internal keys)
+    for (final entry in extraParams.entries) {
+      if (entry.key != 'model' && entry.key != 'prompt') {
+        input[entry.key] = entry.value;
+      }
+    }
+
     final response = await _client.post(
       Uri.parse('$_baseUrl/models/$model/predictions'),
       headers: _headers,
-      body: jsonEncode({
-        'input': {
-          'prompt': prompt,
-          'image': 'data:image/jpeg;base64,$imageBase64',
-          'duration': '$durationSeconds',
-          ...extraParams,
-        },
-      }),
+      body: jsonEncode({'input': input}),
     );
 
     if (response.statusCode != 201 && response.statusCode != 200) {

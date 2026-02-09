@@ -17,6 +17,15 @@ interface ProviderConfig {
 
 const AI_PROVIDERS: ProviderConfig[] = [
   {
+    id: 'pollinations',
+    name: 'Pollinations.ai',
+    configKey: 'pollinations',
+    placeholder: 'pol_xxxxxxxxxxxx',
+    meta: 'Seedance video (paid) + Flux image (free, no key needed)',
+    capabilities: ['Video', 'Image'],
+    link: 'pollinations.ai',
+  },
+  {
     id: 'replicate',
     name: 'Replicate',
     configKey: 'replicate',
