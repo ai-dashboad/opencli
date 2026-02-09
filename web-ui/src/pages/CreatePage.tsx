@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDaemon } from '../hooks/useDaemon';
 import { saveAsset } from '../utils/assetStorage';
+import { storageApi } from '../utils/storageApi';
 import '../styles/create.css';
 
 type Mode = 'img2vid' | 'txt2vid' | 'txt2img' | 'style';
@@ -142,13 +143,21 @@ interface HistoryItem {
 }
 
 function loadHistory(): HistoryItem[] {
-  try {
-    return JSON.parse(localStorage.getItem('opencli_gen_history') || '[]');
-  } catch { return []; }
+  // Synchronous: return empty initially, async load happens in component
+  return [];
 }
 
-function saveHistory(items: HistoryItem[]) {
-  localStorage.setItem('opencli_gen_history', JSON.stringify(items.slice(0, 20)));
+function saveHistoryItem(item: HistoryItem) {
+  storageApi.addHistory({
+    id: item.id,
+    mode: item.mode,
+    prompt: item.prompt,
+    provider: item.provider,
+    style: item.style,
+    resultType: item.resultType,
+    thumbnail: item.thumbnail,
+    timestamp: item.timestamp,
+  }).catch(() => {});
 }
 
 const DEFAULT_FORM: FormState = {
@@ -186,7 +195,24 @@ export default function CreatePage() {
   // Provider config & history
   const [configuredProviders, setConfiguredProviders] = useState<string[]>([]);
   const [pollinationsVideoKey, setPollinationsVideoKey] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // Load history from API
+  useEffect(() => {
+    storageApi.getHistory(20).then((rows: any[]) => {
+      const items: HistoryItem[] = rows.map((r: any) => ({
+        id: r.id,
+        mode: r.mode,
+        prompt: r.prompt,
+        provider: r.provider,
+        style: r.style ?? '',
+        resultType: r.result_type ?? r.resultType ?? 'image',
+        thumbnail: r.thumbnail,
+        timestamp: r.created_at ?? r.timestamp ?? Date.now(),
+      }));
+      setHistory(items);
+    }).catch(() => {});
+  }, []);
 
   // Fetch configured providers from daemon
   useEffect(() => {
@@ -291,11 +317,8 @@ export default function CreatePage() {
             thumbnail: thumb?.slice(0, 200),
             timestamp: Date.now(),
           };
-          setHistory(prev => {
-            const next = [item, ...prev].slice(0, 20);
-            saveHistory(next);
-            return next;
-          });
+          setHistory(prev => [item, ...prev].slice(0, 20));
+          saveHistoryItem(item);
         };
 
         if (isVideo && msg.result?.video_base64) {
@@ -853,7 +876,7 @@ export default function CreatePage() {
               <span className="cr-label">Recent Generations</span>
               <button
                 className="cr-history-clear"
-                onClick={() => { setHistory([]); saveHistory([]); }}
+                onClick={() => { setHistory([]); storageApi.clearHistory().catch(() => {}); }}
               >
                 Clear
               </button>

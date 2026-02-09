@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/chat_storage_service.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 // import 'package:permission_handler/permission_handler.dart';  // Disabled - speech_to_text handles permissions internally
 import 'package:image_picker/image_picker.dart';
@@ -36,7 +36,7 @@ class _ChatPageState extends State<ChatPage> {
   Uint8List? _selectedImageBytes;
   String? _selectedImageName;
 
-  static const _storageKey = 'chat_messages';
+
 
   @override
   void initState() {
@@ -76,41 +76,35 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _messages.add(welcomeMsg));
   }
 
+  final _chatStorage = ChatStorageService();
+
   Future<void> _loadMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    final json = prefs.getString(_storageKey);
-    if (json != null && json.isNotEmpty) {
-      try {
-        final list = jsonDecode(json) as List<dynamic>;
-        final loaded = list
-            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-            .toList();
-        if (loaded.isNotEmpty) {
-          setState(() {
-            _messages.clear();
-            _messages.addAll(loaded);
-          });
-          _scrollToBottom();
-          return;
-        }
-      } catch (_) {
-        // Corrupted data — fall through to welcome message
+    try {
+      final loaded = await _chatStorage.loadMessages();
+      if (loaded.isNotEmpty) {
+        setState(() {
+          _messages.clear();
+          _messages.addAll(loaded);
+        });
+        _scrollToBottom();
+        return;
       }
+    } catch (_) {
+      // Fall through to welcome message
     }
     _addWelcomeMessage();
   }
 
   Future<void> _saveMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Only persist final-state messages (skip executing/sending), keep last 100
+    // Save only the last message (incremental save)
     final toSave = _messages
         .where((m) =>
             m.status != MessageStatus.executing &&
             m.status != MessageStatus.sending)
         .toList();
-    final trimmed = toSave.length > 100 ? toSave.sublist(toSave.length - 100) : toSave;
-    final json = jsonEncode(trimmed.map((m) => m.toJson()).toList());
-    await prefs.setString(_storageKey, json);
+    if (toSave.isNotEmpty) {
+      await _chatStorage.saveMessage(toSave.last);
+    }
   }
 
   void _listenToUpdates() {

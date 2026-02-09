@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'error_collector.dart';
+import 'package:opencli_daemon/database/app_database.dart';
 
 /// Configuration for issue reporting
 class IssueReporterConfig {
@@ -347,41 +348,40 @@ class IssueReporter {
     _recentReports.removeWhere((dt) => dt.isBefore(oneHourAgo));
   }
 
-  /// Save pending issues to local storage
+  /// Save a pending issue to SQLite
   Future<void> _savePendingIssues() async {
     try {
-      final file = File(config.localStoragePath);
-      await file.parent.create(recursive: true);
+      final db = AppDatabase.instance;
+      if (!db.isInitialized) return;
 
-      final data = {
-        'pendingIssues': _pendingIssues.map((i) => i.toJson()).toList(),
-        'reportedFingerprints': _reportedFingerprints.toList(),
-        'savedAt': DateTime.now().toIso8601String(),
-      };
-
-      await file.writeAsString(jsonEncode(data));
+      for (final issue in _pendingIssues) {
+        await db.insertIssue({
+          'id': issue.id,
+          'title': issue.title,
+          'body': issue.body,
+          'labels': jsonEncode(issue.labels),
+          'fingerprint': issue.fingerprint,
+          'created_at': issue.createdAt.millisecondsSinceEpoch,
+          'reported': issue.reported ? 1 : 0,
+          'remote_id': issue.remoteId,
+        });
+      }
     } catch (e) {
       print('[IssueReporter] Failed to save pending issues: $e');
     }
   }
 
-  /// Load pending issues from local storage
+  /// Load fingerprints from SQLite for deduplication
   Future<void> _loadPendingIssues() async {
     try {
-      final file = File(config.localStoragePath);
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        final data = jsonDecode(content) as Map<String, dynamic>;
+      final db = AppDatabase.instance;
+      if (!db.isInitialized) return;
 
-        // Load fingerprints for deduplication
-        final fingerprints = data['reportedFingerprints'] as List<dynamic>?;
-        if (fingerprints != null) {
-          _reportedFingerprints.addAll(fingerprints.cast<String>());
-        }
+      final fingerprints = await db.getReportedFingerprints();
+      _reportedFingerprints.addAll(fingerprints);
 
-        print(
-            '[IssueReporter] Loaded ${_reportedFingerprints.length} fingerprints for deduplication');
-      }
+      print(
+          '[IssueReporter] Loaded ${_reportedFingerprints.length} fingerprints for deduplication');
     } catch (e) {
       print('[IssueReporter] Failed to load pending issues: $e');
     }

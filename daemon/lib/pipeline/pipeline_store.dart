@@ -1,80 +1,103 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:opencli_daemon/database/app_database.dart';
 import 'pipeline_definition.dart';
 
-/// File-system backed storage for pipeline definitions.
+/// SQLite-backed storage for pipeline definitions.
 ///
-/// Stores each pipeline as a JSON file under ~/.opencli/pipelines/.
+/// Stores pipelines in the centralized AppDatabase.
 class PipelineStore {
-  final String _baseDir;
+  final AppDatabase _db;
 
-  PipelineStore({String? baseDir})
-      : _baseDir = baseDir ??
-            '${Platform.environment['HOME']}/.opencli/pipelines';
+  PipelineStore({AppDatabase? db}) : _db = db ?? AppDatabase.instance;
 
-  /// Ensure the storage directory exists.
-  Future<void> initialize() async {
-    final dir = Directory(_baseDir);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-  }
+  /// Initialize (no-op now — DB is initialized at daemon startup).
+  Future<void> initialize() async {}
 
   /// List all saved pipelines (summary only).
   Future<List<Map<String, dynamic>>> list() async {
-    await initialize();
-    final dir = Directory(_baseDir);
-    final summaries = <Map<String, dynamic>>[];
+    final rows = await _db.listPipelines();
+    return rows.map((row) {
+      // Decode nodes/edges to get counts (if full row is available)
+      final nodeCount = _countJson(row['nodes']);
+      final edgeCount = _countJson(row['edges']);
+      return {
+        'id': row['id'],
+        'name': row['name'],
+        'description': row['description'] ?? '',
+        'node_count': nodeCount,
+        'edge_count': edgeCount,
+        'created_at': DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int).toIso8601String(),
+        'updated_at': DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int).toIso8601String(),
+      };
+    }).toList();
+  }
 
-    await for (final entity in dir.list()) {
-      if (entity is File && entity.path.endsWith('.json')) {
-        try {
-          final content = await entity.readAsString();
-          final json = jsonDecode(content) as Map<String, dynamic>;
-          final pipeline = PipelineDefinition.fromJson(json);
-          summaries.add(pipeline.toSummary());
-        } catch (e) {
-          // Skip malformed files
-          print('[PipelineStore] Warning: could not read ${entity.path}: $e');
-        }
-      }
+  int _countJson(dynamic value) {
+    if (value == null) return 0;
+    try {
+      final list = jsonDecode(value as String);
+      return (list as List).length;
+    } catch (_) {
+      return 0;
     }
-
-    summaries.sort((a, b) =>
-        (b['updated_at'] as String).compareTo(a['updated_at'] as String));
-    return summaries;
   }
 
   /// Load a pipeline by ID.
   Future<PipelineDefinition?> load(String id) async {
-    final file = File('$_baseDir/$id.json');
-    if (!await file.exists()) return null;
-
-    final content = await file.readAsString();
-    final json = jsonDecode(content) as Map<String, dynamic>;
-    return PipelineDefinition.fromJson(json);
+    final row = await _db.getPipeline(id);
+    if (row == null) return null;
+    return _rowToPipeline(row);
   }
 
   /// Save a pipeline (creates or overwrites).
   Future<void> save(PipelineDefinition pipeline) async {
-    await initialize();
     pipeline.updatedAt = DateTime.now();
-    final file = File('$_baseDir/${pipeline.id}.json');
-    await file.writeAsString(pipeline.toJsonString());
+    await _db.upsertPipeline({
+      'id': pipeline.id,
+      'name': pipeline.name,
+      'description': pipeline.description,
+      'nodes': jsonEncode(pipeline.nodes.map((n) => n.toJson()).toList()),
+      'edges': jsonEncode(pipeline.edges.map((e) => e.toJson()).toList()),
+      'parameters':
+          jsonEncode(pipeline.parameters.map((p) => p.toJson()).toList()),
+      'created_at': pipeline.createdAt.millisecondsSinceEpoch,
+      'updated_at': pipeline.updatedAt.millisecondsSinceEpoch,
+    });
   }
 
   /// Delete a pipeline by ID. Returns true if deleted.
   Future<bool> delete(String id) async {
-    final file = File('$_baseDir/$id.json');
-    if (await file.exists()) {
-      await file.delete();
-      return true;
-    }
-    return false;
+    return await _db.deletePipeline(id);
   }
 
   /// Check if a pipeline exists.
   Future<bool> exists(String id) async {
-    return File('$_baseDir/$id.json').exists();
+    return await _db.pipelineExists(id);
+  }
+
+  /// Convert a database row to PipelineDefinition.
+  PipelineDefinition _rowToPipeline(Map<String, dynamic> row) {
+    final nodesJson = jsonDecode(row['nodes'] as String) as List<dynamic>;
+    final edgesJson = jsonDecode(row['edges'] as String) as List<dynamic>;
+    final paramsJson = jsonDecode(row['parameters'] as String? ?? '[]') as List<dynamic>;
+
+    return PipelineDefinition(
+      id: row['id'] as String,
+      name: row['name'] as String? ?? 'Untitled',
+      description: row['description'] as String? ?? '',
+      nodes: nodesJson
+          .map((n) => PipelineNode.fromJson(n as Map<String, dynamic>))
+          .toList(),
+      edges: edgesJson
+          .map((e) => PipelineEdge.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      parameters: paramsJson
+          .map((p) => PipelineParam.fromJson(p as Map<String, dynamic>))
+          .toList(),
+      createdAt:
+          DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
+      updatedAt:
+          DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
+    );
   }
 }

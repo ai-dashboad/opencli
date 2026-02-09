@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'package:crypto/crypto.dart' as crypto_pkg;
+import 'package:opencli_daemon/database/app_database.dart';
 
 /// Represents a paired device
 class PairedDevice {
@@ -108,8 +108,8 @@ class PairingRequest {
 
 /// Manages device pairing and authentication
 class DevicePairingManager {
-  final String storageDir;
   final Duration pairingCodeValidity;
+  final AppDatabase _db;
 
   final Map<String, PairedDevice> _pairedDevices = {};
   final Map<String, PairingRequest> _pendingPairings = {};
@@ -117,35 +117,32 @@ class DevicePairingManager {
   DevicePairingManager({
     String? storageDir,
     this.pairingCodeValidity = const Duration(minutes: 5),
-  }) : storageDir = storageDir ?? _defaultStorageDir();
-
-  static String _defaultStorageDir() {
-    final home = Platform.environment['HOME'] ?? '.';
-    return '$home/.opencli/security';
-  }
+    AppDatabase? db,
+  }) : _db = db ?? AppDatabase.instance;
 
   /// Initialize and load paired devices
   Future<void> initialize() async {
-    final dir = Directory(storageDir);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-
     await _loadPairedDevices();
     print('[DevicePairing] Loaded ${_pairedDevices.length} paired devices');
   }
 
-  /// Load paired devices from storage
+  /// Load paired devices from SQLite
   Future<void> _loadPairedDevices() async {
-    final file = File('$storageDir/paired_devices.json');
-    if (!await file.exists()) return;
-
     try {
-      final content = await file.readAsString();
-      final List<dynamic> data = jsonDecode(content);
-
-      for (final item in data) {
-        final device = PairedDevice.fromJson(item as Map<String, dynamic>);
+      final rows = await _db.listPairedDevices();
+      for (final row in rows) {
+        final device = PairedDevice(
+          deviceId: row['device_id'] as String,
+          deviceName: row['device_name'] as String,
+          platform: row['platform'] as String,
+          pairedAt:
+              DateTime.fromMillisecondsSinceEpoch(row['paired_at'] as int),
+          lastSeen:
+              DateTime.fromMillisecondsSinceEpoch(row['last_seen'] as int),
+          sharedSecret: row['shared_secret'] as String,
+          permissions:
+              Map<String, bool>.from(jsonDecode(row['permissions'] as String)),
+        );
         _pairedDevices[device.deviceId] = device;
       }
     } catch (e) {
@@ -153,11 +150,17 @@ class DevicePairingManager {
     }
   }
 
-  /// Save paired devices to storage
-  Future<void> _savePairedDevices() async {
-    final file = File('$storageDir/paired_devices.json');
-    final data = _pairedDevices.values.map((d) => d.toJson()).toList();
-    await file.writeAsString(jsonEncode(data));
+  /// Save a single paired device to SQLite
+  Future<void> _saveDevice(PairedDevice device) async {
+    await _db.upsertPairedDevice({
+      'device_id': device.deviceId,
+      'device_name': device.deviceName,
+      'platform': device.platform,
+      'paired_at': device.pairedAt.millisecondsSinceEpoch,
+      'last_seen': device.lastSeen.millisecondsSinceEpoch,
+      'shared_secret': device.sharedSecret,
+      'permissions': jsonEncode(device.permissions),
+    });
   }
 
   /// Generate a new pairing request
@@ -239,7 +242,7 @@ class DevicePairingManager {
     _pairedDevices[deviceId] = device;
     _pendingPairings.remove(pairingCode);
 
-    await _savePairedDevices();
+    await _saveDevice(device);
 
     print('[DevicePairing] Paired new device: $deviceName ($deviceId)');
     return device;
@@ -285,8 +288,9 @@ class DevicePairingManager {
     }
 
     // Update last seen
-    _pairedDevices[deviceId] = device.copyWith(lastSeen: DateTime.now());
-    _savePairedDevices();
+    final updated = device.copyWith(lastSeen: DateTime.now());
+    _pairedDevices[deviceId] = updated;
+    _db.updateDeviceLastSeen(deviceId);
 
     return true;
   }
@@ -320,11 +324,12 @@ class DevicePairingManager {
     final device = _pairedDevices[deviceId];
     if (device == null) return;
 
-    _pairedDevices[deviceId] = device.copyWith(
+    final updated = device.copyWith(
       permissions: {...device.permissions, ...permissions},
     );
+    _pairedDevices[deviceId] = updated;
 
-    await _savePairedDevices();
+    await _saveDevice(updated);
   }
 
   /// Check if device has permission for an action
@@ -338,7 +343,7 @@ class DevicePairingManager {
   /// Unpair a device
   Future<void> unpairDevice(String deviceId) async {
     _pairedDevices.remove(deviceId);
-    await _savePairedDevices();
+    await _db.deletePairedDevice(deviceId);
     print('[DevicePairing] Unpaired device: $deviceId');
   }
 

@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
-import 'package:http/http.dart' as http;
+import 'package:opencli_daemon/database/app_database.dart';
 
 /// File storage system with multiple backend support
 class FileStorage {
@@ -306,13 +306,14 @@ abstract class FileStorageAdapter {
   Future<void> close();
 }
 
-/// Local file storage adapter
+/// Local file storage adapter — files on disk, metadata in SQLite.
 class LocalFileStorageAdapter implements FileStorageAdapter {
   final FileStorageConfig config;
-  final Map<String, StoredFile> _metadata = {};
   late String _basePath;
 
   LocalFileStorageAdapter(this.config);
+
+  AppDatabase get _db => AppDatabase.instance;
 
   @override
   Future<void> initialize() async {
@@ -320,16 +321,6 @@ class LocalFileStorageAdapter implements FileStorageAdapter {
         path.join(Directory.systemTemp.path, 'opencli_storage');
     final dir = Directory(_basePath);
     await dir.create(recursive: true);
-
-    // Load metadata
-    final metadataFile = File(path.join(_basePath, 'metadata.json'));
-    if (await metadataFile.exists()) {
-      final content = await metadataFile.readAsString();
-      final data = jsonDecode(content) as Map<String, dynamic>;
-      data.forEach((key, value) {
-        _metadata[key] = StoredFile.fromJson(value as Map<String, dynamic>);
-      });
-    }
   }
 
   @override
@@ -338,8 +329,15 @@ class LocalFileStorageAdapter implements FileStorageAdapter {
     final file = File(filePath);
     await file.writeAsBytes(data);
 
-    _metadata[metadata.id] = metadata;
-    await _saveMetadata();
+    await _db.insertFileMetadata({
+      'id': metadata.id,
+      'filename': metadata.filename,
+      'size': metadata.size,
+      'content_type': metadata.contentType,
+      'checksum': metadata.checksum,
+      'uploaded_at': metadata.uploadedAt.millisecondsSinceEpoch,
+      'metadata': jsonEncode(metadata.metadata),
+    });
 
     return filePath;
   }
@@ -358,7 +356,9 @@ class LocalFileStorageAdapter implements FileStorageAdapter {
 
   @override
   Future<StoredFile?> getMetadata(String fileId) async {
-    return _metadata[fileId];
+    final row = await _db.getFileMetadata(fileId);
+    if (row == null) return null;
+    return _rowToStoredFile(row);
   }
 
   @override
@@ -370,8 +370,7 @@ class LocalFileStorageAdapter implements FileStorageAdapter {
       await file.delete();
     }
 
-    _metadata.remove(fileId);
-    await _saveMetadata();
+    await _db.deleteFileMetadata(fileId);
   }
 
   @override
@@ -380,51 +379,49 @@ class LocalFileStorageAdapter implements FileStorageAdapter {
     int? offset,
     String? contentType,
   }) async {
-    var files = _metadata.values.toList();
-
-    if (contentType != null) {
-      files = files.where((f) => f.contentType == contentType).toList();
-    }
-
-    files.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
-
-    if (offset != null) {
-      files = files.skip(offset).toList();
-    }
-
-    if (limit != null) {
-      files = files.take(limit).toList();
-    }
-
-    return files;
+    final rows = await _db.listFileMetadata(
+      contentType: contentType,
+      limit: limit,
+      offset: offset,
+    );
+    return rows.map(_rowToStoredFile).toList();
   }
 
   @override
   Future<StorageStats> getStats() async {
+    final files = await _db.listFileMetadata();
     final filesByType = <String, int>{};
     var totalSize = 0;
 
-    for (final file in _metadata.values) {
-      totalSize += file.size;
-      filesByType[file.contentType] = (filesByType[file.contentType] ?? 0) + 1;
+    for (final row in files) {
+      final size = row['size'] as int? ?? 0;
+      final ct = row['content_type'] as String? ?? 'unknown';
+      totalSize += size;
+      filesByType[ct] = (filesByType[ct] ?? 0) + 1;
     }
 
     return StorageStats(
-      totalFiles: _metadata.length,
+      totalFiles: files.length,
       totalSize: totalSize,
       filesByType: filesByType,
     );
   }
 
   @override
-  Future<void> close() async {
-    await _saveMetadata();
-  }
+  Future<void> close() async {}
 
-  Future<void> _saveMetadata() async {
-    final metadataFile = File(path.join(_basePath, 'metadata.json'));
-    final data = _metadata.map((key, value) => MapEntry(key, value.toJson()));
-    await metadataFile.writeAsString(jsonEncode(data));
+  StoredFile _rowToStoredFile(Map<String, dynamic> row) {
+    return StoredFile(
+      id: row['id'] as String,
+      filename: row['filename'] as String,
+      size: row['size'] as int,
+      contentType: row['content_type'] as String,
+      checksum: row['checksum'] as String,
+      uploadedAt:
+          DateTime.fromMillisecondsSinceEpoch(row['uploaded_at'] as int),
+      metadata: Map<String, String>.from(
+          jsonDecode(row['metadata'] as String? ?? '{}')),
+    );
   }
 }
 

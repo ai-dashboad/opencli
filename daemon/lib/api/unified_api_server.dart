@@ -12,6 +12,7 @@ import 'package:opencli_daemon/api/api_translator.dart';
 import 'package:opencli_daemon/api/message_handler.dart';
 import 'package:opencli_daemon/pipeline/pipeline_api.dart';
 import 'package:opencli_daemon/domains/media_creation/local_model_manager.dart';
+import 'package:opencli_daemon/api/storage_api.dart';
 
 /// Unified API server on port 9529 for Web UI integration
 ///
@@ -25,6 +26,7 @@ class UnifiedApiServer {
   PipelineApi? _pipelineApi;
   Future<void> Function()? _onConfigSaved;
   LocalModelManager? _localModelManager;
+  StorageApi? _storageApi;
 
   UnifiedApiServer({
     required RequestRouter requestRouter,
@@ -33,11 +35,13 @@ class UnifiedApiServer {
     PipelineApi? pipelineApi,
     Future<void> Function()? onConfigSaved,
     LocalModelManager? localModelManager,
+    StorageApi? storageApi,
   })  : _requestRouter = requestRouter,
         _messageHandler = messageHandler,
         _pipelineApi = pipelineApi,
         _onConfigSaved = onConfigSaved,
-        _localModelManager = localModelManager;
+        _localModelManager = localModelManager,
+        _storageApi = storageApi;
 
   /// Set pipeline API (can be configured after construction).
   void setPipelineApi(PipelineApi api) {
@@ -72,6 +76,9 @@ class UnifiedApiServer {
 
     // Pipeline API routes
     _pipelineApi?.registerRoutes(router);
+
+    // Storage API routes (history, assets, events, chat)
+    _storageApi?.registerRoutes(router);
 
     final handler = const shelf.Pipeline()
         .addMiddleware(shelf.logRequests())

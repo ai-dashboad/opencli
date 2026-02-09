@@ -1,3 +1,5 @@
+import { storageApi } from './storageApi';
+
 export interface Asset {
   id: string;
   type: 'video' | 'image';
@@ -9,31 +11,55 @@ export interface Asset {
   createdAt: number;
 }
 
-const STORAGE_KEY = 'opencli_assets';
+// In-memory cache, synced with API
+let _cache: Asset[] | null = null;
 
-export function getAssets(): Asset[] {
+export async function getAssetsAsync(): Promise<Asset[]> {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    const rows = await storageApi.getAssets();
+    _cache = rows.map((r: any) => ({
+      id: r.id,
+      type: r.type,
+      title: r.title,
+      url: r.url,
+      thumbnail: r.thumbnail,
+      provider: r.provider,
+      style: r.style,
+      createdAt: r.created_at ?? r.createdAt ?? Date.now(),
+    }));
+    return _cache;
   } catch {
-    return [];
+    return _cache ?? [];
   }
 }
 
+// Synchronous fallback — returns cached data
+export function getAssets(): Asset[] {
+  if (_cache !== null) return _cache;
+  // Trigger async load for next call
+  getAssetsAsync().catch(() => {});
+  return [];
+}
+
 export function saveAsset(partial: Omit<Asset, 'id' | 'createdAt'>): Asset {
-  const assets = getAssets();
   const asset: Asset = {
     ...partial,
     id: `asset_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
   };
-  assets.unshift(asset);
-  if (assets.length > 100) assets.length = 100;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(assets));
+  // Update cache immediately
+  if (_cache) {
+    _cache.unshift(asset);
+    if (_cache.length > 100) _cache.length = 100;
+  }
+  // Persist to API (fire and forget)
+  storageApi.saveAsset(asset).catch(() => {});
   return asset;
 }
 
 export function deleteAsset(id: string): void {
-  const assets = getAssets().filter(a => a.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(assets));
+  if (_cache) {
+    _cache = _cache.filter(a => a.id !== id);
+  }
+  storageApi.deleteAsset(id).catch(() => {});
 }

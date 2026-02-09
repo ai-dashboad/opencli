@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { storageApi } from '../utils/storageApi';
 import '../styles/status.css';
 
 interface DaemonStatus {
@@ -54,6 +55,25 @@ function StatusPage() {
   useEffect(() => {
     scrollToTop();
   }, [messages]);
+
+  // Load persisted events on mount
+  useEffect(() => {
+    storageApi.getEvents(100).then((events: any[]) => {
+      const loaded: Message[] = events.map((e: any) => ({
+        id: e.id,
+        type: e.type || 'system',
+        source: e.source || '',
+        content: e.content || '',
+        taskType: e.task_type,
+        status: e.status,
+        result: e.result ? (typeof e.result === 'string' ? JSON.parse(e.result) : e.result) : undefined,
+        timestamp: new Date(e.created_at),
+      }));
+      if (loaded.length > 0) {
+        setMessages(loaded.reverse());
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadStatus();
@@ -201,6 +221,17 @@ function StatusPage() {
 
   const addMessage = (message: Message) => {
     setMessages(prev => [...prev, message]);
+    // Persist to SQLite via API (fire and forget)
+    storageApi.logEvent({
+      id: message.id,
+      type: message.type,
+      source: message.source,
+      content: message.content,
+      taskType: message.taskType,
+      status: message.status,
+      result: message.result,
+      timestamp: message.timestamp.getTime(),
+    });
   };
 
   const formatTime = (date: Date) => {

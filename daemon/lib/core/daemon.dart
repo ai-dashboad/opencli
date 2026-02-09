@@ -21,6 +21,9 @@ import 'package:opencli_daemon/domains/domain_plugin_adapter.dart';
 import 'package:opencli_daemon/pipeline/pipeline_store.dart';
 import 'package:opencli_daemon/pipeline/pipeline_executor.dart';
 import 'package:opencli_daemon/pipeline/pipeline_api.dart';
+import 'package:opencli_daemon/database/app_database.dart';
+import 'package:opencli_daemon/database/data_migrator.dart';
+import 'package:opencli_daemon/api/storage_api.dart';
 
 class Daemon {
   static const String version = '0.2.0';
@@ -73,6 +76,14 @@ class Daemon {
   Future<void> start() async {
     TerminalUI.printSection('Initialization', emoji: '🚀');
 
+    // Initialize centralized SQLite database first
+    TerminalUI.printInitStep('Initializing SQLite database');
+    final home = Platform.environment['HOME'] ?? '.';
+    final appDb = AppDatabase.instance;
+    await appDb.initialize('$home/.opencli/opencli.db');
+    await DataMigrator.migrateIfNeeded(appDb);
+    TerminalUI.success('SQLite database initialized', prefix: '  ✓');
+
     // Initialize telemetry first (for error tracking)
     TerminalUI.printInitStep('Initializing telemetry');
     _telemetry = TelemetryManager(
@@ -91,7 +102,6 @@ class Daemon {
 
     // Initialize MCP server manager
     TerminalUI.printInitStep('Initializing MCP server manager');
-    final home = Platform.environment['HOME'] ?? '.';
     final mcpConfigPath = '$home/.opencli/mcp-servers.json';
     _mcpManager = MCPServerManager(configPath: mcpConfigPath);
     try {
@@ -241,6 +251,8 @@ class Daemon {
       localModelMgr = (mediaDomain as dynamic).localModelManager;
     } catch (_) {}
 
+    final storageApi = StorageApi();
+
     _unifiedApiServer = UnifiedApiServer(
       requestRouter: _router,
       messageHandler: MessageHandler(), // Create new instance for unified API
@@ -248,6 +260,7 @@ class Daemon {
       pipelineApi: pipelineApi,
       onConfigSaved: reloadMediaProviders,
       localModelManager: localModelMgr,
+      storageApi: storageApi,
     );
     await _unifiedApiServer!.start();
     TerminalUI.success('Unified API server listening on port 9529',
@@ -387,8 +400,11 @@ class Daemon {
     TerminalUI.printInitStep('Disposing task handler');
     _mobileTaskHandler.dispose();
 
-    TerminalUI.printInitStep('Disposing telemetry', last: true);
+    TerminalUI.printInitStep('Disposing telemetry');
     _telemetry.dispose();
+
+    TerminalUI.printInitStep('Closing database', last: true);
+    await AppDatabase.instance.close();
 
     _exitSignal.complete();
 
