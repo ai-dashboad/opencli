@@ -650,7 +650,7 @@ class MediaCreationDomain extends TaskDomain {
     }
   }
 
-  /// Generate an image using Replicate's Flux model with progress reporting.
+  /// Generate an image using AI providers with progress reporting.
   Future<Map<String, dynamic>> _aiGenerateImage(
     Map<String, dynamic> data, {
     ProgressCallback? onProgress,
@@ -665,7 +665,27 @@ class MediaCreationDomain extends TaskDomain {
       };
     }
 
-    // Get Replicate API key from the provider registry
+    // Build the full prompt with style hints
+    final style = data['style'] as String? ?? 'photorealistic';
+    final negativePrompt = data['negative_prompt'] as String?;
+    final aspectRatio = data['aspect_ratio'] as String? ?? '1:1';
+    final referenceImageBase64 = data['reference_image_base64'] as String?;
+    final styledPrompt = _buildImagePrompt(prompt, style);
+
+    // Route to the selected provider
+    final provider = data['provider'] as String? ?? 'replicate';
+    switch (provider) {
+      case 'pollinations':
+        return await _generateImagePollinations(
+            styledPrompt, aspectRatio, style, onProgress);
+      case 'gemini':
+        return await _generateImageGemini(
+            styledPrompt, aspectRatio, style, onProgress);
+      default:
+        break; // Fall through to Replicate below
+    }
+
+    // --- Replicate provider (default) ---
     final replicateProvider = _providerRegistry.get('replicate');
     if (replicateProvider == null || !replicateProvider.isConfigured) {
       return {
@@ -676,15 +696,6 @@ class MediaCreationDomain extends TaskDomain {
         'card_type': 'media_creation',
       };
     }
-
-    // Build the full prompt with style hints
-    final style = data['style'] as String? ?? 'photorealistic';
-    final negativePrompt = data['negative_prompt'] as String?;
-    final aspectRatio = data['aspect_ratio'] as String? ?? '1:1';
-    final referenceImageBase64 = data['reference_image_base64'] as String?;
-
-    // Enhance prompt with style
-    final styledPrompt = _buildImagePrompt(prompt, style);
 
     onProgress?.call({
       'progress': 0.05,
@@ -952,6 +963,284 @@ class MediaCreationDomain extends TaskDomain {
       return '$stylePrefix ${trimmed.substring(trimmed.indexOf(' ') + 1)}';
     }
     return '$stylePrefix $trimmed';
+  }
+
+  /// Generate an image using Pollinations.ai (free, no API key needed).
+  Future<Map<String, dynamic>> _generateImagePollinations(
+    String prompt,
+    String aspectRatio,
+    String style,
+    ProgressCallback? onProgress,
+  ) async {
+    // Convert aspect ratio to pixel dimensions
+    final (width, height) = switch (aspectRatio) {
+      '16:9' => (1280, 720),
+      '9:16' => (720, 1280),
+      '4:3' => (1024, 768),
+      '3:4' => (768, 1024),
+      _ => (1024, 1024),
+    };
+
+    onProgress?.call({
+      'progress': 0.1,
+      'status_message': 'Generating image via Pollinations.ai...',
+      'provider': 'pollinations',
+      'style': style,
+      'generation_type': 'ai_image',
+    });
+
+    try {
+      final url = Uri.parse(
+        'https://image.pollinations.ai/prompt/'
+        '${Uri.encodeComponent(prompt)}'
+        '?width=$width&height=$height&model=flux&nologo=true',
+      );
+
+      print('[MediaCreationDomain] Pollinations request: $url');
+
+      onProgress?.call({
+        'progress': 0.3,
+        'status_message': 'Waiting for Pollinations.ai response...',
+        'provider': 'pollinations',
+        'style': style,
+        'generation_type': 'ai_image',
+      });
+
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        return {
+          'success': false,
+          'error':
+              'Pollinations.ai returned HTTP ${response.statusCode}',
+          'provider': 'pollinations',
+          'generation_type': 'ai_image',
+          'domain': 'media_creation',
+          'card_type': 'media_creation',
+        };
+      }
+
+      final imageBytes = response.bodyBytes;
+      final imageBase64 = base64Encode(imageBytes);
+      final sizeKB = (imageBytes.length / 1024).toStringAsFixed(0);
+
+      print(
+          '[MediaCreationDomain] Pollinations image received: $sizeKB KB');
+
+      onProgress?.call({
+        'progress': 1.0,
+        'status_message': 'Image generated!',
+        'provider': 'pollinations',
+        'style': style,
+        'generation_type': 'ai_image',
+      });
+
+      return {
+        'success': true,
+        'image_base64': imageBase64,
+        'provider': 'pollinations',
+        'provider_name': 'Pollinations.ai',
+        'model': 'flux',
+        'style': style,
+        'prompt': prompt,
+        'aspect_ratio': aspectRatio,
+        'size_bytes': imageBytes.length,
+        'generation_type': 'ai_image',
+        'message': 'AI image generated via Pollinations.ai FLUX ($sizeKB KB)',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Pollinations.ai error: $e',
+        'provider': 'pollinations',
+        'generation_type': 'ai_image',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+  }
+
+  /// Generate an image using Google Gemini (free tier).
+  Future<Map<String, dynamic>> _generateImageGemini(
+    String prompt,
+    String aspectRatio,
+    String style,
+    ProgressCallback? onProgress,
+  ) async {
+    // Read Gemini API key from config
+    final home = Platform.environment['HOME'] ?? '/tmp';
+    final configFile = File('$home/.opencli/config.yaml');
+    String? apiKey;
+    try {
+      if (await configFile.exists()) {
+        final content = await configFile.readAsString();
+        final yaml = loadYaml(content);
+        if (yaml is YamlMap) {
+          var key = yaml['models']?['gemini']?['api_key'];
+          if (key is String &&
+              key.startsWith(r'${') &&
+              key.endsWith('}')) {
+            final envVar = key.substring(2, key.length - 1);
+            key = Platform.environment[envVar] ?? key;
+          }
+          if (key is String &&
+              key.isNotEmpty &&
+              !key.startsWith(r'${')) {
+            apiKey = key;
+          }
+        }
+      }
+    } catch (e) {
+      // Fall through
+    }
+
+    if (apiKey == null) {
+      return {
+        'success': false,
+        'error': 'Google API key not configured. '
+            'Set GOOGLE_API_KEY environment variable or add it to '
+            '~/.opencli/config.yaml under models.gemini.api_key',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    }
+
+    onProgress?.call({
+      'progress': 0.1,
+      'status_message': 'Generating image via Google Gemini...',
+      'provider': 'gemini',
+      'style': style,
+      'generation_type': 'ai_image',
+    });
+
+    final client = http.Client();
+    try {
+      final url = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/'
+        'gemini-2.0-flash-exp:generateContent?key=$apiKey',
+      );
+
+      print('[MediaCreationDomain] Gemini image generation request');
+
+      onProgress?.call({
+        'progress': 0.3,
+        'status_message': 'Waiting for Gemini response...',
+        'provider': 'gemini',
+        'style': style,
+        'generation_type': 'ai_image',
+      });
+
+      final response = await client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'contents': [
+            {
+              'parts': [
+                {'text': 'Generate an image: $prompt'}
+              ]
+            }
+          ],
+          'generationConfig': {
+            'responseModalities': ['TEXT', 'IMAGE'],
+          },
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        final body = jsonDecode(response.body);
+        final errorMsg = body['error']?['message'] ?? 'HTTP ${response.statusCode}';
+        return {
+          'success': false,
+          'error': 'Gemini API error: $errorMsg',
+          'provider': 'gemini',
+          'generation_type': 'ai_image',
+          'domain': 'media_creation',
+          'card_type': 'media_creation',
+        };
+      }
+
+      final data = jsonDecode(response.body);
+      final candidates = data['candidates'] as List?;
+      if (candidates == null || candidates.isEmpty) {
+        return {
+          'success': false,
+          'error': 'Gemini returned no candidates',
+          'provider': 'gemini',
+          'generation_type': 'ai_image',
+          'domain': 'media_creation',
+          'card_type': 'media_creation',
+        };
+      }
+
+      // Find the inlineData part containing the image
+      final parts = candidates[0]['content']?['parts'] as List? ?? [];
+      String? imageBase64;
+      String? mimeType;
+      for (final part in parts) {
+        if (part is Map && part['inlineData'] != null) {
+          imageBase64 = part['inlineData']['data'] as String?;
+          mimeType = part['inlineData']['mimeType'] as String?;
+          break;
+        }
+      }
+
+      if (imageBase64 == null) {
+        return {
+          'success': false,
+          'error': 'Gemini did not return an image. It may not support '
+              'image generation in this region or model.',
+          'provider': 'gemini',
+          'generation_type': 'ai_image',
+          'domain': 'media_creation',
+          'card_type': 'media_creation',
+        };
+      }
+
+      final imageBytes = base64Decode(imageBase64);
+      final sizeKB = (imageBytes.length / 1024).toStringAsFixed(0);
+
+      print(
+          '[MediaCreationDomain] Gemini image received: $sizeKB KB ($mimeType)');
+
+      onProgress?.call({
+        'progress': 1.0,
+        'status_message': 'Image generated!',
+        'provider': 'gemini',
+        'style': style,
+        'generation_type': 'ai_image',
+      });
+
+      return {
+        'success': true,
+        'image_base64': imageBase64,
+        'provider': 'gemini',
+        'provider_name': 'Google Gemini',
+        'model': 'gemini-2.0-flash-exp',
+        'style': style,
+        'prompt': prompt,
+        'aspect_ratio': aspectRatio,
+        'size_bytes': imageBytes.length,
+        'generation_type': 'ai_image',
+        'message':
+            'AI image generated via Google Gemini ($sizeKB KB)',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Gemini error: $e',
+        'provider': 'gemini',
+        'generation_type': 'ai_image',
+        'domain': 'media_creation',
+        'card_type': 'media_creation',
+      };
+    } finally {
+      client.close();
+    }
   }
 
   /// Generate an image using a local model (Waifu Diffusion, Animagine, Pony).

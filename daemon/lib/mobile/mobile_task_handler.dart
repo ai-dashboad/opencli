@@ -255,6 +255,7 @@ class MobileTaskHandler {
         deviceId,
         taskId,
         'running',
+        taskType: taskType,
       );
 
       Map<String, dynamic> result;
@@ -265,6 +266,7 @@ class MobileTaskHandler {
           deviceId,
           taskId,
           'running',
+          taskType: taskType,
           result: progressData,
         );
       }
@@ -299,6 +301,7 @@ class MobileTaskHandler {
         deviceId,
         taskId,
         'completed',
+        taskType: taskType,
         result: result,
       );
     } catch (e) {
@@ -307,6 +310,7 @@ class MobileTaskHandler {
         deviceId,
         taskId,
         'failed',
+        taskType: taskType,
         error: e.toString(),
       );
     }

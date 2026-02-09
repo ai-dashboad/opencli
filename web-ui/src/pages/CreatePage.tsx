@@ -77,6 +77,8 @@ const VIDEO_PROVIDERS = [
 ];
 
 const IMAGE_PROVIDERS = [
+  { id: 'pollinations', label: 'Pollinations', sub: 'FLUX (Free)' },
+  { id: 'gemini', label: 'Google Gemini', sub: 'Imagen (Free)' },
   { id: 'replicate', label: 'Replicate', sub: 'Flux Schnell' },
   { id: 'luma', label: 'Luma', sub: 'Photon' },
 ];
@@ -119,6 +121,8 @@ const PROGRESS_STEPS = [
 
 // Average generation times by provider (seconds)
 const PROVIDER_ETA: Record<string, number> = {
+  pollinations: 15,
+  gemini: 10,
   replicate: 30,
   runway: 90,
   kling: 120,
@@ -148,7 +152,7 @@ function saveHistory(items: HistoryItem[]) {
 
 const DEFAULT_FORM: FormState = {
   prompt: '',
-  provider: 'replicate',
+  provider: 'pollinations',
   style: 'cinematic',
   duration: 5,
   aspectRatio: '16:9',
@@ -191,6 +195,13 @@ export default function CreatePage() {
         const configured = Object.entries(keys)
           .filter(([, v]) => v && typeof v === 'string' && !(v as string).startsWith('${'))
           .map(([k]) => k === 'kling_piapi' ? 'kling' : k);
+        // Pollinations is always available (no API key needed)
+        if (!configured.includes('pollinations')) configured.push('pollinations');
+        // Check if Gemini has a key in models config
+        const geminiKey = data?.models?.gemini?.api_key;
+        if (geminiKey && typeof geminiKey === 'string' && !geminiKey.startsWith('${')) {
+          if (!configured.includes('gemini')) configured.push('gemini');
+        }
         setConfiguredProviders(configured);
         // Auto-select first configured provider
         if (configured.length > 0 && !configured.includes(form.provider)) {
@@ -449,7 +460,7 @@ export default function CreatePage() {
     setScenario(null);
     // Reset style to match mode
     if (m === 'txt2img') {
-      updateForm({ style: 'photorealistic', provider: 'replicate' });
+      updateForm({ style: 'photorealistic', provider: 'pollinations' });
     } else if (m === 'style') {
       updateForm({ style: 'face_paint_512_v2' });
     } else {

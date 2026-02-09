@@ -526,6 +526,7 @@ class MobileConnectionManager {
     String deviceId,
     String taskId,
     String status, {
+    String? taskType,
     Map<String, dynamic>? result,
     String? error,
   }) async {
@@ -537,6 +538,7 @@ class MobileConnectionManager {
       'device_id': deviceId,
       'task_id': taskId,
       'status': status,
+      if (taskType != null) 'task_type': taskType,
       if (result != null) 'result': result,
       if (error != null) 'error': error,
     });
