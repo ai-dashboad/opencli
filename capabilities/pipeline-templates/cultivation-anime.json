@@ -1,0 +1,225 @@
+{
+  "id": "template_cultivation_anime",
+  "name": "Cultivation Anime (Xianxia)",
+  "description": "Film-quality xianxia cultivation anime pipeline. Uses Animagine XL for keyframes, AnimateDiff V3 + ControlNet lineart_anime for video, Edge TTS for Chinese dialogue, anime_cinematic LUT, YouTube 1080p encoding. Optimized for genres like A Record of a Mortal's Journey to Immortality.",
+  "parameters": [
+    {
+      "name": "quality",
+      "type": "string",
+      "description": "Quality tier: draft (fast), standard (Real-ESRGAN + RIFE), cinematic (full post-processing)",
+      "default": "standard"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "scene_0_keyframe",
+      "type": "media_local_generate_image",
+      "domain": "media_creation",
+      "label": "S1 Keyframe: Cultivation Awakening",
+      "position": { "x": 100, "y": 0 },
+      "params": {
+        "prompt": "1boy, young cultivator, flowing white robes, spiritual_energy, mountain landscape, ancient Chinese architecture, xianxia, cinematic lighting, masterpiece, best quality, highly detailed, anime style, dramatic sky, qi aura glowing around body",
+        "model": "animagine_xl",
+        "width": 1280,
+        "height": 720
+      }
+    },
+    {
+      "id": "scene_0_video",
+      "type": "media_local_controlnet_video",
+      "domain": "media_creation",
+      "label": "S1 Video: Awakening",
+      "position": { "x": 400, "y": 0 },
+      "params": {
+        "prompt": "1boy cultivator meditating, spiritual energy swirling, camera slowly zooming in, flowing robes moving in wind, qi particles floating upward, cinematic anime",
+        "reference_image_base64": "{{scene_0_keyframe.image_base64}}",
+        "control_type": "lineart_anime",
+        "controlnet_scale": 0.8
+      }
+    },
+    {
+      "id": "scene_0_tts",
+      "type": "media_tts_synthesize",
+      "domain": "media_creation",
+      "label": "S1 TTS: Narration",
+      "position": { "x": 100, "y": 150 },
+      "params": {
+        "text": "在这片修仙大陆之上，灵气充盈天地之间。一位少年，即将踏上他的修仙之路。",
+        "voice": "zh-CN-YunjianNeural",
+        "provider": "edge_tts"
+      }
+    },
+    {
+      "id": "assembly_0",
+      "type": "media_scene_assembly",
+      "domain": "media_creation",
+      "label": "S1 Assembly",
+      "position": { "x": 700, "y": 0 },
+      "params": {
+        "video_path": "{{scene_0_video.path}}",
+        "audio_path": "{{scene_0_tts.path}}"
+      }
+    },
+    {
+      "id": "scene_1_keyframe",
+      "type": "media_local_generate_image",
+      "domain": "media_creation",
+      "label": "S2 Keyframe: Battle",
+      "position": { "x": 100, "y": 300 },
+      "params": {
+        "prompt": "1boy, cultivator in battle stance, sword qi, energy slash, dramatic action pose, dark cave background, spiritual beasts, xianxia combat, dynamic composition, masterpiece, best quality, anime style, cinematic, epic lighting, particle effects",
+        "model": "animagine_xl",
+        "width": 1280,
+        "height": 720
+      }
+    },
+    {
+      "id": "scene_1_video",
+      "type": "media_local_controlnet_video",
+      "domain": "media_creation",
+      "label": "S2 Video: Battle",
+      "position": { "x": 400, "y": 300 },
+      "params": {
+        "prompt": "cultivator fighting, sword energy burst, dynamic camera movement, intense action, spiritual energy explosion, anime battle scene",
+        "reference_image_base64": "{{scene_1_keyframe.image_base64}}",
+        "control_type": "lineart_anime",
+        "controlnet_scale": 0.8
+      }
+    },
+    {
+      "id": "scene_1_tts",
+      "type": "media_tts_synthesize",
+      "domain": "media_creation",
+      "label": "S2 TTS: Battle",
+      "position": { "x": 100, "y": 450 },
+      "params": {
+        "text": "面对凶猛的妖兽，他毫不畏惧，挥剑斩出一道凌厉的剑气。这一战，将决定他的命运。",
+        "voice": "zh-CN-YunjianNeural",
+        "provider": "edge_tts"
+      }
+    },
+    {
+      "id": "assembly_1",
+      "type": "media_scene_assembly",
+      "domain": "media_creation",
+      "label": "S2 Assembly",
+      "position": { "x": 700, "y": 300 },
+      "params": {
+        "video_path": "{{scene_1_video.path}}",
+        "audio_path": "{{scene_1_tts.path}}"
+      }
+    },
+    {
+      "id": "scene_2_keyframe",
+      "type": "media_local_generate_image",
+      "domain": "media_creation",
+      "label": "S3 Keyframe: Breakthrough",
+      "position": { "x": 100, "y": 600 },
+      "params": {
+        "prompt": "1boy, cultivator achieving breakthrough, ascending to next cultivation level, heavenly tribulation lightning, golden qi pillar, mountain peak, clouds parting, ethereal glow, xianxia apotheosis, masterpiece, best quality, anime style, epic scale, heavenly light",
+        "model": "animagine_xl",
+        "width": 1280,
+        "height": 720
+      }
+    },
+    {
+      "id": "scene_2_video",
+      "type": "media_local_controlnet_video",
+      "domain": "media_creation",
+      "label": "S3 Video: Breakthrough",
+      "position": { "x": 400, "y": 600 },
+      "params": {
+        "prompt": "cultivator breakthrough moment, golden qi erupting skyward, heavenly tribulation lightning, clouds swirling, camera pulling back to reveal epic scale, anime cinematic",
+        "reference_image_base64": "{{scene_2_keyframe.image_base64}}",
+        "control_type": "lineart_anime",
+        "controlnet_scale": 0.8
+      }
+    },
+    {
+      "id": "scene_2_tts",
+      "type": "media_tts_synthesize",
+      "domain": "media_creation",
+      "label": "S3 TTS: Breakthrough",
+      "position": { "x": 100, "y": 750 },
+      "params": {
+        "text": "天地之力汇聚于他身上，一道金色光柱冲天而起。他终于突破了，踏入了筑基期！",
+        "voice": "zh-CN-YunjianNeural",
+        "provider": "edge_tts"
+      }
+    },
+    {
+      "id": "assembly_2",
+      "type": "media_scene_assembly",
+      "domain": "media_creation",
+      "label": "S3 Assembly",
+      "position": { "x": 700, "y": 600 },
+      "params": {
+        "video_path": "{{scene_2_video.path}}",
+        "audio_path": "{{scene_2_tts.path}}"
+      }
+    },
+    {
+      "id": "post_concat",
+      "type": "media_video_assembly",
+      "domain": "media_creation",
+      "label": "Concat All Scenes",
+      "position": { "x": 1000, "y": 300 },
+      "params": {
+        "clips": [
+          "{{assembly_0.path}}",
+          "{{assembly_1.path}}",
+          "{{assembly_2.path}}"
+        ]
+      }
+    },
+    {
+      "id": "post_upscale",
+      "type": "media_upscale_video",
+      "domain": "media_creation",
+      "label": "Real-ESRGAN 4x Upscale",
+      "position": { "x": 1250, "y": 300 },
+      "params": {
+        "video_path": "{{post_concat.path}}"
+      }
+    },
+    {
+      "id": "post_colorgrade",
+      "type": "media_lut_colorgrade",
+      "domain": "media_creation",
+      "label": "Anime Cinematic LUT",
+      "position": { "x": 1500, "y": 300 },
+      "params": {
+        "video_path": "{{post_upscale.path}}",
+        "lut_name": "anime_cinematic"
+      }
+    },
+    {
+      "id": "post_encode",
+      "type": "media_platform_encode",
+      "domain": "media_creation",
+      "label": "YouTube 1080p",
+      "position": { "x": 1750, "y": 300 },
+      "params": {
+        "video_path": "{{post_colorgrade.path}}",
+        "platform": "youtube"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e_s0_kf_vid", "source": "scene_0_keyframe", "source_port": "output", "target": "scene_0_video", "target_port": "input" },
+    { "id": "e_s0_vid_asm", "source": "scene_0_video", "source_port": "output", "target": "assembly_0", "target_port": "input" },
+    { "id": "e_s0_tts_asm", "source": "scene_0_tts", "source_port": "output", "target": "assembly_0", "target_port": "audio" },
+    { "id": "e_s1_kf_vid", "source": "scene_1_keyframe", "source_port": "output", "target": "scene_1_video", "target_port": "input" },
+    { "id": "e_s1_vid_asm", "source": "scene_1_video", "source_port": "output", "target": "assembly_1", "target_port": "input" },
+    { "id": "e_s1_tts_asm", "source": "scene_1_tts", "source_port": "output", "target": "assembly_1", "target_port": "audio" },
+    { "id": "e_s2_kf_vid", "source": "scene_2_keyframe", "source_port": "output", "target": "scene_2_video", "target_port": "input" },
+    { "id": "e_s2_vid_asm", "source": "scene_2_video", "source_port": "output", "target": "assembly_2", "target_port": "input" },
+    { "id": "e_s2_tts_asm", "source": "scene_2_tts", "source_port": "output", "target": "assembly_2", "target_port": "audio" },
+    { "id": "e_asm0_concat", "source": "assembly_0", "source_port": "output", "target": "post_concat", "target_port": "input" },
+    { "id": "e_asm1_concat", "source": "assembly_1", "source_port": "output", "target": "post_concat", "target_port": "input" },
+    { "id": "e_asm2_concat", "source": "assembly_2", "source_port": "output", "target": "post_concat", "target_port": "input" },
+    { "id": "e_concat_up", "source": "post_concat", "source_port": "output", "target": "post_upscale", "target_port": "input" },
+    { "id": "e_up_grade", "source": "post_upscale", "source_port": "output", "target": "post_colorgrade", "target_port": "input" },
+    { "id": "e_grade_enc", "source": "post_colorgrade", "source_port": "output", "target": "post_encode", "target_port": "input" }
+  ]
+}

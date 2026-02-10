@@ -50,9 +50,10 @@ def _register_routers() -> None:
 
 def _register_domains() -> None:
     """Create the domain registry with all built-in domains."""
-    from opencli_daemon.domains.registry import create_builtin_registry
+    from opencli_daemon.domains.registry import create_builtin_registry, set_registry
 
     registry = create_builtin_registry()
+    set_registry(registry)
     # Store on app state so WS handler and APIs can access it
     app.state.domain_registry = registry
     print(

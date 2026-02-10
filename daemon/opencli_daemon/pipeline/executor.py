@@ -29,6 +29,7 @@ async def execute_pipeline(
     on_progress: ProgressCallback | None = None,
     start_from_node: str | None = None,
     previous_results: dict[str, Any] | None = None,
+    cancelled: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     """Execute a pipeline DAG with topological ordering and parallel execution.
 
@@ -100,6 +101,13 @@ async def execute_pipeline(
 
         if not to_execute:
             continue
+
+        # Check cancellation before executing this level
+        if cancelled and cancelled():
+            for nid in to_execute:
+                node_statuses[nid] = NodeStatus.SKIPPED
+                node_results[nid] = {"success": False, "cancelled": True}
+            break
 
         # Execute all non-skipped nodes in current level in parallel
         tasks = []

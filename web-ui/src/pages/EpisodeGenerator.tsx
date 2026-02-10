@@ -4,9 +4,10 @@ import { getEpisode, generateEpisode, getEpisodeProgress, cancelEpisode, Episode
 import SceneCard from '../components/episode/SceneCard';
 import ProgressTracker from '../components/episode/ProgressTracker';
 import CharacterPanel from '../components/episode/CharacterPanel';
+import ScenePipelineEditor from '../components/episode/ScenePipelineEditor';
 import '../styles/episodes.css';
 
-type Tab = 'scenes' | 'characters' | 'generate';
+type Tab = 'scenes' | 'characters' | 'pipeline' | 'generate';
 
 const PHASES = [
   'Shot Decomposition',
@@ -79,6 +80,9 @@ export default function EpisodeGenerator() {
   const [assets, setAssets] = useState<any[]>([]);
   const [showAssets, setShowAssets] = useState(false);
 
+  // Pipeline
+  const [pipelineId, setPipelineId] = useState<string | null>(null);
+
   const fetchEpisode = useCallback(async () => {
     if (!id) return;
     try {
@@ -146,6 +150,7 @@ export default function EpisodeGenerator() {
         quality,
         color_grade_lut: colorGradeLut || undefined,
         export_platform: exportPlatform || undefined,
+        use_pipeline: !!pipelineId,
       });
     } catch (e) {
       console.error('Generation failed:', e);
@@ -218,6 +223,9 @@ export default function EpisodeGenerator() {
         <button className={tab === 'characters' ? 'active' : ''} onClick={() => setTab('characters')}>
           Characters ({script.characters?.length || 0})
         </button>
+        <button className={tab === 'pipeline' ? 'active' : ''} onClick={() => setTab('pipeline')}>
+          Pipeline
+        </button>
         <button className={tab === 'generate' ? 'active' : ''} onClick={() => setTab('generate')}>
           Generate
         </button>
@@ -236,6 +244,23 @@ export default function EpisodeGenerator() {
 
       {tab === 'characters' && (
         <CharacterPanel characters={script.characters || []} />
+      )}
+
+      {tab === 'pipeline' && id && (
+        <ScenePipelineEditor
+          episodeId={id}
+          settings={{
+            image_model: imageProvider === 'local_waifu' ? 'waifu_diffusion' : 'animagine_xl',
+            video_model: videoProvider === 'local_v3' ? 'animatediff_v3' : videoProvider,
+            quality,
+            color_grade: colorGradeLut || '',
+            export_platform: exportPlatform || '',
+            use_controlnet: useControlNet,
+            controlnet_type: controlNetType,
+            controlnet_scale: controlNetScale,
+          }}
+          onPipelineReady={(pid) => setPipelineId(pid)}
+        />
       )}
 
       {tab === 'generate' && (

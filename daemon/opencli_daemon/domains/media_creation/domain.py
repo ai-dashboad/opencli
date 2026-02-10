@@ -54,6 +54,10 @@ class MediaCreationDomain(TaskDomain):
         "media_subtitle_overlay",
         "media_scene_transition",
         "media_video_assembly",
+        # Pipeline episode nodes
+        "media_scene_assembly",
+        "media_lut_colorgrade",
+        "media_platform_encode",
     ]
 
     display_configs = {
@@ -165,6 +169,14 @@ class MediaCreationDomain(TaskDomain):
                 return await self._scene_transition(task_data)
             elif task_type == "media_video_assembly":
                 return await self._video_assembly(task_data)
+
+            # ── Pipeline episode nodes ─────────────────────────────
+            elif task_type == "media_scene_assembly":
+                return await self._scene_assembly(task_data)
+            elif task_type == "media_lut_colorgrade":
+                return await self._lut_colorgrade(task_data)
+            elif task_type == "media_platform_encode":
+                return await self._platform_encode(task_data)
 
             return {"success": False, "error": f"Unknown task: {task_type}", "domain": "media_creation"}
 
@@ -466,3 +478,57 @@ class MediaCreationDomain(TaskDomain):
         if rc != 0:
             return {"success": False, "error": stderr[:500], "domain": "media_creation"}
         return {"success": True, "path": output, "count": len(clips), "domain": "media_creation"}
+
+    # ── Pipeline episode nodes ────────────────────────────────────────────
+
+    async def _scene_assembly(self, data: dict) -> dict:
+        """Mux a single scene's video + audio."""
+        from opencli_daemon.episode import ffmpeg_composer
+        video_path = data.get("video_path", "")
+        audio_path = data.get("audio_path", "")
+
+        if not video_path or not Path(video_path).exists():
+            return {"success": False, "error": "Video file not found", "domain": "media_creation"}
+
+        if audio_path and Path(audio_path).exists():
+            result = await ffmpeg_composer.mux_video_audio(video_path, audio_path)
+        else:
+            # No audio — just pass through the video
+            result = {"success": True, "path": video_path}
+
+        result["domain"] = "media_creation"
+        return result
+
+    async def _lut_colorgrade(self, data: dict) -> dict:
+        """Apply LUT color grading to a video."""
+        from opencli_daemon.episode import ffmpeg_composer
+        video_path = data.get("video_path", "")
+        lut_name = data.get("lut_name", "")
+        lut_path = data.get("lut_path", "")
+
+        if not video_path or not Path(video_path).exists():
+            return {"success": False, "error": "Video file not found", "domain": "media_creation"}
+
+        # Resolve lut_name to lut_path if needed
+        if not lut_path and lut_name:
+            lut_path = str(Path(_HOME) / ".opencli" / "luts" / f"{lut_name}.cube")
+
+        if not lut_path or not Path(lut_path).exists():
+            return {"success": False, "error": f"LUT file not found: {lut_path}", "domain": "media_creation"}
+
+        result = await ffmpeg_composer.apply_lut(video_path, lut_path)
+        result["domain"] = "media_creation"
+        return result
+
+    async def _platform_encode(self, data: dict) -> dict:
+        """Re-encode video for a specific platform."""
+        from opencli_daemon.episode import ffmpeg_composer
+        video_path = data.get("video_path", "")
+        platform = data.get("platform", "youtube")
+
+        if not video_path or not Path(video_path).exists():
+            return {"success": False, "error": "Video file not found", "domain": "media_creation"}
+
+        result = await ffmpeg_composer.encode_for_platform(video_path, platform)
+        result["domain"] = "media_creation"
+        return result

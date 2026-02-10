@@ -13,7 +13,7 @@ import aiosqlite
 
 _HOME = Path(os.environ.get("HOME", "."))
 DB_PATH = _HOME / ".opencli" / "opencli.db"
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 _db: aiosqlite.Connection | None = None
 
@@ -60,6 +60,8 @@ async def _init_db() -> aiosqlite.Connection:
             await _create_episode_tables(db)
         if version < 3:
             await _create_lora_tables(db)
+        if version < 4:
+            await _add_pipeline_id_to_episodes(db)
 
     await db.commit()
     print(f"[Database] Initialized at {DB_PATH}")
@@ -179,6 +181,7 @@ async def _create_all_tables(db: aiosqlite.Connection) -> None:
 
     await _create_episode_tables(db)
     await _create_lora_tables(db)
+    await _add_pipeline_id_to_episodes(db)
 
 
 async def _create_episode_tables(db: aiosqlite.Connection) -> None:
@@ -191,6 +194,7 @@ async def _create_episode_tables(db: aiosqlite.Connection) -> None:
             status TEXT DEFAULT 'draft',
             progress REAL DEFAULT 0,
             output_path TEXT,
+            pipeline_id TEXT,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         );
@@ -255,6 +259,19 @@ async def _create_lora_tables(db: aiosqlite.Connection) -> None:
     await db.execute(
         "INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)",
         (3, now, "LoRA registry + generation recipes tables"),
+    )
+
+
+async def _add_pipeline_id_to_episodes(db: aiosqlite.Connection) -> None:
+    # Add pipeline_id column to episodes table (safe if column already exists)
+    try:
+        await db.execute("ALTER TABLE episodes ADD COLUMN pipeline_id TEXT")
+    except Exception:
+        pass  # Column already exists
+    now = _now_ms()
+    await db.execute(
+        "INSERT OR IGNORE INTO schema_migrations VALUES (?, ?, ?)",
+        (4, now, "Add pipeline_id to episodes for pipeline-based generation"),
     )
 
 

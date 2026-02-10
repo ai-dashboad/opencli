@@ -91,6 +91,22 @@ class DomainRegistry:
         }
 
 
+_global_registry: DomainRegistry | None = None
+
+
+def get_registry() -> DomainRegistry:
+    """Return the global registry (set during daemon startup)."""
+    if _global_registry is None:
+        raise RuntimeError("Domain registry not initialized")
+    return _global_registry
+
+
+def set_registry(registry: DomainRegistry) -> None:
+    """Set the global registry (called during daemon startup)."""
+    global _global_registry
+    _global_registry = registry
+
+
 def create_builtin_registry() -> DomainRegistry:
     """Create and populate the registry with all built-in domains."""
     from .timer import TimerDomain
