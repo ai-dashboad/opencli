@@ -100,7 +100,7 @@ MODELS = {
     },
     "animatediff_v3": {
         "name": "AnimateDiff V3",
-        "repo": "guoyww/animatediff-motion-adapter-v3",
+        "repo": "guoyww/animatediff-motion-adapter-v1-5-3",
         "base_repo": "runwayml/stable-diffusion-v1-5",
         "type": "text2video",
         "pipeline": "AnimateDiffPipeline",
