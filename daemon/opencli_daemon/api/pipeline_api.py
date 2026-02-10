@@ -27,7 +27,7 @@ async def get_pipeline(pipeline_id: str) -> dict:
     pipeline = await store.get_pipeline(pipeline_id)
     if pipeline is None:
         return {"error": f"Pipeline not found: {pipeline_id}"}
-    return {"pipeline": pipeline.to_json()}
+    return {"success": True, "pipeline": pipeline.to_json()}
 
 
 @router.post("/pipelines")

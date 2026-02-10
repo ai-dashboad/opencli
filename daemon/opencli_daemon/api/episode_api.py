@@ -59,7 +59,7 @@ async def get_episode(episode_id: str) -> dict:
             ep["script"] = json.loads(ep["script"])
         except Exception:
             pass
-    return {"episode": ep}
+    return {"success": True, "episode": ep}
 
 
 @router.post("/episodes")

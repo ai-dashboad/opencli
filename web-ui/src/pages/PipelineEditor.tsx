@@ -324,10 +324,29 @@ function PipelineEditorInner() {
 
               if (!result.success) {
                 addLog(`Execution failed: ${result.error}`);
-                setIsRunning(false);
-                setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
-                ws.close();
+              } else {
+                // Handle successful REST response directly
+                if (result.node_statuses) {
+                  setNodes((nds) =>
+                    nds.map((n) => ({
+                      ...n,
+                      data: {
+                        ...n.data,
+                        status: result.node_statuses[n.id] || 'pending',
+                        result: result.node_results?.[n.id],
+                        error: result.node_results?.[n.id]?.error,
+                      },
+                    }))
+                  );
+                }
+                if (result.node_results) {
+                  setNodeResults((prev) => ({ ...prev, ...result.node_results }));
+                }
+                addLog(`Pipeline completed. Duration: ${result.duration_ms || 0}ms`);
               }
+              setIsRunning(false);
+              setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+              ws.close();
               return;
             }
 
