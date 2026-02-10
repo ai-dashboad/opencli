@@ -201,11 +201,13 @@ class WebSocketManager:
                 task_type, task_data, on_progress=on_progress
             )
 
+            # If result indicates failure, send as failed status
+            status = "completed" if result.get("success", True) else "failed"
             await ws.send_json({
                 "type": "task_update",
                 "task_id": task_id,
                 "task_type": task_type,
-                "status": "completed",
+                "status": status,
                 "result": result,
             })
 

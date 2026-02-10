@@ -118,7 +118,7 @@ async def execute_pipeline(
             completed_count += 1
 
             if on_progress:
-                on_progress({
+                await on_progress({
                     "pipeline_id": pipeline.id,
                     "node_id": nid,
                     "node_status": node_statuses[nid].value,

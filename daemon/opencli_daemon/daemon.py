@@ -263,9 +263,10 @@ async def _run_mobile_ws_server(port: int = 9876) -> None:
             result = await registry.execute_task_with_progress(
                 task_type, task_data, on_progress=on_progress
             )
+            status = "completed" if result.get("success", True) else "failed"
             await ws.send(json.dumps({
                 "type": "task_update", "task_id": task_id,
-                "task_type": task_type, "status": "completed",
+                "task_type": task_type, "status": status,
                 "result": result,
             }))
         except Exception as e:

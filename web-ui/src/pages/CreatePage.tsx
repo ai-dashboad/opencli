@@ -27,6 +27,7 @@ const MODES: { id: Mode; label: string; icon: string; needsImage: boolean }[] = 
 ];
 
 const VIDEO_PROVIDERS = [
+  { id: 'local_animatediff', label: 'AnimateDiff V3', sub: 'Local · Free', icon: 'computer', local: true },
   { id: 'pollinations', label: 'Pollinations', sub: 'Seedance ~$0.04', icon: 'eco' },
   { id: 'replicate', label: 'Replicate', sub: 'Hailuo ~$0.28', icon: 'memory' },
   { id: 'runway', label: 'Runway Gen-4', sub: '~$0.75', icon: 'rocket_launch' },
@@ -35,11 +36,20 @@ const VIDEO_PROVIDERS = [
 ];
 
 const IMAGE_PROVIDERS = [
+  { id: 'local_waifu', label: 'Waifu Diffusion', sub: 'Local · 512px · Free', icon: 'computer', local: true },
+  { id: 'local_animagine', label: 'Animagine XL', sub: 'Local · 1024px · Free', icon: 'computer', local: true },
   { id: 'pollinations', label: 'Pollinations', sub: 'FLUX (Free)', icon: 'eco' },
   { id: 'gemini', label: 'Google Gemini', sub: 'Imagen (Free)', icon: 'diamond' },
   { id: 'replicate', label: 'Replicate', sub: 'Flux Schnell', icon: 'memory' },
   { id: 'luma', label: 'Luma', sub: 'Photon', icon: 'wb_twilight' },
 ];
+
+// Map local provider IDs to model names and task types
+const LOCAL_MODEL_MAP: Record<string, { model: string; taskType: string }> = {
+  local_waifu: { model: 'waifu_diffusion', taskType: 'media_local_generate_image' },
+  local_animagine: { model: 'animagine_xl', taskType: 'media_local_generate_image' },
+  local_animatediff: { model: 'animatediff_v3', taskType: 'media_local_generate_video' },
+};
 
 const VIDEO_STYLES = [
   { id: 'cinematic', label: 'Cinematic', desc: 'Dramatic lighting, film grain', icon: 'movie' },
@@ -78,6 +88,9 @@ const PROGRESS_STEPS = [
 ];
 
 const PROVIDER_ETA: Record<string, number> = {
+  local_waifu: 30,
+  local_animagine: 300,
+  local_animatediff: 600,
   pollinations: 15,
   gemini: 10,
   replicate: 30,
@@ -112,7 +125,7 @@ function saveHistoryItem(item: HistoryItem) {
 
 const DEFAULT_FORM: FormState = {
   prompt: '',
-  provider: 'pollinations',
+  provider: 'local_animagine',
   style: 'cinematic',
   duration: 5,
   aspectRatio: '16:9',
@@ -181,6 +194,10 @@ export default function CreatePage() {
         if (geminiKey && typeof geminiKey === 'string' && !geminiKey.startsWith('${')) {
           if (!configured.includes('gemini')) configured.push('gemini');
         }
+        // Local models are always "configured" (no API key needed)
+        for (const localId of Object.keys(LOCAL_MODEL_MAP)) {
+          if (!configured.includes(localId)) configured.push(localId);
+        }
         setConfiguredProviders(configured);
         if (configured.length > 0 && !configured.includes(form.provider)) {
           updateForm({ provider: configured[0] });
@@ -233,8 +250,8 @@ export default function CreatePage() {
   useEffect(() => {
     const unsub = subscribe((msg: any) => {
       if (msg.type !== 'task_update') return;
-      const isVideo = msg.task_type === 'media_ai_generate_video';
-      const isImage = msg.task_type === 'media_ai_generate_image';
+      const isVideo = msg.task_type === 'media_ai_generate_video' || msg.task_type === 'media_local_generate_video';
+      const isImage = msg.task_type === 'media_ai_generate_image' || msg.task_type === 'media_local_generate_image';
       const isStyle = msg.task_type === 'media_local_style_transfer';
       if (!isVideo && !isImage && !isStyle) return;
 
@@ -336,42 +353,76 @@ export default function CreatePage() {
     const id = `task_${Date.now()}`;
     setTaskId(id);
 
+    const localMapping = LOCAL_MODEL_MAP[form.provider];
+
     switch (mode) {
       case 'img2vid':
-        submitTask('media_ai_generate_video', {
-          image_base64: form.imageBase64,
-          style: form.style,
-          provider: form.provider,
-          ...(form.prompt ? { custom_prompt: form.prompt } : {}),
-          duration: form.duration,
-          aspect_ratio: form.aspectRatio,
-          _task_id: id,
-        });
+        if (localMapping) {
+          submitTask(localMapping.taskType, {
+            image_base64: form.imageBase64,
+            prompt: form.prompt || '',
+            model: localMapping.model,
+            frames: form.duration === 10 ? 24 : 16,
+            _task_id: id,
+          });
+        } else {
+          submitTask('media_ai_generate_video', {
+            image_base64: form.imageBase64,
+            style: form.style,
+            provider: form.provider,
+            ...(form.prompt ? { custom_prompt: form.prompt } : {}),
+            duration: form.duration,
+            aspect_ratio: form.aspectRatio,
+            _task_id: id,
+          });
+        }
         setResultType('video');
         break;
       case 'txt2vid':
-        submitTask('media_ai_generate_video', {
-          style: form.style,
-          provider: form.provider,
-          custom_prompt: form.prompt,
-          duration: form.duration,
-          aspect_ratio: form.aspectRatio,
-          mode: 'production',
-          input_text: form.prompt,
-          _task_id: id,
-        });
+        if (localMapping) {
+          submitTask(localMapping.taskType, {
+            prompt: form.prompt,
+            model: localMapping.model,
+            frames: form.duration === 10 ? 24 : 16,
+            _task_id: id,
+          });
+        } else {
+          submitTask('media_ai_generate_video', {
+            style: form.style,
+            provider: form.provider,
+            custom_prompt: form.prompt,
+            duration: form.duration,
+            aspect_ratio: form.aspectRatio,
+            mode: 'production',
+            input_text: form.prompt,
+            _task_id: id,
+          });
+        }
         setResultType('video');
         break;
       case 'txt2img':
-        submitTask('media_ai_generate_image', {
-          prompt: form.prompt.trim(),
-          style: form.style,
-          provider: form.provider,
-          aspect_ratio: form.aspectRatio,
-          ...(form.negativePrompt ? { negative_prompt: form.negativePrompt } : {}),
-          ...(form.imageBase64 ? { reference_image_base64: form.imageBase64 } : {}),
-          _task_id: id,
-        });
+        if (localMapping) {
+          const defaultSize = localMapping.model === 'animagine_xl' ? 1024 : 512;
+          submitTask(localMapping.taskType, {
+            prompt: form.prompt.trim(),
+            model: localMapping.model,
+            width: defaultSize,
+            height: defaultSize,
+            steps: localMapping.model === 'animagine_xl' ? 25 : 30,
+            ...(form.negativePrompt ? { negative_prompt: form.negativePrompt } : {}),
+            _task_id: id,
+          });
+        } else {
+          submitTask('media_ai_generate_image', {
+            prompt: form.prompt.trim(),
+            style: form.style,
+            provider: form.provider,
+            aspect_ratio: form.aspectRatio,
+            ...(form.negativePrompt ? { negative_prompt: form.negativePrompt } : {}),
+            ...(form.imageBase64 ? { reference_image_base64: form.imageBase64 } : {}),
+            _task_id: id,
+          });
+        }
         setResultType('image');
         break;
       case 'style':
@@ -416,15 +467,12 @@ export default function CreatePage() {
   const selectMode = (m: Mode) => {
     setMode(m);
     if (m === 'txt2img') {
-      updateForm({ style: 'photorealistic', provider: 'pollinations' });
+      updateForm({ style: 'photorealistic', provider: 'local_animagine' });
     } else if (m === 'style') {
       updateForm({ style: 'face_paint_512_v2' });
     } else {
-      const videoProviderIds = VIDEO_PROVIDERS.map(p => p.id);
-      const firstConfigured = configuredProviders.find(
-        id => videoProviderIds.includes(id) && (id !== 'pollinations' || pollinationsVideoKey)
-      );
-      updateForm({ style: 'cinematic', provider: firstConfigured || 'pollinations' });
+      // Default to local AnimateDiff for video modes
+      updateForm({ style: 'cinematic', provider: 'local_animatediff' });
     }
   };
 
@@ -555,7 +603,8 @@ export default function CreatePage() {
                   <button
                     key={p.id}
                     className={`gen-provider${form.provider === p.id ? ' selected' : ''}${!isConfigured ? ' disabled' : ''}`}
-                    onClick={() => updateForm({ provider: p.id })}
+                    onClick={() => isConfigured && updateForm({ provider: p.id })}
+                    disabled={!isConfigured}
                   >
                     <span className="material-icons gen-provider-icon">{p.icon}</span>
                     <div className="gen-provider-info">

@@ -5,7 +5,7 @@ Ported from daemon/lib/domains/domain.dart.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, Awaitable, Union
 
 
 @dataclass
@@ -17,7 +17,8 @@ class DomainDisplayConfig:
     color_hex: int = 0xFF000000
 
 
-ProgressCallback = Callable[[dict[str, Any]], None]
+# Progress callback can be sync or async
+ProgressCallback = Callable[[dict[str, Any]], Union[None, Awaitable[None]]]
 
 
 class TaskDomain(ABC):

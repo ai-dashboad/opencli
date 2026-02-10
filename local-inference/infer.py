@@ -1419,6 +1419,32 @@ def upscale_video_path(params):
         return {"error": f"Video upscale failed: {str(e)}"}
 
 
+def handle_action(action: str, params: dict) -> dict:
+    """Dispatch an action with params. Importable by daemon's local_inference.py."""
+    dispatch = {
+        "check_env": lambda p: check_environment(),
+        "list_models": lambda p: list_models(),
+        "model_status": lambda p: get_model_status(p.get("model_id", "")),
+        "download": lambda p: download_model(p.get("model_id", "")),
+        "generate_image": generate_image,
+        "generate_video": lambda p: (
+            generate_video_svd(p) if p.get("model") == "stable_video_diffusion"
+            else generate_video_animatediff(p)
+        ),
+        "generate_video_v3": generate_video_animatediff_v3,
+        "upscale": upscale_realesrgan,
+        "interpolate": interpolate_rife,
+        "style_transfer": style_transfer_animegan,
+        "extract_control": extract_control_signal,
+        "generate_controlnet_video": generate_controlnet_video,
+        "upscale_video_path": upscale_video_path,
+    }
+    fn = dispatch.get(action)
+    if not fn:
+        return {"error": f"Unknown action: {action}"}
+    return fn(params)
+
+
 def handle_stdin():
     """Read JSON from stdin and dispatch action."""
     try:
@@ -1427,39 +1453,7 @@ def handle_stdin():
         return {"error": f"Invalid JSON: {str(e)}"}
 
     action = data.get("action", "")
-
-    if action == "check_env":
-        return check_environment()
-    elif action == "list_models":
-        return list_models()
-    elif action == "model_status":
-        return get_model_status(data.get("model_id", ""))
-    elif action == "download":
-        return download_model(data.get("model_id", ""))
-    elif action == "generate_image":
-        return generate_image(data)
-    elif action == "generate_video":
-        model = data.get("model", "animatediff")
-        if model == "stable_video_diffusion":
-            return generate_video_svd(data)
-        else:
-            return generate_video_animatediff(data)
-    elif action == "generate_video_v3":
-        return generate_video_animatediff_v3(data)
-    elif action == "upscale":
-        return upscale_realesrgan(data)
-    elif action == "interpolate":
-        return interpolate_rife(data)
-    elif action == "style_transfer":
-        return style_transfer_animegan(data)
-    elif action == "extract_control":
-        return extract_control_signal(data)
-    elif action == "generate_controlnet_video":
-        return generate_controlnet_video(data)
-    elif action == "upscale_video_path":
-        return upscale_video_path(data)
-    else:
-        return {"error": f"Unknown action: {action}"}
+    return handle_action(action, data)
 
 
 def main():

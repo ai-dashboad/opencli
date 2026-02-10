@@ -1,7 +1,7 @@
 """Media Creation domain — 19 task types spanning local AI, cloud APIs, FFmpeg, TTS.
 
 Ported from daemon/lib/domains/media_creation/media_creation_domain.dart.
-Key win: local inference is now a direct Python import (no subprocess).
+Local inference uses subprocess to spawn local-inference/.venv/bin/python.
 """
 
 import asyncio
@@ -35,7 +35,7 @@ class MediaCreationDomain(TaskDomain):
         # Cloud AI
         "media_ai_generate_video",
         "media_ai_generate_image",
-        # Local AI (direct Python — no subprocess!)
+        # Local AI (subprocess-based)
         "media_local_generate_image",
         "media_local_generate_video",
         "media_local_style_transfer",
@@ -96,10 +96,10 @@ class MediaCreationDomain(TaskDomain):
             elif task_type == "media_ai_generate_image":
                 return await self._ai_generate_image(task_data, on_progress)
 
-            # ── Local AI (DIRECT PYTHON — no subprocess!) ─────────
+            # ── Local AI (subprocess) ───────────────────────────
             elif task_type == "media_local_generate_image":
                 if on_progress:
-                    on_progress({"progress": 10, "status_message": "Starting local image generation..."})
+                    await on_progress({"progress": 10, "status_message": "Starting local image generation..."})
                 result = await local_inference.generate_image(
                     prompt=task_data.get("prompt", ""),
                     model=task_data.get("model", "animagine_xl"),
@@ -117,14 +117,15 @@ class MediaCreationDomain(TaskDomain):
                 return await self._local_generate_video(task_data, on_progress)
             elif task_type == "media_local_style_transfer":
                 result = await local_inference.style_transfer(
-                    image_path=task_data.get("image_path", ""),
+                    image_base64=task_data.get("image_base64", ""),
                     model=task_data.get("model", "animegan_v3"),
+                    style=task_data.get("style", "face_paint_512_v2"),
                 )
                 result["domain"] = "media_creation"
                 return result
             elif task_type == "media_local_controlnet_video":
                 result = await local_inference.controlnet_video(
-                    image_path=task_data.get("image_path", ""),
+                    reference_image_base64=task_data.get("image_base64", task_data.get("reference_image_base64", "")),
                     prompt=task_data.get("prompt", ""),
                     control_type=task_data.get("control_type", "lineart_anime"),
                 )
@@ -132,7 +133,7 @@ class MediaCreationDomain(TaskDomain):
                 return result
             elif task_type == "media_local_extract_control":
                 result = await local_inference.extract_control(
-                    image_path=task_data.get("image_path", ""),
+                    image_base64=task_data.get("image_base64", ""),
                     control_type=task_data.get("control_type", "lineart_anime"),
                 )
                 result["domain"] = "media_creation"
@@ -195,7 +196,7 @@ class MediaCreationDomain(TaskDomain):
         vf = f"scale=1280:720:force_original_aspect_ratio=increase:flags=lanczos,crop=1280:720,{zoom}"
 
         if on_progress:
-            on_progress({"progress": 20, "status_message": f"Applying {effect} effect..."})
+            await on_progress({"progress": 20, "status_message": f"Applying {effect} effect..."})
 
         _, stderr, rc = await run_ffmpeg([
             "-y", "-loop", "1", "-i", image_path,
@@ -264,7 +265,7 @@ class MediaCreationDomain(TaskDomain):
         image_url = data.get("image_url", data.get("image", ""))
 
         if on_progress:
-            on_progress({"progress": 5, "status_message": "Submitting to Replicate..."})
+            await on_progress({"progress": 5, "status_message": "Submitting to Replicate..."})
 
         job_id = await provider.submit(prompt, image_url=image_url)
 
@@ -274,7 +275,7 @@ class MediaCreationDomain(TaskDomain):
             status = await provider.poll(job_id)
 
             if on_progress:
-                on_progress({"progress": min(90, 10 + i * 2), "status_message": f"Generating... ({status['status']})"})
+                await on_progress({"progress": min(90, 10 + i * 2), "status_message": f"Generating... ({status['status']})"})
 
             if status["status"] == "completed":
                 output_url = status.get("output_url", "")
@@ -362,10 +363,10 @@ class MediaCreationDomain(TaskDomain):
 
     async def _local_generate_video(self, data: dict, on_progress: ProgressCallback | None) -> dict:
         if on_progress:
-            on_progress({"progress": 10, "status_message": "Starting local video generation..."})
+            await on_progress({"progress": 10, "status_message": "Starting local video generation..."})
         result = await local_inference.generate_video(
             prompt=data.get("prompt", ""),
-            image_path=data.get("image_path", ""),
+            image_base64=data.get("image_base64", ""),
             model=data.get("model", "animatediff_v3"),
             frames=data.get("frames", 16),
         )

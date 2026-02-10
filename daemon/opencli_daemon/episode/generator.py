@@ -10,7 +10,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable, Union
 
 from .script import EpisodeScript, EpisodeScene
 from .subtitles import generate_ass
@@ -20,7 +20,7 @@ from opencli_daemon.domains.media_creation import local_inference, tts_registry
 _HOME = os.environ.get("HOME", ".")
 _OUTPUT_DIR = Path(_HOME) / ".opencli" / "output" / "episodes"
 
-ProgressCallback = Callable[[dict[str, Any]], None]
+ProgressCallback = Callable[[dict[str, Any]], Union[None, Awaitable[None]]]
 
 
 async def generate_episode(
@@ -44,10 +44,10 @@ async def generate_episode(
     if not scenes:
         return {"success": False, "error": "No scenes in script"}
 
-    def _progress(phase: int, msg: str, pct: float = 0) -> None:
+    async def _progress(phase: int, msg: str, pct: float = 0) -> None:
+        overall = ((phase - 1) / total_phases + pct / total_phases / 100) * 100
         if on_progress:
-            overall = ((phase - 1) / total_phases + pct / total_phases / 100) * 100
-            on_progress({
+            await on_progress({
                 "progress": min(99, overall),
                 "phase": phase,
                 "total_phases": total_phases,
@@ -63,7 +63,7 @@ async def generate_episode(
 
     try:
         # ── Phase 1: Generate keyframe images ────────────────────
-        _progress(1, "Generating keyframe images...")
+        await _progress(1, "Generating keyframe images...")
         keyframe_paths: list[str] = []
 
         for i, scene in enumerate(scenes):
@@ -91,10 +91,10 @@ async def generate_episode(
                 # Fallback: create a placeholder
                 keyframe_paths.append("")
 
-            _progress(1, f"Keyframe {i+1}/{len(scenes)}", (i + 1) / len(scenes) * 100)
+            await _progress(1, f"Keyframe {i+1}/{len(scenes)}", (i + 1) / len(scenes) * 100)
 
         # ── Phase 2: Generate video clips (batched) ──────────────
-        _progress(2, "Generating video clips...")
+        await _progress(2, "Generating video clips...")
         clip_paths: list[str] = []
         batch_size = 3
 
@@ -132,10 +132,10 @@ async def generate_episode(
                 else:
                     clip_paths.append("")
 
-            _progress(2, f"Clips {batch_end}/{len(scenes)}", batch_end / len(scenes) * 100)
+            await _progress(2, f"Clips {batch_end}/{len(scenes)}", batch_end / len(scenes) * 100)
 
         # ── Phase 3: TTS for dialogue ────────────────────────────
-        _progress(3, "Synthesizing dialogue audio...")
+        await _progress(3, "Synthesizing dialogue audio...")
         scene_audio_paths: list[str] = []
 
         for i, scene in enumerate(scenes):
@@ -156,15 +156,15 @@ async def generate_episode(
             else:
                 scene_audio_paths.append("")
 
-            _progress(3, f"TTS {i+1}/{len(scenes)}", (i + 1) / len(scenes) * 100)
+            await _progress(3, f"TTS {i+1}/{len(scenes)}", (i + 1) / len(scenes) * 100)
 
         # ── Phase 4: Generate subtitles ──────────────────────────
-        _progress(4, "Generating subtitles...")
+        await _progress(4, "Generating subtitles...")
         ass_path = str(episode_dir / "subtitles.ass")
         generate_ass(scenes, ass_path)
 
         # ── Phase 5: Audio mixing (voice + BGM) ─────────────────
-        _progress(5, "Mixing audio...")
+        await _progress(5, "Mixing audio...")
         mixed_audio_paths: list[str] = []
         for i, audio_path in enumerate(scene_audio_paths):
             if audio_path:
@@ -173,7 +173,7 @@ async def generate_episode(
                 mixed_audio_paths.append("")
 
         # ── Phase 6: Scene assembly (video + audio per scene) ────
-        _progress(6, "Assembling scenes...")
+        await _progress(6, "Assembling scenes...")
         assembled_scenes: list[str] = []
 
         for i, (clip, audio) in enumerate(zip(clip_paths, mixed_audio_paths)):
@@ -190,10 +190,10 @@ async def generate_episode(
             else:
                 assembled_scenes.append(clip)
 
-            _progress(6, f"Scene {i+1}/{len(scenes)}", (i + 1) / len(scenes) * 100)
+            await _progress(6, f"Scene {i+1}/{len(scenes)}", (i + 1) / len(scenes) * 100)
 
         # ── Phase 7: Final concatenation ─────────────────────────
-        _progress(7, "Concatenating final video...")
+        await _progress(7, "Concatenating final video...")
         if not assembled_scenes:
             return {"success": False, "error": "No assembled scenes to concatenate"}
 
@@ -214,7 +214,7 @@ async def generate_episode(
 
         # ── Phase 8: Post-processing (upscale + interpolation) ───
         if quality != "draft":
-            _progress(8, "Post-processing (upscale)...")
+            await _progress(8, "Post-processing (upscale)...")
             upscale_result = await local_inference.run_inference("upscale_video", {
                 "video_path": final_path,
                 "output_dir": str(episode_dir),
@@ -222,11 +222,11 @@ async def generate_episode(
             if upscale_result.get("success") and upscale_result.get("path"):
                 final_path = upscale_result["path"]
         else:
-            _progress(8, "Skipping post-processing (draft mode)")
+            await _progress(8, "Skipping post-processing (draft mode)")
 
         # ── Phase 9: LUT color grading ───────────────────────────
         if color_grade:
-            _progress(9, f"Applying {color_grade} color grade...")
+            await _progress(9, f"Applying {color_grade} color grade...")
             lut_path = Path(_HOME) / ".opencli" / "luts" / f"{color_grade}.cube"
             if lut_path.exists():
                 lut_result = await ffmpeg_composer.apply_lut(
@@ -236,11 +236,11 @@ async def generate_episode(
                 if lut_result.get("success"):
                     final_path = lut_result["path"]
         else:
-            _progress(9, "Skipping color grading")
+            await _progress(9, "Skipping color grading")
 
         # ── Phase 10: Platform encoding ──────────────────────────
         if export_platform:
-            _progress(10, f"Encoding for {export_platform}...")
+            await _progress(10, f"Encoding for {export_platform}...")
             encode_result = await ffmpeg_composer.encode_for_platform(
                 final_path, export_platform,
                 str(episode_dir / f"final_{export_platform}.mp4"),
@@ -248,7 +248,7 @@ async def generate_episode(
             if encode_result.get("success"):
                 final_path = encode_result["path"]
         else:
-            _progress(10, "Finalizing...")
+            await _progress(10, "Finalizing...")
 
         # Update episode status
         await store.update_episode_status(episode_id, "completed", 1.0, final_path)
