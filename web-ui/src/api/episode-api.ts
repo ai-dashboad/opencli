@@ -7,6 +7,7 @@ export interface EpisodeSummary {
   status: string;
   progress: number;
   output_path?: string;
+  pipeline_id?: string | null;
   created_at: number;
   updated_at: number;
 }

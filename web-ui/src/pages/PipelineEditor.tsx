@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import {
   ReactFlow,
   addEdge,
@@ -34,6 +34,7 @@ import {
   getVideoNodeCatalog,
 } from '../api/pipeline-api';
 
+import { listEpisodes, type EpisodeSummary } from '../api/episode-api';
 import '../components/pipeline/pipeline.css';
 
 const nodeTypes: NodeTypes = {
@@ -57,6 +58,8 @@ function PipelineEditorInner() {
   const [savedPipelines, setSavedPipelines] = useState<any[]>([]);
   const [nodeResults, setNodeResults] = useState<Record<string, Record<string, any>>>({});
   const [catalogCache, setCatalogCache] = useState<NodeCatalogEntry[]>([]);
+  const [linkedEpisode, setLinkedEpisode] = useState<{ id: string; title: string } | null>(null);
+  const [episodeMap, setEpisodeMap] = useState<Record<string, EpisodeSummary>>({});
   const reactFlowInstance = useRef<any>(null);
 
   // Load catalog for output type lookups
@@ -124,6 +127,13 @@ function PipelineEditorInner() {
       setNodes(rfNodes);
       setEdges(rfEdges);
       nodeIdCounter = rfNodes.length;
+
+      // Check if this pipeline is linked to an episode
+      try {
+        const episodes = await listEpisodes();
+        const linked = episodes.find((ep) => ep.pipeline_id === id);
+        setLinkedEpisode(linked ? { id: linked.id, title: linked.title } : null);
+      } catch { setLinkedEpisode(null); }
     } catch (e) {
       console.error('Failed to load pipeline:', e);
     }
@@ -441,13 +451,18 @@ function PipelineEditorInner() {
     setSelectedNode(null);
     setExecutionLog([]);
     setNodeResults({});
+    setLinkedEpisode(null);
     nodeIdCounter = 0;
   };
 
   const handleShowList = async () => {
     try {
-      const pipelines = await listPipelines();
+      const [pipelines, episodes] = await Promise.all([listPipelines(), listEpisodes().catch(() => [])]);
       setSavedPipelines(pipelines);
+      // Build episode map: pipeline_id → episode
+      const epMap: Record<string, EpisodeSummary> = {};
+      episodes.forEach((ep) => { if (ep.pipeline_id) epMap[ep.pipeline_id] = ep; });
+      setEpisodeMap(epMap);
       setShowPipelineList(true);
     } catch (e) {
       addLog(`Failed to load pipelines: ${e}`);
@@ -479,6 +494,19 @@ function PipelineEditorInner() {
       <div className="pipeline-page">
         {/* Top toolbar */}
         <div className="pipeline-toolbar">
+          {linkedEpisode && (
+            <Link
+              to={`/episodes/${linkedEpisode.id}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                color: '#818CF8', textDecoration: 'none', fontSize: '0.8rem',
+                marginRight: 8, whiteSpace: 'nowrap',
+              }}
+            >
+              <span className="material-icons" style={{ fontSize: 16 }}>arrow_back</span>
+              {linkedEpisode.title}
+            </Link>
+          )}
           <input
             type="text"
             className="toolbar-name"
@@ -587,33 +615,58 @@ function PipelineEditorInner() {
                 {savedPipelines.length === 0 ? (
                   <div className="modal-empty">No saved pipelines</div>
                 ) : (
-                  savedPipelines.map((p) => (
-                    <div key={p.id} className="pipeline-list-item">
-                      <div className="pipeline-list-info">
-                        <div className="pipeline-list-name">{p.name}</div>
-                        <div className="pipeline-list-meta">
-                          {p.node_count} nodes | {new Date(p.updated_at).toLocaleDateString()}
+                  savedPipelines.map((p) => {
+                    const ep = episodeMap[p.id];
+                    return (
+                      <div key={p.id} className="pipeline-list-item">
+                        <div className="pipeline-list-info">
+                          <div className="pipeline-list-name">
+                            {p.name}
+                            {ep && (
+                              <span style={{
+                                marginLeft: 8, padding: '1px 6px', borderRadius: 8, fontSize: '0.65rem',
+                                background: 'rgba(99,102,241,0.15)', color: '#818CF8',
+                                border: '1px solid rgba(99,102,241,0.25)', verticalAlign: 'middle',
+                              }}>
+                                Episode
+                              </span>
+                            )}
+                          </div>
+                          <div className="pipeline-list-meta">
+                            {p.node_count} nodes | {new Date(p.updated_at).toLocaleDateString()}
+                            {ep && <span style={{ color: '#818CF8' }}> | {ep.title}</span>}
+                          </div>
+                        </div>
+                        <div className="pipeline-list-actions">
+                          {ep && (
+                            <Link
+                              to={`/episodes/${ep.id}`}
+                              className="toolbar-btn"
+                              onClick={() => setShowPipelineList(false)}
+                              style={{ textDecoration: 'none', fontSize: '0.75rem' }}
+                            >
+                              Episode
+                            </Link>
+                          )}
+                          <button
+                            className="toolbar-btn"
+                            onClick={() => {
+                              loadPipeline(p.id);
+                              setShowPipelineList(false);
+                            }}
+                          >
+                            Open
+                          </button>
+                          <button
+                            className="toolbar-btn danger"
+                            onClick={() => handleDeletePipeline(p.id)}
+                          >
+                            Del
+                          </button>
                         </div>
                       </div>
-                      <div className="pipeline-list-actions">
-                        <button
-                          className="toolbar-btn"
-                          onClick={() => {
-                            loadPipeline(p.id);
-                            setShowPipelineList(false);
-                          }}
-                        >
-                          Open
-                        </button>
-                        <button
-                          className="toolbar-btn danger"
-                          onClick={() => handleDeletePipeline(p.id)}
-                        >
-                          Del
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

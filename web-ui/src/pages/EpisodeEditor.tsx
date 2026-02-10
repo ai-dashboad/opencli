@@ -89,7 +89,20 @@ export default function EpisodeEditor() {
               <h3>{ep.title || 'Untitled Episode'}</h3>
               <p className="synopsis">{ep.synopsis || 'No synopsis'}</p>
               <div className="card-meta">
-                <span className={`episode-status ${ep.status}`}>{ep.status}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className={`episode-status ${ep.status}`}>{ep.status}</span>
+                  {ep.pipeline_id && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      padding: '2px 8px', borderRadius: 10, fontSize: '0.7rem',
+                      background: 'rgba(99,102,241,0.15)', color: '#818CF8',
+                      border: '1px solid rgba(99,102,241,0.25)',
+                    }}>
+                      <span className="material-icons" style={{ fontSize: 11 }}>account_tree</span>
+                      Pipeline
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span className="card-date">{formatDate(ep.created_at)}</span>
                   <button className="delete-btn" onClick={(e) => handleDelete(e, ep.id)} title="Delete">

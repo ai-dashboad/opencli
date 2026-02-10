@@ -56,6 +56,7 @@ function ScenePipelineEditorInner({ episodeId, settings, onPipelineReady }: Scen
   const [templates, setTemplates] = useState<PipelineTemplate[]>([]);
   const [nodeResults, setNodeResults] = useState<Record<string, any>>({});
   const [catalog, setCatalog] = useState<NodeCatalogEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
 
@@ -146,15 +147,18 @@ function ScenePipelineEditorInner({ episodeId, settings, onPipelineReady }: Scen
 
   const handleBuildPipeline = async () => {
     setBuilding(true);
+    setError(null);
     try {
       const data = await buildEpisodePipeline(episodeId, settings);
       if (data.success && data.pipeline) {
         setPipeline(data.pipeline);
         loadPipelineIntoCanvas(data.pipeline);
         onPipelineReady?.(data.pipeline_id!);
+      } else {
+        setError((data as any).error || 'Failed to build pipeline');
       }
-    } catch (e) {
-      console.error('Failed to build pipeline:', e);
+    } catch (e: any) {
+      setError(e.message || 'Network error — is the daemon running?');
     } finally {
       setBuilding(false);
     }
@@ -162,15 +166,18 @@ function ScenePipelineEditorInner({ episodeId, settings, onPipelineReady }: Scen
 
   const handleApplyTemplate = async (templateId: string) => {
     setBuilding(true);
+    setError(null);
     try {
       const data = await applyPipelineTemplate(episodeId, templateId);
       if (data.success && data.pipeline) {
         setPipeline(data.pipeline);
         loadPipelineIntoCanvas(data.pipeline);
         onPipelineReady?.(data.pipeline_id!);
+      } else {
+        setError((data as any).error || 'Failed to apply template');
       }
-    } catch (e) {
-      console.error('Failed to apply template:', e);
+    } catch (e: any) {
+      setError(e.message || 'Network error — is the daemon running?');
     } finally {
       setBuilding(false);
     }
@@ -311,6 +318,17 @@ function ScenePipelineEditorInner({ episodeId, settings, onPipelineReady }: Scen
             <span className="material-icons" style={{ fontSize: 20 }}>auto_fix_high</span>
             {building ? 'Building...' : 'Auto-Generate Pipeline'}
           </button>
+
+          {error && (
+            <div style={{
+              margin: '12px auto', padding: '8px 14px', maxWidth: 400, borderRadius: 8,
+              background: 'rgba(255,82,82,0.1)', color: '#ff5252', fontSize: '0.85rem',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span className="material-icons" style={{ fontSize: 16 }}>error</span>
+              {error}
+            </div>
+          )}
 
           {templates.length > 0 && (
             <div style={{ marginTop: 16 }}>
