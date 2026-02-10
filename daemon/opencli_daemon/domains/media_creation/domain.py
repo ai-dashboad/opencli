@@ -281,8 +281,13 @@ class MediaCreationDomain(TaskDomain):
                 if output_url:
                     dest = str(_OUTPUT_DIR / f"ai_video_{int(time.time() * 1000)}.mp4")
                     await provider.download(output_url, dest)
-                    return {"success": True, "path": dest, "provider": "replicate",
-                            "domain": "media_creation", "card_type": "media"}
+                    try:
+                        with open(dest, "rb") as f:
+                            vid_b64 = base64.b64encode(f.read()).decode()
+                    except Exception:
+                        vid_b64 = ""
+                    return {"success": True, "path": dest, "video_base64": vid_b64,
+                            "provider": "replicate", "domain": "media_creation", "card_type": "media"}
                 return {"success": False, "error": "No output URL", "domain": "media_creation"}
             elif status["status"] == "failed":
                 return {"success": False, "error": status.get("error", "Generation failed"),
@@ -304,6 +309,13 @@ class MediaCreationDomain(TaskDomain):
             )
             result["domain"] = "media_creation"
             result["card_type"] = "media"
+            # Include image_base64 for WS clients (Web UI / Flutter)
+            if result.get("success") and result.get("path"):
+                try:
+                    with open(result["path"], "rb") as f:
+                        result["image_base64"] = base64.b64encode(f.read()).decode()
+                except Exception:
+                    pass
             return result
 
         # Replicate fallback
@@ -339,7 +351,8 @@ class MediaCreationDomain(TaskDomain):
                         dl = await client.get(url, follow_redirects=True)
                         with open(dest, "wb") as f:
                             f.write(dl.content)
-                        return {"success": True, "path": dest, "domain": "media_creation", "card_type": "media"}
+                        img_b64 = base64.b64encode(dl.content).decode()
+                        return {"success": True, "path": dest, "image_base64": img_b64, "domain": "media_creation", "card_type": "media"}
                 elif poll_data["status"] == "failed":
                     return {"success": False, "error": poll_data.get("error", "Failed"), "domain": "media_creation"}
 
