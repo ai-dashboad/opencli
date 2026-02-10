@@ -786,18 +786,27 @@ class LocalModelManager {
     final stdout = StringBuffer();
     final stderr = StringBuffer();
 
-    // Read stdout line by line for progress
-    await for (final line
-        in process.stdout.transform(utf8.decoder).transform(const LineSplitter())) {
+    // Read stdout and stderr CONCURRENTLY to avoid pipe deadlock.
+    // Python's tqdm/progress bars write heavily to stderr; if we read
+    // stdout first with await-for, stderr buffer fills (64KB) and the
+    // Python process blocks on write → deadlock.
+    final stdoutDone = process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
       stdout.writeln(line);
       onStdoutLine?.call(line);
-    }
+    }).asFuture();
 
-    await for (final line
-        in process.stderr.transform(utf8.decoder).transform(const LineSplitter())) {
+    final stderrDone = process.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
       stderr.writeln(line);
-    }
+    }).asFuture();
 
+    // Wait for both streams and the process to finish
+    await Future.wait([stdoutDone, stderrDone]);
     final exitCode = await process.exitCode.timeout(timeout, onTimeout: () {
       process.kill();
       throw TimeoutException('Python process timed out');
