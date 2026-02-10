@@ -4,11 +4,30 @@ Ported from daemon/lib/pipeline/pipeline_executor.dart.
 """
 
 import asyncio
+import os
 import time
 from enum import Enum
+from pathlib import Path
 from typing import Any, Callable
 
 from .definition import PipelineDefinition, resolve_variables
+
+
+_OPENCLI_DIR = str(Path.home() / ".opencli")
+
+
+def _strip_base64(result: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of *result* without large base64 fields."""
+    skip = {"image_base64", "video_base64", "audio_base64"}
+    return {k: v for k, v in result.items() if k not in skip}
+
+
+def _path_to_url(path: str) -> str | None:
+    """Convert an absolute path under ~/.opencli/ to a file-serve URL."""
+    if not path or not path.startswith(_OPENCLI_DIR):
+        return None
+    relative = path[len(_OPENCLI_DIR):].lstrip(os.sep)
+    return f"http://localhost:9529/api/v1/files/{relative}"
 
 
 class NodeStatus(Enum):
@@ -126,11 +145,23 @@ async def execute_pipeline(
             completed_count += 1
 
             if on_progress:
+                # Build lightweight result (strip base64 to avoid huge WS messages)
+                light_result = _strip_base64(node_results.get(nid, {}))
+                # Convert local file paths to serveable URLs
+                for key in ("path", "file_path", "output_path"):
+                    if key in light_result and isinstance(light_result[key], str):
+                        url = _path_to_url(light_result[key])
+                        if url:
+                            light_result["file_url"] = url
+                            break
+
                 await on_progress({
                     "pipeline_id": pipeline.id,
                     "node_id": nid,
                     "node_status": node_statuses[nid].value,
                     "progress": int(completed_count / total * 100),
+                    "node_result": light_result,
+                    "all_statuses": {k: v.value for k, v in node_statuses.items()},
                 })
 
             # Enqueue dependents whose in-degree drops to 0
@@ -148,6 +179,16 @@ async def execute_pipeline(
     elapsed = time.time() - start_time
     failed = [nid for nid, s in node_statuses.items() if s == NodeStatus.FAILED]
     skipped = [nid for nid, s in node_statuses.items() if s == NodeStatus.SKIPPED]
+
+    # Enrich results with file_url for the REST response
+    for nid, res in node_results.items():
+        if "file_url" not in res:
+            for key in ("path", "file_path", "output_path"):
+                if key in res and isinstance(res[key], str):
+                    url = _path_to_url(res[key])
+                    if url:
+                        res["file_url"] = url
+                        break
 
     return {
         "success": len(failed) == 0,

@@ -6,6 +6,50 @@ interface NodeResultPreviewProps {
   error?: string;
 }
 
+const DAEMON_FILES_BASE = 'http://localhost:9529/api/v1/files/';
+
+/** Convert an absolute path under ~/.opencli/ to a daemon file-serve URL. */
+function pathToFileUrl(path: string): string | null {
+  // Already a URL
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  // Absolute path — extract relative portion after .opencli/
+  const marker = '.opencli/';
+  const idx = path.indexOf(marker);
+  if (idx >= 0) {
+    return DAEMON_FILES_BASE + path.substring(idx + marker.length);
+  }
+  return null;
+}
+
+/** Get the best servable URL from a result object. */
+function resolveFileUrl(result: Record<string, any>): string | null {
+  // Prefer explicit file_url from executor
+  if (result.file_url && typeof result.file_url === 'string') return result.file_url;
+  // Try common path fields
+  for (const key of ['path', 'file_path', 'output_path']) {
+    if (result[key] && typeof result[key] === 'string') {
+      const url = pathToFileUrl(result[key]);
+      if (url) return url;
+    }
+  }
+  return null;
+}
+
+function getExtension(url: string): string {
+  try {
+    const pathname = new URL(url, 'http://localhost').pathname;
+    const ext = pathname.split('.').pop()?.toLowerCase() || '';
+    return ext;
+  } catch {
+    const ext = url.split('.').pop()?.toLowerCase() || '';
+    return ext.split('?')[0];
+  }
+}
+
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
+const VIDEO_EXTS = new Set(['mp4', 'webm', 'mov', 'avi', 'mkv']);
+const AUDIO_EXTS = new Set(['wav', 'mp3', 'm4a', 'ogg', 'aac', 'flac']);
+
 function NodeResultPreviewInner({ status, result, error }: NodeResultPreviewProps) {
   if (!status || status === 'pending') return null;
 
@@ -66,7 +110,37 @@ function NodeResultPreviewInner({ status, result, error }: NodeResultPreviewProp
     );
   }
 
-  // Check for video/image URL output
+  // Check for file_url or path fields (from pipeline executor file serving)
+  const fileUrl = resolveFileUrl(result);
+  if (fileUrl) {
+    const ext = getExtension(fileUrl);
+
+    if (VIDEO_EXTS.has(ext)) {
+      return (
+        <div className="node-result-preview result-completed">
+          <video src={fileUrl} className="result-video" controls muted />
+        </div>
+      );
+    }
+
+    if (IMAGE_EXTS.has(ext)) {
+      return (
+        <div className="node-result-preview result-completed">
+          <img src={fileUrl} alt="result" className="result-image" />
+        </div>
+      );
+    }
+
+    if (AUDIO_EXTS.has(ext)) {
+      return (
+        <div className="node-result-preview result-completed">
+          <audio src={fileUrl} controls style={{ width: '100%', maxWidth: 260 }} />
+        </div>
+      );
+    }
+  }
+
+  // Check for video/image URL output (legacy fields)
   const mediaUrl = result.video_url || result.video_path || result.image_url;
   if (mediaUrl && typeof mediaUrl === 'string') {
     const isVideo = /\.(mp4|webm|mov)$/i.test(mediaUrl);

@@ -55,6 +55,27 @@ async def delete_pipeline(pipeline_id: str) -> dict:
     return {"success": deleted}
 
 
+def _make_progress_callback(pipeline_id: str):
+    """Create an on_progress callback that broadcasts node status via WS."""
+    from opencli_daemon.api.websocket_manager import ws_manager
+
+    async def on_progress(data: dict) -> None:
+        await ws_manager.broadcast({
+            "type": "task_update",
+            "task_type": "pipeline_execute",
+            "task_id": pipeline_id,
+            "status": "running",
+            "result": {
+                "current_node": data.get("node_id", ""),
+                "node_status": data.get("all_statuses", {}),
+                "node_result": data.get("node_result", {}),
+                "progress": data.get("progress", 0),
+            },
+        })
+
+    return on_progress
+
+
 @router.post("/pipelines/{pipeline_id}/run")
 async def run_pipeline(pipeline_id: str, request: Request) -> dict:
     body = await request.json() if await request.body() else {}
@@ -68,7 +89,9 @@ async def run_pipeline(pipeline_id: str, request: Request) -> dict:
     registry = app.state.domain_registry
 
     result = await executor.execute_pipeline(
-        pipeline, registry, override_params=override_params,
+        pipeline, registry,
+        override_params=override_params,
+        on_progress=_make_progress_callback(pipeline_id),
     )
     return result
 
@@ -96,6 +119,7 @@ async def run_pipeline_from_node(pipeline_id: str, node_id: str, request: Reques
         override_params=override_params,
         start_from_node=node_id,
         previous_results=previous_results,
+        on_progress=_make_progress_callback(pipeline_id),
     )
     return result
 

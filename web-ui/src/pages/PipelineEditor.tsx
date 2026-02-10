@@ -363,18 +363,36 @@ function PipelineEditorInner() {
             if (msg.type === 'task_update' && msg.task_type === 'pipeline_execute') {
               const result = msg.result || {};
 
-              if (result.node_status) {
+              // Real-time per-node status updates (from on_progress callback)
+              const statuses = result.node_status || result.all_statuses;
+              if (statuses) {
+                const currentNodeId = result.current_node || '';
+                const nodeResult = result.node_result;
+
                 setNodes((nds) =>
-                  nds.map((n) => ({
-                    ...n,
-                    data: {
-                      ...n.data,
-                      status: result.node_status[n.id] || 'pending',
-                      result: result.node_results?.[n.id],
-                      error: result.node_results?.[n.id]?.error,
-                    },
-                  }))
+                  nds.map((n) => {
+                    const nodeStatus = statuses[n.id] || n.data.status || 'pending';
+                    // Update result for the just-completed node
+                    const updatedResult =
+                      n.id === currentNodeId && nodeResult
+                        ? nodeResult
+                        : result.node_results?.[n.id] || (n.data as any).result;
+                    return {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        status: nodeStatus,
+                        result: updatedResult,
+                        error: updatedResult?.error,
+                      },
+                    };
+                  })
                 );
+
+                // Accumulate node results
+                if (currentNodeId && nodeResult) {
+                  setNodeResults((prev) => ({ ...prev, [currentNodeId]: nodeResult }));
+                }
               }
 
               if (result.node_results) {
@@ -382,9 +400,8 @@ function PipelineEditorInner() {
               }
 
               if (result.current_node) {
-                addLog(
-                  `Node ${result.current_node}: ${result.node_status?.[result.current_node] || 'running'}`
-                );
+                const nodeStatus = (statuses || {})[result.current_node] || 'running';
+                addLog(`Node ${result.current_node}: ${nodeStatus}`);
               }
 
               if (msg.status === 'completed' || msg.status === 'failed') {

@@ -37,6 +37,7 @@ def _register_routers() -> None:
     from opencli_daemon.api.local_models_api import router as local_models_router
     from opencli_daemon.api.websocket_manager import router as ws_router
     from opencli_daemon.api.execute_api import router as execute_router
+    from opencli_daemon.api.files_api import router as files_router
 
     app.include_router(config_router)
     app.include_router(storage_router)
@@ -46,6 +47,7 @@ def _register_routers() -> None:
     app.include_router(local_models_router)
     app.include_router(ws_router)
     app.include_router(execute_router)
+    app.include_router(files_router)
 
 
 def _register_domains() -> None:
