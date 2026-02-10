@@ -381,6 +381,12 @@ class MediaCreationDomain(TaskDomain):
             image_base64=data.get("image_base64", ""),
             model=data.get("model", "animatediff_v3"),
             frames=data.get("frames", 16),
+            width=data.get("width", 256),
+            height=data.get("height", 256),
+            steps=data.get("steps", 15),
+            guidance_scale=data.get("guidance_scale", 7.5),
+            camera_motion=data.get("camera_motion"),
+            seed=data.get("seed"),
         )
         result["domain"] = "media_creation"
         result["card_type"] = "media"

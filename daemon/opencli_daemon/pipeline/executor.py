@@ -213,10 +213,17 @@ async def _execute_node(
     node = node_map[node_id]
     node_statuses[node_id] = NodeStatus.RUNNING
 
-    # Resolve variable references in params
-    resolved_params = {}
-    for k, v in node.params.items():
-        resolved_params[k] = resolve_variables(v, node_results, params) if isinstance(v, str) else v
+    # Resolve variable references in params (recursive for lists/dicts)
+    def _resolve(val: Any) -> Any:
+        if isinstance(val, str):
+            return resolve_variables(val, node_results, params)
+        if isinstance(val, list):
+            return [_resolve(item) for item in val]
+        if isinstance(val, dict):
+            return {k2: _resolve(v2) for k2, v2 in val.items()}
+        return val
+
+    resolved_params = {k: _resolve(v) for k, v in node.params.items()}
 
     try:
         result = await registry.execute_task(node.type, resolved_params)

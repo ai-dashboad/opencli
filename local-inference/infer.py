@@ -329,7 +329,7 @@ def generate_image(params):
     seed = params.get("seed")
 
     device = get_device()
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
 
     try:
         # Load pipeline
@@ -413,7 +413,7 @@ def generate_video_animatediff(params):
     guidance_scale = params.get("guidance_scale", 7.5)
 
     device = get_device()
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
 
     try:
         from diffusers import AnimateDiffPipeline, MotionAdapter, DDIMScheduler
@@ -498,7 +498,7 @@ def generate_video_svd(params):
     decode_chunk_size = params.get("decode_chunk_size", 8)
 
     device = get_device()
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
 
     try:
         from diffusers import StableVideoDiffusionPipeline
@@ -666,7 +666,7 @@ def generate_video_animatediff_v3(params):
     seed = params.get("seed")
 
     device = get_device()
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
 
     try:
         from diffusers import AnimateDiffPipeline, MotionAdapter, DDIMScheduler
@@ -727,6 +727,10 @@ def generate_video_animatediff_v3(params):
                     print(json.dumps({"progress": 0.15, "message": f"Style LoRA failed: {e}"}), flush=True)
 
         pipe = pipe.to(device)
+
+        # Memory optimizations — critical for MPS (Apple Silicon) where VRAM is shared
+        pipe.enable_attention_slicing("auto")
+        pipe.enable_vae_slicing()
         if device == "cuda":
             pipe.enable_model_cpu_offload()
 
@@ -734,7 +738,7 @@ def generate_video_animatediff_v3(params):
         if seed is not None:
             generator = torch.Generator(device=device).manual_seed(seed)
 
-        print(json.dumps({"progress": 0.2, "message": "Generating video frames..."}), flush=True)
+        print(json.dumps({"progress": 0.2, "message": f"Generating {num_frames} frames at {width}x{height}, {steps} steps..."}), flush=True)
 
         result = pipe(
             prompt=prompt,
@@ -779,6 +783,8 @@ def generate_video_animatediff_v3(params):
             del pipe, adapter
             if device == "cuda":
                 torch.cuda.empty_cache()
+            elif device == "mps":
+                torch.mps.empty_cache()
         except Exception:
             pass
 
@@ -1107,7 +1113,7 @@ def generate_controlnet_video(params):
     seed = params.get("seed")
 
     device = get_device()
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
 
     base_dir = MODELS_DIR / "sd15_base"
     v3_dir = MODELS_DIR / "animatediff_v3"

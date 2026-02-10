@@ -16,8 +16,8 @@ router = APIRouter(prefix="/api/v1", tags=["files"])
 _OPENCLI_DIR = Path.home() / ".opencli"
 
 
-@router.get("/files/{file_path:path}")
-async def serve_file(file_path: str) -> FileResponse | JSONResponse:
+@router.get("/files/{file_path:path}", response_model=None)
+async def serve_file(file_path: str):
     """Serve a file from ~/.opencli/{file_path}.
 
     Security: resolved path must be within ~/.opencli/ to prevent traversal.
