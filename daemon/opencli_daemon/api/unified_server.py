@@ -22,6 +22,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Request counting middleware ──────────────────────────────────────────────
+
+_request_count: int = 0
+
+
+@app.middleware("http")
+async def _count_requests(request: Request, call_next):
+    global _request_count
+    _request_count += 1
+    return await call_next(request)
+
+
+def get_request_count() -> int:
+    return _request_count
+
 
 @app.on_event("startup")
 async def _startup() -> None:

@@ -102,6 +102,12 @@ class WebSocketManager:
                         continue
                     await self._handle_task(ws, device_id, msg)
 
+                elif msg_type == "chat":
+                    if device_id is None:
+                        await ws.send_json({"type": "error", "message": "Not authenticated"})
+                        continue
+                    await self._handle_chat(ws, msg)
+
                 elif msg_type == "cancel_task":
                     if device_id:
                         task_id = msg.get("task_id", "")
@@ -148,10 +154,25 @@ class WebSocketManager:
         print(f"[WS] Client authenticated: {device_id}")
         return device_id
 
+    async def _handle_chat(self, ws: WebSocket, msg: dict) -> None:
+        """Handle chat messages — echo back since no LLM is integrated."""
+        message = msg.get("message", "")
+        await ws.send_json({"type": "chunk", "content": f"Echo: {message}"})
+        await ws.send_json({"type": "done"})
+
     async def _handle_task(self, ws: WebSocket, device_id: str, msg: dict) -> None:
         task_type = msg.get("task_type", "")
         task_data = msg.get("task_data", {})
         task_id = msg.get("task_id", f"task_{int(time.time() * 1000)}")
+
+        # Broadcast task_submitted to all connected clients
+        await self.broadcast({
+            "type": "task_submitted",
+            "task_type": task_type,
+            "task_data": task_data,
+            "device_id": device_id,
+            "task_id": task_id,
+        })
 
         # Send running status
         await ws.send_json({

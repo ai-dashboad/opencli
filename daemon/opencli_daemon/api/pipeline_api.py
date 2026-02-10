@@ -73,6 +73,33 @@ async def run_pipeline(pipeline_id: str, request: Request) -> dict:
     return result
 
 
+@router.post("/pipelines/{pipeline_id}/run-from/{node_id}")
+async def run_pipeline_from_node(pipeline_id: str, node_id: str, request: Request) -> dict:
+    body = await request.json() if await request.body() else {}
+    override_params = body.get("parameters", {})
+    previous_results = body.get("previous_results", {})
+
+    pipeline = await store.get_pipeline(pipeline_id)
+    if pipeline is None:
+        return {"success": False, "error": f"Pipeline not found: {pipeline_id}"}
+
+    # Verify node exists
+    node_ids = {n.id for n in pipeline.nodes}
+    if node_id not in node_ids:
+        return {"success": False, "error": f"Node not found: {node_id}"}
+
+    from opencli_daemon.api.unified_server import app
+    registry = app.state.domain_registry
+
+    result = await executor.execute_pipeline(
+        pipeline, registry,
+        override_params=override_params,
+        start_from_node=node_id,
+        previous_results=previous_results,
+    )
+    return result
+
+
 @router.get("/nodes/video-catalog")
 async def get_video_node_catalog() -> dict:
     """Static video editing node catalog for the visual pipeline editor."""

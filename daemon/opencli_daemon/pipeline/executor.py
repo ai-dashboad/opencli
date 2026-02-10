@@ -27,8 +27,14 @@ async def execute_pipeline(
     domain_registry: Any,
     override_params: dict[str, Any] | None = None,
     on_progress: ProgressCallback | None = None,
+    start_from_node: str | None = None,
+    previous_results: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Execute a pipeline DAG with topological ordering and parallel execution."""
+    """Execute a pipeline DAG with topological ordering and parallel execution.
+
+    If start_from_node is provided, skips all upstream nodes and injects
+    previous_results as if those nodes had already completed.
+    """
     start_time = time.time()
     params = {p.name: p.default for p in pipeline.parameters}
     if override_params:
@@ -46,6 +52,24 @@ async def execute_pipeline(
         in_degree[edge.target_node] = in_degree.get(edge.target_node, 0) + 1
         dependents.setdefault(edge.source_node, []).append(edge.target_node)
 
+    # If start_from_node, find upstream nodes to skip
+    skip_nodes: set[str] = set()
+    if start_from_node:
+        # Find all nodes that are upstream of start_from_node
+        # (all ancestors in the DAG)
+        skip_nodes = _find_upstream_nodes(start_from_node, pipeline.edges)
+        # Inject previous results for skipped nodes
+        if previous_results:
+            for nid, result in previous_results.items():
+                node_results[nid] = result
+                node_statuses[nid] = NodeStatus.COMPLETED
+
+        # Mark remaining skip nodes as skipped (no previous results for them)
+        for nid in skip_nodes:
+            if nid not in node_results:
+                node_statuses[nid] = NodeStatus.SKIPPED
+                node_results[nid] = {"success": True, "skipped": True}
+
     # Cycle detection
     visited: set[str] = set()
     temp: set[str] = set()
@@ -56,15 +80,30 @@ async def execute_pipeline(
     # BFS execution (Kahn's algorithm)
     queue = [n.id for n in pipeline.nodes if in_degree[n.id] == 0]
     completed_count = 0
-    total = len(pipeline.nodes)
+    # Count only nodes we'll actually execute
+    total = len([n for n in pipeline.nodes if n.id not in skip_nodes])
 
     while queue:
         current_level = list(queue)
         queue.clear()
 
-        # Execute all nodes in current level in parallel
+        # Separate nodes to execute vs skip
+        to_execute = [nid for nid in current_level if nid not in skip_nodes]
+        to_skip = [nid for nid in current_level if nid in skip_nodes]
+
+        # Mark skipped nodes' dependents as ready
+        for nid in to_skip:
+            for dep_id in dependents.get(nid, []):
+                in_degree[dep_id] -= 1
+                if in_degree[dep_id] <= 0:
+                    queue.append(dep_id)
+
+        if not to_execute:
+            continue
+
+        # Execute all non-skipped nodes in current level in parallel
         tasks = []
-        for nid in current_level:
+        for nid in to_execute:
             tasks.append(_execute_node(
                 nid, node_map, domain_registry, node_results, node_statuses, params
             ))
@@ -72,7 +111,7 @@ async def execute_pipeline(
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Process results and enqueue dependents
-        for i, nid in enumerate(current_level):
+        for i, nid in enumerate(to_execute):
             if isinstance(results[i], Exception):
                 node_statuses[nid] = NodeStatus.FAILED
                 node_results[nid] = {"success": False, "error": str(results[i])}
@@ -137,6 +176,23 @@ async def _execute_node(
     except Exception as e:
         node_results[node_id] = {"success": False, "error": str(e)}
         node_statuses[node_id] = NodeStatus.FAILED
+
+
+def _find_upstream_nodes(target_node: str, edges: list) -> set[str]:
+    """Find all nodes that are upstream of target_node (its ancestors)."""
+    # Build reverse adjacency: for each node, what nodes feed into it
+    parents: dict[str, list[str]] = {}
+    for edge in edges:
+        parents.setdefault(edge.target_node, []).append(edge.source_node)
+
+    upstream: set[str] = set()
+    queue = list(parents.get(target_node, []))
+    while queue:
+        nid = queue.pop()
+        if nid not in upstream:
+            upstream.add(nid)
+            queue.extend(parents.get(nid, []))
+    return upstream
 
 
 def _has_cycle(node_id: str, dependents: dict, visited: set, temp: set) -> bool:

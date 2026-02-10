@@ -1,19 +1,25 @@
 """Daemon startup orchestrator.
 
 Initializes DB, config, registers all API routers and domains,
-then starts the uvicorn server + standalone WS server on port 9876.
+then starts the uvicorn server + standalone WS server on port 9876
++ status server on port 9875.
 """
 
 import asyncio
 import json
+import resource
 import signal
 import sys
+import time
 
 import uvicorn
 import websockets
 
 from opencli_daemon.database import connection as db
 from opencli_daemon.api.unified_server import app
+
+# Track daemon start time for uptime calculation
+_start_time: float = time.time()
 
 
 # ── Lazy router registration ─────────────────────────────────────────────────
@@ -30,6 +36,7 @@ def _register_routers() -> None:
     from opencli_daemon.api.lora_api import router as lora_router
     from opencli_daemon.api.local_models_api import router as local_models_router
     from opencli_daemon.api.websocket_manager import router as ws_router
+    from opencli_daemon.api.execute_api import router as execute_router
 
     app.include_router(config_router)
     app.include_router(storage_router)
@@ -38,6 +45,7 @@ def _register_routers() -> None:
     app.include_router(lora_router)
     app.include_router(local_models_router)
     app.include_router(ws_router)
+    app.include_router(execute_router)
 
 
 def _register_domains() -> None:
@@ -51,6 +59,94 @@ def _register_domains() -> None:
         f"[Daemon] Registered {len(registry.domains)} domains, "
         f"{len(registry.all_task_types)} task types"
     )
+
+
+# ── Status server on port 9875 ───────────────────────────────────────────────
+
+
+async def _run_status_server(port: int = 9875) -> None:
+    """Lightweight HTTP server on port 9875 serving GET /status.
+
+    Uses raw asyncio TCP server — no external dependency needed.
+    """
+    from opencli_daemon.api.websocket_manager import ws_manager
+    from opencli_daemon.api.unified_server import get_request_count
+    from datetime import datetime, timezone
+
+    async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        try:
+            request_line = await asyncio.wait_for(reader.readline(), timeout=5)
+            # Consume remaining headers
+            while True:
+                line = await asyncio.wait_for(reader.readline(), timeout=5)
+                if line in (b"\r\n", b"\n", b""):
+                    break
+
+            method_path = request_line.decode("utf-8", errors="replace").strip()
+
+            if "GET /status" in method_path or "GET / " in method_path:
+                # Gather connected client IDs
+                client_ids = list(ws_manager.connected_clients)
+                if hasattr(ws_manager, "_ws_connections"):
+                    for did in ws_manager._ws_connections:
+                        if did not in client_ids:
+                            client_ids.append(did)
+
+                # Memory usage (macOS ru_maxrss is bytes, Linux is KB)
+                rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                if sys.platform == "darwin":
+                    memory_mb = rss / (1024 * 1024)
+                else:
+                    memory_mb = rss / 1024
+
+                body = json.dumps({
+                    "daemon": {
+                        "version": "0.2.0-py",
+                        "uptime_seconds": int(time.time() - _start_time),
+                        "memory_mb": round(memory_mb, 1),
+                        "plugins_loaded": 0,
+                        "total_requests": get_request_count(),
+                    },
+                    "mobile": {
+                        "connected_clients": len(client_ids),
+                        "client_ids": client_ids,
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
+                status_line = "HTTP/1.1 200 OK"
+            else:
+                body = json.dumps({"error": "Not found"})
+                status_line = "HTTP/1.1 404 Not Found"
+
+            response = (
+                f"{status_line}\r\n"
+                "Content-Type: application/json\r\n"
+                "Access-Control-Allow-Origin: *\r\n"
+                "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+                "Access-Control-Allow-Headers: *\r\n"
+                f"Content-Length: {len(body.encode())}\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+                f"{body}"
+            )
+            writer.write(response.encode())
+            await writer.drain()
+        except Exception:
+            pass
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+    try:
+        server = await asyncio.start_server(_handle_client, "0.0.0.0", port)
+        print(f"[Daemon] Status server listening on http://0.0.0.0:{port}")
+        async with server:
+            await server.serve_forever()
+    except OSError as e:
+        print(f"[Daemon] Could not start status server on port {port}: {e}")
 
 
 # ── Standalone WS server on port 9876 ────────────────────────────────────────
@@ -93,7 +189,6 @@ async def _run_mobile_ws_server(port: int = 9876) -> None:
                     device_id = did
                     # Register a lightweight wrapper so broadcast works
                     ws_manager._ws_connections[device_id] = ws
-                    import time
                     await ws.send(json.dumps({
                         "type": "auth_success",
                         "device_id": device_id,
@@ -109,6 +204,14 @@ async def _run_mobile_ws_server(port: int = 9876) -> None:
                         await ws.send(json.dumps({"type": "error", "message": "Not authenticated"}))
                         continue
                     await _handle_task_standalone(ws, device_id, msg)
+
+                elif msg_type == "chat":
+                    if not device_id:
+                        await ws.send(json.dumps({"type": "error", "message": "Not authenticated"}))
+                        continue
+                    message = msg.get("message", "")
+                    await ws.send(json.dumps({"type": "chunk", "content": f"Echo: {message}"}))
+                    await ws.send(json.dumps({"type": "done"}))
 
                 elif msg_type == "cancel_task":
                     task_id = msg.get("task_id", "")
@@ -129,10 +232,18 @@ async def _run_mobile_ws_server(port: int = 9876) -> None:
                 print(f"[WS:9876] Client disconnected: {device_id}")
 
     async def _handle_task_standalone(ws, device_id: str, msg: dict) -> None:
-        import time
         task_type = msg.get("task_type", "")
         task_data = msg.get("task_data", {})
         task_id = msg.get("task_id", f"task_{int(time.time() * 1000)}")
+
+        # Broadcast task_submitted to all connected clients
+        await ws_manager.broadcast({
+            "type": "task_submitted",
+            "task_type": task_type,
+            "task_data": task_data,
+            "device_id": device_id,
+            "task_id": task_id,
+        })
 
         await ws.send(json.dumps({
             "type": "task_update", "task_id": task_id,
@@ -175,8 +286,11 @@ async def _run_mobile_ws_server(port: int = 9876) -> None:
 # ── Main entry ───────────────────────────────────────────────────────────────
 
 
-async def start_daemon(port: int = 9529, ws_port: int = 9876) -> None:
-    """Initialize everything and run the uvicorn server + WS server."""
+async def start_daemon(port: int = 9529, ws_port: int = 9876, status_port: int = 9875) -> None:
+    """Initialize everything and run the uvicorn server + WS server + status server."""
+    global _start_time
+    _start_time = time.time()
+
     print("=" * 50)
     print("  OpenCLI Daemon (Python/FastAPI)")
     print("=" * 50)
@@ -212,12 +326,14 @@ async def start_daemon(port: int = 9529, ws_port: int = 9876) -> None:
     print(f"  - REST API: http://localhost:{port}/api/v1/")
     print(f"  - WebSocket: ws://localhost:{port}/ws")
     print(f"  - Mobile WS: ws://localhost:{ws_port}")
+    print(f"  - Status: http://localhost:{status_port}/status")
     print(f"  - Health: http://localhost:{port}/health")
 
-    # Run both servers concurrently
+    # Run all three servers concurrently
     await asyncio.gather(
         server.serve(),
         _run_mobile_ws_server(ws_port),
+        _run_status_server(status_port),
     )
 
 

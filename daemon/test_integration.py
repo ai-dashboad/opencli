@@ -268,6 +268,89 @@ async def test_rest():
         except httpx.ReadTimeout:
             fail("GET /api/v1/local-models/environment", "timeout (slow subprocess)")
 
+        # ── Execute endpoint ──
+        print("\n== Execute ==")
+        r = await c.post("/api/v1/execute", json={
+            "method": "calculator_eval",
+            "params": [{"expression": "10+20"}],
+        })
+        d = r.json()
+        if r.status_code == 200 and d.get("success"):
+            ok(f"POST /api/v1/execute calculator_eval → {d.get('result', {}).get('result')}")
+        else:
+            fail("POST /api/v1/execute calculator_eval", f"{r.status_code} {r.text}")
+
+        r = await c.post("/api/v1/execute", json={
+            "method": "system.info",
+            "params": [],
+        })
+        d = r.json()
+        if r.status_code == 200 and d.get("result", {}).get("hostname"):
+            ok("POST /api/v1/execute system.info")
+        else:
+            fail("POST /api/v1/execute system.info", f"{r.status_code} {r.text}")
+
+        r = await c.post("/api/v1/execute", json={
+            "method": "domains.list",
+            "params": [],
+        })
+        d = r.json()
+        if r.status_code == 200 and d.get("result", {}).get("domains"):
+            ok(f"POST /api/v1/execute domains.list ({len(d['result']['domains'])} domains)")
+        else:
+            fail("POST /api/v1/execute domains.list", f"{r.status_code} {r.text}")
+
+        # ── Pipeline run-from-node ──
+        print("\n== Pipeline run-from-node ==")
+        # Create a 2-node pipeline: n1 → n2
+        r = await c.post("/api/v1/pipelines", json={
+            "id": "test_rfn", "name": "Run From Node Test",
+            "nodes": [
+                {"id": "n1", "type": "calculator_eval", "params": {"expression": "1+1"}, "position": {"x": 0, "y": 0}},
+                {"id": "n2", "type": "calculator_eval", "params": {"expression": "3+4"}, "position": {"x": 200, "y": 0}},
+            ],
+            "edges": [{"id": "e1", "source": "n1", "target": "n2", "source_port": "output", "target_port": "input"}],
+            "parameters": [],
+        })
+        if r.status_code == 200:
+            # Run from n2, skipping n1
+            r = await c.post("/api/v1/pipelines/test_rfn/run-from/n2", json={
+                "previous_results": {"n1": {"success": True, "result": 2}},
+            })
+            d = r.json()
+            if d.get("success") and d.get("node_statuses", {}).get("n2") == "completed":
+                ok("POST /api/v1/pipelines/{id}/run-from/{nodeId}")
+            else:
+                fail("POST /api/v1/pipelines/{id}/run-from/{nodeId}", f"{d}")
+
+            await c.delete("/api/v1/pipelines/test_rfn")
+        else:
+            fail("POST /api/v1/pipelines (run-from-node setup)", f"{r.status_code}")
+
+        # ── Episodes from-script ──
+        print("\n== Episodes from-script ==")
+        r = await c.post("/api/v1/episodes/from-script", json={
+            "script": {
+                "title": "Test Script Episode",
+                "narrative": "A warrior defeats the dragon.",
+                "scenes": [{"description": "Battle scene", "dialogue": []}],
+                "characters": [{"name": "Hero", "visual_description": "tall warrior"}],
+            }
+        })
+        d = r.json()
+        if r.status_code == 200 and d.get("success") and d.get("id"):
+            from_script_id = d["id"]
+            ok(f"POST /api/v1/episodes/from-script (id={from_script_id})")
+            # Verify it was saved
+            r = await c.get(f"/api/v1/episodes/{from_script_id}")
+            if r.status_code == 200 and r.json().get("episode", {}).get("title") == "Test Script Episode":
+                ok("GET /api/v1/episodes/{id} (from-script)")
+            else:
+                fail("GET /api/v1/episodes/{id} (from-script)", f"{r.status_code}")
+            await c.delete(f"/api/v1/episodes/{from_script_id}")
+        else:
+            fail("POST /api/v1/episodes/from-script", f"{r.status_code} {r.text}")
+
 
 async def test_websocket():
     print("\n== WebSocket Auth ==")
@@ -358,6 +441,111 @@ async def test_websocket():
         fail("WS connection", str(e))
 
 
+async def test_ws_chat():
+    print("\n== WebSocket Chat ==")
+    device_id = "test_chat_py"
+    ts = str(int(time.time() * 1000))
+    raw = f"{device_id}:{ts}:{AUTH_SECRET}"
+    token = hashlib.sha256(raw.encode()).hexdigest()
+
+    try:
+        async with websockets.connect(WS_URL, open_timeout=5) as ws:
+            # Auth first
+            await ws.send(json.dumps({
+                "type": "auth", "device_id": device_id,
+                "timestamp": ts, "token": token,
+            }))
+            resp = json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+            if resp.get("type") != "auth_success":
+                fail("WS chat auth", f"Expected auth_success, got {resp}")
+                return
+
+            # Send chat
+            await ws.send(json.dumps({
+                "type": "chat", "message": "Hello world",
+            }))
+
+            # Expect chunk + done
+            chunk = json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+            done = json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+
+            if chunk.get("type") == "chunk" and "Echo: Hello world" in chunk.get("content", ""):
+                ok("WS chat → chunk received")
+            else:
+                fail("WS chat chunk", f"Got: {chunk}")
+
+            if done.get("type") == "done":
+                ok("WS chat → done received")
+            else:
+                fail("WS chat done", f"Got: {done}")
+
+    except Exception as e:
+        fail("WS chat", str(e))
+
+
+async def test_ws_task_submitted():
+    print("\n== WebSocket task_submitted ==")
+    device_id = "test_submitted_py"
+    ts = str(int(time.time() * 1000))
+    raw = f"{device_id}:{ts}:{AUTH_SECRET}"
+    token = hashlib.sha256(raw.encode()).hexdigest()
+
+    try:
+        async with websockets.connect(WS_URL, open_timeout=5) as ws:
+            await ws.send(json.dumps({
+                "type": "auth", "device_id": device_id,
+                "timestamp": ts, "token": token,
+            }))
+            resp = json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+            if resp.get("type") != "auth_success":
+                fail("WS task_submitted auth", f"Expected auth_success, got {resp}")
+                return
+
+            # Submit a task
+            await ws.send(json.dumps({
+                "type": "submit_task",
+                "task_type": "calculator_eval",
+                "task_data": {"expression": "1+1"},
+                "task_id": "test_sub_1",
+            }))
+
+            # Collect all messages until we get task_update completed/failed
+            got_submitted = False
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                remaining = deadline - time.time()
+                resp = json.loads(await asyncio.wait_for(ws.recv(), timeout=remaining))
+                if resp.get("type") == "task_submitted":
+                    got_submitted = True
+                elif resp.get("type") == "task_update" and resp.get("status") in ("completed", "failed"):
+                    break
+
+            if got_submitted:
+                ok("WS task_submitted broadcast received")
+            else:
+                fail("WS task_submitted", "Never received task_submitted message")
+
+    except Exception as e:
+        fail("WS task_submitted", str(e))
+
+
+async def test_status_server():
+    print("\n== Status Server (port 9875) ==")
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get("http://localhost:9875/status")
+            d = r.json()
+            if r.status_code == 200 and "daemon" in d and "mobile" in d:
+                daemon_info = d["daemon"]
+                ok(f"GET :9875/status (uptime={daemon_info.get('uptime_seconds')}s, "
+                   f"mem={daemon_info.get('memory_mb')}MB, "
+                   f"reqs={daemon_info.get('total_requests')})")
+            else:
+                fail("GET :9875/status", f"{r.status_code} {r.text}")
+    except Exception as e:
+        fail("GET :9875/status", str(e))
+
+
 async def test_ws_bad_auth():
     print("\n== WebSocket Bad Auth ==")
     try:
@@ -383,7 +571,10 @@ async def main():
     print("=" * 60)
 
     await test_rest()
+    await test_status_server()
     await test_websocket()
+    await test_ws_chat()
+    await test_ws_task_submitted()
     await test_ws_bad_auth()
 
     print("\n" + "=" * 60)

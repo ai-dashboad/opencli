@@ -28,6 +28,24 @@ async def list_episodes(limit: int = 50) -> dict:
     return {"episodes": episodes}
 
 
+@router.post("/episodes/from-script")
+async def create_from_script(request: Request) -> dict:
+    """Create an episode directly from a structured script (no Ollama generation)."""
+    body = await request.json()
+    script_data = body.get("script", {})
+    eid = str(uuid.uuid4())
+
+    await store.save_episode({
+        "id": eid,
+        "title": script_data.get("title", "Untitled"),
+        "synopsis": script_data.get("narrative", ""),
+        "script": json.dumps(script_data) if isinstance(script_data, dict) else script_data,
+        "status": "draft",
+        "progress": 0,
+    })
+    return {"success": True, "id": eid}
+
+
 @router.get("/episodes/{episode_id}")
 async def get_episode(episode_id: str) -> dict:
     episode = await store.get_episode(episode_id)
