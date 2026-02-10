@@ -714,7 +714,7 @@ export default function SettingsPage() {
 
             <div className="st-provider-list">
               {(localModels.length > 0
-                ? localModels.filter((m) => m.type === 'text2img')
+                ? localModels.filter((m) => m.type === 'image' || m.type === 'text2img')
                 : [
                     { id: 'waifu_diffusion', name: 'Waifu Diffusion', type: 'text2img', capabilities: ['image'], size_gb: 2.0, description: 'Anime-style image generation based on Stable Diffusion 1.5', tags: ['anime', 'illustration'], downloaded: false, disk_size_mb: 0 },
                     { id: 'animagine_xl', name: 'Animagine XL 3.1', type: 'text2img', capabilities: ['image'], size_gb: 6.5, description: 'High-quality anime image generation based on SDXL', tags: ['anime', 'illustration', 'xl'], downloaded: false, disk_size_mb: 0 },
@@ -728,7 +728,7 @@ export default function SettingsPage() {
                       <span className={`st-provider-badge ${m.downloaded ? 'active' : 'inactive'}`}>
                         {m.downloaded ? 'DOWNLOADED' : 'NOT INSTALLED'}
                       </span>
-                      {m.tags.map((t) => (
+                      {(m.tags || []).map((t) => (
                         <span key={t} className="st-cap-badge">{t}</span>
                       ))}
                     </div>
@@ -739,7 +739,7 @@ export default function SettingsPage() {
                     {m.downloaded ? (
                       <>
                         <span className="st-provider-meta" style={{ flex: 1 }}>
-                          {m.disk_size_mb > 0 ? `${m.disk_size_mb.toFixed(0)} MB on disk` : 'Installed'}
+                          {(m.disk_size_mb || 0) > 0 ? `${(m.disk_size_mb || 0).toFixed(0)} MB on disk` : 'Installed'}
                         </span>
                         <button className="st-key-btn" onClick={() => deleteLocalModel(m.id)}>
                           Delete
@@ -775,7 +775,7 @@ export default function SettingsPage() {
 
             <div className="st-provider-list">
               {(localModels.length > 0
-                ? localModels.filter((m) => m.type === 'text2video' || m.type === 'img2video')
+                ? localModels.filter((m) => m.type === 'video' || m.type === 'text2video' || m.type === 'img2video')
                 : [
                     { id: 'animatediff', name: 'AnimateDiff', type: 'text2video', capabilities: ['video', 'animation'], size_gb: 4.5, description: 'Generate short animated videos from text prompts', tags: ['animation', 'video', 'motion'], downloaded: false, disk_size_mb: 0 },
                     { id: 'stable_video_diffusion', name: 'Stable Video Diffusion', type: 'img2video', capabilities: ['video'], size_gb: 4.0, description: 'Generate video from a single image', tags: ['video', 'img2vid'], downloaded: false, disk_size_mb: 0 },
@@ -788,7 +788,7 @@ export default function SettingsPage() {
                       <span className={`st-provider-badge ${m.downloaded ? 'active' : 'inactive'}`}>
                         {m.downloaded ? 'DOWNLOADED' : 'NOT INSTALLED'}
                       </span>
-                      {m.tags.map((t) => (
+                      {(m.tags || []).map((t) => (
                         <span key={t} className="st-cap-badge">{t}</span>
                       ))}
                     </div>
@@ -799,7 +799,7 @@ export default function SettingsPage() {
                     {m.downloaded ? (
                       <>
                         <span className="st-provider-meta" style={{ flex: 1 }}>
-                          {m.disk_size_mb > 0 ? `${m.disk_size_mb.toFixed(0)} MB on disk` : 'Installed'}
+                          {(m.disk_size_mb || 0) > 0 ? `${(m.disk_size_mb || 0).toFixed(0)} MB on disk` : 'Installed'}
                         </span>
                         <button className="st-key-btn" onClick={() => deleteLocalModel(m.id)}>
                           Delete
@@ -835,7 +835,7 @@ export default function SettingsPage() {
 
             <div className="st-provider-list">
               {(localModels.length > 0
-                ? localModels.filter((m) => m.type === 'style_transfer')
+                ? localModels.filter((m) => m.type === 'style' || m.type === 'style_transfer')
                 : [
                     { id: 'animegan_v3', name: 'AnimeGAN v3', type: 'style_transfer', capabilities: ['image', 'style_transfer'], size_gb: 0.1, description: 'Transform photos into anime-style artwork', tags: ['anime', 'style_transfer', 'lightweight'], downloaded: false, disk_size_mb: 0 },
                   ]
@@ -847,7 +847,7 @@ export default function SettingsPage() {
                       <span className={`st-provider-badge ${m.downloaded ? 'active' : 'inactive'}`}>
                         {m.downloaded ? 'DOWNLOADED' : 'NOT INSTALLED'}
                       </span>
-                      {m.tags.map((t) => (
+                      {(m.tags || []).map((t) => (
                         <span key={t} className="st-cap-badge">{t}</span>
                       ))}
                     </div>
@@ -858,7 +858,7 @@ export default function SettingsPage() {
                     {m.downloaded ? (
                       <>
                         <span className="st-provider-meta" style={{ flex: 1 }}>
-                          {m.disk_size_mb > 0 ? `${m.disk_size_mb.toFixed(0)} MB on disk` : 'Installed'}
+                          {(m.disk_size_mb || 0) > 0 ? `${(m.disk_size_mb || 0).toFixed(0)} MB on disk` : 'Installed'}
                         </span>
                         <button className="st-key-btn" onClick={() => deleteLocalModel(m.id)}>
                           Delete
