@@ -1,8 +1,7 @@
 /* ========== Episodes Page ========== */
 .page-episodes {
-  padding: 32px;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 20px 32px 24px;
+  max-width: 100%;
   font-family: var(--font-sans);
   color: var(--text-primary);
 }
@@ -225,9 +224,8 @@
 /* ===== Generator Page ===== */
 
 .page-episode-gen {
-  padding: 32px;
-  max-width: 1000px;
-  margin: 0 auto;
+  padding: 20px 32px 24px;
+  max-width: 100%;
   font-family: var(--font-sans);
   color: var(--text-primary);
 }
