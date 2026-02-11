@@ -147,14 +147,31 @@ async def generate_episode(episode_id: str, request: Request) -> dict:
                     cancelled=lambda: _running_generations.get(episode_id, False),
                 )
 
+            # Ensure DB status is updated (fallback if generator's own update failed)
+            final_status = "completed" if result.get("success") else "failed"
+            try:
+                await store.update_episode_status(
+                    episode_id, final_status,
+                    1.0 if result.get("success") else 0,
+                    result.get("output_path", ""),
+                )
+            except Exception:
+                pass
+
             from opencli_daemon.api.websocket_manager import ws_manager
             await ws_manager.broadcast({
                 "type": "task_update",
                 "task_type": "episode_generate",
                 "task_id": episode_id,
-                "status": "completed" if result.get("success") else "failed",
+                "status": final_status,
                 "result": result,
             })
+        except Exception as e:
+            # Generation crashed — mark as failed
+            try:
+                await store.update_episode_status(episode_id, "failed", 0, "")
+            except Exception:
+                pass
         finally:
             _running_generations.pop(episode_id, None)
 
