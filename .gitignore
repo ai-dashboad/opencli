@@ -15,5 +15,10 @@ test_audio.aiff
 .vscode/
 .idea/
 
+# Python
+.venv/
+__pycache__/
+*.pyc
+
 # OS
 .DS_Store

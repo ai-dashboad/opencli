@@ -15,6 +15,10 @@
 
 **No exceptions.** Even if the user writes in Chinese or another language, all code, documentation, and generated files MUST be written in English.
 
+## Web UI Layout Rules
+
+- **All pages must use full-width layout** matching `/create` page style: `padding: 20px 32px 24px; max-width: 100%`. Do NOT use constrained `max-width` (e.g. 1000px, 1200px) or `margin: 0 auto` centering on page containers. Content should fill the available width uniformly across all pages.
+
 ## Code Style
 
 - Follow Dart style guide for daemon code

@@ -3,14 +3,15 @@ import '../styles/theme.css';
 
 const navItems = [
   { icon: 'home', label: 'Home', path: '/' },
-  { icon: 'movie', label: 'Video', path: '/create/video' },
-  { icon: 'image', label: 'Image', path: '/create/image' },
+  { icon: 'auto_awesome', label: 'Create', path: '/create' },
   { icon: 'account_tree', label: 'Pipeline', path: '/pipelines' },
+  { icon: 'theaters', label: 'Episodes', path: '/episodes' },
   { icon: 'folder', label: 'Assets', path: '/assets' },
 ];
 
 const bottomItems = [
   { icon: 'monitor_heart', label: 'Status', path: '/status' },
+  { icon: 'settings', label: 'Settings', path: '/settings' },
 ];
 
 export default function Layout() {

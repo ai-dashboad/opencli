@@ -1,0 +1,369 @@
+/* ========== Assets Page ========== */
+.ap-page {
+  padding: 20px 32px 24px;
+  max-width: 100%;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+.ap-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.ap-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.ap-count {
+  font-size: 14px;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+/* ========== Filter Tabs ========== */
+.ap-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.ap-filter {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ap-filter:hover {
+  border-color: var(--accent);
+  background: var(--bg-surface-hover);
+}
+
+.ap-filter.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+.ap-filter-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.ap-filter.active .ap-filter-count {
+  background: rgba(108, 92, 231, 0.25);
+  color: var(--text-secondary);
+}
+
+/* ========== Asset Grid ========== */
+.ap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.ap-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ap-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.ap-card-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: var(--bg-input);
+  overflow: hidden;
+}
+
+.ap-thumb-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ap-card-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  backdrop-filter: blur(4px);
+}
+
+.ap-card-info {
+  padding: 12px;
+}
+
+.ap-card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.ap-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ap-card-provider {
+  color: var(--accent);
+}
+
+.ap-card-actions {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 12px;
+}
+
+.ap-card-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.ap-card-btn .material-icons {
+  font-size: 16px;
+}
+
+.ap-card-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+.ap-card-btn.delete:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* ========== Empty State ========== */
+.ap-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+.ap-empty-icon {
+  font-size: 48px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.ap-empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.ap-empty-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 24px;
+}
+
+.ap-empty-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.ap-empty-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.ap-empty-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* ========== Preview Modal ========== */
+.ap-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.ap-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  position: relative;
+}
+
+.ap-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.15s;
+}
+
+.ap-modal-close:hover {
+  background: var(--red);
+  border-color: var(--red);
+  color: white;
+}
+
+.ap-modal-media {
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.ap-modal-content {
+  width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+}
+
+.ap-modal-info {
+  padding: 20px;
+}
+
+.ap-modal-info h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.ap-modal-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.ap-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.ap-action-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.ap-action-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-surface-hover);
+}
+
+.ap-action-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.ap-action-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 768px) {
+  .ap-page {
+    padding: 24px 16px;
+  }
+
+  .ap-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .ap-grid {
+    grid-template-columns: 1fr;
+  }
+}

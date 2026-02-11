@@ -1,4 +1,10 @@
 /* ========== Global Dark Theme ========== */
+html, body {
+  background: #0d0d0d;
+  margin: 0;
+  padding: 0;
+}
+
 :root {
   --bg-page: #0d0d0d;
   --bg-sidebar: #0a0a0a;
@@ -154,9 +160,8 @@
 
 /* ========== Home Page ========== */
 .page-home {
-  padding: 60px 48px;
-  max-width: 960px;
-  margin: 0 auto;
+  padding: 20px 32px 24px;
+  max-width: 100%;
 }
 
 .home-header {

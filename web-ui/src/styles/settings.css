@@ -1,0 +1,618 @@
+/* ========== Settings Page ========== */
+.st-page {
+  padding: 20px 32px 24px;
+  max-width: 100%;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+.st-header {
+  margin-bottom: 32px;
+}
+
+.st-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.st-header-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ========== Tabs ========== */
+.st-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.st-tab {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.st-tab:hover {
+  color: var(--text-secondary);
+}
+
+.st-tab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.st-tab .material-icons {
+  font-size: 18px;
+}
+
+/* ========== Section ========== */
+.st-section {
+  margin-bottom: 32px;
+}
+
+.st-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.st-section-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.st-section-icon .material-icons {
+  font-size: 20px;
+  color: white;
+}
+
+.st-section-icon.purple { background: var(--accent); }
+.st-section-icon.blue { background: var(--blue); }
+.st-section-icon.green { background: var(--green); }
+.st-section-icon.orange { background: var(--orange); }
+
+.st-section-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.st-section-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ========== Provider Card ========== */
+.st-provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.st-provider {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  transition: border-color 0.15s;
+}
+
+.st-provider:hover {
+  border-color: #333;
+}
+
+.st-provider.configured {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.st-provider-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.st-provider-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.st-provider-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.st-provider-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+.st-provider-badge.active {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green);
+}
+
+.st-provider-badge.inactive {
+  background: var(--bg-input);
+  color: var(--text-muted);
+}
+
+.st-provider-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.st-cap-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+
+.st-provider-link {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.st-provider-link:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.st-model-link {
+  color: var(--text-muted);
+  margin-left: 6px;
+  vertical-align: middle;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.st-model-link .material-icons {
+  font-size: 14px;
+}
+
+.st-model-link:hover {
+  color: var(--accent);
+}
+
+.st-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.st-key-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+}
+
+.st-key-input::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+}
+
+.st-key-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.st-key-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.st-key-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.st-key-btn.save {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.st-key-btn.save:hover {
+  filter: brightness(1.1);
+}
+
+/* ========== Model Row ========== */
+.st-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.st-model {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.st-model-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.st-model-icon .material-icons {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.st-model.configured .st-model-icon {
+  background: var(--accent-dim);
+}
+
+.st-model.configured .st-model-icon .material-icons {
+  color: var(--accent);
+}
+
+.st-model-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.st-model-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.st-model-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.st-model-key {
+  flex: 1;
+  max-width: 240px;
+}
+
+.st-model-key .st-key-input {
+  width: 100%;
+}
+
+/* ========== General Settings ========== */
+.st-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.st-toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.st-toggle-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.st-toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.st-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.st-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  transition: all 0.2s;
+}
+
+.st-toggle input:checked + .st-toggle-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.st-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s;
+}
+
+.st-toggle input:checked + .st-toggle-track::after {
+  transform: translateX(18px);
+}
+
+/* ========== Status Banner ========== */
+.st-banner {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-banner.success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: var(--green);
+}
+
+.st-banner.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--red);
+}
+
+.st-banner.info {
+  background: var(--accent-dim);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  color: var(--text-secondary);
+}
+
+.st-banner .material-icons {
+  font-size: 18px;
+}
+
+/* ========== Save All Button ========== */
+.st-save-bar {
+  position: sticky;
+  bottom: 24px;
+  padding: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 32px;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.st-save-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.st-save-btn {
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.st-save-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.st-save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ========== Colab GPU Tab ========== */
+.st-colab-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.st-colab-dot.online {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+
+.st-colab-dot.offline {
+  background: var(--text-muted);
+}
+
+.st-colab-backend-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.st-colab-backend-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-input);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+}
+
+.st-colab-backend-btn:hover {
+  border-color: #444;
+}
+
+.st-colab-backend-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.st-colab-backend-btn .material-icons {
+  font-size: 20px;
+  color: var(--text-muted);
+}
+
+.st-colab-backend-btn.active .material-icons {
+  color: var(--accent);
+}
+
+.st-colab-backend-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.st-colab-backend-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.st-colab-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.st-colab-node {
+  text-align: center;
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 100px;
+}
+
+.st-colab-node .material-icons {
+  font-size: 24px;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.st-colab-node div:nth-child(2) {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.st-colab-node-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.st-colab-arrow {
+  text-align: center;
+}
+
+.st-colab-arrow .material-icons {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.st-colab-arrow div {
+  font-size: 9px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 640px) {
+  .st-page {
+    padding: 24px 16px;
+  }
+
+  .st-tabs {
+    overflow-x: auto;
+  }
+
+  .st-key-row {
+    flex-direction: column;
+  }
+
+  .st-key-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .st-colab-backend-row {
+    flex-direction: column;
+  }
+
+  .st-colab-diagram {
+    flex-wrap: wrap;
+  }
+}

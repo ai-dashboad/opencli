@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDaemon } from '../hooks/useDaemon';
+import { saveAsset } from '../utils/assetStorage';
 import '../styles/create-video.css';
 
 const PROVIDERS = [
@@ -91,7 +92,15 @@ export default function CreateVideoPage() {
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
           const blob = new Blob([bytes], { type: 'video/mp4' });
-          setResultVideoUrl(URL.createObjectURL(blob));
+          const blobUrl = URL.createObjectURL(blob);
+          setResultVideoUrl(blobUrl);
+          saveAsset({
+            type: 'video',
+            title: prompt.slice(0, 60) || 'Generated Video',
+            url: blobUrl,
+            provider,
+            style,
+          });
         }
       } else if (msg.status === 'failed') {
         setGenerating(false);
@@ -99,7 +108,7 @@ export default function CreateVideoPage() {
       }
     });
     return unsub;
-  }, [subscribe]);
+  }, [subscribe, prompt, provider, style]);
 
   // Cleanup blob URLs
   useEffect(() => {
