@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import ToastContainer from './Toast';
 import '../styles/theme.css';
 
 const navItems = [
@@ -51,6 +52,7 @@ export default function Layout() {
       <div className="page-content">
         <Outlet />
       </div>
+      <ToastContainer />
     </div>
   );
 }

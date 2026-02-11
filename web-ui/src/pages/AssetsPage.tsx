@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getAssetsAsync, deleteAsset, type Asset } from '../utils/assetStorage';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { showToast } from '../components/Toast';
 import '../styles/assets.css';
 
 type FilterType = 'all' | 'video' | 'image';
@@ -9,6 +11,7 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     getAssetsAsync().then(setAssets);
@@ -16,10 +19,13 @@ export default function AssetsPage() {
 
   const filtered = filter === 'all' ? assets : assets.filter(a => a.type === filter);
 
-  const handleDelete = (id: string) => {
-    deleteAsset(id);
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteAsset(deleteTarget);
     getAssetsAsync().then(setAssets);
-    if (previewAsset?.id === id) setPreviewAsset(null);
+    if (previewAsset?.id === deleteTarget) setPreviewAsset(null);
+    showToast('Asset deleted', 'success');
+    setDeleteTarget(null);
   };
 
   const handleDownload = (asset: Asset) => {
@@ -83,11 +89,23 @@ export default function AssetsPage() {
             <div key={asset.id} className="ap-card" onClick={() => setPreviewAsset(asset)}>
               <div className="ap-card-thumb">
                 {asset.type === 'video' ? (
-                  <video src={asset.url} className="ap-thumb-media" muted />
+                  <video
+                    src={asset.url}
+                    className="ap-thumb-media"
+                    muted
+                    onLoadedMetadata={(e) => {
+                      const v = e.currentTarget;
+                      const dur = Math.round(v.duration);
+                      const label = dur >= 60 ? `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, '0')}` : `0:${String(dur).padStart(2, '0')}`;
+                      const span = v.parentElement?.querySelector('.ap-card-duration');
+                      if (span) span.textContent = label;
+                    }}
+                  />
                 ) : (
                   <img src={asset.thumbnail || asset.url} alt={asset.title} className="ap-thumb-media" />
                 )}
                 <span className="ap-card-badge">{asset.type === 'video' ? 'VIDEO' : 'IMAGE'}</span>
+                {asset.type === 'video' && <span className="ap-card-duration" />}
               </div>
               <div className="ap-card-info">
                 <span className="ap-card-title">{asset.title}</span>
@@ -100,7 +118,7 @@ export default function AssetsPage() {
                 <button className="ap-card-btn" onClick={() => handleDownload(asset)} title="Download">
                   <span className="material-icons">download</span>
                 </button>
-                <button className="ap-card-btn delete" onClick={() => handleDelete(asset.id)} title="Delete">
+                <button className="ap-card-btn delete" onClick={() => setDeleteTarget(asset.id)} title="Delete">
                   <span className="material-icons">delete</span>
                 </button>
               </div>
@@ -130,12 +148,22 @@ export default function AssetsPage() {
               </div>
               <div className="ap-modal-actions">
                 <button className="ap-action-btn primary" onClick={() => handleDownload(previewAsset)}>Download</button>
-                <button className="ap-action-btn" onClick={() => { handleDelete(previewAsset.id); setPreviewAsset(null); }}>Delete</button>
+                <button className="ap-action-btn" onClick={() => { setDeleteTarget(previewAsset.id); }}>Delete</button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Asset"
+        message="This asset will be permanently deleted. This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

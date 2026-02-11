@@ -583,7 +583,9 @@ function PipelineEditorInner() {
             {/* Empty state */}
             {nodes.length === 0 && (
               <div className="canvas-empty">
-                Drag nodes from the catalog to start building your video pipeline
+                <span className="material-icons" style={{ fontSize: 48, opacity: 0.3, marginBottom: 12 }}>account_tree</span>
+                <div style={{ fontSize: '1.1rem', marginBottom: 6 }}>No nodes yet</div>
+                <div style={{ fontSize: '0.85rem', opacity: 0.5 }}>Drag nodes from the catalog on the left to build your pipeline</div>
               </div>
             )}
 

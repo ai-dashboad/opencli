@@ -126,7 +126,12 @@ export default function HomePage() {
         </div>
         <div className="hp-gallery-grid">
           {SHOWCASE.map((item) => (
-            <div key={item.title} className="hp-gallery-item">
+            <Link
+              key={item.title}
+              to={`/create?mode=txt2vid&style=${item.style}`}
+              className="hp-gallery-item"
+              style={{ textDecoration: 'none' }}
+            >
               <div className="hp-gallery-thumb" style={{ background: item.gradient }} />
               <div className="hp-gallery-info">
                 <span className="hp-gallery-title">{item.title}</span>
@@ -135,7 +140,7 @@ export default function HomePage() {
                   <span className="hp-badge provider">{item.provider}</span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

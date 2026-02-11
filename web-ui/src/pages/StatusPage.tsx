@@ -43,6 +43,7 @@ function StatusPage() {
   const [connected, setConnected] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const latencyRef = useRef(0);
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const messagesTopRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -88,9 +89,32 @@ function StatusPage() {
     };
   }, []);
 
+  const getSignalStrength = () => {
+    if (!connected && !wsConnected) return 0;
+    let score = 0;
+    if (connected) score += 40;
+    if (wsConnected) score += 40;
+    // Latency bonus: <50ms = 20, <200ms = 10, >200ms = 0
+    if (latencyRef.current > 0 && latencyRef.current < 50) score += 20;
+    else if (latencyRef.current > 0 && latencyRef.current < 200) score += 10;
+    return score;
+  };
+
+  const getSignalBars = () => {
+    const s = getSignalStrength();
+    if (s >= 90) return 5;
+    if (s >= 70) return 4;
+    if (s >= 50) return 3;
+    if (s >= 30) return 2;
+    if (s > 0) return 1;
+    return 0;
+  };
+
   const loadStatus = async () => {
     try {
+      const t0 = performance.now();
       const response = await fetch('http://localhost:9875/status');
+      latencyRef.current = Math.round(performance.now() - t0);
       if (!response.ok) throw new Error('Failed to fetch status');
       const data = await response.json();
       setStatus(data);
@@ -99,6 +123,7 @@ function StatusPage() {
     } catch (err) {
       console.error('Failed to load status:', err);
       setConnected(false);
+      latencyRef.current = 0;
       setError(err instanceof Error ? err.message : 'Unknown error');
     }
   };
@@ -357,13 +382,18 @@ function StatusPage() {
   }, [devices]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const canvas = radarCanvasRef.current;
-      if (canvas) {
-        setDevices(d => [...d]);
+    let frameId: number;
+    let lastTime = 0;
+    const animate = (time: number) => {
+      if (time - lastTime > 100) {
+        lastTime = time;
+        const canvas = radarCanvasRef.current;
+        if (canvas) setDevices(d => [...d]);
       }
-    }, 50);
-    return () => clearInterval(interval);
+      frameId = requestAnimationFrame(animate);
+    };
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
   }, []);
 
   if (!status && !error) {
@@ -473,13 +503,13 @@ function StatusPage() {
               {[1, 2, 3, 4, 5].map(i => (
                 <div
                   key={i}
-                  className={`signal-bar ${connected && wsConnected && i <= 4 ? 'active' : ''}`}
+                  className={`signal-bar ${i <= getSignalBars() ? 'active' : ''}`}
                   style={{ height: `${i * 20}%` }}
                 ></div>
               ))}
             </div>
             <div className="signal-label">
-              Signal: {connected && wsConnected ? '87%' : '0%'}
+              Signal: {getSignalStrength()}%
             </div>
           </div>
         </div>
