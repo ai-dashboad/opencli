@@ -76,6 +76,19 @@ async def run_inference(action: str, params: dict[str, Any]) -> dict[str, Any]:
         return {"success": False, "error": f"Remote inference error: {e}"}
 
 
+async def clear_models() -> dict[str, Any]:
+    """Clear all cached models on remote server to free VRAM."""
+    url = _get_colab_url()
+    if not url:
+        return {"success": False, "error": "Colab URL not configured"}
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+            resp = await client.post(f"{url}/clear")
+            return resp.json()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 async def generate_image(
     prompt: str,
     model: str = "animagine_xl",
