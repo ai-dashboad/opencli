@@ -455,17 +455,27 @@ export default function EpisodeGenerator() {
                   <span className="material-icons">check_circle</span>
                   Episode ready: {outputPath}
                 </div>
-                <button
-                  onClick={fetchAssets}
-                  style={{
-                    marginTop: 8, padding: '6px 14px', borderRadius: 6,
-                    border: '1px solid var(--border)', background: 'transparent',
-                    color: 'var(--text-primary)', fontSize: '0.85rem', cursor: 'pointer'
-                  }}
-                >
-                  <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>folder_open</span>
-                  Browse Assets
-                </button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    onClick={fetchAssets}
+                    style={{
+                      padding: '6px 14px', borderRadius: 6,
+                      border: '1px solid var(--border)', background: 'transparent',
+                      color: 'var(--text-primary)', fontSize: '0.85rem', cursor: 'pointer'
+                    }}
+                  >
+                    <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>folder_open</span>
+                    Browse Assets
+                  </button>
+                  <button
+                    className="gen-button"
+                    onClick={handleGenerate}
+                    style={{ fontSize: '0.85rem', padding: '6px 14px' }}
+                  >
+                    <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>refresh</span>
+                    Re-generate
+                  </button>
+                </div>
               </div>
             )}
 

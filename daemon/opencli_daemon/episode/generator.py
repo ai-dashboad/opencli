@@ -6,6 +6,7 @@ Phases: images → videos (batched) → TTS → subtitles → audio mix
 """
 
 import asyncio
+import base64
 import json
 import os
 import time
@@ -15,12 +16,27 @@ from typing import Any, Awaitable, Callable, Union
 from .script import EpisodeScript, EpisodeScene
 from .subtitles import generate_ass
 from . import ffmpeg_composer, store, character
-from opencli_daemon.domains.media_creation import local_inference, tts_registry
+from opencli_daemon.domains.media_creation import local_inference, remote_inference, tts_registry
+from opencli_daemon.config import load_config, get_nested
 
 _HOME = os.environ.get("HOME", ".")
 _OUTPUT_DIR = Path(_HOME) / ".opencli" / "output" / "episodes"
 
 ProgressCallback = Callable[[dict[str, Any]], Union[None, Awaitable[None]]]
+
+
+async def _get_inference():
+    """Return the best available inference module (remote Colab or local)."""
+    config = load_config()
+    backend = get_nested(config, "inference.backend", "auto")
+    colab_url = get_nested(config, "inference.colab_url", "")
+
+    if backend == "colab" and colab_url:
+        return remote_inference
+    elif backend == "auto" and colab_url:
+        if await remote_inference.is_available():
+            return remote_inference
+    return local_inference
 
 
 async def generate_episode(
@@ -54,16 +70,21 @@ async def generate_episode(
                 "status_message": msg,
             })
         # Update DB
-        asyncio.ensure_future(
-            store.update_episode_status(episode_id, "generating", overall / 100)
-        )
+        try:
+            await store.update_episode_status(episode_id, "generating", overall / 100)
+        except Exception:
+            pass  # Non-critical; don't block generation
 
     def _check_cancelled() -> bool:
         return cancelled() if cancelled else False
 
     try:
+        # Resolve inference backend (Colab GPU or local)
+        inference = await _get_inference()
+        backend_name = "Colab GPU" if inference is remote_inference else "local"
+
         # ── Phase 1: Generate keyframe images ────────────────────
-        await _progress(1, "Generating keyframe images...")
+        await _progress(1, f"Generating keyframe images ({backend_name})...")
         keyframe_paths: list[str] = []
 
         for i, scene in enumerate(scenes):
@@ -78,17 +99,25 @@ async def generate_episode(
                 )
                 prompt = char_result["prompt"]
 
-            result = await local_inference.generate_image(
+            result = await inference.generate_image(
                 prompt=prompt,
                 model=image_model,
                 width=1280 if quality != "draft" else 512,
                 height=720 if quality != "draft" else 288,
             )
 
-            if result.get("success") and result.get("path"):
-                keyframe_paths.append(result["path"])
+            if result.get("success"):
+                # Save base64 to local file if path is remote or missing
+                local_path = result.get("path", "")
+                if result.get("image_base64") and (not local_path or not Path(local_path).exists()):
+                    local_path = str(episode_dir / f"keyframe_{i:03d}.png")
+                    with open(local_path, "wb") as f:
+                        f.write(base64.b64decode(result["image_base64"]))
+                if local_path and Path(local_path).exists():
+                    keyframe_paths.append(local_path)
+                else:
+                    keyframe_paths.append("")
             else:
-                # Fallback: create a placeholder
                 keyframe_paths.append("")
 
             await _progress(1, f"Keyframe {i+1}/{len(scenes)}", (i + 1) / len(scenes) * 100)
@@ -110,7 +139,7 @@ async def generate_episode(
                 prompt = scene.visual_prompt or scene.description
 
                 if kf and Path(kf).exists():
-                    tasks.append(local_inference.generate_video(
+                    tasks.append(inference.generate_video(
                         prompt=prompt, image_path=kf, model=video_model,
                         frames=max(8, int(scene.duration_seconds * 4)),
                     ))
@@ -124,11 +153,21 @@ async def generate_episode(
                     }))
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            for r in results:
+            for j, r in enumerate(results):
+                idx = batch_start + j
                 if isinstance(r, Exception):
                     clip_paths.append("")
-                elif isinstance(r, dict) and r.get("path"):
-                    clip_paths.append(r["path"])
+                elif isinstance(r, dict) and r.get("success", True):
+                    # Save base64 video to local file if path is remote
+                    local_path = r.get("path", "")
+                    if r.get("video_base64") and (not local_path or not Path(local_path).exists()):
+                        local_path = str(episode_dir / f"clip_{idx:03d}.mp4")
+                        with open(local_path, "wb") as f:
+                            f.write(base64.b64decode(r["video_base64"]))
+                    if local_path and Path(local_path).exists():
+                        clip_paths.append(local_path)
+                    else:
+                        clip_paths.append("")
                 else:
                     clip_paths.append("")
 
@@ -195,6 +234,7 @@ async def generate_episode(
         # ── Phase 7: Final concatenation ─────────────────────────
         await _progress(7, "Concatenating final video...")
         if not assembled_scenes:
+            await store.update_episode_status(episode_id, "failed", 0, "")
             return {"success": False, "error": "No assembled scenes to concatenate"}
 
         raw_output = str(episode_dir / "raw.mp4")
@@ -208,6 +248,7 @@ async def generate_episode(
             )
 
         if not concat_result.get("success"):
+            await store.update_episode_status(episode_id, "failed", 0, "")
             return {"success": False, "error": concat_result.get("error", "Concat failed")}
 
         final_path = raw_output
@@ -215,7 +256,7 @@ async def generate_episode(
         # ── Phase 8: Post-processing (upscale + interpolation) ───
         if quality != "draft":
             await _progress(8, "Post-processing (upscale)...")
-            upscale_result = await local_inference.run_inference("upscale_video", {
+            upscale_result = await inference.run_inference("upscale_video", {
                 "video_path": final_path,
                 "output_dir": str(episode_dir),
             })
@@ -251,7 +292,13 @@ async def generate_episode(
             await _progress(10, "Finalizing...")
 
         # Update episode status
-        await store.update_episode_status(episode_id, "completed", 1.0, final_path)
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            await store.update_episode_status(episode_id, "completed", 1.0, final_path)
+            logger.info(f"Episode {episode_id} completed: {final_path}")
+        except Exception as e:
+            logger.error(f"Failed to update episode status to completed: {e}")
 
         return {
             "success": True,
@@ -263,5 +310,10 @@ async def generate_episode(
         }
 
     except Exception as e:
-        await store.update_episode_status(episode_id, "failed", 0, "")
+        import logging
+        logging.getLogger(__name__).error(f"Episode {episode_id} generation failed: {e}", exc_info=True)
+        try:
+            await store.update_episode_status(episode_id, "failed", 0, "")
+        except Exception:
+            pass
         return {"success": False, "error": str(e)}
