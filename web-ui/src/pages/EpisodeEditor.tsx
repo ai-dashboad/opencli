@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listEpisodes, createEpisodeFromText, deleteEpisode, EpisodeSummary } from '../api/episode-api';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { showToast } from '../components/Toast';
 import '../styles/episodes.css';
 
 export default function EpisodeEditor() {
@@ -15,6 +17,7 @@ export default function EpisodeEditor() {
   const [language, setLanguage] = useState('zh-CN');
   const [style, setStyle] = useState('anime');
   const [maxScenes, setMaxScenes] = useState(8);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const fetchEpisodes = useCallback(async () => {
     try {
@@ -46,11 +49,17 @@ export default function EpisodeEditor() {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm('Delete this episode?')) return;
-    await deleteEpisode(id);
-    setEpisodes((prev) => prev.filter((ep) => ep.id !== id));
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteEpisode(deleteTarget);
+    setEpisodes((prev) => prev.filter((ep) => ep.id !== deleteTarget));
+    showToast('Episode deleted', 'success');
+    setDeleteTarget(null);
   };
 
   const formatDate = (ts: number) => {
@@ -105,7 +114,7 @@ export default function EpisodeEditor() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span className="card-date">{formatDate(ep.created_at)}</span>
-                  <button className="delete-btn" onClick={(e) => handleDelete(e, ep.id)} title="Delete">
+                  <button className="delete-btn" onClick={(e) => handleDeleteClick(e, ep.id)} title="Delete">
                     <span className="material-icons" style={{ fontSize: 16 }}>delete_outline</span>
                   </button>
                 </div>
@@ -114,6 +123,16 @@ export default function EpisodeEditor() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Episode"
+        message="This episode and all its generated content will be permanently deleted."
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {showCreate && (
         <div className="modal-overlay" onClick={() => setShowCreate(false)}>

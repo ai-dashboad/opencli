@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useDaemon } from '../hooks/useDaemon';
 import { saveAsset } from '../utils/assetStorage';
 import { storageApi } from '../utils/storageApi';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { showToast } from '../components/Toast';
 import '../styles/create.css';
 
 type Mode = 'img2vid' | 'txt2vid' | 'txt2img' | 'style';
@@ -159,6 +161,7 @@ export default function CreatePage() {
   const [configuredProviders, setConfiguredProviders] = useState<string[]>([]);
   const [pollinationsVideoKey, setPollinationsVideoKey] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Load history from API
   useEffect(() => {
@@ -848,7 +851,7 @@ export default function CreatePage() {
             <span className="gen-label">Recent</span>
             <button
               className="gen-history-clear"
-              onClick={() => { setHistory([]); storageApi.clearHistory().catch(() => {}); }}
+              onClick={() => setShowClearConfirm(true)}
             >
               Clear All
             </button>
@@ -872,6 +875,20 @@ export default function CreatePage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={showClearConfirm}
+        title="Clear History"
+        message="All generation history will be cleared. This cannot be undone."
+        confirmLabel="Clear All"
+        danger
+        onConfirm={() => {
+          setHistory([]);
+          storageApi.clearHistory().catch(() => {});
+          showToast('History cleared', 'success');
+          setShowClearConfirm(false);
+        }}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </div>
   );
 }

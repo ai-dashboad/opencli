@@ -122,6 +122,23 @@
   backdrop-filter: blur(4px);
 }
 
+.ap-card-duration {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-card-duration:empty {
+  display: none;
+}
+
 .ap-card-info {
   padding: 12px;
 }

@@ -267,6 +267,7 @@ export default function SettingsPage() {
   // Local models state
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [localEnv, setLocalEnv] = useState<LocalEnv | null>(null);
+  const [localModelsError, setLocalModelsError] = useState(false);
   const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
   const [settingUp, setSettingUp] = useState(false);
 
@@ -305,6 +306,7 @@ export default function SettingsPage() {
 
   const fetchLocalModels = useCallback(async () => {
     try {
+      setLocalModelsError(false);
       const [modelsRes, envRes] = await Promise.all([
         fetch(`${API_BASE}/api/v1/local-models`),
         fetch(`${API_BASE}/api/v1/local-models/environment`),
@@ -314,7 +316,7 @@ export default function SettingsPage() {
       setLocalModels(modelsData.models || []);
       setLocalEnv(envData);
     } catch {
-      // Local models API may not be available
+      setLocalModelsError(true);
     }
   }, []);
 
@@ -717,6 +719,17 @@ export default function SettingsPage() {
       {/* Local Models Tab */}
       {tab === 'local' && (
         <>
+          {localModelsError && (
+            <div className="st-banner" style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)' }}>
+              <span className="material-icons" style={{ color: '#EF4444' }}>cloud_off</span>
+              <div>
+                <div>Could not connect to daemon. Make sure the daemon is running on port 9529.</div>
+                <button className="st-key-btn save" onClick={fetchLocalModels} style={{ marginTop: 8 }}>
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
           {/* Environment Status */}
           <div className="st-section">
             <div className="st-section-header">
