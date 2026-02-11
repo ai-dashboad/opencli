@@ -14,6 +14,7 @@ from typing import Any
 
 from ..base import TaskDomain, DomainDisplayConfig, ProgressCallback
 from . import local_inference
+from . import remote_inference
 from . import tts_registry
 from .ffmpeg_runner import run_ffmpeg
 
@@ -75,6 +76,22 @@ class MediaCreationDomain(TaskDomain):
             icon="record_voice_over", color_hex=0xFF7C4DFF),
     }
 
+    async def _get_inference_backend(self):
+        """Return the best available inference module (remote or local)."""
+        from opencli_daemon.config import load_config, get_nested
+
+        config = load_config()
+        backend = get_nested(config, "inference.backend", "auto")
+        colab_url = get_nested(config, "inference.colab_url", "")
+
+        if backend == "colab" and colab_url:
+            return remote_inference
+        elif backend == "auto" and colab_url:
+            if await remote_inference.is_available():
+                return remote_inference
+        # fallback to local
+        return local_inference
+
     async def execute_task(self, task_type: str, task_data: dict[str, Any]) -> dict[str, Any]:
         return await self.execute_task_with_progress(task_type, task_data)
 
@@ -100,11 +117,13 @@ class MediaCreationDomain(TaskDomain):
             elif task_type == "media_ai_generate_image":
                 return await self._ai_generate_image(task_data, on_progress)
 
-            # ── Local AI (subprocess) ───────────────────────────
+            # ── Local AI (subprocess or remote Colab) ─────────────
             elif task_type == "media_local_generate_image":
+                inference = await self._get_inference_backend()
+                backend_name = "Colab GPU" if inference is remote_inference else "local"
                 if on_progress:
-                    await on_progress({"progress": 10, "status_message": "Starting local image generation..."})
-                result = await local_inference.generate_image(
+                    await on_progress({"progress": 10, "status_message": f"Starting image generation ({backend_name})..."})
+                result = await inference.generate_image(
                     prompt=task_data.get("prompt", ""),
                     model=task_data.get("model", "animagine_xl"),
                     width=task_data.get("width", 1024),
@@ -113,6 +132,7 @@ class MediaCreationDomain(TaskDomain):
                 )
                 result["domain"] = "media_creation"
                 result["card_type"] = "media"
+                result["inference_backend"] = backend_name
                 return result
 
             elif task_type == "media_local_generate_video":
@@ -120,7 +140,8 @@ class MediaCreationDomain(TaskDomain):
             elif task_type == "media_local_generate_video_v3":
                 return await self._local_generate_video(task_data, on_progress)
             elif task_type == "media_local_style_transfer":
-                result = await local_inference.style_transfer(
+                inference = await self._get_inference_backend()
+                result = await inference.style_transfer(
                     image_base64=task_data.get("image_base64", ""),
                     model=task_data.get("model", "animegan_v3"),
                     style=task_data.get("style", "face_paint_512_v2"),
@@ -128,7 +149,8 @@ class MediaCreationDomain(TaskDomain):
                 result["domain"] = "media_creation"
                 return result
             elif task_type == "media_local_controlnet_video":
-                result = await local_inference.controlnet_video(
+                inference = await self._get_inference_backend()
+                result = await inference.controlnet_video(
                     reference_image_base64=task_data.get("image_base64", task_data.get("reference_image_base64", "")),
                     prompt=task_data.get("prompt", ""),
                     control_type=task_data.get("control_type", "lineart_anime"),
@@ -136,7 +158,8 @@ class MediaCreationDomain(TaskDomain):
                 result["domain"] = "media_creation"
                 return result
             elif task_type == "media_local_extract_control":
-                result = await local_inference.extract_control(
+                inference = await self._get_inference_backend()
+                result = await inference.extract_control(
                     image_base64=task_data.get("image_base64", ""),
                     control_type=task_data.get("control_type", "lineart_anime"),
                 )
@@ -145,11 +168,13 @@ class MediaCreationDomain(TaskDomain):
 
             # ── Upscale / interpolation ───────────────────────────
             elif task_type in ("media_upscale_video", "media_local_upscale_video_path"):
-                result = await local_inference.run_inference("upscale_video", task_data)
+                inference = await self._get_inference_backend()
+                result = await inference.run_inference("upscale_video", task_data)
                 result["domain"] = "media_creation"
                 return result
             elif task_type == "media_interpolate_video":
-                result = await local_inference.run_inference("interpolate_video", task_data)
+                inference = await self._get_inference_backend()
+                result = await inference.run_inference("interpolate_video", task_data)
                 result["domain"] = "media_creation"
                 return result
 
@@ -374,9 +399,11 @@ class MediaCreationDomain(TaskDomain):
     # ── Local AI video ────────────────────────────────────────────────────
 
     async def _local_generate_video(self, data: dict, on_progress: ProgressCallback | None) -> dict:
+        inference = await self._get_inference_backend()
+        backend_name = "Colab GPU" if inference is remote_inference else "local"
         if on_progress:
-            await on_progress({"progress": 10, "status_message": "Starting local video generation..."})
-        result = await local_inference.generate_video(
+            await on_progress({"progress": 10, "status_message": f"Starting video generation ({backend_name})..."})
+        result = await inference.generate_video(
             prompt=data.get("prompt", ""),
             image_base64=data.get("image_base64", ""),
             model=data.get("model", "animatediff_v3"),
@@ -390,6 +417,7 @@ class MediaCreationDomain(TaskDomain):
         )
         result["domain"] = "media_creation"
         result["card_type"] = "media"
+        result["inference_backend"] = backend_name
         return result
 
     # ── TTS ───────────────────────────────────────────────────────────────

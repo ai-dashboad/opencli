@@ -3,7 +3,7 @@ import '../styles/settings.css';
 
 const API_BASE = 'http://localhost:9529';
 
-type Tab = 'generation' | 'models' | 'local' | 'general';
+type Tab = 'generation' | 'models' | 'local' | 'colab' | 'general';
 
 interface ProviderConfig {
   id: string;
@@ -270,6 +270,13 @@ export default function SettingsPage() {
   const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
   const [settingUp, setSettingUp] = useState(false);
 
+  // Colab GPU state
+  const [colabStatus, setColabStatus] = useState<any>(null);
+  const [colabUrl, setColabUrl] = useState('');
+  const [colabBackend, setColabBackend] = useState('auto');
+  const [testingColab, setTestingColab] = useState(false);
+  const [savingColab, setSavingColab] = useState(false);
+
   const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/config`);
@@ -311,10 +318,23 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const fetchColabStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/inference/status`);
+      const data = await res.json();
+      setColabStatus(data);
+      setColabUrl(data.colab_url || '');
+      setColabBackend(data.backend || 'auto');
+    } catch {
+      // inference API may not be available
+    }
+  }, []);
+
   useEffect(() => {
     fetchConfig();
     fetchLocalModels();
-  }, [fetchConfig, fetchLocalModels]);
+    fetchColabStatus();
+  }, [fetchConfig, fetchLocalModels, fetchColabStatus]);
 
   // Auto-dismiss banner
   useEffect(() => {
@@ -470,6 +490,55 @@ export default function SettingsPage() {
     }
   };
 
+  // Save Colab config
+  const saveColabConfig = async () => {
+    setSavingColab(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inference: { backend: colabBackend, colab_url: colabUrl.trim() } }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBanner({ type: 'success', message: 'Inference backend settings saved.' });
+        await fetchColabStatus();
+      } else {
+        setBanner({ type: 'error', message: data.error || 'Failed to save' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: 'Failed to save. Check daemon connection.' });
+    } finally {
+      setSavingColab(false);
+    }
+  };
+
+  // Test Colab connection
+  const testColabConnection = async () => {
+    setTestingColab(true);
+    try {
+      const urlToTest = colabUrl.trim() || colabStatus?.colab_url;
+      if (!urlToTest) {
+        setBanner({ type: 'error', message: 'Enter a Colab URL first.' });
+        return;
+      }
+      const res = await fetch(`${API_BASE}/api/v1/inference/status`);
+      const data = await res.json();
+      if (data.colab_available) {
+        const gpu = data.colab_info?.gpu || 'Unknown GPU';
+        const vram = data.colab_info?.vram_total_gb || '?';
+        setBanner({ type: 'success', message: `Connected! ${gpu} (${vram} GB VRAM)` });
+      } else {
+        setBanner({ type: 'error', message: 'Colab server not reachable. Is the notebook running?' });
+      }
+      setColabStatus(data);
+    } catch {
+      setBanner({ type: 'error', message: 'Failed to check. Is the daemon running?' });
+    } finally {
+      setTestingColab(false);
+    }
+  };
+
   // Handle Enter key to save
   const handleProviderKeyDown = (e: React.KeyboardEvent, provider: ProviderConfig) => {
     if (e.key === 'Enter') saveProviderKey(provider);
@@ -518,6 +587,10 @@ export default function SettingsPage() {
         <button className={`st-tab${tab === 'local' ? ' active' : ''}`} onClick={() => setTab('local')}>
           <span className="material-icons">computer</span>
           Local Models
+        </button>
+        <button className={`st-tab${tab === 'colab' ? ' active' : ''}`} onClick={() => setTab('colab')}>
+          <span className="material-icons">cloud</span>
+          Colab GPU
         </button>
         <button className={`st-tab${tab === 'general' ? ' active' : ''}`} onClick={() => setTab('general')}>
           <span className="material-icons">tune</span>
@@ -877,6 +950,201 @@ export default function SettingsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Colab GPU Tab */}
+      {tab === 'colab' && (
+        <>
+          {/* Connection Status */}
+          <div className="st-section">
+            <div className="st-section-header">
+              <div className="st-section-icon purple">
+                <span className="material-icons">cloud</span>
+              </div>
+              <div>
+                <div className="st-section-title">Colab GPU Connection</div>
+                <div className="st-section-desc">Connect to a Google Colab notebook for GPU-accelerated inference via FRP tunnel</div>
+              </div>
+            </div>
+
+            <div className={`st-banner ${colabStatus?.colab_available ? 'success' : 'info'}`}>
+              <span className="material-icons">
+                {colabStatus?.colab_available ? 'check_circle' : 'cloud_off'}
+              </span>
+              <div style={{ flex: 1 }}>
+                {colabStatus?.colab_available ? (
+                  <>
+                    <div><strong>Connected</strong> — {colabStatus.colab_info?.gpu || 'GPU'}</div>
+                    <div style={{ fontSize: 11, marginTop: 2, color: 'var(--text-muted)' }}>
+                      VRAM: {colabStatus.colab_info?.vram_total_gb || '?'} GB total,{' '}
+                      {colabStatus.colab_info?.vram_used_gb || '0'} GB used
+                      {colabStatus.colab_info?.models_loaded?.length > 0 &&
+                        ` | Models: ${colabStatus.colab_info.models_loaded.join(', ')}`}
+                    </div>
+                  </>
+                ) : (
+                  <div>Not connected — start the Colab notebook to enable GPU inference</div>
+                )}
+              </div>
+              <span className={`st-colab-dot ${colabStatus?.colab_available ? 'online' : 'offline'}`} />
+            </div>
+          </div>
+
+          {/* Configuration */}
+          <div className="st-section">
+            <div className="st-section-header">
+              <div className="st-section-icon blue">
+                <span className="material-icons">settings</span>
+              </div>
+              <div>
+                <div className="st-section-title">Configuration</div>
+                <div className="st-section-desc">Set the Colab server URL and inference routing mode</div>
+              </div>
+            </div>
+
+            <div className="st-provider" style={{ marginBottom: 12 }}>
+              <div className="st-provider-top">
+                <div className="st-provider-info">
+                  <span className="st-provider-name">Colab URL</span>
+                  <span className="st-cap-badge">FRP</span>
+                </div>
+              </div>
+              <div className="st-key-row">
+                <input
+                  className="st-key-input"
+                  type="text"
+                  placeholder="http://dtok.io:9530"
+                  value={colabUrl}
+                  onChange={(e) => setColabUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveColabConfig(); }}
+                />
+                <button
+                  className="st-key-btn"
+                  onClick={testColabConnection}
+                  disabled={testingColab}
+                >
+                  {testingColab ? '...' : 'Test'}
+                </button>
+                <button
+                  className="st-key-btn save"
+                  onClick={saveColabConfig}
+                  disabled={savingColab}
+                >
+                  {savingColab ? '...' : 'Save'}
+                </button>
+              </div>
+              <div className="st-provider-meta" style={{ marginTop: 6 }}>
+                Fixed FRP tunnel address — stays the same across Colab restarts
+              </div>
+            </div>
+
+            {/* Backend selector */}
+            <div className="st-provider">
+              <div className="st-provider-top">
+                <div className="st-provider-info">
+                  <span className="st-provider-name">Inference Backend</span>
+                </div>
+              </div>
+              <div className="st-colab-backend-row">
+                {(['auto', 'colab', 'local'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    className={`st-colab-backend-btn${colabBackend === mode ? ' active' : ''}`}
+                    onClick={() => setColabBackend(mode)}
+                  >
+                    <span className="material-icons">
+                      {mode === 'auto' ? 'auto_awesome' : mode === 'colab' ? 'cloud' : 'computer'}
+                    </span>
+                    <div>
+                      <div className="st-colab-backend-label">
+                        {mode === 'auto' ? 'Auto' : mode === 'colab' ? 'Colab Only' : 'Local Only'}
+                      </div>
+                      <div className="st-colab-backend-desc">
+                        {mode === 'auto'
+                          ? 'Use Colab if available, fall back to local'
+                          : mode === 'colab'
+                          ? 'Always use Colab (fails if offline)'
+                          : 'Always use local MPS/CPU'}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div style={{ marginTop: 8, textAlign: 'right' }}>
+                <button
+                  className="st-key-btn save"
+                  onClick={saveColabConfig}
+                  disabled={savingColab}
+                >
+                  {savingColab ? 'Saving...' : 'Save Backend'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* How it works */}
+          <div className="st-section">
+            <div className="st-section-header">
+              <div className="st-section-icon green">
+                <span className="material-icons">help_outline</span>
+              </div>
+              <div>
+                <div className="st-section-title">How It Works</div>
+                <div className="st-section-desc">Architecture overview</div>
+              </div>
+            </div>
+
+            <div className="st-colab-diagram">
+              <div className="st-colab-node">
+                <span className="material-icons">cloud</span>
+                <div>Colab GPU</div>
+                <div className="st-colab-node-sub">FastAPI + PyTorch</div>
+              </div>
+              <div className="st-colab-arrow">
+                <span className="material-icons">arrow_forward</span>
+                <div>FRP Tunnel</div>
+              </div>
+              <div className="st-colab-node">
+                <span className="material-icons">dns</span>
+                <div>NAS (dtok.io)</div>
+                <div className="st-colab-node-sub">FRP Server :7000</div>
+              </div>
+              <div className="st-colab-arrow">
+                <span className="material-icons">arrow_back</span>
+                <div>HTTP</div>
+              </div>
+              <div className="st-colab-node">
+                <span className="material-icons">computer</span>
+                <div>Mac Daemon</div>
+                <div className="st-colab-node-sub">Port 9529</div>
+              </div>
+            </div>
+
+            <div className="st-model-list" style={{ marginTop: 12 }}>
+              <div className="st-model">
+                <div className="st-model-icon"><span className="material-icons">description</span></div>
+                <div className="st-model-body">
+                  <div className="st-model-name">Step 1: Open Colab Notebook</div>
+                  <div className="st-model-detail">Open colab-inference/opencli_gpu.ipynb in Google Colab with GPU runtime</div>
+                </div>
+              </div>
+              <div className="st-model">
+                <div className="st-model-icon"><span className="material-icons">play_arrow</span></div>
+                <div className="st-model-body">
+                  <div className="st-model-name">Step 2: Run All Cells</div>
+                  <div className="st-model-detail">Installs deps, mounts Drive, connects FRP, starts FastAPI server</div>
+                </div>
+              </div>
+              <div className="st-model">
+                <div className="st-model-icon"><span className="material-icons">check_circle</span></div>
+                <div className="st-model-body">
+                  <div className="st-model-name">Step 3: Verify Connection</div>
+                  <div className="st-model-detail">Click "Test" above — should show GPU name and VRAM info</div>
+                </div>
+              </div>
             </div>
           </div>
         </>

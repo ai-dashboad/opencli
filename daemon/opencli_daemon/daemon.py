@@ -35,6 +35,7 @@ def _register_routers() -> None:
     from opencli_daemon.api.episode_api import router as episode_router
     from opencli_daemon.api.lora_api import router as lora_router
     from opencli_daemon.api.local_models_api import router as local_models_router
+    from opencli_daemon.api.inference_api import router as inference_router
     from opencli_daemon.api.websocket_manager import router as ws_router
     from opencli_daemon.api.execute_api import router as execute_router
     from opencli_daemon.api.files_api import router as files_router
@@ -45,6 +46,7 @@ def _register_routers() -> None:
     app.include_router(episode_router)
     app.include_router(lora_router)
     app.include_router(local_models_router)
+    app.include_router(inference_router)
     app.include_router(ws_router)
     app.include_router(execute_router)
     app.include_router(files_router)
