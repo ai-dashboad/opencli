@@ -37,6 +37,7 @@ export interface CharacterDefinition {
   name: string;
   visual_description: string;
   default_voice: string;
+  reference_image?: string; // base64 or URL
 }
 
 export interface EpisodeScript {
