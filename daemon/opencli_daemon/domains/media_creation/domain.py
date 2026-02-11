@@ -95,7 +95,34 @@ class MediaCreationDomain(TaskDomain):
     async def execute_task(self, task_type: str, task_data: dict[str, Any]) -> dict[str, Any]:
         return await self.execute_task_with_progress(task_type, task_data)
 
+    async def _register_result_asset(self, task_type: str, result: dict, task_data: dict) -> None:
+        """Register media output as a browsable asset."""
+        if not result.get("success"):
+            return
+        for key in ("path", "file_path", "output_path"):
+            fpath = result.get(key, "")
+            if fpath and Path(fpath).is_file():
+                from opencli_daemon.api.storage_api import register_media_asset
+                prompt = task_data.get("prompt", "")
+                title = prompt[:60] if prompt else task_type.replace("media_", "").replace("_", " ").title()
+                try:
+                    await register_media_asset(fpath, title, provider=task_type)
+                except Exception:
+                    pass
+                break
+
     async def execute_task_with_progress(
+        self,
+        task_type: str,
+        task_data: dict[str, Any],
+        *,
+        on_progress: ProgressCallback | None = None,
+    ) -> dict[str, Any]:
+        result = await self._dispatch_task(task_type, task_data, on_progress=on_progress)
+        await self._register_result_asset(task_type, result, task_data)
+        return result
+
+    async def _dispatch_task(
         self,
         task_type: str,
         task_data: dict[str, Any],

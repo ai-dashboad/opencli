@@ -11,9 +11,20 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .definition import PipelineDefinition, resolve_variables
+from opencli_daemon.api.storage_api import register_media_asset
 
 
 _OPENCLI_DIR = str(Path.home() / ".opencli")
+
+# Task types whose outputs should be registered as assets
+_MEDIA_TASK_TYPES = {
+    "media_local_generate_image", "media_local_generate_video",
+    "media_local_generate_video_v3", "media_local_style_transfer",
+    "media_local_controlnet_video", "media_ai_generate_video",
+    "media_ai_generate_image", "media_animate_photo",
+    "media_create_slideshow", "media_video_assembly",
+    "media_local_extract_control",
+}
 
 
 def _strip_base64(result: dict[str, Any]) -> dict[str, Any]:
@@ -163,6 +174,22 @@ async def execute_pipeline(
                     "node_result": light_result,
                     "all_statuses": {k: v.value for k, v in node_statuses.items()},
                 })
+
+            # Register media outputs as assets
+            node = node_map[nid]
+            if node.type in _MEDIA_TASK_TYPES and node_statuses[nid] == NodeStatus.COMPLETED:
+                res = node_results.get(nid, {})
+                for key in ("path", "file_path", "output_path"):
+                    fpath = res.get(key, "")
+                    if fpath and Path(fpath).is_file():
+                        try:
+                            await register_media_asset(
+                                fpath, f"Pipeline: {pipeline.name} / {nid}",
+                                provider="pipeline",
+                            )
+                        except Exception:
+                            pass
+                        break
 
             # Enqueue dependents whose in-degree drops to 0
             for dep_id in dependents.get(nid, []):

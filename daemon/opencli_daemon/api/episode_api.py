@@ -18,6 +18,7 @@ from opencli_daemon.episode.script import EpisodeScript
 from opencli_daemon.episode.pipeline_builder import build_episode_pipeline
 from opencli_daemon.pipeline import store as pipeline_store
 from opencli_daemon.pipeline import executor as pipeline_executor
+from opencli_daemon.api.storage_api import register_media_asset
 
 router = APIRouter(prefix="/api/v1", tags=["episodes"])
 
@@ -157,6 +158,25 @@ async def generate_episode(episode_id: str, request: Request) -> dict:
                 )
             except Exception:
                 pass
+
+            # Register generated media files as assets
+            if result.get("success") and result.get("output_path"):
+                ep = await store.get_episode(episode_id)
+                ep_title = ep.get("title", "Episode") if ep else "Episode"
+                output_path = result["output_path"]
+                episode_dir = Path(output_path).parent
+
+                # Register final video
+                await register_media_asset(
+                    output_path, f"{ep_title} (final)",
+                    provider="episode", style=body.get("color_grade", ""),
+                )
+                # Register keyframe images
+                for kf in sorted(episode_dir.glob("keyframe_*.png")):
+                    await register_media_asset(
+                        str(kf), f"{ep_title} - {kf.stem}",
+                        provider="episode",
+                    )
 
             from opencli_daemon.api.websocket_manager import ws_manager
             await ws_manager.broadcast({

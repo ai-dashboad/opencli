@@ -4,7 +4,9 @@ Ported from daemon/lib/api/storage_api.dart.
 """
 
 import json
+import os
 import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -14,9 +16,56 @@ from opencli_daemon.database import connection as db
 
 router = APIRouter(prefix="/api/v1", tags=["storage"])
 
+_OPENCLI_DIR = str(Path.home() / ".opencli")
+
 
 def _now() -> int:
     return int(time.time() * 1000)
+
+
+def _path_to_file_url(path: str) -> str:
+    """Convert an absolute path under ~/.opencli/ to a file-serve URL."""
+    if path and path.startswith(_OPENCLI_DIR):
+        relative = path[len(_OPENCLI_DIR):].lstrip(os.sep)
+        return f"http://localhost:9529/api/v1/files/{relative}"
+    return path  # Return as-is if not under ~/.opencli
+
+
+async def register_media_asset(
+    file_path: str,
+    title: str,
+    *,
+    asset_type: str = "",
+    provider: str = "",
+    style: str = "",
+    thumbnail_path: str = "",
+) -> None:
+    """Register a generated media file as an asset for the /assets page.
+
+    Call this after any image/video generation completes to make outputs
+    discoverable in the asset browser.
+    """
+    if not file_path or not Path(file_path).exists():
+        return
+
+    ext = Path(file_path).suffix.lower()
+    if not asset_type:
+        asset_type = "video" if ext in (".mp4", ".mov", ".webm", ".avi") else "image"
+
+    url = _path_to_file_url(file_path)
+    thumb = _path_to_file_url(thumbnail_path) if thumbnail_path else None
+
+    now = _now()
+    await db.insert_capped("assets", {
+        "id": f"asset_{now}_{Path(file_path).stem}",
+        "type": asset_type,
+        "title": title,
+        "url": url,
+        "thumbnail": thumb,
+        "provider": provider or None,
+        "style": style or None,
+        "created_at": now,
+    }, max_rows=200)
 
 
 # ── Generation History ───────────────────────────────────────────────────────
