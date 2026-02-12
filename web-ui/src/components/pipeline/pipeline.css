@@ -1074,6 +1074,59 @@ input:checked + .toggle-slider::before {
   pointer-events: all;
 }
 
+/* ===== Layout Toolbar (floating, top-center of canvas) ===== */
+.layout-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.layout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+
+.layout-btn .material-icons {
+  font-size: 18px;
+}
+
+.layout-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.layout-btn.active {
+  background: rgba(108, 92, 231, 0.2);
+  color: var(--accent);
+}
+
+.layout-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
 /* ===== Keyframes ===== */
 @keyframes spin {
   0% {

@@ -23,6 +23,7 @@ import NodeCatalog from '../pipeline/NodeCatalog';
 import NodeConfigPanel from '../pipeline/NodeConfigPanel';
 import { PipelineProvider } from '../pipeline/PipelineContext';
 import { getTypeColor } from '../pipeline/dataTypeColors';
+import { useLayoutActions } from '../pipeline/useAutoLayout';
 import type { NodeCatalogEntry, PipelineDefinition } from '../../api/pipeline-api';
 import { savePipeline, getVideoNodeCatalog, getNodeCatalog, runPipeline, runPipelineFromNode } from '../../api/pipeline-api';
 import {
@@ -66,6 +67,8 @@ function ScenePipelineEditorInner({ episodeId, settings, onPipelineReady }: Scen
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const reactFlowInstance = useRef<any>(null);
   const { fitView } = useReactFlow();
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const { autoLayout, fitAll, alignNodes, distributeNodes } = useLayoutActions();
 
   const addLog = (message: string) => {
     const time = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -684,6 +687,8 @@ function ScenePipelineEditorInner({ episodeId, settings, onPipelineReady }: Scen
               onInit={(instance) => { reactFlowInstance.current = instance; }}
               nodeTypes={nodeTypes}
               fitView
+              snapToGrid={snapToGrid}
+              snapGrid={[20, 20]}
               proOptions={{ hideAttribution: true }}
               defaultEdgeOptions={{
                 style: { stroke: '#6C5CE7', strokeWidth: 2 },
@@ -703,6 +708,49 @@ function ScenePipelineEditorInner({ episodeId, settings, onPipelineReady }: Scen
                 style={{ background: '#141414', border: '1px solid #2a2a2a' }}
               />
             </ReactFlow>
+
+            {/* Layout toolbar */}
+            {nodes.length > 0 && (
+              <div className="layout-toolbar">
+                <button className="layout-btn" onClick={() => autoLayout('LR')} title="Auto layout (left to right)">
+                  <span className="material-icons">account_tree</span>
+                </button>
+                <button className="layout-btn" onClick={() => autoLayout('TB')} title="Auto layout (top to bottom)">
+                  <span className="material-icons" style={{ transform: 'rotate(90deg)' }}>account_tree</span>
+                </button>
+                <button className="layout-btn" onClick={fitAll} title="Fit to view">
+                  <span className="material-icons">fit_screen</span>
+                </button>
+                <div className="layout-divider" />
+                <button className="layout-btn" onClick={() => alignNodes('left')} title="Align left">
+                  <span className="material-icons">align_horizontal_left</span>
+                </button>
+                <button className="layout-btn" onClick={() => alignNodes('center-v')} title="Align center vertically">
+                  <span className="material-icons">align_horizontal_center</span>
+                </button>
+                <button className="layout-btn" onClick={() => alignNodes('top')} title="Align top">
+                  <span className="material-icons">align_vertical_top</span>
+                </button>
+                <button className="layout-btn" onClick={() => alignNodes('center-h')} title="Align center horizontally">
+                  <span className="material-icons">align_vertical_center</span>
+                </button>
+                <div className="layout-divider" />
+                <button className="layout-btn" onClick={() => distributeNodes('horizontal')} title="Distribute horizontally">
+                  <span className="material-icons">horizontal_distribute</span>
+                </button>
+                <button className="layout-btn" onClick={() => distributeNodes('vertical')} title="Distribute vertically">
+                  <span className="material-icons">vertical_distribute</span>
+                </button>
+                <div className="layout-divider" />
+                <button
+                  className={`layout-btn${snapToGrid ? ' active' : ''}`}
+                  onClick={() => setSnapToGrid(s => !s)}
+                  title="Snap to grid"
+                >
+                  <span className="material-icons">grid_4x4</span>
+                </button>
+              </div>
+            )}
 
             {/* Empty state */}
             {nodes.length === 0 && (

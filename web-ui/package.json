@@ -11,6 +11,7 @@
     "lint": "eslint . --ext ts,tsx"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
     "@xyflow/react": "^12.10.0",
     "msgpack-lite": "^0.1.26",
     "react": "^18.2.0",
