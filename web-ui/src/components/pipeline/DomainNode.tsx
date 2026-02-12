@@ -126,10 +126,6 @@ function DomainNode({ id, data, selected }: NodeProps & { data: DomainNodeData }
           {outputs.map((output, i) => (
             <div key={output.name} className="node-output-row">
               <span className="node-output-label">{output.name}</span>
-              <span
-                className="node-output-dot"
-                style={{ background: getTypeColor(output.type) }}
-              />
               <Handle
                 key={`out-${output.name}`}
                 type="source"

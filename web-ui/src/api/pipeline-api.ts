@@ -130,7 +130,26 @@ export async function runPipelineFromNode(
 export async function getNodeCatalog(): Promise<NodeCatalogEntry[]> {
   const res = await fetch(`${API_BASE}/nodes/catalog`);
   const data = await res.json();
-  return data.nodes || [];
+  const raw = data.catalog || data.nodes || [];
+  // Normalize domain catalog (id/label) to match NodeCatalogEntry (name/type)
+  return raw.map((entry: any) => ({
+    type: entry.type,
+    domain: entry.domain,
+    domain_name: entry.domain_name,
+    name: entry.label || entry.name || entry.type,
+    description: entry.description || '',
+    icon: entry.icon || '',
+    color: entry.color_hex ? `#${(entry.color_hex >>> 0).toString(16).padStart(8, '0').slice(0, 6)}` : entry.color || '',
+    category: entry.category,
+    inputs: (entry.ports?.inputs || []).map((p: any) => ({
+      name: p.id || p.name,
+      type: p.type || 'any',
+    })),
+    outputs: (entry.ports?.outputs || []).map((p: any) => ({
+      name: p.id || p.name,
+      type: p.type || 'any',
+    })),
+  }));
 }
 
 export async function getVideoNodeCatalog(): Promise<NodeCatalogEntry[]> {

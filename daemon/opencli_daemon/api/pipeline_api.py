@@ -252,6 +252,35 @@ async def get_video_node_catalog() -> dict:
     return {"success": True, "nodes": catalog, "total": len(catalog)}
 
 
+_PORT_OVERRIDES: dict[str, dict] = {
+    "media_scene_assembly": {
+        "inputs": [
+            {"id": "input", "label": "Video"},
+            {"id": "audio", "label": "Audio"},
+        ],
+        "outputs": [{"id": "output", "label": "Output"}],
+    },
+    "media_video_assembly": {
+        "inputs": [{"id": "input", "label": "Clips"}],
+        "outputs": [{"id": "output", "label": "Output"}],
+    },
+    "media_audio_mix": {
+        "inputs": [
+            {"id": "input", "label": "Audio 1"},
+            {"id": "audio2", "label": "Audio 2"},
+        ],
+        "outputs": [{"id": "output", "label": "Output"}],
+    },
+    "media_subtitle_overlay": {
+        "inputs": [
+            {"id": "input", "label": "Video"},
+            {"id": "subtitles", "label": "Subtitles"},
+        ],
+        "outputs": [{"id": "output", "label": "Output"}],
+    },
+}
+
+
 @router.get("/nodes/catalog")
 async def get_node_catalog() -> dict:
     """Auto-generate node catalog from domain registry."""
@@ -262,6 +291,10 @@ async def get_node_catalog() -> dict:
     for domain in registry.domains:
         for tt in domain.task_types:
             dc = domain.display_configs.get(tt)
+            ports = _PORT_OVERRIDES.get(tt, {
+                "inputs": [{"id": "input", "label": "Input"}],
+                "outputs": [{"id": "output", "label": "Output"}],
+            })
             catalog.append({
                 "type": tt,
                 "domain": domain.id,
@@ -269,9 +302,6 @@ async def get_node_catalog() -> dict:
                 "label": dc.title_template if dc else tt.replace("_", " ").title(),
                 "icon": dc.icon if dc else domain.icon,
                 "color_hex": dc.color_hex if dc else domain.color_hex,
-                "ports": {
-                    "inputs": [{"id": "input", "label": "Input"}],
-                    "outputs": [{"id": "output", "label": "Output"}],
-                },
+                "ports": ports,
             })
     return {"catalog": catalog}

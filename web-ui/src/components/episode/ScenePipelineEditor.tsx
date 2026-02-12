@@ -24,7 +24,7 @@ import NodeConfigPanel from '../pipeline/NodeConfigPanel';
 import { PipelineProvider } from '../pipeline/PipelineContext';
 import { getTypeColor } from '../pipeline/dataTypeColors';
 import type { NodeCatalogEntry, PipelineDefinition } from '../../api/pipeline-api';
-import { savePipeline, getVideoNodeCatalog, runPipeline, runPipelineFromNode } from '../../api/pipeline-api';
+import { savePipeline, getVideoNodeCatalog, getNodeCatalog, runPipeline, runPipelineFromNode } from '../../api/pipeline-api';
 import {
   buildEpisodePipeline,
   getEpisodePipeline,
@@ -102,8 +102,15 @@ function ScenePipelineEditorInner({ episodeId, settings, onPipelineReady }: Scen
 
   const loadCatalog = async () => {
     try {
-      const c = await getVideoNodeCatalog();
-      setCatalog(c);
+      const [videoCatalog, domainCatalog] = await Promise.all([
+        getVideoNodeCatalog(),
+        getNodeCatalog(),
+      ]);
+      // Merge: video catalog takes priority, domain catalog fills gaps
+      const merged = new Map<string, NodeCatalogEntry>();
+      for (const entry of domainCatalog) merged.set(entry.type, entry);
+      for (const entry of videoCatalog) merged.set(entry.type, entry);
+      setCatalog(Array.from(merged.values()));
     } catch { }
   };
 

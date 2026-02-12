@@ -32,6 +32,7 @@ import {
   listPipelines,
   deletePipeline,
   getVideoNodeCatalog,
+  getNodeCatalog,
 } from '../api/pipeline-api';
 
 import { listEpisodes, type EpisodeSummary } from '../api/episode-api';
@@ -62,9 +63,14 @@ function PipelineEditorInner() {
   const [episodeMap, setEpisodeMap] = useState<Record<string, EpisodeSummary>>({});
   const reactFlowInstance = useRef<any>(null);
 
-  // Load catalog for output type lookups
+  // Load catalog for output type lookups (merge video + domain catalogs)
   useEffect(() => {
-    getVideoNodeCatalog().then(setCatalogCache).catch(() => {});
+    Promise.all([getVideoNodeCatalog(), getNodeCatalog()]).then(([video, domain]) => {
+      const merged = new Map<string, NodeCatalogEntry>();
+      for (const entry of domain) merged.set(entry.type, entry);
+      for (const entry of video) merged.set(entry.type, entry);
+      setCatalogCache(Array.from(merged.values()));
+    }).catch(() => {});
   }, []);
 
   // Load pipeline if ID provided
