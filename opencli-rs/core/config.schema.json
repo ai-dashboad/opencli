@@ -374,6 +374,60 @@
         }
       ]
     },
+    "Hook": {
+      "additionalProperties": false,
+      "description": "A single hook entry.",
+      "properties": {
+        "block_on_failure": {
+          "default": false,
+          "description": "Pre-exec only: when true, a non-zero exit from this hook blocks the agent's command. Ignored for post-exec hooks.",
+          "type": "boolean"
+        },
+        "command": {
+          "description": "Shell command to run for this hook. Executed via the user's shell. The lifecycle context is passed in the environment: `OPENCLI_HOOK_EVENT`, `OPENCLI_HOOK_COMMAND`, `OPENCLI_HOOK_CWD`, and, for post-exec, `OPENCLI_HOOK_EXIT_CODE`.",
+          "type": "string"
+        },
+        "matches": {
+          "default": null,
+          "description": "Optional filter: the hook runs only when the agent's command string contains this substring. When omitted, the hook runs for every command.",
+          "type": "string"
+        },
+        "timeout_ms": {
+          "default": null,
+          "description": "Maximum time the hook may run before it is killed, in milliseconds.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "type": "object"
+    },
+    "Hooks": {
+      "additionalProperties": false,
+      "description": "User-defined lifecycle hooks. Each list holds commands run by the user's shell at a point in the agent's command-execution lifecycle. Hooks are the mechanism for automating side effects (formatting, linting, notifications) and for guarding dangerous commands, without touching the model.",
+      "properties": {
+        "post_exec": {
+          "default": [],
+          "description": "Run after the agent's shell command completes, with the command's exit code available as `OPENCLI_HOOK_EXIT_CODE`. Post-exec hook failures are logged but never block.",
+          "items": {
+            "$ref": "#/definitions/Hook"
+          },
+          "type": "array"
+        },
+        "pre_exec": {
+          "default": [],
+          "description": "Run before the agent executes a shell command. A pre-exec hook that exits non-zero and has `block_on_failure` set vetoes the command: it is never run and the failure is reported back to the model.",
+          "items": {
+            "$ref": "#/definitions/Hook"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "ModeKind": {
       "description": "Initial collaboration mode to use when the TUI starts.",
       "enum": [
@@ -1326,6 +1380,15 @@
       ],
       "default": null,
       "description": "Settings that govern if and what will be written to `~/.opencli/history.jsonl`."
+    },
+    "hooks": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Hooks"
+        }
+      ],
+      "default": null,
+      "description": "User-defined lifecycle hooks. See [`Hooks`]."
     },
     "instructions": {
       "description": "System instructions.",

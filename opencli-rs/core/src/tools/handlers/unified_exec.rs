@@ -183,6 +183,20 @@ impl ToolHandler for UnifiedExecHandler {
                     return Ok(output);
                 }
 
+                // Pre-exec hooks guard commands on this path too, so enabling
+                // background terminals does not bypass the hook that blocks a
+                // dangerous command.
+                let hook_command = command.join(" ");
+                if let crate::hooks::PreExecDecision::Blocked(reason) =
+                    crate::hooks::run_pre_exec(&context.turn.hooks.pre_exec, &hook_command, &cwd)
+                        .await
+                {
+                    manager.release_process_id(&process_id).await;
+                    return Err(FunctionCallError::RespondToModel(format!(
+                        "command not run: {reason}"
+                    )));
+                }
+
                 manager
                     .exec_command(
                         ExecCommandRequest {
