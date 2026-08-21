@@ -174,8 +174,12 @@ impl ModelsManager {
         config: &Config,
         refresh_strategy: RefreshStrategy,
     ) -> CoreResult<()> {
+        // The remote model catalog is an OpenAI-specific endpoint. Third-party
+        // gateways do not serve it, and querying it with their credentials only
+        // produces a spurious 401 on every startup, so keep to built-in presets.
         if !config.features.enabled(Feature::RemoteModels)
             || self.auth_manager.get_internal_auth_mode() == Some(AuthMode::ApiKey)
+            || !config.model_provider.is_openai()
         {
             return Ok(());
         }

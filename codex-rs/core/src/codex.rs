@@ -580,6 +580,21 @@ impl SessionConfiguration {
         let mut next_configuration = self.clone();
         if let Some(collaboration_mode) = updates.collaboration_mode.clone() {
             next_configuration.collaboration_mode = collaboration_mode;
+            // Built-in presets each name the gateway that serves them, so a
+            // mid-session model switch has to re-point the provider too;
+            // otherwise the new model is requested from the old gateway.
+            if let Some(provider) = crate::models_manager::model_presets::provider_id_for_model(
+                next_configuration.collaboration_mode.model(),
+            )
+            .and_then(|provider_id| {
+                next_configuration
+                    .original_config_do_not_use
+                    .model_providers
+                    .get(&provider_id)
+                    .cloned()
+            }) {
+                next_configuration.provider = provider;
+            }
         }
         if let Some(summary) = updates.reasoning_summary {
             next_configuration.model_reasoning_summary = summary;

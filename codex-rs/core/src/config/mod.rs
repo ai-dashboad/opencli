@@ -1404,9 +1404,18 @@ impl Config {
             model_providers.entry(key).or_insert(provider);
         }
 
+        let model = model.or(config_profile.model).or(cfg.model);
+
+        // An explicitly configured provider always wins. Otherwise the chosen
+        // model decides: built-in presets each name the gateway that actually
+        // serves them, so selecting a model is enough to route it correctly.
         let model_provider_id = model_provider
             .or(config_profile.model_provider)
             .or(cfg.model_provider)
+            .or_else(|| {
+                let model = model.as_deref()?;
+                crate::models_manager::model_presets::provider_id_for_model(model)
+            })
             .unwrap_or_else(|| "openai".to_string());
         let model_provider = model_providers
             .get(&model_provider_id)
@@ -1473,8 +1482,6 @@ impl Config {
             });
 
         let forced_login_method = cfg.forced_login_method;
-
-        let model = model.or(config_profile.model).or(cfg.model);
 
         let compact_prompt = compact_prompt.or(cfg.compact_prompt).and_then(|value| {
             let trimmed = value.trim();

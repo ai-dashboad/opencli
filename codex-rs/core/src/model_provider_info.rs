@@ -279,19 +279,30 @@ pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
 pub const OLLAMA_CHAT_PROVIDER_ID: &str = "ollama-chat";
 pub const CHEAPESTINFERENCE_PROVIDER_ID: &str = "cheapestinference";
+pub const OPENROUTER_PROVIDER_ID: &str = "openrouter";
+pub const ANTHROPIC_PROVIDER_ID: &str = "anthropic";
+pub const DEEPSEEK_PROVIDER_ID: &str = "deepseek";
+pub const MOONSHOT_PROVIDER_ID: &str = "moonshot";
+pub const ZHIPU_PROVIDER_ID: &str = "zhipu";
+pub const XAI_PROVIDER_ID: &str = "xai";
+pub const GROQ_PROVIDER_ID: &str = "groq";
+pub const MISTRAL_PROVIDER_ID: &str = "mistral";
+pub const GOOGLE_PROVIDER_ID: &str = "google";
 
-/// Built-in CheapestInference provider. Talks the OpenAI Chat Completions wire
-/// protocol against the CheapestInference gateway. The API key is read from the
-/// `CHEAPESTINFERENCE_API_KEY` environment variable rather than being embedded
-/// in the binary.
-fn create_cheapestinference_provider() -> ModelProviderInfo {
+/// Build a third-party provider that speaks the OpenAI Chat Completions wire
+/// protocol. API keys are always read from the environment rather than being
+/// embedded in the binary, so a build of this tool carries no secrets.
+fn chat_completions_provider(
+    name: &str,
+    base_url: &str,
+    env_key: &str,
+    signup_url: &str,
+) -> ModelProviderInfo {
     ModelProviderInfo {
-        name: "CheapestInference".into(),
-        base_url: Some("https://api.cheapestinference.com/v1".into()),
-        env_key: Some("CHEAPESTINFERENCE_API_KEY".into()),
-        env_key_instructions: Some(
-            "Set CHEAPESTINFERENCE_API_KEY to your subscriber key from https://cheapestinference.com/pools".into(),
-        ),
+        name: name.into(),
+        base_url: Some(base_url.into()),
+        env_key: Some(env_key.into()),
+        env_key_instructions: Some(format!("Set {env_key} to your API key from {signup_url}")),
         experimental_bearer_token: None,
         wire_api: WireApi::Chat,
         query_params: None,
@@ -303,6 +314,16 @@ fn create_cheapestinference_provider() -> ModelProviderInfo {
         requires_openai_auth: false,
         supports_websockets: false,
     }
+}
+
+/// Built-in CheapestInference provider — the default gateway for this build.
+fn create_cheapestinference_provider() -> ModelProviderInfo {
+    chat_completions_provider(
+        "CheapestInference",
+        "https://api.cheapestinference.com/v1",
+        "CHEAPESTINFERENCE_API_KEY",
+        "https://cheapestinference.com/pools",
+    )
 }
 
 /// Built-in default provider list.
@@ -318,6 +339,87 @@ pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
         (
             CHEAPESTINFERENCE_PROVIDER_ID,
             create_cheapestinference_provider(),
+        ),
+        (
+            OPENROUTER_PROVIDER_ID,
+            chat_completions_provider(
+                "OpenRouter",
+                "https://openrouter.ai/api/v1",
+                "OPENROUTER_API_KEY",
+                "https://openrouter.ai/keys",
+            ),
+        ),
+        (
+            ANTHROPIC_PROVIDER_ID,
+            chat_completions_provider(
+                "Anthropic",
+                "https://api.anthropic.com/v1",
+                "ANTHROPIC_API_KEY",
+                "https://console.anthropic.com/settings/keys",
+            ),
+        ),
+        (
+            DEEPSEEK_PROVIDER_ID,
+            chat_completions_provider(
+                "DeepSeek",
+                "https://api.deepseek.com/v1",
+                "DEEPSEEK_API_KEY",
+                "https://platform.deepseek.com/api_keys",
+            ),
+        ),
+        (
+            MOONSHOT_PROVIDER_ID,
+            chat_completions_provider(
+                "Moonshot",
+                "https://api.moonshot.cn/v1",
+                "MOONSHOT_API_KEY",
+                "https://platform.moonshot.cn/console/api-keys",
+            ),
+        ),
+        (
+            ZHIPU_PROVIDER_ID,
+            chat_completions_provider(
+                "Zhipu",
+                "https://open.bigmodel.cn/api/paas/v4",
+                "ZHIPU_API_KEY",
+                "https://open.bigmodel.cn/usercenter/apikeys",
+            ),
+        ),
+        (
+            XAI_PROVIDER_ID,
+            chat_completions_provider(
+                "xAI",
+                "https://api.x.ai/v1",
+                "XAI_API_KEY",
+                "https://console.x.ai",
+            ),
+        ),
+        (
+            GROQ_PROVIDER_ID,
+            chat_completions_provider(
+                "Groq",
+                "https://api.groq.com/openai/v1",
+                "GROQ_API_KEY",
+                "https://console.groq.com/keys",
+            ),
+        ),
+        (
+            MISTRAL_PROVIDER_ID,
+            chat_completions_provider(
+                "Mistral",
+                "https://api.mistral.ai/v1",
+                "MISTRAL_API_KEY",
+                "https://console.mistral.ai/api-keys",
+            ),
+        ),
+        (
+            GOOGLE_PROVIDER_ID,
+            chat_completions_provider(
+                "Google Gemini",
+                "https://generativelanguage.googleapis.com/v1beta/openai",
+                "GEMINI_API_KEY",
+                "https://aistudio.google.com/apikey",
+            ),
         ),
         (
             OLLAMA_OSS_PROVIDER_ID,
