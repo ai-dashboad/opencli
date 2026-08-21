@@ -39,7 +39,7 @@ fn shell_responses_with_timeout(
     vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell_command", &arguments),
+            ev_function_call(call_id, "run_command", &arguments),
             ev_completed("resp-1"),
         ]),
         sse(vec![

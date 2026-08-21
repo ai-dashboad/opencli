@@ -417,19 +417,19 @@ mod tests {
             },
             ResponseItem::FunctionCall {
                 id: None,
-                name: "read_file".to_string(),
+                name: "open_file".to_string(),
                 arguments: r#"{"path":"a.txt"}"#.to_string(),
                 call_id: "call-a".to_string(),
             },
             ResponseItem::FunctionCall {
                 id: None,
-                name: "read_file".to_string(),
+                name: "open_file".to_string(),
                 arguments: r#"{"path":"b.txt"}"#.to_string(),
                 call_id: "call-b".to_string(),
             },
             ResponseItem::FunctionCall {
                 id: None,
-                name: "read_file".to_string(),
+                name: "open_file".to_string(),
                 arguments: r#"{"path":"c.txt"}"#.to_string(),
                 call_id: "call-c".to_string(),
             },

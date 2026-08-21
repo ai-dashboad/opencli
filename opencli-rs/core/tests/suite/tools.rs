@@ -119,7 +119,7 @@ async fn shell_escalated_permissions_rejected_then_ok() -> Result<()> {
             ev_response_created("resp-1"),
             ev_function_call(
                 call_id_blocked,
-                "shell",
+                "run",
                 &serde_json::to_string(&first_args)?,
             ),
             ev_completed("resp-1"),
@@ -132,7 +132,7 @@ async fn shell_escalated_permissions_rejected_then_ok() -> Result<()> {
             ev_response_created("resp-2"),
             ev_function_call(
                 call_id_success,
-                "shell",
+                "run",
                 &serde_json::to_string(&second_args)?,
             ),
             ev_completed("resp-2"),
@@ -217,7 +217,7 @@ async fn sandbox_denied_shell_returns_original_output() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -317,21 +317,21 @@ async fn unified_exec_spec_toggle_end_to_end() -> Result<()> {
 
     let tools_disabled = collect_tools(false).await?;
     assert!(
-        !tools_disabled.iter().any(|name| name == "exec_command"),
+        !tools_disabled.iter().any(|name| name == "bg_start"),
         "tools list should not include exec_command when disabled: {tools_disabled:?}"
     );
     assert!(
-        !tools_disabled.iter().any(|name| name == "write_stdin"),
+        !tools_disabled.iter().any(|name| name == "bg_write"),
         "tools list should not include write_stdin when disabled: {tools_disabled:?}"
     );
 
     let tools_enabled = collect_tools(true).await?;
     assert!(
-        tools_enabled.iter().any(|name| name == "exec_command"),
+        tools_enabled.iter().any(|name| name == "bg_start"),
         "tools list should include exec_command when enabled: {tools_enabled:?}"
     );
     assert!(
-        tools_enabled.iter().any(|name| name == "write_stdin"),
+        tools_enabled.iter().any(|name| name == "bg_write"),
         "tools list should include write_stdin when enabled: {tools_enabled:?}"
     );
 
@@ -357,7 +357,7 @@ async fn shell_timeout_includes_timeout_prefix_and_metadata() -> Result<()> {
         &server,
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
     )
@@ -447,7 +447,7 @@ time.sleep(60)
         &server,
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
     )
@@ -535,7 +535,7 @@ async fn shell_spawn_failure_truncates_exec_error() -> Result<()> {
         &server,
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
     )

@@ -56,7 +56,7 @@ fn shell_responses(
                     ev_response_created("resp-1"),
                     ev_function_call(
                         call_id,
-                        "shell_command",
+                        "run_command",
                         &serde_json::to_string(&parameters)?,
                     ),
                     ev_completed("resp-1"),
@@ -75,7 +75,7 @@ fn shell_responses(
             Ok(vec![
                 sse(vec![
                     ev_response_created("resp-1"),
-                    ev_function_call(call_id, "shell", &serde_json::to_string(&parameters)?),
+                    ev_function_call(call_id, "run", &serde_json::to_string(&parameters)?),
                     ev_completed("resp-1"),
                 ]),
                 sse(vec![
@@ -745,7 +745,7 @@ async fn shell_command_output_is_freeform() -> Result<()> {
     let responses = vec![
         sse(vec![
             json!({"type": "response.created", "response": {"id": "resp-1"}}),
-            ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -796,7 +796,7 @@ async fn shell_command_output_is_not_truncated_under_10k_bytes() -> Result<()> {
     let responses = vec![
         sse(vec![
             json!({"type": "response.created", "response": {"id": "resp-1"}}),
-            ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -846,7 +846,7 @@ async fn shell_command_output_is_not_truncated_over_10k_bytes() -> Result<()> {
     let responses = vec![
         sse(vec![
             json!({"type": "response.created", "response": {"id": "resp-1"}}),
-            ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![

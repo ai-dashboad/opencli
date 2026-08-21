@@ -97,7 +97,7 @@ prefix_rule(
         content, is_error, ..
     } = service
         .call_tool(CallToolRequestParam {
-            name: Cow::Borrowed("shell"),
+            name: Cow::Borrowed("run"),
             arguments: Some(object(json!(
                 {
                     "login": USE_LOGIN_SHELL,

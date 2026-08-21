@@ -29,7 +29,7 @@ async fn interrupt_long_running_tool_emits_turn_aborted() {
     })
     .to_string();
     let body = sse(vec![
-        ev_function_call("call_sleep", "shell_command", &args),
+        ev_function_call("call_sleep", "run_command", &args),
         ev_completed("done"),
     ]);
 
@@ -80,7 +80,7 @@ async fn interrupt_tool_records_history_entries() {
     .to_string();
     let first_body = sse(vec![
         ev_response_created("resp-history"),
-        ev_function_call(call_id, "shell_command", &args),
+        ev_function_call(call_id, "run_command", &args),
         ev_completed("resp-history"),
     ]);
     let follow_up_body = sse(vec![
@@ -178,7 +178,7 @@ async fn interrupt_persists_turn_aborted_marker_in_next_request() {
     .to_string();
     let first_body = sse(vec![
         ev_response_created("resp-marker"),
-        ev_function_call(call_id, "shell_command", &args),
+        ev_function_call(call_id, "run_command", &args),
         ev_completed("resp-marker"),
     ]);
     let follow_up_body = sse(vec![

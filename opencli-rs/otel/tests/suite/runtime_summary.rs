@@ -36,7 +36,7 @@ fn runtime_metrics_summary_collects_tool_api_and_streaming_metrics() -> Result<(
     manager.reset_runtime_metrics();
 
     manager.tool_result(
-        "shell",
+        "run",
         "call-1",
         "{\"cmd\":\"echo\"}",
         Duration::from_millis(250),

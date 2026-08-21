@@ -5813,7 +5813,7 @@ mod tests {
             id: None,
             status: None,
             call_id: "call-1".to_string(),
-            name: "shell".to_string(),
+            name: "run".to_string(),
             input: "{}".to_string(),
         };
 
@@ -5834,7 +5834,7 @@ mod tests {
 
         match err {
             FunctionCallError::Fatal(message) => {
-                assert_eq!(message, "tool shell invoked with incompatible payload");
+                assert_eq!(message, "tool run invoked with incompatible payload");
             }
             other => panic!("expected FunctionCallError::Fatal, got {other:?}"),
         }
@@ -6003,7 +6003,7 @@ mod tests {
 
         let turn_diff_tracker = Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new()));
 
-        let tool_name = "shell";
+        let tool_name = "run";
         let call_id = "test-call".to_string();
 
         let handler = ShellHandler;
@@ -6105,7 +6105,7 @@ mod tests {
                 turn: Arc::clone(&turn_context),
                 tracker: Arc::clone(&tracker),
                 call_id: "exec-call".to_string(),
-                tool_name: "exec_command".to_string(),
+                tool_name: "bg_start".to_string(),
                 payload: ToolPayload::Function {
                     arguments: serde_json::json!({
                         "cmd": "echo hi",

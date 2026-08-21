@@ -180,7 +180,7 @@ async fn unified_exec_intercepts_apply_patch_exec_command() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -312,7 +312,7 @@ async fn unified_exec_emits_exec_command_begin_event() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -390,7 +390,7 @@ async fn unified_exec_resolves_relative_workdir() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -471,7 +471,7 @@ async fn unified_exec_respects_workdir_override() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -555,14 +555,14 @@ async fn unified_exec_emits_exec_command_end_event() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
             ev_response_created("resp-2"),
             ev_function_call(
                 poll_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&poll_args)?,
             ),
             ev_completed("resp-2"),
@@ -639,7 +639,7 @@ async fn unified_exec_emits_output_delta_for_exec_command() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -715,7 +715,7 @@ async fn unified_exec_full_lifecycle_with_background_end_event() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -834,7 +834,7 @@ async fn unified_exec_emits_terminal_interaction_for_write_stdin() -> Result<()>
             ev_response_created("resp-1"),
             ev_function_call(
                 open_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&open_args)?,
             ),
             ev_completed("resp-1"),
@@ -843,7 +843,7 @@ async fn unified_exec_emits_terminal_interaction_for_write_stdin() -> Result<()>
             ev_response_created("resp-2"),
             ev_function_call(
                 stdin_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&stdin_args)?,
             ),
             ev_completed("resp-2"),
@@ -953,7 +953,7 @@ async fn unified_exec_terminal_interaction_captures_delayed_output() -> Result<(
             ev_response_created("resp-1"),
             ev_function_call(
                 open_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&open_args)?,
             ),
             ev_completed("resp-1"),
@@ -962,7 +962,7 @@ async fn unified_exec_terminal_interaction_captures_delayed_output() -> Result<(
             ev_response_created("resp-2"),
             ev_function_call(
                 first_poll_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&first_poll_args)?,
             ),
             ev_completed("resp-2"),
@@ -971,7 +971,7 @@ async fn unified_exec_terminal_interaction_captures_delayed_output() -> Result<(
             ev_response_created("resp-3"),
             ev_function_call(
                 second_poll_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&second_poll_args)?,
             ),
             ev_completed("resp-3"),
@@ -980,7 +980,7 @@ async fn unified_exec_terminal_interaction_captures_delayed_output() -> Result<(
             ev_response_created("resp-4"),
             ev_function_call(
                 third_poll_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&third_poll_args)?,
             ),
             ev_completed("resp-4"),
@@ -1131,7 +1131,7 @@ async fn unified_exec_emits_one_begin_and_one_end_event() -> Result<()> {
             ev_response_created("resp-1"),
             ev_function_call(
                 open_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&open_args)?,
             ),
             ev_completed("resp-1"),
@@ -1140,7 +1140,7 @@ async fn unified_exec_emits_one_begin_and_one_end_event() -> Result<()> {
             ev_response_created("resp-2"),
             ev_function_call(
                 poll_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&poll_args)?,
             ),
             ev_completed("resp-2"),
@@ -1241,7 +1241,7 @@ async fn exec_command_reports_chunk_and_exit_metadata() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -1358,7 +1358,7 @@ async fn unified_exec_defaults_to_pipe() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -1448,7 +1448,7 @@ async fn unified_exec_can_enable_tty() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -1530,7 +1530,7 @@ async fn unified_exec_respects_early_exit_notifications() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -1641,7 +1641,7 @@ async fn write_stdin_returns_exit_metadata_and_clears_session() -> Result<()> {
             ev_response_created("resp-1"),
             ev_function_call(
                 start_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&start_args)?,
             ),
             ev_completed("resp-1"),
@@ -1650,7 +1650,7 @@ async fn write_stdin_returns_exit_metadata_and_clears_session() -> Result<()> {
             ev_response_created("resp-2"),
             ev_function_call(
                 send_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&send_args)?,
             ),
             ev_completed("resp-2"),
@@ -1659,7 +1659,7 @@ async fn write_stdin_returns_exit_metadata_and_clears_session() -> Result<()> {
             ev_response_created("resp-3"),
             ev_function_call(
                 exit_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&exit_args)?,
             ),
             ev_completed("resp-3"),
@@ -1808,7 +1808,7 @@ async fn unified_exec_emits_end_event_when_session_dies_via_stdin() -> Result<()
             ev_response_created("resp-1"),
             ev_function_call(
                 start_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&start_args)?,
             ),
             ev_completed("resp-1"),
@@ -1817,7 +1817,7 @@ async fn unified_exec_emits_end_event_when_session_dies_via_stdin() -> Result<()
             ev_response_created("resp-2"),
             ev_function_call(
                 echo_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&echo_args)?,
             ),
             ev_completed("resp-2"),
@@ -1826,7 +1826,7 @@ async fn unified_exec_emits_end_event_when_session_dies_via_stdin() -> Result<()
             ev_response_created("resp-3"),
             ev_function_call(
                 exit_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&exit_args)?,
             ),
             ev_completed("resp-3"),
@@ -1905,7 +1905,7 @@ async fn unified_exec_closes_long_running_session_at_turn_end() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -2017,7 +2017,7 @@ async fn unified_exec_reuses_session_via_stdin() -> Result<()> {
             ev_response_created("resp-1"),
             ev_function_call(
                 first_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&first_args)?,
             ),
             ev_completed("resp-1"),
@@ -2026,7 +2026,7 @@ async fn unified_exec_reuses_session_via_stdin() -> Result<()> {
             ev_response_created("resp-2"),
             ev_function_call(
                 second_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&second_args)?,
             ),
             ev_completed("resp-2"),
@@ -2152,7 +2152,7 @@ PY
             ev_response_created("resp-1"),
             ev_function_call(
                 first_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&first_args)?,
             ),
             ev_completed("resp-1"),
@@ -2161,7 +2161,7 @@ PY
             ev_response_created("resp-2"),
             ev_function_call(
                 second_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&second_args)?,
             ),
             ev_completed("resp-2"),
@@ -2266,7 +2266,7 @@ async fn unified_exec_timeout_and_followup_poll() -> Result<()> {
             ev_response_created("resp-1"),
             ev_function_call(
                 first_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&first_args)?,
             ),
             ev_completed("resp-1"),
@@ -2275,7 +2275,7 @@ async fn unified_exec_timeout_and_followup_poll() -> Result<()> {
             ev_response_created("resp-2"),
             ev_function_call(
                 second_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&second_args)?,
             ),
             ev_completed("resp-2"),
@@ -2373,7 +2373,7 @@ PY
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -2454,7 +2454,7 @@ async fn unified_exec_runs_under_sandbox() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -2547,7 +2547,7 @@ async fn unified_exec_python_prompt_under_seatbelt() -> Result<()> {
             ev_response_created("resp-1"),
             ev_function_call(
                 startup_call_id,
-                "exec_command",
+                "bg_start",
                 &serde_json::to_string(&startup_args)?,
             ),
             ev_completed("resp-1"),
@@ -2556,7 +2556,7 @@ async fn unified_exec_python_prompt_under_seatbelt() -> Result<()> {
             ev_response_created("resp-2"),
             ev_function_call(
                 exit_call_id,
-                "write_stdin",
+                "bg_write",
                 &serde_json::to_string(&exit_args)?,
             ),
             ev_completed("resp-2"),
@@ -2654,7 +2654,7 @@ async fn unified_exec_runs_on_all_platforms() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -2743,12 +2743,12 @@ async fn unified_exec_prunes_exited_sessions_first() -> Result<()> {
     let mut events = vec![ev_response_created("resp-prune-1")];
     events.push(ev_function_call(
         keep_call_id,
-        "exec_command",
+        "bg_start",
         &serde_json::to_string(&keep_args)?,
     ));
     events.push(ev_function_call(
         prune_call_id,
-        "exec_command",
+        "bg_start",
         &serde_json::to_string(&prune_args)?,
     ));
 
@@ -2760,7 +2760,7 @@ async fn unified_exec_prunes_exited_sessions_first() -> Result<()> {
         let call_id = format!("uexec-prune-fill-{idx}");
         events.push(ev_function_call(
             &call_id,
-            "exec_command",
+            "bg_start",
             &serde_json::to_string(&filler_args)?,
         ));
     }
@@ -2773,7 +2773,7 @@ async fn unified_exec_prunes_exited_sessions_first() -> Result<()> {
     });
     events.push(ev_function_call(
         keep_write_call_id,
-        "write_stdin",
+        "bg_write",
         &serde_json::to_string(&keep_write_args)?,
     ));
 
@@ -2785,7 +2785,7 @@ async fn unified_exec_prunes_exited_sessions_first() -> Result<()> {
     });
     events.push(ev_function_call(
         probe_call_id,
-        "write_stdin",
+        "bg_write",
         &serde_json::to_string(&probe_args)?,
     ));
 

@@ -62,13 +62,13 @@ async fn model_selects_expected_tools() {
         opencli_tools,
         vec![
             "local_shell".to_string(),
-            "list_mcp_resources".to_string(),
-            "list_mcp_resource_templates".to_string(),
-            "read_mcp_resource".to_string(),
-            "update_plan".to_string(),
-            "request_user_input".to_string(),
+            "list_resources".to_string(),
+            "list_resource_templates".to_string(),
+            "read_resource".to_string(),
+            "set_plan".to_string(),
+            "ask_user".to_string(),
             "web_search".to_string(),
-            "view_image".to_string()
+            "see_image".to_string()
         ],
         "opencli-mini-latest should expose the local shell tool",
     );
@@ -77,15 +77,15 @@ async fn model_selects_expected_tools() {
     assert_eq!(
         gpt5_opencli_tools,
         vec![
-            "shell_command".to_string(),
-            "list_mcp_resources".to_string(),
-            "list_mcp_resource_templates".to_string(),
-            "read_mcp_resource".to_string(),
-            "update_plan".to_string(),
-            "request_user_input".to_string(),
+            "run_command".to_string(),
+            "list_resources".to_string(),
+            "list_resource_templates".to_string(),
+            "read_resource".to_string(),
+            "set_plan".to_string(),
+            "ask_user".to_string(),
             "apply_patch".to_string(),
             "web_search".to_string(),
-            "view_image".to_string()
+            "see_image".to_string()
         ],
         "gpt-5-opencli should expose the apply_patch tool",
     );
@@ -94,15 +94,15 @@ async fn model_selects_expected_tools() {
     assert_eq!(
         gpt51_opencli_tools,
         vec![
-            "shell_command".to_string(),
-            "list_mcp_resources".to_string(),
-            "list_mcp_resource_templates".to_string(),
-            "read_mcp_resource".to_string(),
-            "update_plan".to_string(),
-            "request_user_input".to_string(),
+            "run_command".to_string(),
+            "list_resources".to_string(),
+            "list_resource_templates".to_string(),
+            "read_resource".to_string(),
+            "set_plan".to_string(),
+            "ask_user".to_string(),
             "apply_patch".to_string(),
             "web_search".to_string(),
-            "view_image".to_string()
+            "see_image".to_string()
         ],
         "gpt-5.1-opencli should expose the apply_patch tool",
     );
@@ -111,14 +111,14 @@ async fn model_selects_expected_tools() {
     assert_eq!(
         gpt5_tools,
         vec![
-            "shell".to_string(),
-            "list_mcp_resources".to_string(),
-            "list_mcp_resource_templates".to_string(),
-            "read_mcp_resource".to_string(),
-            "update_plan".to_string(),
-            "request_user_input".to_string(),
+            "run".to_string(),
+            "list_resources".to_string(),
+            "list_resource_templates".to_string(),
+            "read_resource".to_string(),
+            "set_plan".to_string(),
+            "ask_user".to_string(),
             "web_search".to_string(),
-            "view_image".to_string()
+            "see_image".to_string()
         ],
         "gpt-5 should expose the apply_patch tool",
     );
@@ -127,15 +127,15 @@ async fn model_selects_expected_tools() {
     assert_eq!(
         gpt51_tools,
         vec![
-            "shell_command".to_string(),
-            "list_mcp_resources".to_string(),
-            "list_mcp_resource_templates".to_string(),
-            "read_mcp_resource".to_string(),
-            "update_plan".to_string(),
-            "request_user_input".to_string(),
+            "run_command".to_string(),
+            "list_resources".to_string(),
+            "list_resource_templates".to_string(),
+            "read_resource".to_string(),
+            "set_plan".to_string(),
+            "ask_user".to_string(),
             "apply_patch".to_string(),
             "web_search".to_string(),
-            "view_image".to_string()
+            "see_image".to_string()
         ],
         "gpt-5.1 should expose the apply_patch tool",
     );
@@ -143,16 +143,16 @@ async fn model_selects_expected_tools() {
     assert_eq!(
         exp_tools,
         vec![
-            "exec_command".to_string(),
-            "write_stdin".to_string(),
-            "list_mcp_resources".to_string(),
-            "list_mcp_resource_templates".to_string(),
-            "read_mcp_resource".to_string(),
-            "update_plan".to_string(),
-            "request_user_input".to_string(),
+            "bg_start".to_string(),
+            "bg_write".to_string(),
+            "list_resources".to_string(),
+            "list_resource_templates".to_string(),
+            "read_resource".to_string(),
+            "set_plan".to_string(),
+            "ask_user".to_string(),
             "apply_patch".to_string(),
             "web_search".to_string(),
-            "view_image".to_string()
+            "see_image".to_string()
         ],
         "exp-5.1 should expose the apply_patch tool",
     );

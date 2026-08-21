@@ -30,7 +30,7 @@ async fn list_tools() -> Result<()> {
     let tools = service.list_tools(Default::default()).await?.tools;
     assert_eq!(
         vec![Tool {
-            name: Cow::Borrowed("shell"),
+            name: Cow::Borrowed("run"),
             title: None,
             description: Some(Cow::Borrowed(
                 "Runs a shell command and returns its output. You MUST provide the workdir as an absolute path."

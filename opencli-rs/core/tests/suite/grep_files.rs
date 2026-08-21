@@ -55,7 +55,7 @@ async fn grep_files_tool_collects_matches() -> Result<()> {
     .to_string();
 
     let mocks =
-        mount_function_call_agent_response(&server, call_id, &arguments, "grep_files").await;
+        mount_function_call_agent_response(&server, call_id, &arguments, "search_text").await;
     test.submit_turn("please find uses of needle").await?;
 
     let req = mocks.completion.single_request();
@@ -108,7 +108,7 @@ async fn grep_files_tool_reports_empty_results() -> Result<()> {
     .to_string();
 
     let mocks =
-        mount_function_call_agent_response(&server, call_id, &arguments, "grep_files").await;
+        mount_function_call_agent_response(&server, call_id, &arguments, "search_text").await;
     test.submit_turn("search again").await?;
 
     let req = mocks.completion.single_request();

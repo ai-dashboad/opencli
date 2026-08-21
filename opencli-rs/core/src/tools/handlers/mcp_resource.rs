@@ -208,7 +208,7 @@ impl ToolHandler for McpResourceHandler {
         let arguments_value = parse_arguments(arguments.as_str())?;
 
         match tool_name.as_str() {
-            "list_mcp_resources" => {
+            "list_resources" => {
                 handle_list_resources(
                     Arc::clone(&session),
                     Arc::clone(&turn),
@@ -217,7 +217,7 @@ impl ToolHandler for McpResourceHandler {
                 )
                 .await
             }
-            "list_mcp_resource_templates" => {
+            "list_resource_templates" => {
                 handle_list_resource_templates(
                     Arc::clone(&session),
                     Arc::clone(&turn),
@@ -226,7 +226,7 @@ impl ToolHandler for McpResourceHandler {
                 )
                 .await
             }
-            "read_mcp_resource" => {
+            "read_resource" => {
                 handle_read_resource(
                     Arc::clone(&session),
                     Arc::clone(&turn),
@@ -255,7 +255,7 @@ async fn handle_list_resources(
 
     let invocation = McpInvocation {
         server: server.clone().unwrap_or_else(|| "opencli".to_string()),
-        tool: "list_mcp_resources".to_string(),
+        tool: "list_resources".to_string(),
         arguments: arguments.clone(),
     };
 
@@ -362,7 +362,7 @@ async fn handle_list_resource_templates(
 
     let invocation = McpInvocation {
         server: server.clone().unwrap_or_else(|| "opencli".to_string()),
-        tool: "list_mcp_resource_templates".to_string(),
+        tool: "list_resource_templates".to_string(),
         arguments: arguments.clone(),
     };
 
@@ -473,7 +473,7 @@ async fn handle_read_resource(
 
     let invocation = McpInvocation {
         server: server.clone(),
-        tool: "read_mcp_resource".to_string(),
+        tool: "read_resource".to_string(),
         arguments: arguments.clone(),
     };
 

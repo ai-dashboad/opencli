@@ -155,7 +155,7 @@ async fn remote_models_remote_model_uses_unified_exec() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "exec_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "bg_start", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![

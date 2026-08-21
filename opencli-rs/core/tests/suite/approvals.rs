@@ -193,7 +193,7 @@ fn shell_event(
         args["sandbox_permissions"] = json!(sandbox_permissions);
     }
     let args_str = serde_json::to_string(&args)?;
-    Ok(ev_function_call(call_id, "shell_command", &args_str))
+    Ok(ev_function_call(call_id, "run_command", &args_str))
 }
 
 fn exec_command_event(
@@ -215,7 +215,7 @@ fn exec_command_event(
         args["justification"] = json!(reason);
     }
     let args_str = serde_json::to_string(&args)?;
-    Ok(ev_function_call(call_id, "exec_command", &args_str))
+    Ok(ev_function_call(call_id, "bg_start", &args_str))
 }
 
 #[derive(Clone)]

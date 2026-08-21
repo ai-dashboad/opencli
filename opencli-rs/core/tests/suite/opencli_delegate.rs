@@ -38,7 +38,7 @@ async fn opencli_delegate_forwards_exec_approval_and_proceeds_on_approval() {
     .to_string();
     let sse1 = sse(vec![
         ev_response_created("resp-1"),
-        ev_function_call(call_id, "shell_command", &args),
+        ev_function_call(call_id, "run_command", &args),
         ev_completed("resp-1"),
     ]);
 

@@ -61,7 +61,7 @@ pub(crate) async fn spawn_child_async(
     }
 
     // If this OpenCLI process dies (including being killed via SIGKILL), we want
-    // any child processes that were spawned as part of a `"shell"` tool call
+    // any child processes that were spawned as part of a `"run"` tool call
     // to also be terminated.
 
     #[cfg(unix)]

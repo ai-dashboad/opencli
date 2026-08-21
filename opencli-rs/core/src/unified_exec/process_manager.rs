@@ -513,7 +513,7 @@ impl UnifiedExecProcessManager {
             session: context.session.as_ref(),
             turn: context.turn.as_ref(),
             call_id: context.call_id.clone(),
-            tool_name: "exec_command".to_string(),
+            tool_name: "bg_start".to_string(),
         };
         orchestrator
             .run(

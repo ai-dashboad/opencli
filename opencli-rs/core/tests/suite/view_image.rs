@@ -166,7 +166,7 @@ async fn view_image_tool_attaches_local_image() -> anyhow::Result<()> {
 
     let first_response = sse(vec![
         ev_response_created("resp-1"),
-        ev_function_call(call_id, "view_image", &arguments),
+        ev_function_call(call_id, "see_image", &arguments),
         ev_completed("resp-1"),
     ]);
     responses::mount_sse_once(&server, first_response).await;
@@ -299,7 +299,7 @@ async fn view_image_tool_errors_when_path_is_directory() -> anyhow::Result<()> {
 
     let first_response = sse(vec![
         ev_response_created("resp-1"),
-        ev_function_call(call_id, "view_image", &arguments),
+        ev_function_call(call_id, "see_image", &arguments),
         ev_completed("resp-1"),
     ]);
     responses::mount_sse_once(&server, first_response).await;
@@ -374,7 +374,7 @@ async fn view_image_tool_placeholder_for_non_image_files() -> anyhow::Result<()>
 
     let first_response = sse(vec![
         ev_response_created("resp-1"),
-        ev_function_call(call_id, "view_image", &arguments),
+        ev_function_call(call_id, "see_image", &arguments),
         ev_completed("resp-1"),
     ]);
     responses::mount_sse_once(&server, first_response).await;
@@ -468,7 +468,7 @@ async fn view_image_tool_errors_when_file_missing() -> anyhow::Result<()> {
 
     let first_response = sse(vec![
         ev_response_created("resp-1"),
-        ev_function_call(call_id, "view_image", &arguments),
+        ev_function_call(call_id, "see_image", &arguments),
         ev_completed("resp-1"),
     ]);
     responses::mount_sse_once(&server, first_response).await;

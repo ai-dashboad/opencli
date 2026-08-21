@@ -50,7 +50,7 @@ async fn truncate_function_error_trims_respond_to_model() -> Result<()> {
     let responses = vec![
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "grep_files", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "search_text", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
         sse(vec![
@@ -122,7 +122,7 @@ async fn tool_call_output_configured_limit_chars_type() -> Result<()> {
         &server,
         sse(vec![
             responses::ev_response_created("resp-1"),
-            responses::ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            responses::ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             responses::ev_completed("resp-1"),
         ]),
     )
@@ -196,7 +196,7 @@ async fn tool_call_output_exceeds_limit_truncated_chars_limit() -> Result<()> {
         &server,
         sse(vec![
             responses::ev_response_created("resp-1"),
-            responses::ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            responses::ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             responses::ev_completed("resp-1"),
         ]),
     )
@@ -269,7 +269,7 @@ async fn tool_call_output_exceeds_limit_truncated_for_model() -> Result<()> {
         &server,
         sse(vec![
             responses::ev_response_created("resp-1"),
-            responses::ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            responses::ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             responses::ev_completed("resp-1"),
         ]),
     )
@@ -343,7 +343,7 @@ async fn tool_call_output_truncated_only_once() -> Result<()> {
         &server,
         sse(vec![
             responses::ev_response_created("resp-1"),
-            responses::ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            responses::ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             responses::ev_completed("resp-1"),
         ]),
     )
@@ -593,7 +593,7 @@ async fn token_policy_marker_reports_tokens() -> Result<()> {
         &server,
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
     )
@@ -644,7 +644,7 @@ async fn byte_policy_marker_reports_bytes() -> Result<()> {
         &server,
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
     )
@@ -698,7 +698,7 @@ async fn shell_command_output_not_truncated_with_custom_limit() -> Result<()> {
         &server,
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
     )

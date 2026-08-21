@@ -842,7 +842,7 @@ async fn handle_response_item_records_tool_result_for_local_shell_call() {
     mount_sse_once(
         &server,
         sse(vec![
-            ev_local_shell_call("shell-call", "completed", vec!["/bin/echo", "shell"]),
+            ev_local_shell_call("shell-call", "completed", vec!["/bin/echo", "run"]),
             ev_completed("done"),
         ]),
     )

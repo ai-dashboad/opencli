@@ -611,7 +611,7 @@ impl EventProcessor for EventProcessorWithHumanOutput {
                     self,
                     "{} {}",
                     "collab".style(self.magenta),
-                    format_collab_invocation("spawn_agent", &call_id, Some(&prompt))
+                    format_collab_invocation("agent_spawn", &call_id, Some(&prompt))
                         .style(self.bold)
                 );
             }
@@ -626,7 +626,7 @@ impl EventProcessor for EventProcessorWithHumanOutput {
                 let title_style = if success { self.green } else { self.red };
                 let title = format!(
                     "{} {}:",
-                    format_collab_invocation("spawn_agent", &call_id, Some(&prompt)),
+                    format_collab_invocation("agent_spawn", &call_id, Some(&prompt)),
                     format_collab_status(&status)
                 );
                 ts_msg!(self, "{}", title.style(title_style));
@@ -644,7 +644,7 @@ impl EventProcessor for EventProcessorWithHumanOutput {
                     self,
                     "{} {}",
                     "collab".style(self.magenta),
-                    format_collab_invocation("send_input", &call_id, Some(&prompt))
+                    format_collab_invocation("agent_send", &call_id, Some(&prompt))
                         .style(self.bold)
                 );
                 eprintln!(
@@ -663,7 +663,7 @@ impl EventProcessor for EventProcessorWithHumanOutput {
                 let title_style = if success { self.green } else { self.red };
                 let title = format!(
                     "{} {}:",
-                    format_collab_invocation("send_input", &call_id, Some(&prompt)),
+                    format_collab_invocation("agent_send", &call_id, Some(&prompt)),
                     format_collab_status(&status)
                 );
                 ts_msg!(self, "{}", title.style(title_style));
@@ -732,7 +732,7 @@ impl EventProcessor for EventProcessorWithHumanOutput {
                     self,
                     "{} {}",
                     "collab".style(self.magenta),
-                    format_collab_invocation("close_agent", &call_id, None).style(self.bold)
+                    format_collab_invocation("agent_close", &call_id, None).style(self.bold)
                 );
                 eprintln!(
                     "  receiver: {}",
@@ -749,7 +749,7 @@ impl EventProcessor for EventProcessorWithHumanOutput {
                 let title_style = if success { self.green } else { self.red };
                 let title = format!(
                     "{} {}:",
-                    format_collab_invocation("close_agent", &call_id, None),
+                    format_collab_invocation("agent_close", &call_id, None),
                     format_collab_status(&status)
                 );
                 ts_msg!(self, "{}", title.style(title_style));

@@ -107,7 +107,7 @@ async fn request_user_input_round_trip_resolves_pending() -> anyhow::Result<()> 
 
     let first_response = sse(vec![
         ev_response_created("resp-1"),
-        ev_function_call(call_id, "request_user_input", &request_args),
+        ev_function_call(call_id, "ask_user", &request_args),
         ev_completed("resp-1"),
     ]);
     responses::mount_sse_once(&server, first_response).await;
@@ -227,7 +227,7 @@ where
 
     let first_response = sse(vec![
         ev_response_created("resp-1"),
-        ev_function_call(&call_id, "request_user_input", &request_args),
+        ev_function_call(&call_id, "ask_user", &request_args),
         ev_completed("resp-1"),
     ]);
     responses::mount_sse_once(&server, first_response).await;

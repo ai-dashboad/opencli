@@ -132,15 +132,15 @@ async fn prompt_tools_are_consistent_across_requests() -> anyhow::Result<()> {
     wait_for_event(&opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
 
     let expected_tools_names = vec![
-        "shell_command",
-        "list_mcp_resources",
-        "list_mcp_resource_templates",
-        "read_mcp_resource",
-        "update_plan",
-        "request_user_input",
+        "run_command",
+        "list_resources",
+        "list_resource_templates",
+        "read_resource",
+        "set_plan",
+        "ask_user",
         "apply_patch",
         "web_search",
-        "view_image",
+        "see_image",
     ];
     let body0 = req1.single_request().body_json();
 

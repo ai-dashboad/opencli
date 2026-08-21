@@ -476,7 +476,7 @@ fn local_image_error_placeholder(
     }
 }
 
-pub const VIEW_IMAGE_TOOL_NAME: &str = "view_image";
+pub const VIEW_IMAGE_TOOL_NAME: &str = "see_image";
 
 const IMAGE_OPEN_TAG: &str = "<image>";
 const IMAGE_CLOSE_TAG: &str = "</image>";

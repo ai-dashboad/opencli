@@ -27,7 +27,7 @@ async fn read_file_tool_returns_requested_lines() -> anyhow::Result<()> {
     })
     .to_string();
 
-    let mocks = mount_function_call_agent_response(&server, call_id, &arguments, "read_file").await;
+    let mocks = mount_function_call_agent_response(&server, call_id, &arguments, "open_file").await;
 
     test.submit_turn("please inspect sample.txt").await?;
 

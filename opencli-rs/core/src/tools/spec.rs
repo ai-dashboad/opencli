@@ -205,7 +205,7 @@ fn create_exec_command_tool(include_prefix_rule: bool) -> ToolSpec {
             },
         ),
         (
-            "shell".to_string(),
+            "run".to_string(),
             JsonSchema::String {
                 description: Some("Shell binary to launch. Defaults to the user's default shell.".to_string()),
             },
@@ -248,7 +248,7 @@ fn create_exec_command_tool(include_prefix_rule: bool) -> ToolSpec {
     properties.extend(create_approval_parameters(include_prefix_rule));
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "exec_command".to_string(),
+        name: "bg_start".to_string(),
         description:
             "Runs a command in a PTY, returning output or a session ID for ongoing interaction."
                 .to_string(),
@@ -295,7 +295,7 @@ fn create_write_stdin_tool() -> ToolSpec {
     ]);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "write_stdin".to_string(),
+        name: "bg_write".to_string(),
         description:
             "Writes characters to an existing unified exec session and returns recent output."
                 .to_string(),
@@ -350,7 +350,7 @@ Examples of valid command strings:
     }.to_string();
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "shell".to_string(),
+        name: "run".to_string(),
         description,
         strict: false,
         parameters: JsonSchema::Object {
@@ -412,7 +412,7 @@ Examples of valid command strings:
     }.to_string();
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "shell_command".to_string(),
+        name: "run_command".to_string(),
         description,
         strict: false,
         parameters: JsonSchema::Object {
@@ -467,7 +467,7 @@ fn create_spawn_agent_tool() -> ToolSpec {
     );
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "spawn_agent".to_string(),
+        name: "agent_spawn".to_string(),
         description:
             "Spawn a sub-agent for a well-scoped task. Returns the agent id to use to communicate with this agent."
                 .to_string(),
@@ -505,7 +505,7 @@ fn create_send_input_tool() -> ToolSpec {
     );
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "send_input".to_string(),
+        name: "agent_send".to_string(),
         description:
             "Send a message to an existing agent. Use interrupt=true to redirect work immediately."
                 .to_string(),
@@ -540,7 +540,7 @@ fn create_wait_tool() -> ToolSpec {
     );
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "wait".to_string(),
+        name: "agent_wait".to_string(),
         description: "Wait for agents to reach a final status. Completed statuses may include the agent's final message. Returns empty status when timed out."
             .to_string(),
         strict: false,
@@ -622,7 +622,7 @@ fn create_request_user_input_tool() -> ToolSpec {
     properties.insert("questions".to_string(), questions_schema);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "request_user_input".to_string(),
+        name: "ask_user".to_string(),
         description:
             "Request user input for one to three short questions and wait for the response."
                 .to_string(),
@@ -645,7 +645,7 @@ fn create_close_agent_tool() -> ToolSpec {
     );
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "close_agent".to_string(),
+        name: "agent_close".to_string(),
         description: "Close an agent when it is no longer needed and return its last known status."
             .to_string(),
         strict: false,
@@ -762,7 +762,7 @@ fn create_grep_files_tool() -> ToolSpec {
     ]);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "grep_files".to_string(),
+        name: "search_text".to_string(),
         description: "Finds files whose contents match the pattern and lists them by modification \
                       time."
             .to_string(),
@@ -865,7 +865,7 @@ fn create_read_file_tool() -> ToolSpec {
     ]);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "read_file".to_string(),
+        name: "open_file".to_string(),
         description:
             "Reads a local file with 1-indexed line numbers, supporting slice and indentation-aware block modes."
                 .to_string(),
@@ -911,7 +911,7 @@ fn create_list_dir_tool() -> ToolSpec {
     ]);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "list_dir".to_string(),
+        name: "browse_dir".to_string(),
         description:
             "Lists entries in a local directory with 1-indexed entry numbers and simple type labels."
                 .to_string(),
@@ -947,7 +947,7 @@ fn create_list_mcp_resources_tool() -> ToolSpec {
     ]);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "list_mcp_resources".to_string(),
+        name: "list_resources".to_string(),
         description: "Lists resources provided by MCP servers. Resources allow servers to share data that provides context to language models, such as files, database schemas, or application-specific information. Prefer resources over web search when possible.".to_string(),
         strict: false,
         parameters: JsonSchema::Object {
@@ -981,7 +981,7 @@ fn create_list_mcp_resource_templates_tool() -> ToolSpec {
     ]);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "list_mcp_resource_templates".to_string(),
+        name: "list_resource_templates".to_string(),
         description: "Lists resource templates provided by MCP servers. Parameterized resource templates allow servers to share data that takes parameters and provides context to language models, such as files, database schemas, or application-specific information. Prefer resource templates over web search when possible.".to_string(),
         strict: false,
         parameters: JsonSchema::Object {
@@ -1015,7 +1015,7 @@ fn create_read_mcp_resource_tool() -> ToolSpec {
     ]);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "read_mcp_resource".to_string(),
+        name: "read_resource".to_string(),
         description:
             "Read a specific resource from an MCP server given the server name and resource URI."
                 .to_string(),
@@ -1297,8 +1297,8 @@ pub(crate) fn build_specs(
         ConfigShellToolType::UnifiedExec => {
             builder.push_spec(create_exec_command_tool(config.request_rule_enabled));
             builder.push_spec(create_write_stdin_tool());
-            builder.register_handler("exec_command", unified_exec_handler.clone());
-            builder.register_handler("write_stdin", unified_exec_handler);
+            builder.register_handler("bg_start", unified_exec_handler.clone());
+            builder.register_handler("bg_write", unified_exec_handler);
         }
         ConfigShellToolType::Disabled => {
             // Do nothing.
@@ -1310,25 +1310,25 @@ pub(crate) fn build_specs(
 
     if config.shell_type != ConfigShellToolType::Disabled {
         // Always register shell aliases so older prompts remain compatible.
-        builder.register_handler("shell", shell_handler.clone());
-        builder.register_handler("container.exec", shell_handler.clone());
+        builder.register_handler("run", shell_handler.clone());
+        builder.register_handler("container_run", shell_handler.clone());
         builder.register_handler("local_shell", shell_handler);
-        builder.register_handler("shell_command", shell_command_handler);
+        builder.register_handler("run_command", shell_command_handler);
     }
 
     builder.push_spec_with_parallel_support(create_list_mcp_resources_tool(), true);
     builder.push_spec_with_parallel_support(create_list_mcp_resource_templates_tool(), true);
     builder.push_spec_with_parallel_support(create_read_mcp_resource_tool(), true);
-    builder.register_handler("list_mcp_resources", mcp_resource_handler.clone());
-    builder.register_handler("list_mcp_resource_templates", mcp_resource_handler.clone());
-    builder.register_handler("read_mcp_resource", mcp_resource_handler);
+    builder.register_handler("list_resources", mcp_resource_handler.clone());
+    builder.register_handler("list_resource_templates", mcp_resource_handler.clone());
+    builder.register_handler("read_resource", mcp_resource_handler);
 
     builder.push_spec(PLAN_TOOL.clone());
-    builder.register_handler("update_plan", plan_handler);
+    builder.register_handler("set_plan", plan_handler);
 
     if config.collaboration_modes_tools {
         builder.push_spec(create_request_user_input_tool());
-        builder.register_handler("request_user_input", request_user_input_handler);
+        builder.register_handler("ask_user", request_user_input_handler);
     }
 
     if let Some(apply_patch_tool_type) = &config.apply_patch_tool_type {
@@ -1345,30 +1345,30 @@ pub(crate) fn build_specs(
 
     if config
         .experimental_supported_tools
-        .contains(&"grep_files".to_string())
+        .contains(&"search_text".to_string())
     {
         let grep_files_handler = Arc::new(GrepFilesHandler);
         builder.push_spec_with_parallel_support(create_grep_files_tool(), true);
-        builder.register_handler("grep_files", grep_files_handler);
+        builder.register_handler("search_text", grep_files_handler);
     }
 
     if config
         .experimental_supported_tools
-        .contains(&"read_file".to_string())
+        .contains(&"open_file".to_string())
     {
         let read_file_handler = Arc::new(ReadFileHandler);
         builder.push_spec_with_parallel_support(create_read_file_tool(), true);
-        builder.register_handler("read_file", read_file_handler);
+        builder.register_handler("open_file", read_file_handler);
     }
 
     if config
         .experimental_supported_tools
         .iter()
-        .any(|tool| tool == "list_dir")
+        .any(|tool| tool == "browse_dir")
     {
         let list_dir_handler = Arc::new(ListDirHandler);
         builder.push_spec_with_parallel_support(create_list_dir_tool(), true);
-        builder.register_handler("list_dir", list_dir_handler);
+        builder.register_handler("browse_dir", list_dir_handler);
     }
 
     if config
@@ -1395,7 +1395,7 @@ pub(crate) fn build_specs(
     }
 
     builder.push_spec_with_parallel_support(create_view_image_tool(), true);
-    builder.register_handler("view_image", view_image_handler);
+    builder.register_handler("see_image", view_image_handler);
 
     if config.collab_tools {
         let collab_handler = Arc::new(CollabHandler);
@@ -1403,10 +1403,10 @@ pub(crate) fn build_specs(
         builder.push_spec(create_send_input_tool());
         builder.push_spec(create_wait_tool());
         builder.push_spec(create_close_agent_tool());
-        builder.register_handler("spawn_agent", collab_handler.clone());
-        builder.register_handler("send_input", collab_handler.clone());
-        builder.register_handler("wait", collab_handler.clone());
-        builder.register_handler("close_agent", collab_handler);
+        builder.register_handler("agent_spawn", collab_handler.clone());
+        builder.register_handler("agent_send", collab_handler.clone());
+        builder.register_handler("agent_wait", collab_handler.clone());
+        builder.register_handler("agent_close", collab_handler);
     }
 
     if let Some(mcp_tools) = mcp_tools {
@@ -1490,11 +1490,11 @@ mod tests {
 
     fn shell_tool_name(config: &ToolsConfig) -> Option<&'static str> {
         match config.shell_type {
-            ConfigShellToolType::Default => Some("shell"),
+            ConfigShellToolType::Default => Some("run"),
             ConfigShellToolType::Local => Some("local_shell"),
             ConfigShellToolType::UnifiedExec => None,
             ConfigShellToolType::Disabled => None,
-            ConfigShellToolType::ShellCommand => Some("shell_command"),
+            ConfigShellToolType::ShellCommand => Some("run_command"),
         }
     }
 
@@ -1622,7 +1622,7 @@ mod tests {
         let (tools, _) = build_specs(&tools_config, None, &[]).build();
         assert_contains_tool_names(
             &tools,
-            &["spawn_agent", "send_input", "wait", "close_agent"],
+            &["agent_spawn", "agent_send", "agent_wait", "agent_close"],
         );
     }
 
@@ -1639,7 +1639,7 @@ mod tests {
         });
         let (tools, _) = build_specs(&tools_config, None, &[]).build();
         assert!(
-            !tools.iter().any(|t| t.spec.name() == "request_user_input"),
+            !tools.iter().any(|t| t.spec.name() == "ask_user"),
             "request_user_input should be disabled when collaboration_modes feature is off"
         );
 
@@ -1650,7 +1650,7 @@ mod tests {
             web_search_mode: Some(WebSearchMode::Cached),
         });
         let (tools, _) = build_specs(&tools_config, None, &[]).build();
-        assert_contains_tool_names(&tools, &["request_user_input"]);
+        assert_contains_tool_names(&tools, &["ask_user"]);
     }
 
     fn assert_model_tools(
@@ -1724,15 +1724,15 @@ mod tests {
             &features,
             Some(WebSearchMode::Cached),
             &[
-                "shell_command",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "run_command",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "apply_patch",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1746,15 +1746,15 @@ mod tests {
             &features,
             Some(WebSearchMode::Cached),
             &[
-                "shell_command",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "run_command",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "apply_patch",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1769,16 +1769,16 @@ mod tests {
             &features,
             Some(WebSearchMode::Live),
             &[
-                "exec_command",
-                "write_stdin",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "bg_start",
+                "bg_write",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "apply_patch",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1793,16 +1793,16 @@ mod tests {
             &features,
             Some(WebSearchMode::Live),
             &[
-                "exec_command",
-                "write_stdin",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "bg_start",
+                "bg_write",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "apply_patch",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1817,13 +1817,13 @@ mod tests {
             Some(WebSearchMode::Cached),
             &[
                 "local_shell",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1837,15 +1837,15 @@ mod tests {
             &features,
             Some(WebSearchMode::Cached),
             &[
-                "shell_command",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "run_command",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "apply_patch",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1859,14 +1859,14 @@ mod tests {
             &features,
             Some(WebSearchMode::Cached),
             &[
-                "shell",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "run",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1880,15 +1880,15 @@ mod tests {
             &features,
             Some(WebSearchMode::Cached),
             &[
-                "shell_command",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "run_command",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "apply_patch",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1902,16 +1902,16 @@ mod tests {
             &features,
             Some(WebSearchMode::Cached),
             &[
-                "exec_command",
-                "write_stdin",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "bg_start",
+                "bg_write",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "apply_patch",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1926,15 +1926,15 @@ mod tests {
             &features,
             Some(WebSearchMode::Live),
             &[
-                "exec_command",
-                "write_stdin",
-                "list_mcp_resources",
-                "list_mcp_resource_templates",
-                "read_mcp_resource",
-                "update_plan",
-                "request_user_input",
+                "bg_start",
+                "bg_write",
+                "list_resources",
+                "list_resource_templates",
+                "read_resource",
+                "set_plan",
+                "ask_user",
                 "web_search",
-                "view_image",
+                "see_image",
             ],
         );
     }
@@ -1953,7 +1953,7 @@ mod tests {
         let (tools, _) = build_specs(&tools_config, Some(HashMap::new()), &[]).build();
 
         // Only check the shell variant and a couple of core tools.
-        let mut subset = vec!["exec_command", "write_stdin", "update_plan"];
+        let mut subset = vec!["bg_start", "bg_write", "set_plan"];
         if let Some(shell_tool) = shell_tool_name(&tools_config) {
             subset.push(shell_tool);
         }
@@ -1974,11 +1974,11 @@ mod tests {
         });
         let (tools, _) = build_specs(&tools_config, None, &[]).build();
 
-        assert!(!find_tool(&tools, "exec_command").supports_parallel_tool_calls);
-        assert!(!find_tool(&tools, "write_stdin").supports_parallel_tool_calls);
-        assert!(find_tool(&tools, "grep_files").supports_parallel_tool_calls);
-        assert!(find_tool(&tools, "list_dir").supports_parallel_tool_calls);
-        assert!(find_tool(&tools, "read_file").supports_parallel_tool_calls);
+        assert!(!find_tool(&tools, "bg_start").supports_parallel_tool_calls);
+        assert!(!find_tool(&tools, "bg_write").supports_parallel_tool_calls);
+        assert!(find_tool(&tools, "search_text").supports_parallel_tool_calls);
+        assert!(find_tool(&tools, "browse_dir").supports_parallel_tool_calls);
+        assert!(find_tool(&tools, "open_file").supports_parallel_tool_calls);
     }
 
     #[test]
@@ -2001,14 +2001,14 @@ mod tests {
         assert!(
             tools
                 .iter()
-                .any(|tool| tool_name(&tool.spec) == "read_file")
+                .any(|tool| tool_name(&tool.spec) == "open_file")
         );
         assert!(
             tools
                 .iter()
-                .any(|tool| tool_name(&tool.spec) == "grep_files")
+                .any(|tool| tool_name(&tool.spec) == "search_text")
         );
-        assert!(tools.iter().any(|tool| tool_name(&tool.spec) == "list_dir"));
+        assert!(tools.iter().any(|tool| tool_name(&tool.spec) == "browse_dir"));
     }
 
     #[test]
@@ -2417,7 +2417,7 @@ mod tests {
         else {
             panic!("expected function tool");
         };
-        assert_eq!(name, "shell");
+        assert_eq!(name, "run");
 
         let expected = if cfg!(windows) {
             r#"Runs a Powershell command (Windows) and returns its output. Arguments to `shell` will be passed to CreateProcessW(). Most commands should be prefixed with ["powershell.exe", "-Command"].
@@ -2447,7 +2447,7 @@ Examples of valid command strings:
         else {
             panic!("expected function tool");
         };
-        assert_eq!(name, "shell_command");
+        assert_eq!(name, "run_command");
 
         let expected = if cfg!(windows) {
             r#"Runs a Powershell command (Windows) and returns its output.

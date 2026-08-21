@@ -68,10 +68,10 @@ impl ToolHandler for CollabHandler {
         };
 
         match tool_name.as_str() {
-            "spawn_agent" => spawn::handle(session, turn, call_id, arguments).await,
-            "send_input" => send_input::handle(session, turn, call_id, arguments).await,
-            "wait" => wait::handle(session, turn, call_id, arguments).await,
-            "close_agent" => close_agent::handle(session, turn, call_id, arguments).await,
+            "agent_spawn" => spawn::handle(session, turn, call_id, arguments).await,
+            "agent_send" => send_input::handle(session, turn, call_id, arguments).await,
+            "agent_wait" => wait::handle(session, turn, call_id, arguments).await,
+            "agent_close" => close_agent::handle(session, turn, call_id, arguments).await,
             other => Err(FunctionCallError::RespondToModel(format!(
                 "unsupported collab tool {other}"
             ))),
@@ -689,7 +689,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "spawn_agent",
+            "agent_spawn",
             ToolPayload::Custom {
                 input: "hello".to_string(),
             },
@@ -729,7 +729,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "spawn_agent",
+            "agent_spawn",
             function_payload(json!({"message": "   "})),
         );
         let Err(err) = CollabHandler.handle(invocation).await else {
@@ -749,7 +749,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "spawn_agent",
+            "agent_spawn",
             function_payload(json!({"message": "hello"})),
         );
         let Err(err) = CollabHandler.handle(invocation).await else {
@@ -787,7 +787,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "spawn_agent",
+            "agent_spawn",
             function_payload(json!({"message": "hello"})),
         );
         let Err(err) = CollabHandler.handle(invocation).await else {
@@ -807,7 +807,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "send_input",
+            "agent_send",
             function_payload(json!({"id": ThreadId::new().to_string(), "message": ""})),
         );
         let Err(err) = CollabHandler.handle(invocation).await else {
@@ -827,7 +827,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "send_input",
+            "agent_send",
             function_payload(json!({"id": "not-a-uuid", "message": "hi"})),
         );
         let Err(err) = CollabHandler.handle(invocation).await else {
@@ -848,7 +848,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "send_input",
+            "agent_send",
             function_payload(json!({"id": agent_id.to_string(), "message": "hi"})),
         );
         let Err(err) = CollabHandler.handle(invocation).await else {
@@ -871,7 +871,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "send_input",
+            "agent_send",
             function_payload(json!({
                 "id": agent_id.to_string(),
                 "message": "hi",
@@ -911,7 +911,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "wait",
+            "agent_wait",
             function_payload(json!({
                 "ids": [ThreadId::new().to_string()],
                 "timeout_ms": 0
@@ -932,7 +932,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "wait",
+            "agent_wait",
             function_payload(json!({"ids": ["invalid"]})),
         );
         let Err(err) = CollabHandler.handle(invocation).await else {
@@ -950,7 +950,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "wait",
+            "agent_wait",
             function_payload(json!({"ids": []})),
         );
         let Err(err) = CollabHandler.handle(invocation).await else {
@@ -972,7 +972,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "wait",
+            "agent_wait",
             function_payload(json!({
                 "ids": [id_a.to_string(), id_b.to_string()],
                 "timeout_ms": 1000
@@ -1014,7 +1014,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "wait",
+            "agent_wait",
             function_payload(json!({
                 "ids": [agent_id.to_string()],
                 "timeout_ms": MIN_WAIT_TIMEOUT_MS
@@ -1059,7 +1059,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "wait",
+            "agent_wait",
             function_payload(json!({
                 "ids": [agent_id.to_string()],
                 "timeout_ms": 10
@@ -1105,7 +1105,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "wait",
+            "agent_wait",
             function_payload(json!({
                 "ids": [agent_id.to_string()],
                 "timeout_ms": 1000
@@ -1146,7 +1146,7 @@ mod tests {
         let invocation = invocation(
             Arc::new(session),
             Arc::new(turn),
-            "close_agent",
+            "agent_close",
             function_payload(json!({"id": agent_id.to_string()})),
         );
         let output = CollabHandler

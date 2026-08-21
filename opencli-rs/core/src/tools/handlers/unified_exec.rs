@@ -125,7 +125,7 @@ impl ToolHandler for UnifiedExecHandler {
         let context = UnifiedExecContext::new(session.clone(), turn.clone(), call_id.clone());
 
         let response = match tool_name.as_str() {
-            "exec_command" => {
+            "bg_start" => {
                 let args: ExecCommandArgs = parse_arguments(&arguments)?;
                 let process_id = manager.allocate_process_id().await;
                 let command = get_command(&args, session.user_shell());
@@ -217,7 +217,7 @@ impl ToolHandler for UnifiedExecHandler {
                         FunctionCallError::RespondToModel(format!("exec_command failed: {err:?}"))
                     })?
             }
-            "write_stdin" => {
+            "bg_write" => {
                 let args: WriteStdinArgs = parse_arguments(&arguments)?;
                 let response = manager
                     .write_stdin(WriteStdinRequest {

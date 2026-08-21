@@ -220,7 +220,7 @@ async fn tool_call_logs_include_thread_id() -> Result<()> {
         vec![
             responses::sse(vec![
                 ev_response_created("resp-1"),
-                ev_function_call(call_id, "shell_command", &args_json),
+                ev_function_call(call_id, "run_command", &args_json),
                 ev_completed("resp-1"),
             ]),
             responses::sse(vec![ev_completed("resp-2")]),

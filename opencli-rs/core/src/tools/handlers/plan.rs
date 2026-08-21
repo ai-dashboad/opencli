@@ -45,7 +45,7 @@ pub static PLAN_TOOL: LazyLock<ToolSpec> = LazyLock::new(|| {
     properties.insert("plan".to_string(), plan_items_schema);
 
     ToolSpec::Function(ResponsesApiTool {
-        name: "update_plan".to_string(),
+        name: "set_plan".to_string(),
         description: r#"Updates the task plan.
 Provide an optional explanation and a list of plan items, each with a step and status.
 At most one step can be in_progress at a time.

@@ -2182,7 +2182,7 @@ mod tests {
             call_id: "call_123".to_string(),
             invocation: McpInvocation {
                 server: "opencli".to_string(),
-                tool: "list_mcp_resources".to_string(),
+                tool: "list_resources".to_string(),
                 arguments: Some(serde_json::json!({"server": ""})),
             },
         };
@@ -2340,7 +2340,7 @@ mod tests {
             call_id: "call_456".to_string(),
             invocation: McpInvocation {
                 server: "opencli".to_string(),
-                tool: "list_mcp_resources".to_string(),
+                tool: "list_resources".to_string(),
                 arguments: None,
             },
         };
@@ -2389,7 +2389,7 @@ mod tests {
             call_id: "call_789".to_string(),
             invocation: McpInvocation {
                 server: "opencli".to_string(),
-                tool: "list_mcp_resources".to_string(),
+                tool: "list_resources".to_string(),
                 arguments: Some(serde_json::json!({"server": ""})),
             },
             duration: Duration::from_nanos(92708),
@@ -2432,7 +2432,7 @@ mod tests {
             call_id: "call_err".to_string(),
             invocation: McpInvocation {
                 server: "opencli".to_string(),
-                tool: "list_mcp_resources".to_string(),
+                tool: "list_resources".to_string(),
                 arguments: None,
             },
             duration: Duration::from_millis(1),

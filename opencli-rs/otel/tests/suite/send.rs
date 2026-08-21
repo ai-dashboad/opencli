@@ -14,7 +14,7 @@ fn send_builds_payload_with_tags_and_histograms() -> Result<()> {
         build_metrics_with_defaults(&[("service", "opencli-cli"), ("env", "prod")])?;
 
     metrics.counter("opencli.turns", 1, &[("model", "gpt-5.1"), ("env", "dev")])?;
-    metrics.histogram("opencli.tool_latency", 25, &[("tool", "shell")])?;
+    metrics.histogram("opencli.tool_latency", 25, &[("tool", "run")])?;
     metrics.shutdown()?;
 
     let resource_metrics = latest_metrics(&exporter);
@@ -66,7 +66,7 @@ fn send_builds_payload_with_tags_and_histograms() -> Result<()> {
     let expected_histogram_attributes = BTreeMap::from([
         ("service".to_string(), "opencli-cli".to_string()),
         ("env".to_string(), "prod".to_string()),
-        ("tool".to_string(), "shell".to_string()),
+        ("tool".to_string(), "run".to_string()),
     ]);
     assert_eq!(histogram_attrs, expected_histogram_attributes);
 

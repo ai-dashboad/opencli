@@ -29,7 +29,7 @@ fn snapshot_collects_metrics_without_shutdown() -> Result<()> {
     metrics.counter(
         "opencli.tool.call",
         1,
-        &[("tool", "shell"), ("success", "true")],
+        &[("tool", "run"), ("success", "true")],
     )?;
 
     let snapshot = metrics.snapshot()?;
@@ -50,7 +50,7 @@ fn snapshot_collects_metrics_without_shutdown() -> Result<()> {
     let expected = BTreeMap::from([
         ("service".to_string(), "opencli-cli".to_string()),
         ("success".to_string(), "true".to_string()),
-        ("tool".to_string(), "shell".to_string()),
+        ("tool".to_string(), "run".to_string()),
     ]);
     assert_eq!(attrs, expected);
 
@@ -85,7 +85,7 @@ fn manager_snapshot_metrics_collects_without_shutdown() -> Result<()> {
     manager.counter(
         "opencli.tool.call",
         1,
-        &[("tool", "shell"), ("success", "true")],
+        &[("tool", "run"), ("success", "true")],
     );
 
     let snapshot = manager.snapshot_metrics()?;
@@ -112,7 +112,7 @@ fn manager_snapshot_metrics_collects_without_shutdown() -> Result<()> {
         ("service".to_string(), "opencli-cli".to_string()),
         ("session_source".to_string(), "cli".to_string()),
         ("success".to_string(), "true".to_string()),
-        ("tool".to_string(), "shell".to_string()),
+        ("tool".to_string(), "run".to_string()),
     ]);
     assert_eq!(attrs, expected);
 

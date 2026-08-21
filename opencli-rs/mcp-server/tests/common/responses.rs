@@ -22,7 +22,7 @@ pub fn create_shell_command_sse_response(
                         {
                             "id": call_id,
                             "function": {
-                                "name": "shell_command",
+                                "name": "run_command",
                                 "arguments": tool_call_arguments
                             }
                         }
@@ -77,7 +77,7 @@ pub fn create_apply_patch_sse_response(
                         {
                             "id": call_id,
                             "function": {
-                                "name": "shell_command",
+                                "name": "run_command",
                                 "arguments": tool_call_arguments
                             }
                         }

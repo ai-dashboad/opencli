@@ -158,9 +158,9 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             slug,
             base_instructions: GPT_5_OPENCLI_INSTRUCTIONS.to_string(),
             experimental_supported_tools: vec![
-                "grep_files".to_string(),
-                "list_dir".to_string(),
-                "read_file".to_string(),
+                "search_text".to_string(),
+                "browse_dir".to_string(),
+                "open_file".to_string(),
                 "test_sync_tool".to_string(),
             ],
             supports_parallel_tool_calls: true,

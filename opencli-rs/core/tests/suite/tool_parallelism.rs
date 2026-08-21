@@ -163,8 +163,8 @@ async fn non_parallel_tools_run_serially() -> anyhow::Result<()> {
 
     let first_response = sse(vec![
         json!({"type": "response.created", "response": {"id": "resp-1"}}),
-        ev_function_call("call-1", "shell_command", &args_one),
-        ev_function_call("call-2", "shell_command", &args_two),
+        ev_function_call("call-1", "run_command", &args_one),
+        ev_function_call("call-2", "run_command", &args_two),
         ev_completed("resp-1"),
     ]);
     let second_response = sse(vec![
@@ -198,7 +198,7 @@ async fn mixed_tools_fall_back_to_serial() -> anyhow::Result<()> {
     let first_response = sse(vec![
         json!({"type": "response.created", "response": {"id": "resp-1"}}),
         ev_function_call("call-1", "test_sync_tool", &sync_args),
-        ev_function_call("call-2", "shell_command", &shell_args),
+        ev_function_call("call-2", "run_command", &shell_args),
         ev_completed("resp-1"),
     ]);
     let second_response = sse(vec![
@@ -229,9 +229,9 @@ async fn tool_results_grouped() -> anyhow::Result<()> {
         &server,
         sse(vec![
             json!({"type": "response.created", "response": {"id": "resp-1"}}),
-            ev_function_call("call-1", "shell_command", &shell_args),
-            ev_function_call("call-2", "shell_command", &shell_args),
-            ev_function_call("call-3", "shell_command", &shell_args),
+            ev_function_call("call-1", "run_command", &shell_args),
+            ev_function_call("call-2", "run_command", &shell_args),
+            ev_function_call("call-3", "run_command", &shell_args),
             ev_completed("resp-1"),
         ]),
     )

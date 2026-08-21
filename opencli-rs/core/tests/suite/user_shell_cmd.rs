@@ -292,7 +292,7 @@ async fn user_shell_command_is_truncated_only_once() -> anyhow::Result<()> {
         &server,
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(call_id, "shell_command", &serde_json::to_string(&args)?),
+            ev_function_call(call_id, "run_command", &serde_json::to_string(&args)?),
             ev_completed("resp-1"),
         ]),
     )
