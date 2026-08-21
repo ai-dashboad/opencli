@@ -514,7 +514,7 @@ impl HistoryCell for UnifiedExecInteractionCell {
         }
         let wrap_width = width as usize;
 
-        let mut header_spans = vec!["↳ ".dim(), "Interacted with background terminal".bold()];
+        let mut header_spans = vec!["↳ ".dim(), "Interacted with background task".bold()];
         if let Some(command) = &self.command_display
             && !command.is_empty()
         {
@@ -588,7 +588,7 @@ impl HistoryCell for UnifiedExecProcessesCell {
         out.push("".into());
 
         if self.processes.is_empty() {
-            out.push("  • No background terminals running.".italic().into());
+            out.push("  • No background tasks running.".italic().into());
             return out;
         }
 
@@ -2163,7 +2163,7 @@ mod tests {
         assert_eq!(
             lines,
             vec![
-                "↳ Interacted with background terminal · echo hello",
+                "↳ Interacted with background task · echo hello",
                 "  └ ls",
                 "    pwd",
             ],
@@ -2176,7 +2176,7 @@ mod tests {
         let lines = render_transcript(&cell);
         assert_eq!(
             lines,
-            vec!["↳ Interacted with background terminal", "  └ (waited)"],
+            vec!["↳ Interacted with background task", "  └ (waited)"],
         );
     }
 
@@ -2914,7 +2914,7 @@ mod tests {
             },
             true,
         );
-        // Mark call complete so it renders as "Ran"
+        // Mark call complete so it renders as "Executed"
         cell.complete_call(&call_id, CommandOutput::default(), Duration::from_millis(1));
 
         // Small width to force wrapping on both lines
@@ -3065,7 +3065,7 @@ mod tests {
 
     #[test]
     fn ran_cell_multiline_with_stderr_snapshot() {
-        // Build an exec cell that completes (so it renders as "Ran") with a
+        // Build an exec cell that completes (so it renders as "Executed") with a
         // command long enough that it must render on its own line under the
         // header, and include a couple of stderr lines to verify the output
         // block prefixes and wrapping.

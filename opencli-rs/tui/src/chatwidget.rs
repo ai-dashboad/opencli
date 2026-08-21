@@ -747,7 +747,7 @@ impl ChatWidget {
         if let Some(header) = extract_first_bold(&self.reasoning_buffer) {
             self.set_status_header(header);
         } else if self.bottom_pane.is_task_running() {
-            self.set_status_header(String::from("Working"));
+            self.set_status_header(String::from("Processing"));
         }
     }
 
@@ -1024,7 +1024,7 @@ impl ChatWidget {
         self.update_task_running_state();
         self.retry_status_header = None;
         self.bottom_pane.set_interrupt_hint_visible(true);
-        self.set_status_header(String::from("Working"));
+        self.set_status_header(String::from("Processing"));
         self.full_reasoning_buffer.clear();
         self.reasoning_buffer.clear();
         self.request_redraw();
@@ -1551,9 +1551,9 @@ impl ChatWidget {
             self.bottom_pane.ensure_status_indicator();
             self.bottom_pane.set_interrupt_hint_visible(true);
             let header = if let Some(command) = &command_display {
-                format!("Waiting for background terminal · {command}")
+                format!("Waiting for background task · {command}")
             } else {
-                "Waiting for background terminal".to_string()
+                "Waiting for background task".to_string()
             };
             self.set_status_header(header);
             match &mut self.unified_exec_wait_streak {
@@ -2272,7 +2272,7 @@ impl ChatWidget {
             interrupts: InterruptManager::new(),
             reasoning_buffer: String::new(),
             full_reasoning_buffer: String::new(),
-            current_status_header: String::from("Working"),
+            current_status_header: String::from("Processing"),
             retry_status_header: None,
             thread_id: None,
             thread_name: None,
@@ -2417,7 +2417,7 @@ impl ChatWidget {
             interrupts: InterruptManager::new(),
             reasoning_buffer: String::new(),
             full_reasoning_buffer: String::new(),
-            current_status_header: String::from("Working"),
+            current_status_header: String::from("Processing"),
             retry_status_header: None,
             thread_id: None,
             thread_name: None,
@@ -2551,7 +2551,7 @@ impl ChatWidget {
             interrupts: InterruptManager::new(),
             reasoning_buffer: String::new(),
             full_reasoning_buffer: String::new(),
-            current_status_header: String::from("Working"),
+            current_status_header: String::from("Processing"),
             retry_status_header: None,
             thread_id: None,
             thread_name: None,
@@ -2709,7 +2709,7 @@ impl ChatWidget {
                         // Reset any reasoning header only when we are actually submitting a turn.
                         self.reasoning_buffer.clear();
                         self.full_reasoning_buffer.clear();
-                        self.set_status_header(String::from("Working"));
+                        self.set_status_header(String::from("Processing"));
                         self.submit_user_message(user_message);
                     } else {
                         self.queue_user_message(user_message);

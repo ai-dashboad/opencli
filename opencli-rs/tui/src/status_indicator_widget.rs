@@ -31,7 +31,7 @@ const DETAILS_MAX_LINES: usize = 3;
 const DETAILS_PREFIX: &str = "  └ ";
 
 pub(crate) struct StatusIndicatorWidget {
-    /// Animated header text (defaults to "Working").
+    /// Animated header text (defaults to "Processing").
     header: String,
     details: Option<String>,
     show_interrupt_hint: bool,
@@ -68,7 +68,7 @@ impl StatusIndicatorWidget {
         animations_enabled: bool,
     ) -> Self {
         Self {
-            header: String::from("Working"),
+            header: String::from("Processing"),
             details: None,
             show_interrupt_hint: true,
             elapsed_running: Duration::ZERO,

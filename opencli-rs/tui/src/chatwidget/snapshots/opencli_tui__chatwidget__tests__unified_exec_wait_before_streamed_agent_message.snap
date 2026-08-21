@@ -2,7 +2,7 @@
 source: tui/src/chatwidget/tests.rs
 expression: combined
 ---
-↳ Interacted with background terminal · cargo test -p opencli-core
+↳ Interacted with background task · cargo test -p opencli-core
   └ (waited)
 
 • Streaming response.

@@ -454,7 +454,7 @@ impl BottomPane {
         self.request_redraw();
     }
 
-    /// Update the status indicator header (defaults to "Working") and details below it.
+    /// Update the status indicator header (defaults to "Processing") and details below it.
     ///
     /// Passing `None` clears any existing details. No-ops if the status indicator is not active.
     pub(crate) fn update_status(&mut self, header: String, details: Option<String>) {
@@ -922,7 +922,7 @@ mod tests {
             r0.push(buf[(x, 0)].symbol().chars().next().unwrap_or(' '));
         }
         assert!(
-            !r0.contains("Working"),
+            !r0.contains("Processing"),
             "overlay should not render above modal"
         );
     }
@@ -973,8 +973,8 @@ mod tests {
             row0.push(buf[(x, 0)].symbol().chars().next().unwrap_or(' '));
         }
         assert!(
-            row0.contains("Working"),
-            "expected Working header after denial on row 0: {row0:?}"
+            row0.contains("Processing"),
+            "expected Processing header after denial on row 0: {row0:?}"
         );
 
         // Composer placeholder should be visible somewhere below.
@@ -1019,7 +1019,7 @@ mod tests {
         pane.render(area, &mut buf);
 
         let bufs = snapshot_buffer(&buf);
-        assert!(bufs.contains("• Working"), "expected Working header");
+        assert!(bufs.contains("• Processing"), "expected Processing header");
     }
 
     #[test]
@@ -1093,7 +1093,7 @@ mod tests {
 
         pane.set_task_running(true);
         pane.update_status(
-            "Working".to_string(),
+            "Processing".to_string(),
             Some("First detail line\nSecond detail line".to_string()),
         );
         pane.set_queued_user_messages(vec!["Queued follow-up question".to_string()]);

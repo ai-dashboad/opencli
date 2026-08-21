@@ -2,10 +2,10 @@
 source: tui/src/history_cell.rs
 expression: rendered
 ---
-• Ran echo
-  │ this_is_a_very_long_si
-  │ ngle_token_that_will_w
-  │ … +2 lines
+• Executed echo
+  │ this_is_a_very_lo
+  │ ng_single_token_t
+  │ … +3 lines
   └ error: first line on
     stderr
     error: second line on

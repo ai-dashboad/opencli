@@ -1,7 +1,7 @@
 ---
 source: tui/src/chatwidget/tests.rs
-expression: blob3
+expression: active_blob(&chat)
 ---
-• Exploring
-  └ List ls -la
-    Read foo.txt
+• Inspecting
+  └ Listed ls -la
+    Viewed foo.txt

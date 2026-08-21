@@ -63,7 +63,7 @@ impl SlashCommand {
             SlashCommand::Mention => "mention a file",
             SlashCommand::Skills => "use skills to improve how OpenCLI performs specific tasks",
             SlashCommand::Status => "show current session configuration and token usage",
-            SlashCommand::Ps => "list background terminals",
+            SlashCommand::Ps => "list background tasks",
             SlashCommand::Model => "choose what model and reasoning effort to use",
             SlashCommand::Personality => "choose a communication style for OpenCLI",
             SlashCommand::Plan => "switch to Plan mode",

@@ -262,9 +262,9 @@ impl ExecCell {
             },
             " ".into(),
             if self.is_active() {
-                "Exploring".bold()
+                "Inspecting".bold()
             } else {
-                "Explored".bold()
+                "Inspected".bold()
             },
         ]));
 
@@ -306,7 +306,7 @@ impl ExecCell {
                     })
                     .unique();
                 vec![(
-                    "Read",
+                    "Viewed",
                     Itertools::intersperse(names.into_iter().map(Into::into), ", ".dim()).collect(),
                 )]
             } else {
@@ -314,10 +314,10 @@ impl ExecCell {
                 for parsed in &call.parsed {
                     match parsed {
                         ParsedCommand::Read { name, .. } => {
-                            lines.push(("Read", vec![name.clone().into()]));
+                            lines.push(("Viewed", vec![name.clone().into()]));
                         }
                         ParsedCommand::ListFiles { cmd, path } => {
-                            lines.push(("List", vec![path.clone().unwrap_or(cmd.clone()).into()]));
+                            lines.push(("Listed", vec![path.clone().unwrap_or(cmd.clone()).into()]));
                         }
                         ParsedCommand::Search { cmd, query, path } => {
                             let spans = match (query, path) {
@@ -327,10 +327,10 @@ impl ExecCell {
                                 (Some(q), None) => vec![q.clone().into()],
                                 _ => vec![cmd.clone().into()],
                             };
-                            lines.push(("Search", spans));
+                            lines.push(("Searched", spans));
                         }
                         ParsedCommand::Unknown { cmd } => {
-                            lines.push(("Run", vec![cmd.clone().into()]));
+                            lines.push(("Command", vec![cmd.clone().into()]));
                         }
                     }
                 }
@@ -370,11 +370,11 @@ impl ExecCell {
         let title = if is_interaction {
             ""
         } else if self.is_active() {
-            "Running"
+            "Executing"
         } else if call.is_user_shell_command() {
-            "You ran"
+            "You executed"
         } else {
-            "Ran"
+            "Executed"
         };
 
         let mut header_line = if is_interaction {

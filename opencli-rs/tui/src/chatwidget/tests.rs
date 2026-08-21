@@ -824,7 +824,7 @@ async fn make_chatwidget_manual(
         interrupts: InterruptManager::new(),
         reasoning_buffer: String::new(),
         full_reasoning_buffer: String::new(),
-        current_status_header: String::from("Working"),
+        current_status_header: String::from("Processing"),
         retry_status_header: None,
         thread_id: None,
         thread_name: None,
@@ -1810,7 +1810,7 @@ async fn exec_history_cell_shows_working_then_completed() {
     let blob = lines_to_single_string(lines);
     // New behavior: no glyph markers; ensure command is shown and no panic.
     assert!(
-        blob.contains("• Ran"),
+        blob.contains("• Executed"),
         "expected summary header present: {blob:?}"
     );
     assert!(
@@ -1837,7 +1837,7 @@ async fn exec_history_cell_shows_working_then_failed() {
     let lines = &cells[0];
     let blob = lines_to_single_string(lines);
     assert!(
-        blob.contains("• Ran false"),
+        blob.contains("• Executed false"),
         "expected command and header text present: {blob:?}"
     );
     assert!(blob.to_lowercase().contains("bloop"), "expected error text");
@@ -1877,7 +1877,7 @@ async fn exec_end_without_begin_uses_event_command() {
     assert_eq!(cells.len(), 1, "expected finalized exec cell to flush");
     let blob = lines_to_single_string(&cells[0]);
     assert!(
-        blob.contains("• Ran echo orphaned"),
+        blob.contains("• Executed echo orphaned"),
         "expected command text to come from event: {blob:?}"
     );
     assert!(
@@ -1908,7 +1908,7 @@ async fn exec_history_shows_unified_exec_startup_commands() {
     assert_eq!(cells.len(), 1, "expected finalized exec cell to flush");
     let blob = lines_to_single_string(&cells[0]);
     assert!(
-        blob.contains("• Ran echo unified exec startup"),
+        blob.contains("• Executed echo unified exec startup"),
         "expected startup command to render: {blob:?}"
     );
 }
@@ -1927,7 +1927,7 @@ async fn exec_history_shows_unified_exec_tool_calls() {
     end_exec(&mut chat, begin, "", "", 0);
 
     let blob = active_blob(&chat);
-    assert_eq!(blob, "• Explored\n  └ List ls\n");
+    assert_eq!(blob, "• Inspected\n  └ Listed ls\n");
 }
 
 #[tokio::test]
@@ -2070,7 +2070,7 @@ async fn unified_exec_wait_status_header_updates_on_late_command_display() {
     assert!(chat.active_cell.is_none());
     assert_eq!(
         chat.current_status_header,
-        "Waiting for background terminal · sleep 5"
+        "Waiting for background task · sleep 5"
     );
 }
 
@@ -2084,7 +2084,7 @@ async fn unified_exec_waiting_multiple_empty_snapshots() {
     terminal_interaction(&mut chat, "call-wait-1b", "proc-1", "");
     assert_eq!(
         chat.current_status_header,
-        "Waiting for background terminal · just fix"
+        "Waiting for background task · just fix"
     );
 
     chat.handle_opencli_event(Event {
@@ -2129,7 +2129,7 @@ async fn unified_exec_non_empty_then_empty_snapshots() {
     terminal_interaction(&mut chat, "call-wait-3b", "proc-3", "");
     assert_eq!(
         chat.current_status_header,
-        "Waiting for background terminal · just fix"
+        "Waiting for background task · just fix"
     );
     let pre_cells = drain_insert_history(&mut rx);
     let active_combined = pre_cells
@@ -4613,7 +4613,7 @@ async fn stream_recovery_restores_previous_status_header() {
         .bottom_pane
         .status_widget()
         .expect("status indicator should be visible");
-    assert_eq!(status.header(), "Working");
+    assert_eq!(status.header(), "Processing");
     assert_eq!(status.details(), None);
     assert!(chat.retry_status_header.is_none());
 }
