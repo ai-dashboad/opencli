@@ -127,6 +127,26 @@ use tokio::task::JoinHandle;
 use tracing::debug;
 
 const DEFAULT_MODEL_DISPLAY_NAME: &str = "loading";
+
+/// Parse a `/loop` interval like `30s`, `5m`, `2h`. A bare number is minutes.
+fn parse_loop_interval(raw: &str) -> Result<std::time::Duration, String> {
+    let raw = raw.trim();
+    let (number, unit_seconds) = match raw.chars().last() {
+        Some('s') => (&raw[..raw.len() - 1], 1u64),
+        Some('m') => (&raw[..raw.len() - 1], 60),
+        Some('h') => (&raw[..raw.len() - 1], 3600),
+        Some(c) if c.is_ascii_digit() => (raw, 60),
+        _ => return Err(format!("invalid interval `{raw}`: use forms like 30s, 5m, 1h")),
+    };
+    let value: u64 = number
+        .trim()
+        .parse()
+        .map_err(|_| format!("invalid interval number in `{raw}`"))?;
+    if value == 0 {
+        return Err("interval must be greater than zero".to_string());
+    }
+    Ok(std::time::Duration::from_secs(value * unit_seconds))
+}
 const PLAN_IMPLEMENTATION_TITLE: &str = "Implement this plan?";
 const PLAN_IMPLEMENTATION_YES: &str = "Yes, implement this plan";
 const PLAN_IMPLEMENTATION_NO: &str = "No, stay in Plan mode";
@@ -484,6 +504,8 @@ pub(crate) struct ChatWidget {
     rate_limit_warnings: RateLimitWarningState,
     rate_limit_switch_prompt: RateLimitSwitchPromptState,
     rate_limit_poller: Option<JoinHandle<()>>,
+    /// Handle for an active `/loop` schedule, if any. Aborting it stops the loop.
+    loop_handle: Option<JoinHandle<()>>,
     // Stream lifecycle controller
     stream_controller: Option<StreamController>,
     // Stream lifecycle controller for proposed plan output.
@@ -2258,6 +2280,7 @@ impl ChatWidget {
             rate_limit_warnings: RateLimitWarningState::default(),
             rate_limit_switch_prompt: RateLimitSwitchPromptState::default(),
             rate_limit_poller: None,
+            loop_handle: None,
             stream_controller: None,
             plan_stream_controller: None,
             running_commands: HashMap::new(),
@@ -2403,6 +2426,7 @@ impl ChatWidget {
             rate_limit_warnings: RateLimitWarningState::default(),
             rate_limit_switch_prompt: RateLimitSwitchPromptState::default(),
             rate_limit_poller: None,
+            loop_handle: None,
             stream_controller: None,
             plan_stream_controller: None,
             running_commands: HashMap::new(),
@@ -2537,6 +2561,7 @@ impl ChatWidget {
             rate_limit_warnings: RateLimitWarningState::default(),
             rate_limit_switch_prompt: RateLimitSwitchPromptState::default(),
             rate_limit_poller: None,
+            loop_handle: None,
             stream_controller: None,
             plan_stream_controller: None,
             running_commands: HashMap::new(),
@@ -2825,6 +2850,9 @@ impl ChatWidget {
                 self.clear_token_usage();
                 self.app_event_tx.send(AppEvent::OpenCLIOp(Op::Compact));
             }
+            SlashCommand::Loop => {
+                self.handle_loop_command("");
+            }
             SlashCommand::Review => {
                 self.open_review_popup();
             }
@@ -3046,6 +3074,9 @@ impl ChatWidget {
             SlashCommand::Collab | SlashCommand::Plan => {
                 let _ = trimmed;
                 self.dispatch_command(cmd);
+            }
+            SlashCommand::Loop => {
+                self.handle_loop_command(trimmed);
             }
             SlashCommand::Review if !trimmed.is_empty() => {
                 self.submit_op(Op::Review {
@@ -3673,6 +3704,84 @@ impl ChatWidget {
         if let Some(handle) = self.rate_limit_poller.take() {
             handle.abort();
         }
+    }
+
+    /// Start a `/loop`: resubmit `prompt` every `interval`. Replaces any
+    /// existing schedule. The first run fires immediately.
+    fn start_loop(&mut self, interval: std::time::Duration, prompt: String) {
+        self.stop_loop();
+        let app_event_tx = self.app_event_tx.clone();
+        let text = prompt.clone();
+        let handle = tokio::spawn(async move {
+            loop {
+                app_event_tx.send(AppEvent::LoopTick { text: text.clone() });
+                tokio::time::sleep(interval).await;
+            }
+        });
+        self.loop_handle = Some(handle);
+        self.add_info_message(
+            format!(
+                "Looping every {}s: {prompt}. Run /loop stop to cancel.",
+                interval.as_secs()
+            ),
+            None,
+        );
+    }
+
+    /// Cancel an active `/loop`, if any. Returns true when one was running.
+    fn stop_loop(&mut self) -> bool {
+        if let Some(handle) = self.loop_handle.take() {
+            handle.abort();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Handle `/loop ...`: `stop` cancels, otherwise the first token is the
+    /// interval and the rest is the prompt to repeat.
+    fn handle_loop_command(&mut self, args: &str) {
+        let args = args.trim();
+        if args.is_empty() {
+            self.add_info_message(
+                "Usage: /loop <interval> <prompt> (e.g. /loop 5m check the build). /loop stop cancels."
+                    .to_string(),
+                None,
+            );
+            return;
+        }
+        if args.eq_ignore_ascii_case("stop") {
+            if self.stop_loop() {
+                self.add_info_message("Loop stopped.".to_string(), None);
+            } else {
+                self.add_info_message("No loop is running.".to_string(), None);
+            }
+            return;
+        }
+        let Some((interval_token, prompt)) = args.split_once(char::is_whitespace) else {
+            self.add_error_message(
+                "Provide an interval and a prompt, e.g. /loop 5m check the build".to_string(),
+            );
+            return;
+        };
+        let prompt = prompt.trim();
+        if prompt.is_empty() {
+            self.add_error_message("The loop prompt must not be empty.".to_string());
+            return;
+        }
+        match parse_loop_interval(interval_token) {
+            Ok(interval) => self.start_loop(interval, prompt.to_string()),
+            Err(err) => self.add_error_message(err),
+        }
+    }
+
+    /// A loop timer fired: resubmit the prompt, but skip the tick if a task is
+    /// already running so runs never pile up.
+    pub(crate) fn on_loop_tick(&mut self, text: String) {
+        if self.bottom_pane.is_task_running() {
+            return;
+        }
+        self.submit_user_message(text.into());
     }
 
     fn prefetch_connectors(&mut self) {

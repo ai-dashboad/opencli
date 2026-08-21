@@ -27,6 +27,7 @@ pub enum SlashCommand {
     Init,
     Compact,
     Plan,
+    Loop,
     Collab,
     Agent,
     // Undo,
@@ -67,6 +68,7 @@ impl SlashCommand {
             SlashCommand::Model => "choose what model and reasoning effort to use",
             SlashCommand::Personality => "choose a communication style for OpenCLI",
             SlashCommand::Plan => "switch to Plan mode",
+            SlashCommand::Loop => "repeat a prompt on an interval (e.g. /loop 5m check the build; /loop stop)",
             SlashCommand::Collab => "change collaboration mode (experimental)",
             SlashCommand::Agent => "switch the active agent thread",
             SlashCommand::Approvals => "choose what OpenCLI can do without approval",
@@ -120,6 +122,8 @@ impl SlashCommand {
             SlashCommand::Plan => true,
             SlashCommand::Collab => true,
             SlashCommand::Agent => true,
+            // Allow while a task runs so `/loop stop` can interrupt a schedule.
+            SlashCommand::Loop => true,
         }
     }
 

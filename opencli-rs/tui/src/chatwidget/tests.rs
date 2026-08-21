@@ -808,6 +808,7 @@ async fn make_chatwidget_manual(
         rate_limit_warnings: RateLimitWarningState::default(),
         rate_limit_switch_prompt: RateLimitSwitchPromptState::default(),
         rate_limit_poller: None,
+        loop_handle: None,
         stream_controller: None,
         plan_stream_controller: None,
         running_commands: HashMap::new(),
