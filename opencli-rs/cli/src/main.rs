@@ -32,10 +32,12 @@ use std::path::PathBuf;
 use supports_color::Stream;
 
 mod mcp_cmd;
+mod parallel;
 #[cfg(not(windows))]
 mod wsl_paths;
 
 use crate::mcp_cmd::McpCli;
+use crate::parallel::ParallelArgs;
 
 use opencli_core::config::Config;
 use opencli_core::config::ConfigOverrides;
@@ -82,6 +84,10 @@ enum Subcommand {
 
     /// Run a code review non-interactively.
     Review(ReviewArgs),
+
+    /// Run several agent tasks in parallel, each on its own branch in its own
+    /// git worktree, then report for review and optional merge.
+    Parallel(ParallelArgs),
 
     /// Manage login.
     Login(LoginCommand),
@@ -510,6 +516,9 @@ async fn cli_main(opencli_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<
                 root_config_overrides.clone(),
             );
             opencli_exec::run_main(exec_cli, opencli_linux_sandbox_exe).await?;
+        }
+        Some(Subcommand::Parallel(parallel_args)) => {
+            parallel::run_main(parallel_args).await?;
         }
         Some(Subcommand::Review(review_args)) => {
             let mut exec_cli = ExecCli::try_parse_from(["opencli", "exec"])?;
