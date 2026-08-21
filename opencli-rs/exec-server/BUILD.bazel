@@ -1,0 +1,11 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "exec-server",
+    crate_name = "opencli_exec_server",
+    integration_deps_extra = ["//opencli-rs/exec-server/tests/common:common"],
+    test_tags = ["no-sandbox"],
+    extra_binaries = [
+        "//opencli-rs/cli:opencli",
+    ],
+)

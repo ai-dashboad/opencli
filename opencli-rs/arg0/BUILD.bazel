@@ -1,0 +1,6 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "arg0",
+    crate_name = "opencli_arg0",
+)

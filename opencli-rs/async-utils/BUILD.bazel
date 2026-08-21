@@ -1,0 +1,6 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "async-utils",
+    crate_name = "opencli_async_utils",
+)

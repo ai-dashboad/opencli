@@ -1,0 +1,10 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "cloud-tasks-client",
+    crate_name = "opencli_cloud_tasks_client",
+    crate_features = [
+        "mock",
+        "online",
+    ],
+)

@@ -1,0 +1,15 @@
+---
+source: tui/src/model_migration.rs
+expression: terminal.backend()
+---
+
+> OpenCLI just got an upgrade. Introducing gpt-5.1-opencli-mini.
+
+  We recommend switching from gpt-5-opencli-mini to
+  gpt-5.1-opencli-mini.
+
+  Optimized for opencli. Cheaper, faster, but less capable.
+  Learn more about gpt-5.1-opencli-mini at
+  https://www.opencli.com/models/gpt-5.1-opencli-mini
+
+  Press enter to continue

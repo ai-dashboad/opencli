@@ -1,0 +1,10 @@
+load("//:defs.bzl", "opencli_rust_crate", "multiplatform_binaries")
+
+opencli_rust_crate(
+    name = "cli",
+    crate_name = "opencli_cli",
+)
+
+multiplatform_binaries(
+    name = "opencli",
+)

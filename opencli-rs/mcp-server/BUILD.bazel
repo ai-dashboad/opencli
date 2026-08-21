@@ -1,0 +1,7 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "mcp-server",
+    crate_name = "opencli_mcp_server",
+    integration_deps_extra = ["//opencli-rs/mcp-server/tests/common:common"],
+)

@@ -65,8 +65,8 @@ bazel_dep(name = "rules_rs", version = "0.0.23")
 
 crate = use_extension("@rules_rs//rs:extensions.bzl", "crate")
 crate.from_cargo(
-    cargo_lock = "//codex-rs:Cargo.lock",
-    cargo_toml = "//codex-rs:Cargo.toml",
+    cargo_lock = "//opencli-rs:Cargo.lock",
+    cargo_toml = "//opencli-rs:Cargo.toml",
     platform_triples = RUST_TRIPLES,
 )
 crate.annotation(

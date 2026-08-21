@@ -1,0 +1,8 @@
+[package]
+name = "opencli-utils-string"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true

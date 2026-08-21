@@ -1,0 +1,20 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "tui",
+    crate_name = "opencli_tui",
+    compile_data = glob(
+        include = ["**"],
+        exclude = [
+            "**/* *",
+            "BUILD.bazel",
+            "Cargo.toml",
+        ],
+        allow_empty = True,
+    ),
+    test_data_extra = glob(["src/**/snapshots/**"]),
+    integration_compile_data_extra = ["src/test_backend.rs"],
+    extra_binaries = [
+        "//opencli-rs/cli:opencli",
+    ],
+)

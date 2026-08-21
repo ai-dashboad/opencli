@@ -1,4 +1,4 @@
-// Launches the codex-exec-mcp-server binary bundled in this package.
+// Launches the opencli-exec-mcp-server binary bundled in this package.
 
 import { spawn } from "node:child_process";
 import { accessSync, constants } from "node:fs";
@@ -12,8 +12,8 @@ async function main(): Promise<void> {
   const targetTriple = resolveTargetTriple(process.platform, process.arch);
   const vendorRoot = path.resolve(__dirname, "..", "vendor");
   const targetRoot = path.join(vendorRoot, targetTriple);
-  const execveWrapperPath = path.join(targetRoot, "codex-execve-wrapper");
-  const serverPath = path.join(targetRoot, "codex-exec-mcp-server");
+  const execveWrapperPath = path.join(targetRoot, "opencli-execve-wrapper");
+  const serverPath = path.join(targetRoot, "opencli-exec-mcp-server");
 
   const osInfo = process.platform === "linux" ? readOsRelease() : null;
   const { path: bashPath } = resolveBashPath(

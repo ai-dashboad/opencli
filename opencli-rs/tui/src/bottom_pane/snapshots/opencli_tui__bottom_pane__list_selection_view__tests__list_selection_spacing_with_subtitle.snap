@@ -1,0 +1,12 @@
+---
+source: tui/src/bottom_pane/list_selection_view.rs
+expression: render_lines(&view)
+---
+                                                
+  Select Approval Mode                          
+  Switch between OpenCLI approval presets         
+                                                
+› 1. Read Only (current)  OpenCLI can read files  
+  2. Full Access          OpenCLI can edit files  
+                                                
+  Press enter to confirm or esc to go back

@@ -74,7 +74,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: codex-rs
+        working-directory: opencli-rs
     strategy:
       fail-fast: false
       matrix:
@@ -172,14 +172,14 @@ jobs:
           echo "CXXFLAGS=${cxxflags}" >> "$GITHUB_ENV"
 
       - name: Build exec server binaries
-        run: cargo build --release --target ${{ matrix.target }} --bin codex-exec-mcp-server --bin codex-execve-wrapper
+        run: cargo build --release --target ${{ matrix.target }} --bin opencli-exec-mcp-server --bin opencli-execve-wrapper
 
       - name: Stage exec server binaries
         run: |
           dest="${GITHUB_WORKSPACE}/artifacts/vendor/${{ matrix.target }}"
           mkdir -p "$dest"
-          cp "target/${{ matrix.target }}/release/codex-exec-mcp-server" "$dest/"
-          cp "target/${{ matrix.target }}/release/codex-execve-wrapper" "$dest/"
+          cp "target/${{ matrix.target }}/release/opencli-exec-mcp-server" "$dest/"
+          cp "target/${{ matrix.target }}/release/opencli-execve-wrapper" "$dest/"
 
       - uses: actions/upload-artifact@v6
         with:
@@ -355,7 +355,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build (shell-tool-mcp)
-        run: pnpm --filter @openai/codex-shell-tool-mcp run build
+        run: pnpm --filter @openai/opencli-shell-tool-mcp run build
 
       - name: Download build artifacts
         uses: actions/download-artifact@v7
@@ -405,8 +405,8 @@ jobs:
           set -euo pipefail
           staging="${{ steps.staging.outputs.dir }}"
           chmod +x \
-            "$staging"/vendor/*/codex-exec-mcp-server \
-            "$staging"/vendor/*/codex-execve-wrapper \
+            "$staging"/vendor/*/opencli-exec-mcp-server \
+            "$staging"/vendor/*/opencli-execve-wrapper \
             "$staging"/vendor/*/bash/*/bash
 
       - name: Create npm tarball
@@ -417,12 +417,12 @@ jobs:
           staging="${{ steps.staging.outputs.dir }}"
           pack_info=$(cd "$staging" && npm pack --ignore-scripts --json --pack-destination "${GITHUB_WORKSPACE}/dist/npm")
           filename=$(PACK_INFO="$pack_info" node -e 'const data = JSON.parse(process.env.PACK_INFO); console.log(data[0].filename);')
-          mv "dist/npm/${filename}" "dist/npm/codex-shell-tool-mcp-npm-${PACKAGE_VERSION}.tgz"
+          mv "dist/npm/${filename}" "dist/npm/opencli-shell-tool-mcp-npm-${PACKAGE_VERSION}.tgz"
 
       - uses: actions/upload-artifact@v6
         with:
-          name: codex-shell-tool-mcp-npm
-          path: dist/npm/codex-shell-tool-mcp-npm-${{ env.PACKAGE_VERSION }}.tgz
+          name: opencli-shell-tool-mcp-npm
+          path: dist/npm/opencli-shell-tool-mcp-npm-${{ env.PACKAGE_VERSION }}.tgz
           if-no-files-found: error
 
   publish:
@@ -450,7 +450,7 @@ jobs:
       - name: Download npm tarball
         uses: actions/download-artifact@v7
         with:
-          name: codex-shell-tool-mcp-npm
+          name: opencli-shell-tool-mcp-npm
           path: dist/npm
 
       - name: Publish to npm
@@ -464,4 +464,4 @@ jobs:
           if [[ -n "${NPM_TAG}" ]]; then
             tag_args+=(--tag "${NPM_TAG}")
           fi
-          npm publish "dist/npm/codex-shell-tool-mcp-npm-${VERSION}.tgz" "${tag_args[@]}"
+          npm publish "dist/npm/opencli-shell-tool-mcp-npm-${VERSION}.tgz" "${tag_args[@]}"

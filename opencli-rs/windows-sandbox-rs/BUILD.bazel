@@ -1,0 +1,11 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "windows-sandbox-rs",
+    crate_name = "opencli_windows_sandbox",
+    build_script_data = [
+        "Cargo.toml",
+        "opencli-windows-sandbox-setup.manifest",
+    ],
+    crate_edition = "2021",
+)

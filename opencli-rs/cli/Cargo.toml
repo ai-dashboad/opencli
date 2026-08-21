@@ -1,0 +1,62 @@
+[package]
+name = "opencli-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "opencli"
+path = "src/main.rs"
+
+[lib]
+name = "opencli_cli"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+clap_complete = { workspace = true }
+opencli-app-server = { workspace = true }
+opencli-app-server-protocol = { workspace = true }
+opencli-arg0 = { workspace = true }
+opencli-chatgpt = { workspace = true }
+opencli-cloud-tasks = { path = "../cloud-tasks" }
+opencli-common = { workspace = true, features = ["cli"] }
+opencli-core = { workspace = true }
+opencli-exec = { workspace = true }
+opencli-execpolicy = { workspace = true }
+opencli-login = { workspace = true }
+opencli-mcp-server = { workspace = true }
+opencli-protocol = { workspace = true }
+opencli-responses-api-proxy = { workspace = true }
+opencli-rmcp-client = { workspace = true }
+opencli-stdio-to-uds = { workspace = true }
+opencli-tui = { workspace = true }
+libc = { workspace = true }
+owo-colors = { workspace = true }
+regex-lite = { workspace = true }
+serde_json = { workspace = true }
+supports-color = { workspace = true }
+tokio = { workspace = true, features = [
+    "io-std",
+    "macros",
+    "process",
+    "rt-multi-thread",
+    "signal",
+] }
+toml = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+opencli_windows_sandbox = { package = "opencli-windows-sandbox", path = "../windows-sandbox-rs" }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+assert_matches = { workspace = true }
+opencli-utils-cargo-bin = { workspace = true }
+predicates = { workspace = true }
+pretty_assertions = { workspace = true }
+tempfile = { workspace = true }

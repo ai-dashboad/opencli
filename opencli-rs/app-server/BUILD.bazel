@@ -1,0 +1,8 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "app-server",
+    crate_name = "opencli_app_server",
+    integration_deps_extra = ["//opencli-rs/app-server/tests/common:common"],
+    test_tags = ["no-sandbox"],
+)

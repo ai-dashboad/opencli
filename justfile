@@ -1,27 +1,27 @@
-set working-directory := "codex-rs"
+set working-directory := "opencli-rs"
 set positional-arguments
 
 # Display help
 help:
     just -l
 
-# `codex`
-alias c := codex
-codex *args:
-    cargo run --bin codex -- "$@"
+# `opencli`
+alias c := opencli
+opencli *args:
+    cargo run --bin opencli -- "$@"
 
-# `codex exec`
+# `opencli exec`
 exec *args:
-    cargo run --bin codex -- exec "$@"
+    cargo run --bin opencli -- exec "$@"
 
 # Run the CLI version of the file-search crate.
 file-search *args:
-    cargo run --bin codex-file-search -- "$@"
+    cargo run --bin opencli-file-search -- "$@"
 
 # Build the CLI and run the app-server test client
 app-server-test-client *args:
-    cargo build -p codex-cli
-    cargo run -p codex-app-server-test-client -- --codex-bin ./target/debug/codex "$@"
+    cargo build -p opencli-cli
+    cargo run -p opencli-app-server-test-client -- --opencli-bin ./target/debug/opencli "$@"
 
 # format code
 fmt:
@@ -44,12 +44,12 @@ install:
 test:
     cargo nextest run --no-fail-fast
 
-# Build and run Codex from source using Bazel.
+# Build and run OpenCLI from source using Bazel.
 # Note we have to use the combination of `[no-cd]` and `--run_under="cd $PWD &&"`
 # to ensure that Bazel runs the command in the current working directory.
 [no-cd]
-bazel-codex *args:
-    bazel run //codex-rs/cli:codex --run_under="cd $PWD &&" -- "$@"
+bazel-opencli *args:
+    bazel run //opencli-rs/cli:opencli --run_under="cd $PWD &&" -- "$@"
 
 bazel-test:
     bazel test //... --keep_going
@@ -58,20 +58,20 @@ bazel-remote-test:
     bazel test //... --config=remote --platforms=//:rbe --keep_going
 
 build-for-release:
-    bazel build //codex-rs/cli:release_binaries --config=remote
+    bazel build //opencli-rs/cli:release_binaries --config=remote
 
 # Run the MCP server
 mcp-server-run *args:
-    cargo run -p codex-mcp-server -- "$@"
+    cargo run -p opencli-mcp-server -- "$@"
 
 # Regenerate the json schema for config.toml from the current config types.
 write-config-schema:
-    cargo run -p codex-core --bin codex-write-config-schema
+    cargo run -p opencli-core --bin opencli-write-config-schema
 
 # Regenerate vendored app-server protocol schema artifacts.
 write-app-server-schema:
-    cargo run -p codex-app-server-protocol --bin write_schema_fixtures
+    cargo run -p opencli-app-server-protocol --bin write_schema_fixtures
 
 # Tail logs from the state SQLite database
 log *args:
-    if [ "${1:-}" = "--" ]; then shift; fi; cargo run -p codex-state --bin logs_client -- "$@"
+    if [ "${1:-}" = "--" ]; then shift; fi; cargo run -p opencli-state --bin logs_client -- "$@"

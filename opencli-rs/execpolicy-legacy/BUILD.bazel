@@ -1,0 +1,7 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "execpolicy-legacy",
+    crate_name = "opencli_execpolicy_legacy",
+    compile_data = ["src/default.policy"],
+)

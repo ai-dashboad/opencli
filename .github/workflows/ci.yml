@@ -37,19 +37,19 @@ jobs:
         run: |
           set -euo pipefail
           # Use a rust-release version that includes all native binaries.
-          CODEX_VERSION=0.74.0
+          OPENCLI_VERSION=0.74.0
           OUTPUT_DIR="${RUNNER_TEMP}"
           python3 ./scripts/stage_npm_packages.py \
-            --release-version "$CODEX_VERSION" \
-            --package codex \
+            --release-version "$OPENCLI_VERSION" \
+            --package opencli \
             --output-dir "$OUTPUT_DIR"
-          PACK_OUTPUT="${OUTPUT_DIR}/codex-npm-${CODEX_VERSION}.tgz"
+          PACK_OUTPUT="${OUTPUT_DIR}/opencli-npm-${OPENCLI_VERSION}.tgz"
           echo "pack_output=$PACK_OUTPUT" >> "$GITHUB_OUTPUT"
 
       - name: Upload staged npm package artifact
         uses: actions/upload-artifact@v6
         with:
-          name: codex-npm-staging
+          name: opencli-npm-staging
           path: ${{ steps.stage_npm_package.outputs.pack_output }}
 
       - name: Ensure root README.md contains only ASCII and certain Unicode code points
@@ -57,10 +57,10 @@ jobs:
       - name: Check root README ToC
         run: python3 scripts/readme_toc.py README.md
 
-      - name: Ensure codex-cli/README.md contains only ASCII and certain Unicode code points
-        run: ./scripts/asciicheck.py codex-cli/README.md
-      - name: Check codex-cli/README ToC
-        run: python3 scripts/readme_toc.py codex-cli/README.md
+      - name: Ensure opencli-cli/README.md contains only ASCII and certain Unicode code points
+        run: ./scripts/asciicheck.py opencli-cli/README.md
+      - name: Check opencli-cli/README ToC
+        run: python3 scripts/readme_toc.py opencli-cli/README.md
 
       - name: Prettier (run `pnpm run format:fix` to fix)
         run: pnpm run format

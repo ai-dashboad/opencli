@@ -1,0 +1,11 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+exports_files(["apply_patch_tool_instructions.md"])
+
+opencli_rust_crate(
+    name = "apply-patch",
+    crate_name = "opencli_apply_patch",
+    compile_data = [
+        "apply_patch_tool_instructions.md",
+    ],
+)

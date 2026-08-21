@@ -11,7 +11,7 @@ startup --experimental_remote_repo_contents_cache
 
 common --experimental_platform_in_output_dir
 
-# Runfiles strategy rationale: codex-rs/utils/cargo-bin/README.md
+# Runfiles strategy rationale: opencli-rs/utils/cargo-bin/README.md
 common --noenable_runfiles
 
 common --enable_platform_specific_config

@@ -1,0 +1,7 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "backend-client",
+    crate_name = "opencli_backend_client",
+    compile_data = glob(["tests/fixtures/**"]),
+)

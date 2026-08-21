@@ -1,0 +1,7 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "protocol",
+    crate_name = "opencli_protocol",
+    compile_data = glob(["src/prompts/**/*.md"]),
+)

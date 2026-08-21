@@ -1,0 +1,10 @@
+pub(crate) const TOOL_CALL_COUNT_METRIC: &str = "opencli.tool.call";
+pub(crate) const TOOL_CALL_DURATION_METRIC: &str = "opencli.tool.call.duration_ms";
+pub(crate) const API_CALL_COUNT_METRIC: &str = "opencli.api_request";
+pub(crate) const API_CALL_DURATION_METRIC: &str = "opencli.api_request.duration_ms";
+pub(crate) const SSE_EVENT_COUNT_METRIC: &str = "opencli.sse_event";
+pub(crate) const SSE_EVENT_DURATION_METRIC: &str = "opencli.sse_event.duration_ms";
+pub(crate) const WEBSOCKET_REQUEST_COUNT_METRIC: &str = "opencli.websocket.request";
+pub(crate) const WEBSOCKET_REQUEST_DURATION_METRIC: &str = "opencli.websocket.request.duration_ms";
+pub(crate) const WEBSOCKET_EVENT_COUNT_METRIC: &str = "opencli.websocket.event";
+pub(crate) const WEBSOCKET_EVENT_DURATION_METRIC: &str = "opencli.websocket.event.duration_ms";

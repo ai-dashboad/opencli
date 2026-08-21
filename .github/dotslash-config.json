@@ -1,82 +1,82 @@
 {
   "outputs": {
-    "codex": {
+    "opencli": {
       "platforms": {
         "macos-aarch64": {
-          "regex": "^codex-aarch64-apple-darwin\\.zst$",
-          "path": "codex"
+          "regex": "^opencli-aarch64-apple-darwin\\.zst$",
+          "path": "opencli"
         },
         "macos-x86_64": {
-          "regex": "^codex-x86_64-apple-darwin\\.zst$",
-          "path": "codex"
+          "regex": "^opencli-x86_64-apple-darwin\\.zst$",
+          "path": "opencli"
         },
         "linux-x86_64": {
-          "regex": "^codex-x86_64-unknown-linux-musl\\.zst$",
-          "path": "codex"
+          "regex": "^opencli-x86_64-unknown-linux-musl\\.zst$",
+          "path": "opencli"
         },
         "linux-aarch64": {
-          "regex": "^codex-aarch64-unknown-linux-musl\\.zst$",
-          "path": "codex"
+          "regex": "^opencli-aarch64-unknown-linux-musl\\.zst$",
+          "path": "opencli"
         },
         "windows-x86_64": {
-          "regex": "^codex-x86_64-pc-windows-msvc\\.exe\\.zst$",
-          "path": "codex.exe"
+          "regex": "^opencli-x86_64-pc-windows-msvc\\.exe\\.zst$",
+          "path": "opencli.exe"
         },
         "windows-aarch64": {
-          "regex": "^codex-aarch64-pc-windows-msvc\\.exe\\.zst$",
-          "path": "codex.exe"
+          "regex": "^opencli-aarch64-pc-windows-msvc\\.exe\\.zst$",
+          "path": "opencli.exe"
         }
       }
     },
-    "codex-responses-api-proxy": {
+    "opencli-responses-api-proxy": {
       "platforms": {
         "macos-aarch64": {
-          "regex": "^codex-responses-api-proxy-aarch64-apple-darwin\\.zst$",
-          "path": "codex-responses-api-proxy"
+          "regex": "^opencli-responses-api-proxy-aarch64-apple-darwin\\.zst$",
+          "path": "opencli-responses-api-proxy"
         },
         "macos-x86_64": {
-          "regex": "^codex-responses-api-proxy-x86_64-apple-darwin\\.zst$",
-          "path": "codex-responses-api-proxy"
+          "regex": "^opencli-responses-api-proxy-x86_64-apple-darwin\\.zst$",
+          "path": "opencli-responses-api-proxy"
         },
         "linux-x86_64": {
-          "regex": "^codex-responses-api-proxy-x86_64-unknown-linux-musl\\.zst$",
-          "path": "codex-responses-api-proxy"
+          "regex": "^opencli-responses-api-proxy-x86_64-unknown-linux-musl\\.zst$",
+          "path": "opencli-responses-api-proxy"
         },
         "linux-aarch64": {
-          "regex": "^codex-responses-api-proxy-aarch64-unknown-linux-musl\\.zst$",
-          "path": "codex-responses-api-proxy"
+          "regex": "^opencli-responses-api-proxy-aarch64-unknown-linux-musl\\.zst$",
+          "path": "opencli-responses-api-proxy"
         },
         "windows-x86_64": {
-          "regex": "^codex-responses-api-proxy-x86_64-pc-windows-msvc\\.exe\\.zst$",
-          "path": "codex-responses-api-proxy.exe"
+          "regex": "^opencli-responses-api-proxy-x86_64-pc-windows-msvc\\.exe\\.zst$",
+          "path": "opencli-responses-api-proxy.exe"
         },
         "windows-aarch64": {
-          "regex": "^codex-responses-api-proxy-aarch64-pc-windows-msvc\\.exe\\.zst$",
-          "path": "codex-responses-api-proxy.exe"
+          "regex": "^opencli-responses-api-proxy-aarch64-pc-windows-msvc\\.exe\\.zst$",
+          "path": "opencli-responses-api-proxy.exe"
         }
       }
     },
-    "codex-command-runner": {
+    "opencli-command-runner": {
       "platforms": {
         "windows-x86_64": {
-          "regex": "^codex-command-runner-x86_64-pc-windows-msvc\\.exe\\.zst$",
-          "path": "codex-command-runner.exe"
+          "regex": "^opencli-command-runner-x86_64-pc-windows-msvc\\.exe\\.zst$",
+          "path": "opencli-command-runner.exe"
         },
         "windows-aarch64": {
-          "regex": "^codex-command-runner-aarch64-pc-windows-msvc\\.exe\\.zst$",
-          "path": "codex-command-runner.exe"
+          "regex": "^opencli-command-runner-aarch64-pc-windows-msvc\\.exe\\.zst$",
+          "path": "opencli-command-runner.exe"
         }
       }
     },
-    "codex-windows-sandbox-setup": {
+    "opencli-windows-sandbox-setup": {
       "platforms": {
         "windows-x86_64": {
-          "regex": "^codex-windows-sandbox-setup-x86_64-pc-windows-msvc\\.exe\\.zst$",
-          "path": "codex-windows-sandbox-setup.exe"
+          "regex": "^opencli-windows-sandbox-setup-x86_64-pc-windows-msvc\\.exe\\.zst$",
+          "path": "opencli-windows-sandbox-setup.exe"
         },
         "windows-aarch64": {
-          "regex": "^codex-windows-sandbox-setup-aarch64-pc-windows-msvc\\.exe\\.zst$",
-          "path": "codex-windows-sandbox-setup.exe"
+          "regex": "^opencli-windows-sandbox-setup-aarch64-pc-windows-msvc\\.exe\\.zst$",
+          "path": "opencli-windows-sandbox-setup.exe"
         }
       }
     }

@@ -1,8 +1,8 @@
 import path from "node:path";
 
-export function codexPathOverride() {
+export function opencliPathOverride() {
   return (
-    process.env.CODEX_EXECUTABLE ??
-    path.join(process.cwd(), "..", "..", "codex-rs", "target", "debug", "codex")
+    process.env.OPENCLI_EXECUTABLE ??
+    path.join(process.cwd(), "..", "..", "opencli-rs", "target", "debug", "opencli")
   );
 }

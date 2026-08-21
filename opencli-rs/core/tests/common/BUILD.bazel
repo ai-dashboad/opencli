@@ -1,0 +1,7 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "common",
+    crate_name = "core_test_support",
+    crate_srcs = glob(["*.rs"]),
+)

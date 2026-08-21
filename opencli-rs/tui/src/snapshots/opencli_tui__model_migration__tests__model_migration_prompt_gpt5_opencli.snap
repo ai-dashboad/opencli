@@ -1,0 +1,15 @@
+---
+source: tui/src/model_migration.rs
+expression: terminal.backend()
+---
+
+> OpenCLI just got an upgrade. Introducing gpt-5.1-opencli-max.
+
+  We recommend switching from gpt-5-opencli to
+  gpt-5.1-opencli-max.
+
+  OpenCLI-optimized flagship for deep and fast reasoning.
+  Learn more about gpt-5.1-opencli-max at
+  https://www.opencli.com/models/gpt-5.1-opencli-max
+
+  Press enter to continue

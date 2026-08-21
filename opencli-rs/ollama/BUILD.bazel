@@ -1,0 +1,6 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "ollama",
+    crate_name = "opencli_ollama",
+)

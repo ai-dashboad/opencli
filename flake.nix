@@ -1,5 +1,5 @@
 {
-  description = "Development Nix flake for OpenAI Codex CLI";
+  description = "Development Nix flake for OpenAI OpenCLI CLI";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -26,7 +26,7 @@
             inherit system;
             overlays = [ rust-overlay.overlays.default ];
           };
-          codex-rs = pkgs.callPackage ./codex-rs {
+          opencli-rs = pkgs.callPackage ./opencli-rs {
             rustPlatform = pkgs.makeRustPlatform {
               cargo = pkgs.rust-bin.stable.latest.minimal;
               rustc = pkgs.rust-bin.stable.latest.minimal;
@@ -34,8 +34,8 @@
           };
         in
         {
-          codex-rs = codex-rs;
-          default = codex-rs;
+          opencli-rs = opencli-rs;
+          default = opencli-rs;
         }
       );
 

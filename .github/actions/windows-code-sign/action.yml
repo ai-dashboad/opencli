@@ -51,7 +51,7 @@ runs:
         exclude-interactive-browser-credential: true
         cache-dependencies: false
         files: |
-          ${{ github.workspace }}/codex-rs/target/${{ inputs.target }}/release/codex.exe
-          ${{ github.workspace }}/codex-rs/target/${{ inputs.target }}/release/codex-responses-api-proxy.exe
-          ${{ github.workspace }}/codex-rs/target/${{ inputs.target }}/release/codex-windows-sandbox-setup.exe
-          ${{ github.workspace }}/codex-rs/target/${{ inputs.target }}/release/codex-command-runner.exe
+          ${{ github.workspace }}/opencli-rs/target/${{ inputs.target }}/release/opencli.exe
+          ${{ github.workspace }}/opencli-rs/target/${{ inputs.target }}/release/opencli-responses-api-proxy.exe
+          ${{ github.workspace }}/opencli-rs/target/${{ inputs.target }}/release/opencli-windows-sandbox-setup.exe
+          ${{ github.workspace }}/opencli-rs/target/${{ inputs.target }}/release/opencli-command-runner.exe

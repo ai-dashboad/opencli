@@ -26,9 +26,9 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1.93
 
-      - name: build codex
-        run: cargo build --bin codex
-        working-directory: codex-rs
+      - name: build opencli
+        run: cargo build --bin opencli
+        working-directory: opencli-rs
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

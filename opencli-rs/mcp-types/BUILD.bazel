@@ -1,0 +1,6 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "mcp-types",
+    crate_name = "mcp_types",
+)

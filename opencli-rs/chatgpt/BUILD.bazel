@@ -1,0 +1,6 @@
+load("//:defs.bzl", "opencli_rust_crate")
+
+opencli_rust_crate(
+    name = "chatgpt",
+    crate_name = "opencli_chatgpt",
+)

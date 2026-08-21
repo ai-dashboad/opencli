@@ -1,6 +1,6 @@
 packages:
-  - codex-cli
-  - codex-rs/responses-api-proxy/npm
+  - opencli-cli
+  - opencli-rs/responses-api-proxy/npm
   - sdk/typescript
   - shell-tool-mcp
 
