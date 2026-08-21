@@ -305,6 +305,36 @@ pub struct History {
     pub max_bytes: Option<usize>,
 }
 
+/// Per-model token pricing, in US dollars per one million tokens. Used only to
+/// render a cost estimate in `/status`; when a model has no entry, no estimate
+/// is shown rather than a guessed one. Rates are the user's own — this build
+/// ships none, because gateway prices are the user's to know.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct ModelPricing {
+    /// USD per 1M non-cached input tokens.
+    #[serde(default)]
+    pub input_per_1m: f64,
+    /// USD per 1M cached input tokens. Defaults to the non-cached input rate
+    /// when omitted, i.e. no cache discount is assumed.
+    #[serde(default)]
+    pub cached_input_per_1m: Option<f64>,
+    /// USD per 1M output tokens.
+    #[serde(default)]
+    pub output_per_1m: f64,
+}
+
+impl ModelPricing {
+    /// Estimated cost, in USD, for the given token counts.
+    pub fn estimate_usd(&self, non_cached_input: i64, cached_input: i64, output: i64) -> f64 {
+        let cached_rate = self.cached_input_per_1m.unwrap_or(self.input_per_1m);
+        let per_million = |tokens: i64, rate: f64| (tokens.max(0) as f64) / 1_000_000.0 * rate;
+        per_million(non_cached_input, self.input_per_1m)
+            + per_million(cached_input, cached_rate)
+            + per_million(output, self.output_per_1m)
+    }
+}
+
 /// User-defined lifecycle hooks. Each list holds commands run by the user's
 /// shell at a point in the agent's command-execution lifecycle. Hooks are the
 /// mechanism for automating side effects (formatting, linting, notifications)
@@ -982,5 +1012,29 @@ mod tests {
             err.to_string().contains("bearer_token is not supported"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn should_estimate_cost_with_cache_discount() {
+        let price = ModelPricing {
+            input_per_1m: 1.0,
+            cached_input_per_1m: Some(0.1),
+            output_per_1m: 2.0,
+        };
+        // 1M non-cached input @ $1 + 1M cached @ $0.1 + 1M output @ $2 = $3.10
+        let cost = price.estimate_usd(1_000_000, 1_000_000, 1_000_000);
+        assert!((cost - 3.1).abs() < 1e-9, "got {cost}");
+    }
+
+    #[test]
+    fn should_fall_back_to_input_rate_when_cache_rate_absent() {
+        let price = ModelPricing {
+            input_per_1m: 1.0,
+            cached_input_per_1m: None,
+            output_per_1m: 0.0,
+        };
+        // Cached tokens priced at the plain input rate when no discount is set.
+        let cost = price.estimate_usd(0, 2_000_000, 0);
+        assert!((cost - 2.0).abs() < 1e-9, "got {cost}");
     }
 }

@@ -72,6 +72,9 @@ struct StatusHistoryCell {
     session_id: Option<String>,
     forked_from: Option<String>,
     token_usage: StatusTokenUsageData,
+    /// Estimated session cost in USD, present only when the active model has a
+    /// configured price. `None` means no price was configured, so no guess.
+    cost_estimate_usd: Option<f64>,
     rate_limits: StatusRateLimitData,
 }
 
@@ -149,6 +152,8 @@ impl StatusHistoryCell {
                 config.model_reasoning_summary.to_string(),
             ));
         }
+        // Keep the raw slug for pricing lookups before it becomes a display name.
+        let model_slug = model_name.to_string();
         let (model_name, model_details) = compose_model_display(model_name, &config_entries);
         let approval = config_entries
             .iter()
@@ -189,6 +194,13 @@ impl StatusHistoryCell {
             output: total_usage.output_tokens,
             context_window,
         };
+        let cost_estimate_usd = config.pricing.get(&model_slug).map(|price| {
+            price.estimate_usd(
+                total_usage.non_cached_input(),
+                total_usage.cached_input(),
+                total_usage.output_tokens,
+            )
+        });
         let rate_limits = compose_rate_limit_data(rate_limits, now);
 
         Self {
@@ -205,6 +217,7 @@ impl StatusHistoryCell {
             session_id,
             forked_from,
             token_usage,
+            cost_estimate_usd,
             rate_limits,
         }
     }
@@ -470,6 +483,15 @@ impl HistoryCell for StatusHistoryCell {
         // Hide token usage only for ChatGPT subscribers
         if !matches!(self.account, Some(StatusAccountDisplay::ChatGpt { .. })) {
             lines.push(formatter.line("Token usage", self.token_usage_spans()));
+            if let Some(cost) = self.cost_estimate_usd {
+                lines.push(formatter.line(
+                    "Est. cost",
+                    vec![
+                        Span::from(format!("${cost:.4}")),
+                        Span::from(" this session").dim(),
+                    ],
+                ));
+            }
         }
 
         if let Some(spans) = self.context_window_spans() {

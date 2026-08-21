@@ -439,6 +439,31 @@
       ],
       "type": "string"
     },
+    "ModelPricing": {
+      "additionalProperties": false,
+      "description": "Per-model token pricing, in US dollars per one million tokens. Used only to render a cost estimate in `/status`; when a model has no entry, no estimate is shown rather than a guessed one. Rates are the user's own — this build ships none, because gateway prices are the user's to know.",
+      "properties": {
+        "cached_input_per_1m": {
+          "default": null,
+          "description": "USD per 1M cached input tokens. Defaults to the non-cached input rate when omitted, i.e. no cache discount is assumed.",
+          "format": "double",
+          "type": "number"
+        },
+        "input_per_1m": {
+          "default": 0.0,
+          "description": "USD per 1M non-cached input tokens.",
+          "format": "double",
+          "type": "number"
+        },
+        "output_per_1m": {
+          "default": 0.0,
+          "description": "USD per 1M output tokens.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "ModelProviderInfo": {
       "additionalProperties": false,
       "description": "Serializable representation of a provider definition.",
@@ -1504,6 +1529,14 @@
         }
       ],
       "description": "Optionally specify a personality for the model"
+    },
+    "pricing": {
+      "additionalProperties": {
+        "$ref": "#/definitions/ModelPricing"
+      },
+      "default": null,
+      "description": "Per-model token pricing for the `/status` cost estimate. See [`ModelPricing`].",
+      "type": "object"
     },
     "profile": {
       "description": "Profile to use from the `profiles` map.",

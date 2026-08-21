@@ -5,12 +5,12 @@ expression: sanitized
 /status
 
 ╭────────────────────────────────────────────────────────────────────╮
-│  >_ OpenAI OpenCLI (v0.0.0)                                          │
+│  >_ opencli (v0.94.0)                                              │
 │                                                                    │
-│ Visit https://chatgpt.com/opencli/settings/usage for up-to-date      │
+│ Visit https://chatgpt.com/opencli/settings/usage for up-to-date    │
 │ information on rate limits and credits                             │
 │                                                                    │
-│  Model:            gpt-5.1-opencli-max (reasoning high, summaries de │
+│  Model:            gpt-5.1-opencli-max (reasoning high, summaries  │
 │  Directory: [[workspace]]                                          │
 │  Approval:         on-request                                      │
 │  Sandbox:          read-only                                       │
