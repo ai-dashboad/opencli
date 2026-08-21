@@ -31,11 +31,19 @@ use std::io::IsTerminal;
 use std::path::PathBuf;
 use supports_color::Stream;
 
+mod config_cmd;
+mod doctor_cmd;
+mod export_cmd;
+mod loop_cmd;
 mod mcp_cmd;
 mod parallel;
 #[cfg(not(windows))]
 mod wsl_paths;
 
+use crate::config_cmd::ConfigArgs;
+use crate::doctor_cmd::DoctorArgs;
+use crate::export_cmd::ExportArgs;
+use crate::loop_cmd::LoopArgs;
 use crate::mcp_cmd::McpCli;
 use crate::parallel::ParallelArgs;
 
@@ -88,6 +96,18 @@ enum Subcommand {
     /// Run several agent tasks in parallel, each on its own branch in its own
     /// git worktree, then report for review and optional merge.
     Parallel(ParallelArgs),
+
+    /// Run a prompt on a recurring interval (e.g. `loop 5m "check the build"`).
+    Loop(LoopArgs),
+
+    /// Export a recorded session as a Markdown transcript.
+    Export(ExportArgs),
+
+    /// Report on the environment: config, provider keys, and sessions.
+    Doctor(DoctorArgs),
+
+    /// Read and edit config.toml from the command line.
+    Config(ConfigArgs),
 
     /// Manage login.
     Login(LoginCommand),
@@ -519,6 +539,18 @@ async fn cli_main(opencli_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<
         }
         Some(Subcommand::Parallel(parallel_args)) => {
             parallel::run_main(parallel_args).await?;
+        }
+        Some(Subcommand::Loop(loop_args)) => {
+            loop_cmd::run_main(loop_args).await?;
+        }
+        Some(Subcommand::Export(export_args)) => {
+            export_cmd::run_main(export_args)?;
+        }
+        Some(Subcommand::Doctor(doctor_args)) => {
+            doctor_cmd::run_main(doctor_args)?;
+        }
+        Some(Subcommand::Config(config_args)) => {
+            config_cmd::run_main(config_args)?;
         }
         Some(Subcommand::Review(review_args)) => {
             let mut exec_cli = ExecCli::try_parse_from(["opencli", "exec"])?;
