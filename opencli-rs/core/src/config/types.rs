@@ -305,6 +305,51 @@ pub struct History {
     pub max_bytes: Option<usize>,
 }
 
+/// User-defined lifecycle hooks. Each list holds commands run by the user's
+/// shell at a point in the agent's command-execution lifecycle. Hooks are the
+/// mechanism for automating side effects (formatting, linting, notifications)
+/// and for guarding dangerous commands, without touching the model.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct Hooks {
+    /// Run before the agent executes a shell command. A pre-exec hook that
+    /// exits non-zero and has `block_on_failure` set vetoes the command: it is
+    /// never run and the failure is reported back to the model.
+    #[serde(default)]
+    pub pre_exec: Vec<Hook>,
+
+    /// Run after the agent's shell command completes, with the command's exit
+    /// code available as `OPENCLI_HOOK_EXIT_CODE`. Post-exec hook failures are
+    /// logged but never block.
+    #[serde(default)]
+    pub post_exec: Vec<Hook>,
+}
+
+/// A single hook entry.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct Hook {
+    /// Shell command to run for this hook. Executed via the user's shell. The
+    /// lifecycle context is passed in the environment: `OPENCLI_HOOK_EVENT`,
+    /// `OPENCLI_HOOK_COMMAND`, `OPENCLI_HOOK_CWD`, and, for post-exec,
+    /// `OPENCLI_HOOK_EXIT_CODE`.
+    pub command: String,
+
+    /// Optional filter: the hook runs only when the agent's command string
+    /// contains this substring. When omitted, the hook runs for every command.
+    #[serde(default)]
+    pub matches: Option<String>,
+
+    /// Pre-exec only: when true, a non-zero exit from this hook blocks the
+    /// agent's command. Ignored for post-exec hooks.
+    #[serde(default)]
+    pub block_on_failure: bool,
+
+    /// Maximum time the hook may run before it is killed, in milliseconds.
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Default, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum HistoryPersistence {

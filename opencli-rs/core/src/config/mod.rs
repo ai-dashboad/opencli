@@ -3,6 +3,7 @@ use crate::config::edit::ConfigEdit;
 use crate::config::edit::ConfigEditsBuilder;
 use crate::config::types::DEFAULT_OTEL_ENVIRONMENT;
 use crate::config::types::History;
+use crate::config::types::Hooks;
 use crate::config::types::McpServerConfig;
 use crate::config::types::McpServerDisabledReason;
 use crate::config::types::McpServerTransportConfig;
@@ -272,6 +273,9 @@ pub struct Config {
 
     /// Settings that govern if and what will be written to `~/.opencli/history.jsonl`.
     pub history: History,
+
+    /// User-defined lifecycle hooks run around agent command execution.
+    pub hooks: Hooks,
 
     /// When true, session is not persisted on disk. Default to `false`
     pub ephemeral: bool,
@@ -889,6 +893,10 @@ pub struct ConfigToml {
     #[serde(default)]
     pub history: Option<History>,
 
+    /// User-defined lifecycle hooks. See [`Hooks`].
+    #[serde(default)]
+    pub hooks: Option<Hooks>,
+
     /// Optional URI-based file opener. If set, citations to files in the model
     /// output will be hyperlinked using the specified URI scheme.
     pub file_opener: Option<UriBasedFileOpener>,
@@ -1430,6 +1438,7 @@ impl Config {
         let shell_environment_policy = cfg.shell_environment_policy.into();
 
         let history = cfg.history.unwrap_or_default();
+        let hooks = cfg.hooks.unwrap_or_default();
 
         let agent_max_threads = cfg
             .agents
@@ -1594,6 +1603,7 @@ impl Config {
             opencli_home,
             config_layer_stack,
             history,
+            hooks,
             ephemeral: ephemeral.unwrap_or_default(),
             file_opener: cfg.file_opener.unwrap_or(UriBasedFileOpener::VsCode),
             opencli_linux_sandbox_exe,
@@ -3809,6 +3819,7 @@ model_verbosity = "high"
                 opencli_home: fixture.opencli_home(),
                 config_layer_stack: Default::default(),
                 history: History::default(),
+                hooks: Hooks::default(),
                 ephemeral: false,
                 file_opener: UriBasedFileOpener::VsCode,
                 opencli_linux_sandbox_exe: None,
@@ -3894,6 +3905,7 @@ model_verbosity = "high"
             opencli_home: fixture.opencli_home(),
             config_layer_stack: Default::default(),
             history: History::default(),
+            hooks: Hooks::default(),
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,
@@ -3994,6 +4006,7 @@ model_verbosity = "high"
             opencli_home: fixture.opencli_home(),
             config_layer_stack: Default::default(),
             history: History::default(),
+            hooks: Hooks::default(),
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,
@@ -4080,6 +4093,7 @@ model_verbosity = "high"
             opencli_home: fixture.opencli_home(),
             config_layer_stack: Default::default(),
             history: History::default(),
+            hooks: Hooks::default(),
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,

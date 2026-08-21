@@ -270,6 +270,16 @@ impl ShellHandler {
             return Ok(output);
         }
 
+        // Pre-exec hooks may veto the command before it runs.
+        let hook_command = exec_params.command.join(" ");
+        if let crate::hooks::PreExecDecision::Blocked(reason) =
+            crate::hooks::run_pre_exec(&turn.hooks.pre_exec, &hook_command, &exec_params.cwd).await
+        {
+            return Err(FunctionCallError::RespondToModel(format!(
+                "command not run: {reason}"
+            )));
+        }
+
         let source = ExecCommandSource::Agent;
         let emitter = ToolEmitter::shell(
             exec_params.command.clone(),
@@ -313,8 +323,19 @@ impl ShellHandler {
         let out = orchestrator
             .run(&mut runtime, &req, &tool_ctx, &turn, turn.approval_policy)
             .await;
+        let hook_exit_code = out.as_ref().map(|o| o.exit_code).unwrap_or(-1);
         let event_ctx = ToolEventCtx::new(session.as_ref(), turn.as_ref(), &call_id, None);
         let content = emitter.finish(event_ctx, out).await?;
+
+        // Post-exec hooks observe the command's result; they never block.
+        crate::hooks::run_post_exec(
+            &turn.hooks.post_exec,
+            &hook_command,
+            &exec_params.cwd,
+            hook_exit_code,
+        )
+        .await;
+
         Ok(ToolOutput::Function {
             content,
             content_items: None,
