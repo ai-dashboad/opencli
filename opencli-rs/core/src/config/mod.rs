@@ -5,6 +5,7 @@ use crate::config::types::DEFAULT_OTEL_ENVIRONMENT;
 use crate::config::types::History;
 use crate::config::types::Hooks;
 use crate::config::types::ModelPricing;
+use crate::config::types::Routing;
 use crate::config::types::McpServerConfig;
 use crate::config::types::McpServerDisabledReason;
 use crate::config::types::McpServerTransportConfig;
@@ -281,6 +282,9 @@ pub struct Config {
     /// Per-model token pricing (USD per 1M tokens) for the `/status` cost
     /// estimate. Keyed by model slug. Empty when the user configures none.
     pub pricing: HashMap<String, ModelPricing>,
+
+    /// Automatic cross-provider model routing. Disabled by default.
+    pub routing: Routing,
 
     /// When true, session is not persisted on disk. Default to `false`
     pub ephemeral: bool,
@@ -906,6 +910,10 @@ pub struct ConfigToml {
     #[serde(default)]
     pub pricing: Option<HashMap<String, ModelPricing>>,
 
+    /// Automatic cross-provider model routing. See [`Routing`].
+    #[serde(default)]
+    pub routing: Option<Routing>,
+
     /// Optional URI-based file opener. If set, citations to files in the model
     /// output will be hyperlinked using the specified URI scheme.
     pub file_opener: Option<UriBasedFileOpener>,
@@ -1449,6 +1457,7 @@ impl Config {
         let history = cfg.history.unwrap_or_default();
         let hooks = cfg.hooks.unwrap_or_default();
         let pricing = cfg.pricing.unwrap_or_default();
+        let routing = cfg.routing.unwrap_or_default();
 
         let agent_max_threads = cfg
             .agents
@@ -1615,6 +1624,7 @@ impl Config {
             history,
             hooks,
             pricing,
+            routing,
             ephemeral: ephemeral.unwrap_or_default(),
             file_opener: cfg.file_opener.unwrap_or(UriBasedFileOpener::VsCode),
             opencli_linux_sandbox_exe,
@@ -3832,6 +3842,7 @@ model_verbosity = "high"
                 history: History::default(),
                 hooks: Hooks::default(),
                 pricing: std::collections::HashMap::new(),
+                routing: Routing::default(),
                 ephemeral: false,
                 file_opener: UriBasedFileOpener::VsCode,
                 opencli_linux_sandbox_exe: None,
@@ -3919,6 +3930,7 @@ model_verbosity = "high"
             history: History::default(),
             hooks: Hooks::default(),
             pricing: std::collections::HashMap::new(),
+            routing: Routing::default(),
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,
@@ -4021,6 +4033,7 @@ model_verbosity = "high"
             history: History::default(),
             hooks: Hooks::default(),
             pricing: std::collections::HashMap::new(),
+            routing: Routing::default(),
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,
@@ -4109,6 +4122,7 @@ model_verbosity = "high"
             history: History::default(),
             hooks: Hooks::default(),
             pricing: std::collections::HashMap::new(),
+            routing: Routing::default(),
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,

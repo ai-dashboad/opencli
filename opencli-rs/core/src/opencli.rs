@@ -2588,6 +2588,40 @@ mod handlers {
         }
     }
 
+    /// Choose a model for a plain user turn from its text, honoring the
+    /// `[routing]` config. Returns `None` when routing is off, the text is
+    /// empty, or the matched tier names no model — in which case the session
+    /// model is left unchanged.
+    async fn route_turn_model(sess: &Arc<Session>, items: &[UserInput]) -> Option<String> {
+        let routing = {
+            let state = sess.state.lock().await;
+            state
+                .session_configuration
+                .original_config_do_not_use
+                .routing
+                .clone()
+        };
+        if !routing.enabled {
+            return None;
+        }
+        let text: String = items
+            .iter()
+            .filter_map(|item| match item {
+                UserInput::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        if text.trim().is_empty() {
+            return None;
+        }
+        let model = crate::routing::route_model(&text, &routing);
+        if let Some(model) = model.as_deref() {
+            tracing::info!("routing turn to model `{model}`");
+        }
+        model
+    }
+
     pub async fn user_input_or_turn(
         sess: &Arc<Session>,
         sub_id: String,
@@ -2607,11 +2641,15 @@ mod handlers {
                 collaboration_mode,
                 personality,
             } => {
+                // Routing applies to explicit turns too, so non-interactive
+                // `exec` (which always sends a UserTurn) routes the same way the
+                // interactive UserInput path does.
+                let routed_model = route_turn_model(sess, &items).await;
                 let collaboration_mode = collaboration_mode.or_else(|| {
                     Some(CollaborationMode {
                         mode: ModeKind::Custom,
                         settings: Settings {
-                            model: model.clone(),
+                            model: routed_model.clone().unwrap_or_else(|| model.clone()),
                             reasoning_effort: effort,
                             developer_instructions: None,
                         },
@@ -2634,13 +2672,28 @@ mod handlers {
             Op::UserInput {
                 items,
                 final_output_json_schema,
-            } => (
-                items,
-                SessionSettingsUpdate {
-                    final_output_json_schema: Some(final_output_json_schema),
-                    ..Default::default()
-                },
-            ),
+            } => {
+                // Automatic routing: pick a model for this turn from its text,
+                // reusing the collaboration-mode override so the provider is
+                // re-pointed alongside the model.
+                let routed_model = route_turn_model(sess, &items).await;
+                let collaboration_mode = routed_model.map(|model| CollaborationMode {
+                    mode: ModeKind::Custom,
+                    settings: Settings {
+                        model,
+                        reasoning_effort: None,
+                        developer_instructions: None,
+                    },
+                });
+                (
+                    items,
+                    SessionSettingsUpdate {
+                        collaboration_mode,
+                        final_output_json_schema: Some(final_output_json_schema),
+                        ..Default::default()
+                    },
+                )
+            }
             _ => unreachable!(),
         };
 

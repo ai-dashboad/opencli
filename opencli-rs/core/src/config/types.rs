@@ -305,6 +305,68 @@ pub struct History {
     pub max_bytes: Option<usize>,
 }
 
+/// Automatic model routing across providers. When enabled, each user turn is
+/// classified as simple or complex and sent to the corresponding model. Because
+/// each built-in model carries its own provider, this routes cheap work to a
+/// cheap gateway and hard work to a premium provider automatically.
+///
+/// Routing is off by default. Switching models mid-session changes the provider
+/// and the cache prefix, so this trades some prompt-cache reuse for lower
+/// per-token cost on the simple turns.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct Routing {
+    /// Master switch. When false, the configured session model is always used.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Model slug for simple turns. Should be a cheap model. When unset,
+    /// routing leaves simple turns on the current session model.
+    #[serde(default)]
+    pub simple_model: Option<String>,
+
+    /// Model slug for complex turns. Should be a capable/premium model. When
+    /// unset, routing leaves complex turns on the current session model.
+    #[serde(default)]
+    pub complex_model: Option<String>,
+
+    /// A turn is treated as complex when its text is at least this many
+    /// characters long. Defaults to 280.
+    #[serde(default = "default_complex_min_chars")]
+    pub complex_min_chars: usize,
+
+    /// A turn is treated as complex when its text contains any of these
+    /// case-insensitive substrings, regardless of length.
+    #[serde(default = "default_complex_keywords")]
+    pub complex_keywords: Vec<String>,
+}
+
+fn default_complex_min_chars() -> usize {
+    280
+}
+
+fn default_complex_keywords() -> Vec<String> {
+    [
+        "refactor",
+        "architecture",
+        "design",
+        "debug",
+        "root cause",
+        "why",
+        "optimize",
+        "concurrency",
+        "race condition",
+        "security",
+        "audit",
+        "algorithm",
+        "prove",
+        "migrate",
+    ]
+    .iter()
+    .map(|keyword| keyword.to_string())
+    .collect()
+}
+
 /// Per-model token pricing, in US dollars per one million tokens. Used only to
 /// render a cost estimate in `/status`; when a model has no entry, no estimate
 /// is shown rather than a guessed one. Rates are the user's own — this build

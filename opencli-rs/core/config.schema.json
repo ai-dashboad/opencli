@@ -930,6 +930,58 @@
         }
       ]
     },
+    "Routing": {
+      "additionalProperties": false,
+      "description": "Automatic model routing across providers. When enabled, each user turn is classified as simple or complex and sent to the corresponding model. Because each built-in model carries its own provider, this routes cheap work to a cheap gateway and hard work to a premium provider automatically.\n\nRouting is off by default. Switching models mid-session changes the provider and the cache prefix, so this trades some prompt-cache reuse for lower per-token cost on the simple turns.",
+      "properties": {
+        "complex_keywords": {
+          "default": [
+            "refactor",
+            "architecture",
+            "design",
+            "debug",
+            "root cause",
+            "why",
+            "optimize",
+            "concurrency",
+            "race condition",
+            "security",
+            "audit",
+            "algorithm",
+            "prove",
+            "migrate"
+          ],
+          "description": "A turn is treated as complex when its text contains any of these case-insensitive substrings, regardless of length.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "complex_min_chars": {
+          "default": 280,
+          "description": "A turn is treated as complex when its text is at least this many characters long. Defaults to 280.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "complex_model": {
+          "default": null,
+          "description": "Model slug for complex turns. Should be a capable/premium model. When unset, routing leaves complex turns on the current session model.",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Master switch. When false, the configured session model is always used.",
+          "type": "boolean"
+        },
+        "simple_model": {
+          "default": null,
+          "description": "Model slug for simple turns. Should be a cheap model. When unset, routing leaves simple turns on the current session model.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "SandboxMode": {
       "enum": [
         "read-only",
@@ -1580,6 +1632,15 @@
     "review_model": {
       "description": "Review model override used by the `/review` feature.",
       "type": "string"
+    },
+    "routing": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Routing"
+        }
+      ],
+      "default": null,
+      "description": "Automatic cross-provider model routing. See [`Routing`]."
     },
     "sandbox_mode": {
       "allOf": [
