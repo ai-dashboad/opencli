@@ -151,8 +151,13 @@ impl ModelProviderInfo {
         let headers = self.build_header_map()?;
         let retry = ApiRetryConfig {
             max_attempts: self.request_max_retries(),
-            base_delay: Duration::from_millis(200),
-            retry_429: false,
+            // A longer base delay gives a rate-limited gateway room to recover
+            // between attempts, since 429s are now retried.
+            base_delay: Duration::from_millis(500),
+            // Retry 429s with backoff. Cheap third-party gateways rate-limit
+            // aggressively, and failing the whole turn on a transient 429 was
+            // dropping in-progress exchanges from the session.
+            retry_429: true,
             retry_5xx: true,
             retry_transport: true,
         };
