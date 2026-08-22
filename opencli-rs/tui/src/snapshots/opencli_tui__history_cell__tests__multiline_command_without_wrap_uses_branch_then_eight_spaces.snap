@@ -2,6 +2,6 @@
 source: tui/src/history_cell.rs
 expression: rendered
 ---
-• Executed echo one
+⏺ Executed echo one
   │ echo two
-  └ (no output)
+  ⎿ (no output)

@@ -2,5 +2,5 @@
 source: tui/src/chatwidget/tests.rs
 expression: exec_blob
 ---
-• Executed sleep 1
-  └ (no output)
+⏺ Executed sleep 1
+  ⎿ (no output)

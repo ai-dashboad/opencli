@@ -3,6 +3,6 @@ source: tui/src/chatwidget/tests.rs
 expression: combined
 ---
 ↳ Interacted with background task · cargo test -p opencli-core
-  └ (waited)
+  ⎿ (waited)
 
-• Streaming response.
+⏺ Streaming response.

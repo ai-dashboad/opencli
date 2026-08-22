@@ -2,6 +2,6 @@
 source: tui/src/chatwidget/tests.rs
 expression: active_blob(&chat)
 ---
-• Inspected
-  └ Listed ls -la
+⏺ Inspected
+  ⎿ Listed ls -la
     Viewed foo.txt

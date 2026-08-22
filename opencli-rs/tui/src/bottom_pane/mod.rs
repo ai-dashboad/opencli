@@ -1019,7 +1019,7 @@ mod tests {
         pane.render(area, &mut buf);
 
         let bufs = snapshot_buffer(&buf);
-        assert!(bufs.contains("• Processing"), "expected Processing header");
+        assert!(bufs.contains("⏺ Processing"), "expected Processing header");
     }
 
     #[test]

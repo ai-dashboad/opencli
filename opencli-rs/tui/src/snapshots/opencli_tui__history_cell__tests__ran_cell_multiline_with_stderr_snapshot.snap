@@ -2,11 +2,11 @@
 source: tui/src/history_cell.rs
 expression: rendered
 ---
-• Executed echo
+⏺ Executed echo
   │ this_is_a_very_lo
   │ ng_single_token_t
   │ … +3 lines
-  └ error: first line on
+  ⎿ error: first line on
     stderr
     error: second line on
     stderr

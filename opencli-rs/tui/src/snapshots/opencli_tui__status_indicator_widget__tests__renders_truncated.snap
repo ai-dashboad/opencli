@@ -2,5 +2,5 @@
 source: tui/src/status_indicator_widget.rs
 expression: terminal.backend()
 ---
-"• Processing (0s • e"
+"⏺ Processing (0s • e"
 "                    "

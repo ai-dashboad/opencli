@@ -6,8 +6,8 @@ expression: rendered
 
 Background terminals
 
-  • echo hello [...]
+  ⏺ echo hello [...]
     ↳ hello
       done
-  • rg "foo" src
+  ⏺ rg "foo" src
     ↳ src/main.rs:12:foo

@@ -769,7 +769,7 @@ impl ChatWidget {
         if let Some(header) = extract_first_bold(&self.reasoning_buffer) {
             self.set_status_header(header);
         } else if self.bottom_pane.is_task_running() {
-            self.set_status_header(String::from("Processing"));
+            self.set_status_header(crate::spinner_words::random());
         }
     }
 
@@ -1046,7 +1046,7 @@ impl ChatWidget {
         self.update_task_running_state();
         self.retry_status_header = None;
         self.bottom_pane.set_interrupt_hint_visible(true);
-        self.set_status_header(String::from("Processing"));
+        self.set_status_header(crate::spinner_words::random());
         self.full_reasoning_buffer.clear();
         self.reasoning_buffer.clear();
         self.request_redraw();
@@ -2295,7 +2295,7 @@ impl ChatWidget {
             interrupts: InterruptManager::new(),
             reasoning_buffer: String::new(),
             full_reasoning_buffer: String::new(),
-            current_status_header: String::from("Processing"),
+            current_status_header: crate::spinner_words::random(),
             retry_status_header: None,
             thread_id: None,
             thread_name: None,
@@ -2441,7 +2441,7 @@ impl ChatWidget {
             interrupts: InterruptManager::new(),
             reasoning_buffer: String::new(),
             full_reasoning_buffer: String::new(),
-            current_status_header: String::from("Processing"),
+            current_status_header: crate::spinner_words::random(),
             retry_status_header: None,
             thread_id: None,
             thread_name: None,
@@ -2576,7 +2576,7 @@ impl ChatWidget {
             interrupts: InterruptManager::new(),
             reasoning_buffer: String::new(),
             full_reasoning_buffer: String::new(),
-            current_status_header: String::from("Processing"),
+            current_status_header: crate::spinner_words::random(),
             retry_status_header: None,
             thread_id: None,
             thread_name: None,
@@ -2734,7 +2734,7 @@ impl ChatWidget {
                         // Reset any reasoning header only when we are actually submitting a turn.
                         self.reasoning_buffer.clear();
                         self.full_reasoning_buffer.clear();
-                        self.set_status_header(String::from("Processing"));
+                        self.set_status_header(crate::spinner_words::random());
                         self.submit_user_message(user_message);
                     } else {
                         self.queue_user_message(user_message);

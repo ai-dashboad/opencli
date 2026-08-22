@@ -102,7 +102,7 @@ fn collab_event(title: impl Into<String>, details: Vec<Line<'static>>) -> PlainH
     let mut lines: Vec<Line<'static>> =
         vec![vec![Span::from("• ").dim(), Span::from(title).bold()].into()];
     if !details.is_empty() {
-        lines.extend(prefix_lines(details, "  └ ".dim(), "    ".into()));
+        lines.extend(prefix_lines(details, "  ⎿ ".dim(), "    ".into()));
     }
     PlainHistoryCell::new(lines)
 }

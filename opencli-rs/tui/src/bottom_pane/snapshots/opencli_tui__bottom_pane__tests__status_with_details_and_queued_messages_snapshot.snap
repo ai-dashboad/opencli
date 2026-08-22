@@ -2,8 +2,8 @@
 source: tui/src/bottom_pane/mod.rs
 expression: "render_snapshot(&pane, area)"
 ---
-• Processing (0s • esc to interrupt)            
-  └ First detail line                           
+⏺ Processing (0s • esc to interrupt)            
+  ⎿ First detail line                           
     Second detail line                          
                                                 
   ↳ Queued follow-up question                   

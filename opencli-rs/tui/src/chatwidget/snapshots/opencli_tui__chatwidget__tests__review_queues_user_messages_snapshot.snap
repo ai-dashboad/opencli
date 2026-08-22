@@ -12,7 +12,7 @@ expression: term.backend().vt100().screen().contents()
 
 
 
-• Processing (0s • esc to interrupt)
+⏺ Processing (0s • esc to interrupt)
 
   ↳ Queued while /review is running.
     ⌥ + ↑ edit

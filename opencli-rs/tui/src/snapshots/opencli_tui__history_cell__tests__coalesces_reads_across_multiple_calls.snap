@@ -2,6 +2,6 @@
 source: tui/src/history_cell.rs
 expression: rendered
 ---
-• Inspected
-  └ Searched shimmer_spans
+⏺ Inspected
+  ⎿ Searched shimmer_spans
     Viewed shimmer.rs, status_indicator_widget.rs

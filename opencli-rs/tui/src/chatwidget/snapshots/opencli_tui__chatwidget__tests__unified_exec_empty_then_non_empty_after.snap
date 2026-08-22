@@ -3,7 +3,7 @@ source: tui/src/chatwidget/tests.rs
 expression: combined
 ---
 ↳ Interacted with background task · just fix
-  └ (waited)
+  ⎿ (waited)
 
 ↳ Interacted with background task · just fix
-  └ ls
+  ⎿ ls

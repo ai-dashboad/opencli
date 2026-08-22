@@ -29,14 +29,14 @@ expression: term.backend().vt100().screen().contents()
 
 
 
-• I’m going to search the repo for where “Change Approved” is rendered to update
+⏺ I’m going to search the repo for where “Change Approved” is rendered to update
   that view.
 
-• Inspected
-  └ Searched Change Approved
+⏺ Inspected
+  ⎿ Searched Change Approved
     Viewed diff_render.rs
 
-• Investigating rendering code (0s • esc to interrupt)
+⏺ Investigating rendering code (0s • esc to interrupt)
 
 
 › Summarize recent commits

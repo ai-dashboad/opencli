@@ -2,8 +2,8 @@
 source: tui/src/history_cell.rs
 expression: rendered
 ---
-• Executed first_token_is_lo
+⏺ Executed first_token_is_lo
   │ ng_enough_to_wrap
   │ second_token_is_also_lon
   │ … +1 lines
-  └ (no output)
+  ⎿ (no output)
