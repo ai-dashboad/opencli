@@ -1112,13 +1112,12 @@ impl HistoryCell for SessionHeaderHistoryCell {
 
         let make_row = |spans: Vec<Span<'static>>| Line::from(spans);
 
-        // Title line rendered inside the box: ">_ OpenAI OpenCLI (vX)"
-        let title_spans: Vec<Span<'static>> = vec![
-            Span::from(">_ ").dim(),
-            Span::from("opencli").bold(),
-            Span::from(" ").dim(),
-            Span::from(format!("(v{})", self.version)).dim(),
-        ];
+        // Title line rendered inside the box: ">_ opencli (vX)" with the
+        // wordmark drawn in the flowing cyan-to-magenta gradient.
+        let mut title_spans: Vec<Span<'static>> = vec![Span::from(">_ ").dim()];
+        title_spans.extend(crate::wordmark::gradient_spans("opencli", 0));
+        title_spans.push(Span::from(" ").dim());
+        title_spans.push(Span::from(format!("(v{})", self.version)).dim());
 
         const CHANGE_MODEL_HINT_COMMAND: &str = "/model";
         const CHANGE_MODEL_HINT_EXPLANATION: &str = " to change";

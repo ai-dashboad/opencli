@@ -21,7 +21,6 @@ use crate::app_event_sender::AppEventSender;
 use crate::exec_cell::spinner;
 use crate::key_hint;
 use crate::render::renderable::Renderable;
-use crate::shimmer::shimmer_spans;
 use crate::text_formatting::capitalize_first;
 use crate::tui::FrameRequester;
 use crate::wrapping::RtOptions;
@@ -211,7 +210,7 @@ impl Renderable for StatusIndicatorWidget {
         spans.push(spinner(Some(self.last_resume_at), self.animations_enabled));
         spans.push(" ".into());
         if self.animations_enabled {
-            spans.extend(shimmer_spans(&self.header));
+            spans.extend(crate::wordmark::flowing_gradient_spans(&self.header));
         } else if !self.header.is_empty() {
             spans.push(self.header.clone().into());
         }

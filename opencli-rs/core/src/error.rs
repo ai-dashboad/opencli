@@ -298,25 +298,45 @@ const CLOUDFLARE_BLOCKED_MESSAGE: &str =
 
 impl UnexpectedResponseError {
     fn friendly_message(&self) -> Option<String> {
-        if self.status != StatusCode::FORBIDDEN {
-            return None;
+        if self.status == StatusCode::FORBIDDEN
+            && self.body.contains("Cloudflare")
+            && self.body.contains("blocked")
+        {
+            return Some(self.with_context(CLOUDFLARE_BLOCKED_MESSAGE.to_string()));
         }
 
-        if !self.body.contains("Cloudflare") || !self.body.contains("blocked") {
-            return None;
-        }
+        // Turn a provider's JSON error body into its human-readable message
+        // instead of dumping the raw `{"error":{...}}` onto the screen.
+        let core = extract_provider_error_message(&self.body)?;
+        Some(self.with_context(core))
+    }
 
+    /// Append the status, url, and request id to a base message.
+    fn with_context(&self, base: String) -> String {
         let status = self.status;
-        let mut message = format!("{CLOUDFLARE_BLOCKED_MESSAGE} (status {status})");
+        let mut message = format!("{base} (status {status})");
         if let Some(url) = &self.url {
             message.push_str(&format!(", url: {url}"));
         }
         if let Some(id) = &self.request_id {
             message.push_str(&format!(", request id: {id}"));
         }
-
-        Some(message)
+        message
     }
+}
+
+/// Pull the readable message out of a JSON error body such as
+/// `{"error":{"code":"...","message":"..."}}`. Returns `None` when the body is
+/// not JSON or carries no message, so the caller can fall back to the raw body.
+fn extract_provider_error_message(body: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(body.trim()).ok()?;
+    let error = value.get("error").unwrap_or(&value);
+    let message = error
+        .get("message")
+        .and_then(|m| m.as_str())
+        .map(str::trim)
+        .filter(|m| !m.is_empty())?;
+    Some(message.to_string())
 }
 
 impl std::fmt::Display for UnexpectedResponseError {
@@ -633,6 +653,35 @@ mod tests {
     use super::*;
     use crate::exec::StreamOutput;
     use chrono::DateTime;
+
+    #[test]
+    fn unexpected_response_shows_provider_message_not_raw_json() {
+        let err = UnexpectedResponseError {
+            status: StatusCode::BAD_REQUEST,
+            body: r#"{"error":{"type":"invalid_request_error","code":"context_length_exceeded","message":"This request exceeds glm-5.2's context window of 202752 tokens."}}"#
+                .to_string(),
+            url: None,
+            request_id: Some("req-123".to_string()),
+        };
+        let shown = err.to_string();
+        assert!(
+            shown.contains("This request exceeds glm-5.2's context window"),
+            "should show the human message, got: {shown}"
+        );
+        assert!(!shown.contains("{\"error\""), "should not dump raw JSON: {shown}");
+        assert!(shown.contains("req-123"), "should keep the request id: {shown}");
+    }
+
+    #[test]
+    fn unexpected_response_falls_back_to_raw_for_non_json() {
+        let err = UnexpectedResponseError {
+            status: StatusCode::BAD_GATEWAY,
+            body: "plain text error".to_string(),
+            url: None,
+            request_id: None,
+        };
+        assert!(err.to_string().contains("plain text error"));
+    }
     use chrono::Duration as ChronoDuration;
     use chrono::TimeZone;
     use chrono::Utc;

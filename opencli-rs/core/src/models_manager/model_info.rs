@@ -13,7 +13,6 @@ use opencli_protocol::openai_models::TruncationPolicyConfig;
 use crate::config::Config;
 use crate::features::Feature;
 use crate::truncate::approx_bytes_for_tokens;
-use tracing::warn;
 
 pub const BASE_INSTRUCTIONS: &str = include_str!("../../prompt.md");
 const BASE_INSTRUCTIONS_WITH_APPLY_PATCH: &str =

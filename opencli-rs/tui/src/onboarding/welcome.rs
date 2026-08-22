@@ -77,17 +77,20 @@ impl WidgetRef for &WelcomeWidget {
             && layout_area.height >= MIN_ANIMATION_HEIGHT
             && layout_area.width >= MIN_ANIMATION_WIDTH;
 
+        // The opencli wordmark in the flowing gradient replaces the previous
+        // spinning logo. When animations are enabled the gradient flows.
+        let wordmark = if show_animation {
+            crate::wordmark::flowing_gradient_spans("opencli")
+        } else {
+            crate::wordmark::gradient_spans("opencli", 0)
+        };
         let mut lines: Vec<Line> = Vec::new();
-        if show_animation {
-            let frame = self.animation.current_frame();
-            lines.extend(frame.lines().map(Into::into));
-            lines.push("".into());
-        }
+        lines.push(Line::from(
+            [vec!["  ".into(), "Welcome to ".into()], wordmark].concat(),
+        ));
         lines.push(Line::from(vec![
             "  ".into(),
-            "Welcome to ".into(),
-            "OpenCLI".bold(),
-            ", OpenAI's command-line coding agent".into(),
+            "the cheap-model coding agent".dim(),
         ]));
 
         Paragraph::new(lines)
@@ -131,11 +134,11 @@ mod tests {
         let widget = WelcomeWidget::new(false, FrameRequester::test_dummy(), true);
         let area = Rect::new(0, 0, MIN_ANIMATION_WIDTH, MIN_ANIMATION_HEIGHT);
         let mut buf = Buffer::empty(area);
-        let frame_lines = widget.animation.current_frame().lines().count() as u16;
         (&widget).render(area, &mut buf);
 
-        let welcome_row = row_containing(&buf, "Welcome");
-        assert_eq!(welcome_row, Some(frame_lines + 1));
+        // The wordmark replaced the spinning logo, so the welcome line is at
+        // the top rather than below an animation block.
+        assert_eq!(row_containing(&buf, "Welcome"), Some(0));
     }
 
     #[test]
