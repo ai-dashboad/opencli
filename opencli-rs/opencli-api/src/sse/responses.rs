@@ -223,7 +223,7 @@ pub fn process_responses_event(
                     && let Ok(error) = serde_json::from_value::<Error>(error.clone())
                 {
                     if is_context_window_error(&error) {
-                        response_error = ApiError::ContextWindowExceeded;
+                        response_error = ApiError::ContextWindowExceeded { context_limit: None };
                     } else if is_quota_exceeded_error(&error) {
                         response_error = ApiError::QuotaExceeded;
                     } else if is_usage_not_included(&error) {
@@ -702,7 +702,7 @@ mod tests {
 
         assert_eq!(events.len(), 1);
 
-        assert_matches!(events[0], Err(ApiError::ContextWindowExceeded));
+        assert_matches!(events[0], Err(ApiError::ContextWindowExceeded { context_limit: None }));
     }
 
     #[tokio::test]
@@ -715,7 +715,7 @@ mod tests {
 
         assert_eq!(events.len(), 1);
 
-        assert_matches!(events[0], Err(ApiError::ContextWindowExceeded));
+        assert_matches!(events[0], Err(ApiError::ContextWindowExceeded { context_limit: None }));
     }
 
     #[tokio::test]

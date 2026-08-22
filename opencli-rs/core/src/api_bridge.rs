@@ -19,7 +19,7 @@ use crate::token_data::PlanType;
 
 pub(crate) fn map_api_error(err: ApiError) -> OpenCLIErr {
     match err {
-        ApiError::ContextWindowExceeded => OpenCLIErr::ContextWindowExceeded,
+        ApiError::ContextWindowExceeded { context_limit } => OpenCLIErr::ContextWindowExceeded { context_limit },
         ApiError::QuotaExceeded => OpenCLIErr::QuotaExceeded,
         ApiError::UsageNotIncluded => OpenCLIErr::UsageNotIncluded,
         ApiError::Retryable { message, delay } => OpenCLIErr::Stream(message, delay),

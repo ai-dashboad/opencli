@@ -13,7 +13,11 @@ pub enum ApiError {
     #[error("stream error: {0}")]
     Stream(String),
     #[error("context window exceeded")]
-    ContextWindowExceeded,
+    ContextWindowExceeded {
+        /// The provider's real context window, when it reported one (e.g. the
+        /// `context_limit_tokens` field). Lets callers learn the true window.
+        context_limit: Option<u64>,
+    },
     #[error("quota exceeded")]
     QuotaExceeded,
     #[error("usage not included")]

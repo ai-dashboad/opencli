@@ -137,7 +137,7 @@ async fn run_compact_task_inner(
             Err(OpenCLIErr::Interrupted) => {
                 return;
             }
-            Err(e @ OpenCLIErr::ContextWindowExceeded) => {
+            Err(e @ OpenCLIErr::ContextWindowExceeded { .. }) => {
                 if turn_input_len > 1 {
                     // Trim from the beginning to preserve cache (prefix-based) and keep recent messages intact.
                     error!(

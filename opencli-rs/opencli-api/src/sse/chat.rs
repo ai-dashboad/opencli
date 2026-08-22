@@ -282,7 +282,7 @@ pub async fn process_chat_sse<S>(
             }
 
             if finish_reason == Some("length") {
-                let _ = tx_event.send(Err(ApiError::ContextWindowExceeded)).await;
+                let _ = tx_event.send(Err(ApiError::ContextWindowExceeded { context_limit: None })).await;
                 return;
             }
 

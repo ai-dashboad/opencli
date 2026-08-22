@@ -81,6 +81,12 @@ pub(crate) fn with_config_overrides(mut model: ModelInfo, config: &Config) -> Mo
     }
     if let Some(context_window) = config.model_context_window {
         model.context_window = Some(context_window);
+    } else if let Some(learned) =
+        crate::models_manager::learned_windows::learned_window(&config.opencli_home, &model.slug)
+    {
+        // No explicit override: use the window learned from a prior
+        // context-window rejection by this exact model.
+        model.context_window = Some(learned);
     }
     if let Some(auto_compact_token_limit) = config.model_auto_compact_token_limit {
         model.auto_compact_token_limit = Some(auto_compact_token_limit);
@@ -310,21 +316,12 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             truncation_policy: TruncationPolicyConfig::bytes(10_000),
             context_window: Some(CONTEXT_WINDOW_272K),
         )
-    } else if slug.starts_with("glm-5.2") {
-        // The CheapestInference gateway serves glm-5.2 with a 202752-token
-        // window. Set it explicitly so auto-compaction triggers before the
-        // gateway rejects an over-long request.
-        model_info!(
-            slug,
-            context_window: Some(202_752),
-            supported_reasoning_levels: Vec::new(),
-            default_reasoning_level: None,
-        )
     } else {
-        warn!("Unknown model {slug} is used. This will degrade the performance of OpenCLI.");
-        // A conservative default so an unknown model still auto-compacts rather
-        // than growing unbounded until the provider rejects the request. Set
-        // `model_context_window` in config.toml to match a model's real window.
+        // Third-party gateway models are not hard-coded. They start with a
+        // conservative window so the conversation always has an auto-compaction
+        // trigger, and the real window is learned from the gateway's first
+        // context-window rejection (see learned_windows) or set explicitly via
+        // `model_context_window` in config.toml.
         model_info!(
             slug,
             context_window: Some(131_072),
@@ -415,18 +412,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn should_use_real_context_window_for_glm_5_2() {
-        // The gateway rejects requests over 202752 tokens, so auto-compaction
-        // must key off this exact window rather than an over-large default.
-        let info = find_model_info_for_slug("glm-5.2");
-        assert_eq!(info.context_window, Some(202_752));
-    }
-
-    #[test]
-    fn should_bound_unknown_models_with_a_conservative_window() {
-        // An unknown model must still get a finite window so the conversation
-        // auto-compacts instead of growing until the provider rejects it.
-        let info = find_model_info_for_slug("some-brand-new-model");
-        assert_eq!(info.context_window, Some(131_072));
+    fn should_bound_third_party_models_with_a_conservative_window() {
+        // Third-party models are not hard-coded: they start from a finite
+        // conservative window so the conversation auto-compacts instead of
+        // growing until the provider rejects it. The real window is learned at
+        // runtime from a rejection.
+        assert_eq!(
+            find_model_info_for_slug("glm-5.2").context_window,
+            Some(131_072)
+        );
+        assert_eq!(
+            find_model_info_for_slug("some-brand-new-model").context_window,
+            Some(131_072)
+        );
     }
 }

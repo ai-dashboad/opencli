@@ -3537,12 +3537,15 @@ pub(crate) async fn run_turn(
                 sess.send_event(&turn_context, event).await;
                 break;
             }
-            Err(OpenCLIErr::ContextWindowExceeded) if !compacted_after_overflow => {
-                // The provider rejected the request as too long. Compact the
-                // history and retry once; the next attempt sends a much smaller
-                // prompt. Guarded so a compaction that fails to shrink enough
-                // cannot spin forever.
+            Err(OpenCLIErr::ContextWindowExceeded { context_limit })
+                if !compacted_after_overflow =>
+            {
+                // The provider rejected the request as too long. Learn the
+                // model's real window so future turns compact before hitting it,
+                // then compact the history and retry once. Guarded so a
+                // compaction that fails to shrink enough cannot spin forever.
                 compacted_after_overflow = true;
+                learn_context_window(&sess, &turn_context, context_limit).await;
                 sess.send_event(
                     &turn_context,
                     EventMsg::Warning(WarningEvent {
@@ -3565,6 +3568,26 @@ pub(crate) async fn run_turn(
     }
 
     last_agent_message
+}
+
+/// Persist the model's real context window after the provider rejected a turn
+/// for exceeding it. Prefers the limit the provider reported; otherwise falls
+/// back to the token count that just overflowed, which is a safe upper bound.
+async fn learn_context_window(
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
+    reported_limit: Option<u64>,
+) {
+    let window = match reported_limit {
+        Some(limit) => i64::try_from(limit).unwrap_or(i64::MAX),
+        None => sess.get_total_token_usage().await,
+    };
+    if window <= 0 {
+        return;
+    }
+    let slug = turn_context.client.get_model_info().slug;
+    let opencli_home = sess.opencli_home().await;
+    crate::models_manager::learned_windows::record_window(&opencli_home, &slug, window);
 }
 
 async fn run_auto_compact(sess: &Arc<Session>, turn_context: &Arc<TurnContext>) {
@@ -3755,9 +3778,9 @@ async fn run_sampling_request(
             Ok(output) => {
                 return Ok(output);
             }
-            Err(OpenCLIErr::ContextWindowExceeded) => {
+            Err(OpenCLIErr::ContextWindowExceeded { context_limit }) => {
                 sess.set_total_tokens_full(&turn_context).await;
-                return Err(OpenCLIErr::ContextWindowExceeded);
+                return Err(OpenCLIErr::ContextWindowExceeded { context_limit });
             }
             Err(OpenCLIErr::UsageLimitReached(e)) => {
                 let rate_limits = e.rate_limits.clone();

@@ -73,7 +73,11 @@ pub enum OpenCLIErr {
     #[error(
         "OpenCLI ran out of room in the model's context window. Start a new thread or clear earlier history before retrying."
     )]
-    ContextWindowExceeded,
+    ContextWindowExceeded {
+        /// The provider's real context window, when it reported one. Used to
+        /// learn a model's true window for future turns.
+        context_limit: Option<u64>,
+    },
 
     #[error("no thread with id: {0}")]
     ThreadNotFound(ThreadId),
@@ -203,7 +207,7 @@ impl OpenCLIErr {
             | OpenCLIErr::Sandbox(_)
             | OpenCLIErr::LandlockSandboxExecutableNotProvided
             | OpenCLIErr::RetryLimit(_)
-            | OpenCLIErr::ContextWindowExceeded
+            | OpenCLIErr::ContextWindowExceeded { .. }
             | OpenCLIErr::ThreadNotFound(_)
             | OpenCLIErr::AgentLimitReached { .. }
             | OpenCLIErr::Spawn
@@ -535,7 +539,7 @@ impl OpenCLIErr {
     /// Translate core error to client-facing protocol error.
     pub fn to_opencli_protocol_error(&self) -> OpenCLIErrorInfo {
         match self {
-            OpenCLIErr::ContextWindowExceeded => OpenCLIErrorInfo::ContextWindowExceeded,
+            OpenCLIErr::ContextWindowExceeded { .. } => OpenCLIErrorInfo::ContextWindowExceeded,
             OpenCLIErr::UsageLimitReached(_)
             | OpenCLIErr::QuotaExceeded
             | OpenCLIErr::UsageNotIncluded => OpenCLIErrorInfo::UsageLimitExceeded,
