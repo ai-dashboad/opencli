@@ -2616,11 +2616,18 @@ mod handlers {
         if text.trim().is_empty() {
             return None;
         }
-        let model = crate::routing::route_model(&text, &routing);
-        if let Some(model) = model.as_deref() {
-            tracing::info!("routing turn to model `{model}`");
+        let model = crate::routing::route_model(&text, &routing)?;
+        // Guard against a stale or misspelled slug in the routing config: only
+        // route to a model that actually exists, otherwise fall back to the
+        // session's default model instead of failing the turn.
+        if crate::models_manager::model_presets::provider_id_for_model(&model).is_none() {
+            tracing::warn!(
+                "routing target `{model}` is not a known model; using the default model instead"
+            );
+            return None;
         }
-        model
+        tracing::info!("routing turn to model `{model}`");
+        Some(model)
     }
 
     pub async fn user_input_or_turn(
