@@ -3443,6 +3443,11 @@ pub(crate) async fn run_turn(
 
     let mut client_session = turn_context.client.new_session();
 
+    // Guards a single compact-and-retry when the provider rejects the request
+    // for exceeding its context window, so a mis-estimated window self-heals
+    // instead of failing the turn.
+    let mut compacted_after_overflow = false;
+
     loop {
         // Note that pending_input would be something like a message the user
         // submitted through the UI while the model was running. Though the UI
@@ -3531,6 +3536,23 @@ pub(crate) async fn run_turn(
                 });
                 sess.send_event(&turn_context, event).await;
                 break;
+            }
+            Err(OpenCLIErr::ContextWindowExceeded) if !compacted_after_overflow => {
+                // The provider rejected the request as too long. Compact the
+                // history and retry once; the next attempt sends a much smaller
+                // prompt. Guarded so a compaction that fails to shrink enough
+                // cannot spin forever.
+                compacted_after_overflow = true;
+                sess.send_event(
+                    &turn_context,
+                    EventMsg::Warning(WarningEvent {
+                        message: "Context window exceeded; compacting the conversation and retrying."
+                            .to_string(),
+                    }),
+                )
+                .await;
+                run_auto_compact(&sess, &turn_context).await;
+                continue;
             }
             Err(e) => {
                 info!("Turn error: {e:#}");

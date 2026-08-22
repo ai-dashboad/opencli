@@ -310,11 +310,24 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             truncation_policy: TruncationPolicyConfig::bytes(10_000),
             context_window: Some(CONTEXT_WINDOW_272K),
         )
-    } else {
-        warn!("Unknown model {slug} is used. This will degrade the performance of OpenCLI.");
+    } else if slug.starts_with("glm-5.2") {
+        // The CheapestInference gateway serves glm-5.2 with a 202752-token
+        // window. Set it explicitly so auto-compaction triggers before the
+        // gateway rejects an over-long request.
         model_info!(
             slug,
-            context_window: None,
+            context_window: Some(202_752),
+            supported_reasoning_levels: Vec::new(),
+            default_reasoning_level: None,
+        )
+    } else {
+        warn!("Unknown model {slug} is used. This will degrade the performance of OpenCLI.");
+        // A conservative default so an unknown model still auto-compacts rather
+        // than growing unbounded until the provider rejects the request. Set
+        // `model_context_window` in config.toml to match a model's real window.
+        model_info!(
+            slug,
+            context_window: Some(131_072),
             supported_reasoning_levels: Vec::new(),
             default_reasoning_level: None
         )
@@ -395,4 +408,25 @@ fn supported_reasoning_level_low_medium_high_xhigh_non_opencli() -> Vec<Reasonin
             description: "Extra high reasoning for complex problems".to_string(),
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_use_real_context_window_for_glm_5_2() {
+        // The gateway rejects requests over 202752 tokens, so auto-compaction
+        // must key off this exact window rather than an over-large default.
+        let info = find_model_info_for_slug("glm-5.2");
+        assert_eq!(info.context_window, Some(202_752));
+    }
+
+    #[test]
+    fn should_bound_unknown_models_with_a_conservative_window() {
+        // An unknown model must still get a finite window so the conversation
+        // auto-compacts instead of growing until the provider rejects it.
+        let info = find_model_info_for_slug("some-brand-new-model");
+        assert_eq!(info.context_window, Some(131_072));
+    }
 }
