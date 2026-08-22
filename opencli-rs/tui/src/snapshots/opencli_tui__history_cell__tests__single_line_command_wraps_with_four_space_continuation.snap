@@ -2,8 +2,10 @@
 source: tui/src/history_cell.rs
 expression: rendered
 ---
-⏺ Executed a_very_long_t
-  │ oken_without_
-  │ spaces_to_for
-  │ … +1 lines
-  ⎿ (no output)
+╭─ ⏺ Executed ─────────╮
+│ a_very_long_token_wi │
+│ thout_spaces_to_forc │
+│ e_wrapping           │
+├──────────────────────┤
+│ (no output)          │
+╰──────────────────────╯

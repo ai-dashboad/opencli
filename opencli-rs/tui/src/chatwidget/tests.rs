@@ -1838,7 +1838,7 @@ async fn exec_history_cell_shows_working_then_failed() {
     let lines = &cells[0];
     let blob = lines_to_single_string(lines);
     assert!(
-        blob.contains("⏺ Executed false"),
+        blob.contains("⏺ Executed") && blob.contains("false"),
         "expected command and header text present: {blob:?}"
     );
     assert!(blob.to_lowercase().contains("bloop"), "expected error text");
@@ -1878,7 +1878,7 @@ async fn exec_end_without_begin_uses_event_command() {
     assert_eq!(cells.len(), 1, "expected finalized exec cell to flush");
     let blob = lines_to_single_string(&cells[0]);
     assert!(
-        blob.contains("⏺ Executed echo orphaned"),
+        blob.contains("⏺ Executed") && blob.contains("echo orphaned"),
         "expected command text to come from event: {blob:?}"
     );
     assert!(
@@ -1909,7 +1909,7 @@ async fn exec_history_shows_unified_exec_startup_commands() {
     assert_eq!(cells.len(), 1, "expected finalized exec cell to flush");
     let blob = lines_to_single_string(&cells[0]);
     assert!(
-        blob.contains("⏺ Executed echo unified exec startup"),
+        blob.contains("⏺ Executed") && blob.contains("echo unified exec startup"),
         "expected startup command to render: {blob:?}"
     );
 }
