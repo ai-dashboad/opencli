@@ -195,7 +195,16 @@ pub fn build_reqwest_client() -> reqwest::Client {
     let mut builder = reqwest::Client::builder()
         // Set UA via dedicated helper to avoid header validation pitfalls
         .user_agent(ua)
-        .default_headers(headers);
+        .default_headers(headers)
+        // Fail fast when a connection cannot be established at all.
+        .connect_timeout(std::time::Duration::from_secs(30))
+        // Guard against a gateway that accepts the connection but then goes
+        // silent: if no bytes arrive for this long the request errors and the
+        // retry logic reconnects, instead of the turn hanging forever. This is
+        // per-read, so a streaming response that keeps producing tokens is
+        // unaffected. 300s matches the stream idle timeout and tolerates a slow
+        // first token on a very large prompt.
+        .read_timeout(std::time::Duration::from_secs(300));
     if is_sandboxed() {
         builder = builder.no_proxy();
     }
