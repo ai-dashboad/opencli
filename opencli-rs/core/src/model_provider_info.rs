@@ -154,13 +154,13 @@ impl ModelProviderInfo {
         let headers = self.build_header_map()?;
         let retry = ApiRetryConfig {
             max_attempts: self.request_max_retries(),
-            // A longer base delay gives a rate-limited gateway room to recover
-            // between attempts, since 429s are now retried.
             base_delay: Duration::from_millis(500),
-            // Retry 429s with backoff. Cheap third-party gateways rate-limit
-            // aggressively, and failing the whole turn on a transient 429 was
-            // dropping in-progress exchanges from the session.
-            retry_429: true,
+            // Do NOT retry 429s at the transport layer. The turn loop owns 429
+            // handling with a visible, incrementing "waiting Ns and retrying
+            // (n/N)" counter; retrying here too would stack the two, so each
+            // visible step would silently burn the whole transport budget first
+            // and the counter would appear stuck.
+            retry_429: false,
             retry_5xx: true,
             retry_transport: true,
         };
