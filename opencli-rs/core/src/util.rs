@@ -44,6 +44,17 @@ pub(crate) fn backoff(attempt: u64) -> Duration {
     Duration::from_millis((base as f64 * jitter) as u64)
 }
 
+/// Backoff for waiting out a rate limit (429): starts a few seconds, grows,
+/// and caps so the turn keeps retrying patiently without ever-growing waits.
+pub(crate) fn rate_limit_backoff(attempt: u64) -> Duration {
+    const BASE_SECS: u64 = 3;
+    const CAP_SECS: u64 = 60;
+    let exp = 2u64.saturating_pow(attempt.saturating_sub(1).min(6) as u32);
+    let secs = BASE_SECS.saturating_mul(exp).min(CAP_SECS);
+    let jitter = rand::rng().random_range(0.9..1.1);
+    Duration::from_millis(((secs * 1000) as f64 * jitter) as u64)
+}
+
 pub(crate) fn error_or_panic(message: impl std::string::ToString) {
     if cfg!(debug_assertions) {
         panic!("{}", message.to_string());
@@ -104,6 +115,18 @@ pub fn resume_command(thread_name: Option<&str>, thread_id: Option<ThreadId>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rate_limit_backoff_grows_then_caps() {
+        // Early attempts are short; late attempts stay under the 60s cap
+        // (plus the +/-10% jitter).
+        let first = rate_limit_backoff(1).as_secs();
+        assert!((2..=4).contains(&first), "first was {first}s");
+        for attempt in 1..30 {
+            let secs = rate_limit_backoff(attempt).as_secs();
+            assert!(secs <= 66, "attempt {attempt} was {secs}s, over cap");
+        }
+    }
 
     #[test]
     fn test_try_parse_error_message() {

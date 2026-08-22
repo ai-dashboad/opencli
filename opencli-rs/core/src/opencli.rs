@@ -202,6 +202,7 @@ use crate::turn_diff_tracker::TurnDiffTracker;
 use crate::unified_exec::UnifiedExecProcessManager;
 use crate::user_notification::UserNotification;
 use crate::util::backoff;
+use crate::util::rate_limit_backoff;
 use crate::windows_sandbox::WindowsSandboxLevelExt;
 use opencli_async_utils::OrCancelExt;
 use opencli_otel::OtelManager;
@@ -3763,6 +3764,11 @@ async fn run_sampling_request(
     };
 
     let mut retries = 0;
+    // Rate-limit (429) rejections keep the turn alive: the loop waits and
+    // retries on its own rather than surfacing the error, up to this many
+    // times, so a busy gateway recovers without the user resending.
+    let mut rate_limit_retries: u64 = 0;
+    const MAX_RATE_LIMIT_RETRIES: u64 = 20;
     loop {
         let err = match try_run_sampling_request(
             Arc::clone(&router),
@@ -3788,6 +3794,30 @@ async fn run_sampling_request(
                     sess.update_rate_limits(&turn_context, rate_limits).await;
                 }
                 return Err(OpenCLIErr::UsageLimitReached(e));
+            }
+            // A 429 that exhausted the transport-level retries surfaces here as
+            // RetryLimit. Keep the turn alive: wait with backoff and retry the
+            // request instead of failing, so a rate-limited gateway recovers on
+            // its own.
+            Err(OpenCLIErr::RetryLimit(e))
+                if e.status.as_u16() == 429 && rate_limit_retries < MAX_RATE_LIMIT_RETRIES =>
+            {
+                rate_limit_retries += 1;
+                let delay = rate_limit_backoff(rate_limit_retries);
+                warn!(
+                    "rate limited (429); waiting {delay:?} and retrying ({rate_limit_retries}/{MAX_RATE_LIMIT_RETRIES})"
+                );
+                sess.notify_stream_error(
+                    &turn_context,
+                    format!(
+                        "Rate limited; waiting {}s and retrying ({rate_limit_retries}/{MAX_RATE_LIMIT_RETRIES})",
+                        delay.as_secs().max(1)
+                    ),
+                    OpenCLIErr::RetryLimit(e),
+                )
+                .await;
+                tokio::time::sleep(delay).await;
+                continue;
             }
             Err(err) => err,
         };
