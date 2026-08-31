@@ -103,6 +103,15 @@ export interface Project {
   threadIds: string[];
 }
 
+/** A fact the user asked the agent to remember. */
+export interface Memory {
+  id: string;
+  text: string;
+  /** The project it is scoped to; `null` means every conversation. */
+  projectId: string | null;
+  createdAt: number;
+}
+
 /** A configured MCP server and whether it is usable. */
 export interface ConnectorSummary {
   name: string;
@@ -178,25 +187,31 @@ export class OpenCliClient {
     return this.#threadId;
   }
 
-  /** Connect, complete the handshake, and open a thread. */
-  async connect(
-    url: string,
-    options: { cwd: string; model?: string; instructions?: string },
-  ): Promise<void> {
+  /**
+   * Open the socket and complete the handshake, without starting a thread.
+   *
+   * Split from [`startThread`] because a thread's instructions have to be
+   * settled before it starts, and working out what they are — reading the
+   * applicable memories — itself needs a connected socket.
+   */
+  async openSession(url: string): Promise<void> {
     this.#events.onStatus?.("connecting");
     await this.#open(url);
-
     await this.request("initialize", {
       clientInfo: { name: "opencli_web", title: "OpenCLI Web", version: "0.1.0" },
     });
     this.notify("initialized");
+  }
 
+  /** Start a thread on an already-open session. */
+  async startThread(options: { cwd: string; model?: string; instructions?: string }): Promise<void> {
     const started = (await this.request("thread/start", {
       cwd: options.cwd,
       ...(options.model ? { model: options.model } : {}),
       // `developerInstructions` appends a message to the context;
       // `baseInstructions` would *replace* the whole system prompt and cost the
-      // agent its normal operating rules. A project adds context, so append.
+      // agent its normal operating rules. Projects and memory add context, so
+      // append.
       ...(options.instructions?.trim()
         ? { developerInstructions: options.instructions.trim() }
         : {}),
@@ -209,6 +224,15 @@ export class OpenCliClient {
     this.#threadId = started.thread?.id ?? started.threadId ?? null;
     if (!this.#threadId) throw new Error("server did not return a thread id");
     this.#events.onStatus?.("ready");
+  }
+
+  /** Connect, complete the handshake, and open a thread. */
+  async connect(
+    url: string,
+    options: { cwd: string; model?: string; instructions?: string },
+  ): Promise<void> {
+    await this.openSession(url);
+    await this.startThread(options);
   }
 
   #open(url: string): Promise<void> {
@@ -456,6 +480,42 @@ export class OpenCliClient {
   /** Record that a thread belongs to a project. Safe to call repeatedly. */
   async attachThread(id: string, threadId: string): Promise<void> {
     await this.request("project/attachThread", { id, threadId });
+  }
+
+  /**
+   * List remembered facts.
+   *
+   * `projectId` narrows the list to what applies to that project — the global
+   * facts plus its own. `instructions` is the rendered block to prepend to a
+   * thread, returned by the server so the client does not have to reproduce
+   * the formatting the agent expects.
+   */
+  async listMemories(
+    options: { projectId?: string | null; applicableOnly?: boolean } = {},
+  ): Promise<{ memories: Memory[]; instructions: string }> {
+    const result = (await this.request("memory/list", {
+      ...(options.applicableOnly ? { applicable: true } : {}),
+      ...(options.projectId ? { projectId: options.projectId } : {}),
+    })) as { data?: unknown[]; instructions?: string };
+    return {
+      memories: (result.data ?? []) as Memory[],
+      instructions: typeof result.instructions === "string" ? result.instructions : "",
+    };
+  }
+
+  async createMemory(text: string, projectId?: string | null): Promise<Memory> {
+    return (await this.request("memory/create", {
+      text,
+      ...(projectId ? { projectId } : {}),
+    })) as Memory;
+  }
+
+  async updateMemory(id: string, text: string): Promise<Memory> {
+    return (await this.request("memory/update", { id, text })) as Memory;
+  }
+
+  async deleteMemory(id: string): Promise<void> {
+    await this.request("memory/delete", { id });
   }
 
   /** Read the effective config after layering. */

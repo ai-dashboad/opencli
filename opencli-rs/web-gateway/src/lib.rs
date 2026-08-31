@@ -244,7 +244,8 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
         // conversation. Answer those methods here instead of relaying them to
         // a server that has no notion of them.
         let handled = schedule::handle(&text, &state.opencli_home)
-            .or_else(|| project::handle(&text, &state.opencli_home));
+            .or_else(|| project::handle(&text, &state.opencli_home))
+            .or_else(|| memory::handle(&text, &state.opencli_home));
         if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -272,6 +273,7 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
 
 /// Minimal split shim so this file does not pull in `futures` just to halve a
 /// socket.
+mod memory;
 mod project;
 mod schedule;
 

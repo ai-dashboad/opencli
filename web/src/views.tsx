@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   ConnectorSummary,
   FileChange,
+  Memory,
   OpenCliClient,
   Project,
   ScheduledTask,
@@ -509,6 +510,102 @@ export function ArtifactsView({ changes }: { changes: FileChange[] }) {
               </button>
             </div>
             {openPath === change.path ? <ChangeBody change={change} /> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * Memory: facts that apply to every conversation, or to one project.
+ *
+ * Written by the user, not the agent. An agent that decides for itself what to
+ * remember will eventually persist something wrong, and a wrong permanent fact
+ * is worse than none: invisible, applied to every future conversation, and
+ * never agreed to.
+ */
+export function MemoryView({
+  client,
+  project,
+}: {
+  client: OpenCliClient;
+  project: Project | null;
+}) {
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const [scoped, setScoped] = useState(false);
+
+  const reload = useCallback(async () => {
+    try {
+      setMemories((await client.listMemories()).memories);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const add = useCallback(async () => {
+    try {
+      await client.createMemory(text.trim(), scoped && project ? project.id : null);
+      setText("");
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client, project, reload, scoped, text]);
+
+  return (
+    <section className="panel">
+      <h2>Memory</h2>
+      <p className="hint">
+        Facts the agent should always know. They are added to the context of every new chat, so
+        keep the list short — each one costs tokens in every conversation.
+      </p>
+      {error ? <p className="error">{error}</p> : null}
+
+      <div className="task-form">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="e.g. Deploy with `just ship`, never with npm"
+        />
+        {project ? (
+          <label className="scope">
+            <input
+              type="checkbox"
+              checked={scoped}
+              onChange={(e) => setScoped(e.target.checked)}
+            />
+            Only in {project.name}
+          </label>
+        ) : null}
+        <button onClick={() => void add()} disabled={!text.trim()}>
+          Remember
+        </button>
+      </div>
+
+      <ul className="rows">
+        {memories.length === 0 ? <li className="muted">Nothing remembered yet.</li> : null}
+        {memories.map((memory) => (
+          <li key={memory.id}>
+            <strong>{memory.text}</strong>
+            <span>{memory.projectId ? "one project only" : "every conversation"}</span>
+            <div className="actions">
+              <button
+                className="secondary"
+                onClick={() => {
+                  void client.deleteMemory(memory.id).then(reload);
+                }}
+              >
+                Forget
+              </button>
+            </div>
           </li>
         ))}
       </ul>

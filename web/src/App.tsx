@@ -3,6 +3,7 @@ import Sidebar, { type View } from "./Sidebar";
 import {
   ArtifactsView,
   ConnectorsView,
+  MemoryView,
   ProjectsView,
   ScheduledView,
   SettingsView,
@@ -105,7 +106,12 @@ export default function App() {
   }, []);
 
   const connectTo = useCallback(
-    async (target: string, directory: string, instructions?: string) => {
+    async (
+      target: string,
+      directory: string,
+      instructions?: string,
+      projectId: string | null = null,
+    ) => {
       setError(null);
       const client = new OpenCliClient({
         onStatus: setStatus,
@@ -128,7 +134,22 @@ export default function App() {
       });
       clientRef.current = client;
       try {
-        await client.connect(target, { cwd: directory || ".", instructions });
+        // Handshake first, so the applicable memories can be read on this same
+        // connection — a thread's instructions must be settled before it
+        // starts, and `memory/*` is answered by the gateway, not the thread.
+        await client.openSession(target);
+        let remembered = "";
+        try {
+          remembered = (
+            await client.listMemories({ projectId, applicableOnly: true })
+          ).instructions;
+        } catch {
+          // Memory is an enhancement; a chat must still open without it.
+        }
+        await client.startThread({
+          cwd: directory || ".",
+          instructions: [instructions, remembered].filter(Boolean).join("\n\n"),
+        });
         setActiveThreadId(client.threadId);
         const available = await client.listModels();
         setModels(available);
@@ -225,7 +246,7 @@ export default function App() {
       setChanges([]);
       setProject(target);
       setCwd(target.cwd);
-      await connectTo(url, target.cwd, target.instructions);
+      await connectTo(url, target.cwd, target.instructions, target.id);
       const client = clientRef.current;
       // Attach after connecting, so the project lists the thread that was
       // actually opened. A failure here only costs the grouping.
@@ -338,6 +359,8 @@ export default function App() {
 
         {view === "artifacts" ? (
           <ArtifactsView changes={changes} />
+        ) : view === "memory" && client ? (
+          <MemoryView client={client} project={project} />
         ) : view === "projects" && client ? (
           <ProjectsView client={client} onOpen={(target) => void openProject(target)} />
         ) : view === "scheduled" && client ? (

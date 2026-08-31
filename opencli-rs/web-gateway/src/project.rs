@@ -4,6 +4,7 @@
 //! `project/*` itself rather than relaying to the app server, which is scoped
 //! to a single conversation.
 
+use opencli_core::memory;
 use opencli_core::projects;
 use serde_json::Value;
 use serde_json::json;
@@ -140,7 +141,12 @@ fn delete(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     if !removed {
         return Err(format!("no project with id `{id}`"));
     }
-    Ok(json!({}))
+    // The project's own memories can never apply again; leaving them would
+    // clutter the list with facts that read as active but never are. The
+    // threads it grouped are untouched — those still stand on their own.
+    let forgotten = memory::forget_project(opencli_home, id)
+        .map_err(|err| format!("could not forget the project's memories: {err}"))?;
+    Ok(json!({ "forgottenMemories": forgotten }))
 }
 
 fn attach_thread(opencli_home: &Path, params: &Value) -> Result<Value, String> {
@@ -277,6 +283,24 @@ mod tests {
             dir.path(),
         );
         assert!(reply["error"].is_object());
+    }
+
+    #[test]
+    fn should_forget_a_deleted_projects_memories() {
+        let dir = tempdir().expect("tempdir");
+        let id = create_one(dir.path());
+        memory::create(dir.path(), "scoped".into(), Some(id.clone())).expect("create");
+        memory::create(dir.path(), "global".into(), None).expect("create");
+
+        let deleted = call(
+            &format!(r#"{{"method":"project/delete","id":2,"params":{{"id":"{id}"}}}}"#),
+            dir.path(),
+        );
+        assert_eq!(deleted["result"]["forgottenMemories"], 1);
+
+        let remaining = memory::load(dir.path());
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].text, "global", "global facts must survive");
     }
 
     #[test]

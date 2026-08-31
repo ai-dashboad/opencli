@@ -157,3 +157,11 @@ button.link {
 .diff .added { color: #7ee787; }
 .diff .removed { color: #ff9492; }
 .diff .hunk { color: var(--accent); }
+
+.scope {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}

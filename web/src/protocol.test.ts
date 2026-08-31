@@ -30,6 +30,11 @@ class FakeSocket {
       this.reply(message.id!, {});
     } else if (message.method === "thread/start") {
       this.reply(message.id!, { thread: { id: "thread-1" } });
+    } else if (message.method === "memory/list") {
+      this.reply(message.id!, {
+        data: [{ id: "mem-1", text: "never touch vendor/", projectId: null, createdAt: 0 }],
+        instructions: "Things the user has asked you to remember:\n- never touch vendor/\n",
+      });
     }
   }
 
@@ -249,5 +254,74 @@ describe("projects", () => {
 
     const update = socket.parsedSent().find((message) => message.method === "project/update")!;
     expect(update.params).toEqual({ id: "proj-1", name: "Renamed" });
+  });
+});
+
+describe("memory", () => {
+  it("should read the applicable facts and their rendered block", async () => {
+    const { client, socket } = await connected();
+    const result = await client.listMemories({ projectId: "proj-1", applicableOnly: true });
+
+    const request = socket.parsedSent().find((message) => message.method === "memory/list")!;
+    expect(request.params).toEqual({ applicable: true, projectId: "proj-1" });
+    expect(result.memories).toHaveLength(1);
+    expect(result.instructions).toContain("- never touch vendor/");
+  });
+
+  it("should ask for every fact when no project is given", async () => {
+    // Sending `projectId: undefined` would be dropped by JSON, but sending
+    // `applicable: true` without one would silently hide project facts.
+    const { client, socket } = await connected();
+    await client.listMemories();
+
+    const request = socket.parsedSent().find((message) => message.method === "memory/list")!;
+    expect(request.params).toEqual({});
+  });
+
+  it("should scope a new fact to a project only when one is given", async () => {
+    const { client, socket } = await connected();
+    void client.createMemory("global fact");
+    void client.createMemory("scoped fact", "proj-1");
+    await settle();
+
+    const creates = socket
+      .parsedSent()
+      .filter((message) => message.method === "memory/create")
+      .map((message) => message.params);
+    expect(creates).toEqual([
+      { text: "global fact" },
+      { text: "scoped fact", projectId: "proj-1" },
+    ]);
+  });
+
+  it("should combine project instructions with remembered facts in one block", async () => {
+    // Both are context the agent needs; sending only one of them is the bug
+    // this guards against.
+    const client = new OpenCliClient({});
+    await client.openSession("ws://test/ws");
+    const { instructions } = await client.listMemories({ applicableOnly: true });
+    await client.startThread({
+      cwd: "/work",
+      instructions: ["Project rule: build with just", instructions].join("\n\n"),
+    });
+
+    const params = FakeSocket.last
+      .parsedSent()
+      .find((message) => message.method === "thread/start")!.params as Record<string, unknown>;
+    const sent = String(params.developerInstructions);
+    expect(sent).toContain("Project rule: build with just");
+    expect(sent).toContain("- never touch vendor/");
+  });
+
+  it("should not start a thread when only opening a session", async () => {
+    // `openSession` exists so memories can be read before the thread starts;
+    // starting one early would use the wrong instructions.
+    const client = new OpenCliClient({});
+    await client.openSession("ws://test/ws");
+
+    expect(
+      FakeSocket.last.parsedSent().some((message) => message.method === "thread/start"),
+    ).toBe(false);
+    expect(client.threadId).toBeNull();
   });
 });
