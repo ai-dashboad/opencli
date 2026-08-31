@@ -9,6 +9,7 @@
 //! locally hosted agent; anything that must fire while the machine sleeps
 //! belongs in the OS scheduler.
 
+use opencli_core::dispatch;
 use opencli_core::scheduled;
 use serde_json::Value;
 use serde_json::json;
@@ -123,11 +124,12 @@ fn set_enabled(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     Ok(json!({}))
 }
 
-/// Run due tasks forever.
+/// Queue due tasks forever.
 ///
-/// Each run is a plain `opencli exec`, the same path `opencli loop` uses, so a
-/// scheduled task behaves exactly like running the prompt by hand.
-pub async fn run_scheduler(opencli_home: PathBuf, opencli_bin: PathBuf) {
+/// The work itself is done by the dispatch worker, so a scheduled run appears
+/// in the same list as one started by hand and obeys the same limit on how
+/// many agents run at once.
+pub async fn run_scheduler(opencli_home: PathBuf, _opencli_bin: PathBuf) {
     loop {
         tokio::time::sleep(TICK).await;
         let now = scheduled::now_seconds();
@@ -143,27 +145,20 @@ pub async fn run_scheduler(opencli_home: PathBuf, opencli_bin: PathBuf) {
             }
             tracing::info!("running scheduled task `{}`", task.name);
 
-            let result = tokio::process::Command::new(&opencli_bin)
-                .arg("exec")
-                .arg("--skip-git-repo-check")
-                // `exec` defaults to read-only, which silently defeats the point
-                // of most scheduled work — writing a digest, updating a file.
-                // Scope writes to the task's own directory rather than granting
-                // full access: nobody is watching to approve anything.
-                .arg("--sandbox")
-                .arg("workspace-write")
-                .arg(&task.prompt)
-                .current_dir(&task.cwd)
-                .output()
-                .await;
-            match result {
-                Ok(output) if output.status.success() => {}
-                Ok(output) => tracing::error!(
-                    "scheduled task `{}` exited with {}",
-                    task.name,
-                    output.status
-                ),
-                Err(err) => tracing::error!("could not run `{}`: {err}", task.name),
+            // Queue it rather than running it here. A scheduled run and a
+            // dispatched one are the same thing to the person reading the
+            // list, and routing both through one worker means one place
+            // enforces how many agents run at once.
+            if let Err(err) = dispatch::create(
+                &opencli_home,
+                task.name.clone(),
+                task.prompt.clone(),
+                task.cwd.clone(),
+                None,
+                dispatch::RunSource::Scheduled,
+                Some(task.id.clone()),
+            ) {
+                tracing::error!("could not queue `{}`: {err}", task.name);
             }
         }
     }
@@ -287,6 +282,38 @@ mod tests {
 
         let listed = call(r#"{"method":"schedule/list","id":2}"#, dir.path());
         assert_eq!(listed["result"]["data"][0]["runCount"], 2);
+    }
+
+    #[test]
+    fn should_queue_a_due_task_rather_than_running_it_inline() {
+        // A scheduled run and a dispatched one are the same thing to whoever
+        // reads the list, and one worker means one place decides how many
+        // agents run at once.
+        let dir = tempdir().expect("tempdir");
+        let task = scheduled::create(
+            dir.path(),
+            "Digest".into(),
+            "summarize".into(),
+            60,
+            "/tmp".into(),
+        )
+        .expect("create");
+
+        dispatch::create(
+            dir.path(),
+            task.name.clone(),
+            task.prompt.clone(),
+            task.cwd.clone(),
+            None,
+            dispatch::RunSource::Scheduled,
+            Some(task.id.clone()),
+        )
+        .expect("queue");
+
+        let queued = dispatch::queued(dir.path());
+        assert_eq!(queued.len(), 1);
+        assert_eq!(queued[0].source, dispatch::RunSource::Scheduled);
+        assert_eq!(queued[0].task_id.as_deref(), Some(task.id.as_str()));
     }
 
     #[test]

@@ -142,7 +142,13 @@ pub async fn serve_with_listener(
     // One scheduler per gateway, not per connection: tasks must run whether or
     // not a UI is attached, and duplicating it per socket would run each task
     // once per open window.
-    tokio::spawn(schedule::run_scheduler(opencli_home, server_bin));
+    tokio::spawn(schedule::run_scheduler(
+        opencli_home.clone(),
+        server_bin.clone(),
+    ));
+    // The same reasoning applies to background runs: one worker per gateway,
+    // or every open window would start the same queued task.
+    tokio::spawn(dispatch::run_worker(opencli_home, server_bin));
 
     let app = Router::new()
         .route("/healthz", get(|| async { "ok" }))
@@ -245,7 +251,8 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
         // a server that has no notion of them.
         let handled = schedule::handle(&text, &state.opencli_home)
             .or_else(|| project::handle(&text, &state.opencli_home))
-            .or_else(|| memory::handle(&text, &state.opencli_home));
+            .or_else(|| memory::handle(&text, &state.opencli_home))
+            .or_else(|| dispatch::handle(&text, &state.opencli_home));
         if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -273,6 +280,7 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
 
 /// Minimal split shim so this file does not pull in `futures` just to halve a
 /// socket.
+mod dispatch;
 mod memory;
 mod project;
 mod schedule;
