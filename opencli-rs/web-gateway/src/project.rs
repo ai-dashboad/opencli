@@ -61,6 +61,22 @@ fn optional_text(params: &Value, key: &str) -> Option<String> {
     params.get(key).and_then(Value::as_str).map(str::to_string)
 }
 
+/// Reject a directory that does not exist.
+///
+/// Without this the mistake surfaces much later, as a failure to start a
+/// thread, with nothing pointing back at the typo in the project's path.
+fn ensure_directory(cwd: &str) -> Result<(), String> {
+    let path = Path::new(cwd);
+    if path.is_dir() {
+        return Ok(());
+    }
+    Err(if path.exists() {
+        format!("`{cwd}` is a file, not a directory")
+    } else {
+        format!("`{cwd}` does not exist")
+    })
+}
+
 fn list(opencli_home: &Path) -> Result<Value, String> {
     let projects: Vec<Value> = projects::load(opencli_home)
         .iter()
@@ -85,6 +101,7 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
         .filter(|cwd| !cwd.is_empty())
         .ok_or("cwd is required")?;
     let instructions = optional_text(params, "instructions").unwrap_or_default();
+    ensure_directory(cwd)?;
 
     let project = projects::create(
         opencli_home,
@@ -98,11 +115,15 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
 
 fn update(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     let id = required_id(params)?;
+    let cwd = optional_text(params, "cwd");
+    if let Some(cwd) = cwd.as_deref() {
+        ensure_directory(cwd)?;
+    }
     let updated = projects::update(
         opencli_home,
         id,
         optional_text(params, "name"),
-        optional_text(params, "cwd"),
+        cwd,
         optional_text(params, "instructions"),
     )
     .map_err(|err| format!("could not save: {err}"))?;
@@ -149,7 +170,7 @@ mod tests {
     fn create_one(home: &Path) -> String {
         let created = call(
             r#"{"method":"project/create","id":1,"params":
-                {"name":"Site","cwd":"/srv/site","instructions":"be careful"}}"#,
+                {"name":"Site","cwd":"/tmp","instructions":"be careful"}}"#,
             home,
         );
         created["result"]["id"].as_str().expect("id").to_string()
@@ -171,7 +192,7 @@ mod tests {
         let rows = listed["result"]["data"].as_array().expect("data");
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["name"], "Site");
-        assert_eq!(rows[0]["cwd"], "/srv/site");
+        assert_eq!(rows[0]["cwd"], "/tmp");
         assert_eq!(rows[0]["instructions"], "be careful");
     }
 
@@ -230,6 +251,32 @@ mod tests {
             );
             assert!(reply["error"].is_object(), "{method} should report an error");
         }
+    }
+
+    #[test]
+    fn should_reject_a_directory_that_does_not_exist() {
+        let dir = tempdir().expect("tempdir");
+        let reply = call(
+            r#"{"method":"project/create","id":1,"params":
+                {"name":"x","cwd":"/no/such/place"}}"#,
+            dir.path(),
+        );
+        assert!(reply["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("does not exist")));
+    }
+
+    #[test]
+    fn should_reject_moving_a_project_to_a_missing_directory() {
+        let dir = tempdir().expect("tempdir");
+        let id = create_one(dir.path());
+        let reply = call(
+            &format!(
+                r#"{{"method":"project/update","id":2,"params":{{"id":"{id}","cwd":"/no/such"}}}}"#
+            ),
+            dir.path(),
+        );
+        assert!(reply["error"].is_object());
     }
 
     #[test]
