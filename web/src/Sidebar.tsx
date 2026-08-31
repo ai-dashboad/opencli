@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { shouldDismiss } from "./composer";
 import type { Project, ScheduledTask, ThreadSummary } from "./protocol";
 import {
   ArrowLeftIcon,
@@ -308,7 +309,7 @@ export default function Sidebar({
               placeholder="Filter chats"
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Escape") {
+                if (shouldDismiss({ ...event, isComposing: event.nativeEvent.isComposing })) {
                   setSearching(false);
                   setQuery("");
                 }

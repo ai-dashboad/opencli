@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FolderIcon, FolderPlusIcon, PinIcon, SearchIcon } from "./icons";
 import { Dialog } from "./menus";
+import { shouldDismiss } from "./composer";
 import type {
   ApprovalPolicy,
   ConnectorConfig,
@@ -682,7 +683,7 @@ export function ProjectsView({
             placeholder="Search projects"
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Escape") {
+              if (shouldDismiss({ ...e, isComposing: e.nativeEvent.isComposing })) {
                 setSearching(false);
                 setQuery("");
               }

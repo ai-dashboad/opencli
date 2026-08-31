@@ -44,6 +44,7 @@ import {
   SunburstIcon,
 } from "./icons";
 import { AttachMenu, ModelMenu, Popover } from "./menus";
+import { shouldSend } from "./composer";
 import "./styles.css";
 
 /**
@@ -292,7 +293,9 @@ export default function App() {
   // "Add files or photos".
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "u") {
+      // `key` is absent for some input-method events, and throwing here on
+      // every keystroke would fill the console during ordinary typing.
+      if ((event.metaKey || event.ctrlKey) && event.key?.toLowerCase() === "u") {
         event.preventDefault();
         imageInputRef.current?.click();
       }
@@ -1017,10 +1020,9 @@ export default function App() {
                   }
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void send();
-                  }
+                  if (!shouldSend({ ...e, isComposing: e.nativeEvent.isComposing })) return;
+                  e.preventDefault();
+                  void send();
                 }}
                 placeholder={
                   cowork
