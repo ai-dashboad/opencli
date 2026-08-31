@@ -311,3 +311,12 @@ export function FolderPlusIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function ChipIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="4.4" y="4.4" width="7.2" height="7.2" rx="1.2" />
+      <path d="M6.4 2v2.4M9.6 2v2.4M6.4 11.6V14M9.6 11.6V14M2 6.4h2.4M2 9.6h2.4M11.6 6.4H14M11.6 9.6H14" />
+    </Svg>
+  );
+}

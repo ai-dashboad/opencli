@@ -261,6 +261,18 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             }
             continue;
         }
+        // Installing a model streams progress for minutes, so it answers
+        // straight away and keeps reporting; the rest of `runtime/*` is
+        // ordinary but asynchronous, because it reaches over the network.
+        if runtime::pull(&text, out_tx_for_local.clone()).await {
+            continue;
+        }
+        if let Some(reply) = runtime::handle(&text).await {
+            if out_tx_for_local.send(reply).await.is_err() {
+                break;
+            }
+            continue;
+        }
         if stdin.write_all(text.as_bytes()).await.is_err() {
             break;
         }
@@ -286,6 +298,7 @@ mod connector;
 mod dispatch;
 mod memory;
 mod plugin;
+mod runtime;
 mod project;
 mod schedule;
 

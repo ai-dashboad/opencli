@@ -10,6 +10,7 @@ import {
   ClockIcon,
   ConnectorIcon,
   MemoryIcon,
+  ChipIcon,
   PaletteIcon,
   PlugIcon,
   PlusIcon,
@@ -32,6 +33,7 @@ export type View =
   | "skills"
   | "connectors"
   | "plugins"
+  | "models"
   | "project"
   | "settings";
 
@@ -100,6 +102,7 @@ const SECONDARY: { id: View; label: string; icon: React.ReactNode }[] = [
   { id: "skills", label: "Skills", icon: <SkillIcon /> },
   { id: "connectors", label: "Connectors", icon: <ConnectorIcon /> },
   { id: "plugins", label: "Plugins", icon: <PlugIcon /> },
+  { id: "models", label: "Models", icon: <ChipIcon /> },
   { id: "settings", label: "Settings", icon: <SettingsIcon /> },
 ];
 

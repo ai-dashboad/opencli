@@ -7,6 +7,7 @@ import {
   CustomizeView,
   DispatchView,
   MemoryView,
+  ModelsView,
   ProjectDetailView,
   ProjectsView,
   ScheduledView,
@@ -25,6 +26,7 @@ import {
   type ConnectorSummary,
   type Preferences,
   type Project,
+  type PullProgress,
   type Run,
   type ScheduledTask,
   type SkillSummary,
@@ -209,6 +211,9 @@ export default function App() {
   const [connectorList, setConnectorList] = useState<ConnectorSummary[]>([]);
   const [attachMenu, setAttachMenu] = useState(false);
   const [runs, setRuns] = useState<Run[]>([]);
+  // Downloads in flight, kept in the shell so progress survives leaving the
+  // Models panel — a download takes minutes and the user will look elsewhere.
+  const [pulls, setPulls] = useState<Record<string, PullProgress>>({});
   // Cowork sends work to the background instead of waiting on it inline.
   const [cowork, setCowork] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
@@ -414,6 +419,8 @@ export default function App() {
           setBusy(false);
         },
         onApprovalRequest: setApproval,
+        onPullProgress: (progress) =>
+          setPulls((prev) => ({ ...prev, [progress.model]: progress })),
       });
       // Replacing the socket without closing it leaks a connection per reconnect.
       clientRef.current?.close();
@@ -867,6 +874,25 @@ export default function App() {
               });
             }}
             onBack={() => go("projects")}
+          />
+        ) : view === "models" && client ? (
+          <ModelsView
+            client={client}
+            pulls={pulls}
+            onPull={(target, model) => {
+              // Show the row immediately; the first progress event may be
+              // seconds away while the manifest is fetched.
+              setPulls((prev) => ({ ...prev, [model]: { model, status: "starting" } }));
+              void client.pullModel(target, model).catch((err: unknown) =>
+                setPulls((prev) => ({
+                  ...prev,
+                  [model]: {
+                    model,
+                    error: err instanceof Error ? err.message : String(err),
+                  },
+                })),
+              );
+            }}
           />
         ) : view === "plugins" && client ? (
           <PluginsView client={client} />

@@ -48,6 +48,8 @@ export interface ClientEvents {
   onError?: (message: string) => void;
   /** The agent is asking permission to run something. */
   onApprovalRequest?: (request: ApprovalRequest) => void;
+  /** A model download reported progress. */
+  onPullProgress?: (progress: PullProgress) => void;
   onStatus?: (status: ConnectionStatus) => void;
 }
 
@@ -214,6 +216,57 @@ export interface Preferences {
    * is told to work, and is only as good as the tools it already has.
    */
   research?: boolean;
+}
+
+/** A local inference runtime and what it can be asked to do. */
+export interface RuntimeInfo {
+  id: string;
+  name: string;
+  defaultPort: number;
+  acquisition: "remoteApi" | "localFile" | "launchArgument" | "ownInterface";
+  listsModels: boolean;
+  deletesModels: boolean;
+  /** Whether a machine elsewhere can be told to fetch a model over HTTP. */
+  canDownloadRemotely: boolean;
+  remoteNote: string;
+  docs: string;
+}
+
+/** What answered at an address. */
+export interface RuntimeProbe {
+  reachable: boolean;
+  version?: string;
+  isLocal?: boolean;
+  status?: number;
+  detail?: string;
+}
+
+/** A model installed on a runtime. */
+export interface InstalledModel {
+  name: string;
+  size: number;
+  parameterSize?: string;
+  quantization?: string;
+  family?: string;
+  modifiedAt?: string;
+}
+
+/** What a model can do, which decides whether it is usable here. */
+export interface ModelCapabilities {
+  model: string;
+  capabilities: string[];
+  supportsTools: boolean;
+  contextLength: number | null;
+}
+
+/** Progress while a model downloads. */
+export interface PullProgress {
+  model: string;
+  status?: string;
+  completed?: number;
+  total?: number;
+  done?: boolean;
+  error?: string;
 }
 
 /** One entry at the top of a project's directory. */
@@ -512,6 +565,10 @@ export class OpenCliClient {
       if (typeof raw.id === "string") this.#pendingChanges.delete(raw.id);
       const item = toThreadItem(raw);
       if (item) this.#events.onItem?.(item);
+      return;
+    }
+    if (method === "runtime/pull/progress") {
+      this.#events.onPullProgress?.(payload as unknown as PullProgress);
       return;
     }
     if (method.endsWith("/error") || method === "opencli/event/error") {
@@ -937,6 +994,41 @@ export class OpenCliClient {
   /** Clone a repository into a directory, to work on rather than to load. */
   async cloneRepository(url: string, into: string): Promise<{ name: string; path: string }> {
     return (await this.request("plugin/clone", { url, into })) as { name: string; path: string };
+  }
+
+  /** The runtimes this build knows, and what each can be asked to do. */
+  async listRuntimes(): Promise<RuntimeInfo[]> {
+    const result = (await this.request("runtime/list", {})) as { data?: unknown[] };
+    return (result.data ?? []) as RuntimeInfo[];
+  }
+
+  /** Ask an address what is there. */
+  async probeRuntime(baseUrl: string): Promise<RuntimeProbe> {
+    return (await this.request("runtime/probe", { baseUrl })) as RuntimeProbe;
+  }
+
+  async runtimeModels(baseUrl: string): Promise<InstalledModel[]> {
+    const result = (await this.request("runtime/models", { baseUrl })) as { data?: unknown[] };
+    return (result.data ?? []) as InstalledModel[];
+  }
+
+  async modelCapabilities(baseUrl: string, model: string): Promise<ModelCapabilities> {
+    return (await this.request("runtime/show", { baseUrl, model })) as ModelCapabilities;
+  }
+
+  /**
+   * Start installing a model.
+   *
+   * Returns as soon as it has begun; progress arrives as `onPullProgress`
+   * until `done` or `error`. A model is gigabytes, so waiting for the reply
+   * would look like the app had frozen.
+   */
+  async pullModel(baseUrl: string, model: string): Promise<void> {
+    await this.request("runtime/pull", { baseUrl, model });
+  }
+
+  async deleteModel(baseUrl: string, model: string): Promise<void> {
+    await this.request("runtime/delete", { baseUrl, model });
   }
 
   /** Read the effective config after layering. */

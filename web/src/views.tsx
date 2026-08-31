@@ -8,6 +8,7 @@ import type {
   ConnectorOffer,
   ConnectorSummary,
   FileChange,
+  InstalledModel,
   InstalledPlugin,
   Memory,
   OpenCliClient,
@@ -15,9 +16,13 @@ import type {
   Preferences,
   ReasoningEffort,
   PluginOffer,
+  ModelCapabilities,
   Project,
   ProjectFile,
+  PullProgress,
   Run,
+  RuntimeInfo,
+  RuntimeProbe,
   RunStatus,
   ScheduledTask,
   SkillSummary,
@@ -1678,6 +1683,289 @@ export function ProjectDetailView({
           {saved ? <span className="field-note">Saved.</span> : null}
         </div>
       </div>
+    </section>
+  );
+}
+
+/** A size a person can read, for models measured in gigabytes. */
+function modelSize(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`;
+  return `${bytes} B`;
+}
+
+/** Models worth suggesting, with what each is for. */
+const SUGGESTED: { tag: string; note: string; size: string }[] = [
+  { tag: "qwen2.5-coder:7b", note: "Coding, calls tools reliably. A good first choice.", size: "~4.7 GB" },
+  { tag: "qwen2.5-coder:32b", note: "The same, much stronger, needs about 20 GB of memory.", size: "~20 GB" },
+  { tag: "qwen2.5:7b", note: "General purpose, calls tools.", size: "~4.7 GB" },
+  { tag: "devstral:24b", note: "Built for agent work over a codebase.", size: "~14 GB" },
+  { tag: "llama3.1:8b", note: "General purpose, calls tools.", size: "~4.9 GB" },
+  { tag: "qwen2.5:0.5b", note: "Tiny. Useful for checking a setup works, not for real work.", size: "~400 MB" },
+];
+
+/**
+ * Models: what is installed on a runtime, and what can be added.
+ *
+ * The runtime may be on this machine or on a server elsewhere. Ollama's
+ * management API is plain HTTP, so a machine with no shell available can still
+ * be told to fetch a model — which is the whole reason this panel can exist.
+ * Runtimes without such an API say what to run instead of showing a button
+ * that would do nothing.
+ */
+export function ModelsView({
+  client,
+  pulls,
+  onPull,
+}: {
+  client: OpenCliClient;
+  /** Downloads in flight, keyed by model. */
+  pulls: Record<string, PullProgress>;
+  onPull: (baseUrl: string, model: string) => void;
+}) {
+  const [runtimes, setRuntimes] = useState<RuntimeInfo[]>([]);
+  const [baseUrl, setBaseUrl] = useState("http://localhost:11434");
+  const [probe, setProbe] = useState<RuntimeProbe | null>(null);
+  const [models, setModels] = useState<InstalledModel[]>([]);
+  const [caps, setCaps] = useState<Record<string, ModelCapabilities>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [custom, setCustom] = useState("");
+
+  useEffect(() => {
+    void client.listRuntimes().then(setRuntimes).catch(() => setRuntimes([]));
+  }, [client]);
+
+  const connect = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const where = await client.probeRuntime(baseUrl);
+      setProbe(where);
+      if (where.reachable) {
+        const installed = await client.runtimeModels(baseUrl);
+        setModels(installed);
+        // Whether a model calls tools decides whether it is usable here, so it
+        // is read up front rather than hidden behind another click.
+        const found: Record<string, ModelCapabilities> = {};
+        await Promise.all(
+          installed.map(async (model) => {
+            try {
+              found[model.name] = await client.modelCapabilities(baseUrl, model.name);
+            } catch {
+              // A model whose details cannot be read is still listed.
+            }
+          }),
+        );
+        setCaps(found);
+      } else {
+        setModels([]);
+      }
+    } catch (err) {
+      setProbe(null);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [baseUrl, client]);
+
+  useEffect(() => {
+    void connect();
+    // Only on mount: reconnecting on every keystroke in the address field
+    // would probe a half-typed host.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Refresh once a download finishes, so the new model appears without asking.
+  const finished = Object.values(pulls).filter((pull) => pull.done).length;
+  useEffect(() => {
+    if (finished > 0) void connect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+
+  const ollama = runtimes.find((runtime) => runtime.id === "ollama");
+  const others = runtimes.filter((runtime) => !runtime.canDownloadRemotely);
+  const installedNames = new Set(models.map((model) => model.name));
+  const inFlight = Object.values(pulls).filter((pull) => !pull.done && !pull.error);
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2 className="display">Models</h2>
+      </div>
+      <p className="hint">
+        Install and remove models on a runtime — this machine's, or a server elsewhere. Ollama can
+        be driven over HTTP, so a server with no shell available can still be told to fetch one.
+      </p>
+
+      <div className="task-form">
+        <input
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) void connect();
+          }}
+          placeholder="http://localhost:11434 or https://your-server"
+        />
+        <button onClick={() => void connect()} disabled={busy}>
+          {busy ? "Checking…" : "Connect"}
+        </button>
+      </div>
+
+      {error ? <p className="error">{error}</p> : null}
+
+      {probe ? (
+        probe.reachable ? (
+          <p className="hint">
+            Ollama {probe.version} · {probe.isLocal ? "this machine" : "a server elsewhere"} ·{" "}
+            {models.length} model{models.length === 1 ? "" : "s"}
+          </p>
+        ) : (
+          <p className="error">{probe.detail ?? "Nothing answered at that address."}</p>
+        )
+      ) : null}
+
+      {inFlight.length > 0 ? (
+        <>
+          <h3>Downloading</h3>
+          <ul className="rows">
+            {inFlight.map((pull) => {
+              const pct =
+                pull.total && pull.completed
+                  ? Math.round((100 * pull.completed) / pull.total)
+                  : null;
+              return (
+                <li key={pull.model}>
+                  <strong>{pull.model}</strong>
+                  <span>
+                    {pull.status}
+                    {pct !== null
+                      ? ` · ${pct}% of ${modelSize(pull.total ?? 0)}`
+                      : ""}
+                  </span>
+                  {pct !== null ? (
+                    <span className="bar">
+                      <i style={{ width: `${pct}%` }} />
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ) : null}
+
+      {Object.values(pulls).some((pull) => pull.error) ? (
+        <ul className="rows">
+          {Object.values(pulls)
+            .filter((pull) => pull.error)
+            .map((pull) => (
+              <li key={pull.model}>
+                <strong>{pull.model}</strong>
+                <span className="error">{pull.error}</span>
+              </li>
+            ))}
+        </ul>
+      ) : null}
+
+      {probe?.reachable ? (
+        <>
+          <h3>Installed</h3>
+          <ul className="rows">
+            {models.length === 0 ? <li className="muted">None installed there.</li> : null}
+            {models.map((model) => {
+              const capability = caps[model.name];
+              return (
+                <li key={model.name}>
+                  <strong>{model.name}</strong>
+                  <span>
+                    {modelSize(model.size)}
+                    {model.parameterSize ? ` · ${model.parameterSize}` : ""}
+                    {model.quantization ? ` · ${model.quantization}` : ""}
+                    {capability?.contextLength
+                      ? ` · ${Math.round(capability.contextLength / 1024)}K context`
+                      : ""}
+                  </span>
+                  {capability ? (
+                    <span className={capability.supportsTools ? "" : "warn"}>
+                      {capability.supportsTools
+                        ? "Calls tools"
+                        : "Does not call tools — of little use for agent work here"}
+                    </span>
+                  ) : null}
+                  <div className="actions">
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        void client
+                          .deleteModel(baseUrl, model.name)
+                          .then(connect)
+                          .catch((err: unknown) =>
+                            setError(err instanceof Error ? err.message : String(err)),
+                          );
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          <h3>Add a model</h3>
+          <ul className="rows">
+            {SUGGESTED.filter((suggestion) => !installedNames.has(suggestion.tag)).map(
+              (suggestion) => (
+                <li key={suggestion.tag}>
+                  <strong>{suggestion.tag}</strong>
+                  <span>
+                    {suggestion.note} · {suggestion.size}
+                  </span>
+                  <div className="actions">
+                    <button
+                      disabled={pulls[suggestion.tag] && !pulls[suggestion.tag].error}
+                      onClick={() => onPull(baseUrl, suggestion.tag)}
+                    >
+                      Install
+                    </button>
+                  </div>
+                </li>
+              ),
+            )}
+          </ul>
+
+          <div className="task-form">
+            <input
+              value={custom}
+              onChange={(e) => setCustom(e.target.value)}
+              placeholder="Any other tag, e.g. mistral:7b"
+            />
+            <button
+              disabled={!custom.trim()}
+              onClick={() => {
+                onPull(baseUrl, custom.trim());
+                setCustom("");
+              }}
+            >
+              Install
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      <h3>Other runtimes</h3>
+      <p className="hint">
+        {ollama ? ollama.remoteNote : ""}
+      </p>
+      <ul className="rows">
+        {others.map((runtime) => (
+          <li key={runtime.id}>
+            <strong>{runtime.name}</strong>
+            <span>{runtime.remoteNote}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
