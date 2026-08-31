@@ -245,7 +245,7 @@ export default function App() {
     setItems([]);
     setChanges([]);
     try {
-      await client.resumeThread(id);
+      setItems(await client.resumeThread(id));
       setActiveThreadId(id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

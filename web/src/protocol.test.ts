@@ -30,6 +30,30 @@ class FakeSocket {
       this.reply(message.id!, {});
     } else if (message.method === "thread/start") {
       this.reply(message.id!, { thread: { id: "thread-1" } });
+    } else if (message.method === "thread/list") {
+      this.reply(message.id!, {
+        data: [{ id: "t-1", preview: "hello", updatedAt: 1 }],
+        nextCursor: null,
+      });
+    } else if (message.method === "thread/resume") {
+      this.reply(message.id!, {});
+    } else if (message.method === "thread/read") {
+      // The shape a live server returns: turns, each holding items that use
+      // the same types as the streamed ones.
+      this.reply(message.id!, {
+        thread: {
+          id: "t-1",
+          turns: [
+            {
+              id: "turn-1",
+              items: [
+                { type: "userMessage", id: "i-1", content: [{ type: "text", text: "ask" }] },
+                { type: "agentMessage", id: "i-2", text: "answer" },
+              ],
+            },
+          ],
+        },
+      });
     } else if (message.method === "memory/list") {
       this.reply(message.id!, {
         data: [{ id: "mem-1", text: "never touch vendor/", projectId: null, createdAt: 0 }],
@@ -340,5 +364,48 @@ describe("memory", () => {
       FakeSocket.last.parsedSent().some((message) => message.method === "thread/start"),
     ).toBe(false);
     expect(client.threadId).toBeNull();
+  });
+});
+
+describe("threads", () => {
+  it("should list chats from every provider, not just the current one", async () => {
+    // Omitting the filter lists only the session's own provider, so past chats
+    // vanish the moment the user switches model.
+    const { client, socket } = await connected();
+    await client.listThreads();
+
+    const request = socket.parsedSent().find((message) => message.method === "thread/list")!;
+    const params = request.params as Record<string, unknown>;
+    expect(params.modelProviders).toEqual([]);
+  });
+
+  it("should include chats started by this app in the list", async () => {
+    // The default is "interactive" sources — CLI and VS Code — which excludes
+    // `appServer`, the source of every chat started here.
+    const { client, socket } = await connected();
+    await client.listThreads();
+
+    const params = socket.parsedSent().find((message) => message.method === "thread/list")!
+      .params as Record<string, unknown>;
+    expect(params.sourceKinds).toContain("appServer");
+    expect(params.sourceKinds).not.toContain("subAgent");
+  });
+
+  it("should restore the transcript when a chat is reopened", async () => {
+    // `thread/resume` replays nothing on its own, so resuming alone left the
+    // conversation looking lost.
+    const { client } = await connected();
+    const restored = await client.resumeThread("t-1");
+
+    expect(restored).toEqual([
+      { id: "i-1", kind: "user", text: "ask" },
+      { id: "i-2", kind: "agent", text: "answer" },
+    ]);
+  });
+
+  it("should point later turns at the reopened thread", async () => {
+    const { client } = await connected();
+    await client.resumeThread("t-1");
+    expect(client.threadId).toBe("t-1");
   });
 });

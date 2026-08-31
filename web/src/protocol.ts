@@ -172,6 +172,26 @@ function classify(item: Record<string, unknown>): ThreadItem["kind"] {
   return "other";
 }
 
+/**
+ * Convert one server item into what the UI renders, or `null` if it carries
+ * nothing to show.
+ *
+ * Shared by the live stream and by replayed history: stored turns use the same
+ * item shapes, and having two converters would let the two drift.
+ */
+function toThreadItem(item: Record<string, unknown>): ThreadItem | null {
+  const changes = changesOf(item);
+  const text = textOf(item) || changes.map((change) => `${change.kind} ${change.path}`).join("\n");
+  if (!text) return null;
+  return {
+    id: String(item.id ?? crypto.randomUUID()),
+    kind: classify(item),
+    text,
+    exitCode: typeof item.exitCode === "number" ? item.exitCode : undefined,
+    ...(changes.length > 0 ? { changes } : {}),
+  };
+}
+
 export class OpenCliClient {
   #socket: WebSocket | null = null;
   #nextId = 1;
@@ -303,18 +323,8 @@ export class OpenCliClient {
     // deduplicated by id nor shown. Waiting for completion is what actually
     // yields one correct entry per item.
     if (method === "item/completed") {
-      const item = (payload.item ?? payload) as Record<string, unknown>;
-      const changes = changesOf(item);
-      const text =
-        textOf(item) || changes.map((change) => `${change.kind} ${change.path}`).join("\n");
-      if (!text) return;
-      this.#events.onItem?.({
-        id: String(item.id ?? crypto.randomUUID()),
-        kind: classify(item),
-        text,
-        exitCode: typeof item.exitCode === "number" ? item.exitCode : undefined,
-        ...(changes.length > 0 ? { changes } : {}),
-      });
+      const item = toThreadItem((payload.item ?? payload) as Record<string, unknown>);
+      if (item) this.#events.onItem?.(item);
       return;
     }
     if (method.endsWith("/error") || method === "opencli/event/error") {
@@ -384,7 +394,17 @@ export class OpenCliClient {
   }
 
   async listThreads(): Promise<ThreadSummary[]> {
-    const result = (await this.request("thread/list", {})) as { data?: unknown[] };
+    const result = (await this.request("thread/list", {
+      // Omitting this filters to the *current session's* provider, so past
+      // chats vanish the moment the user switches model. An empty array means
+      // "every provider", which is what a list of your own chats should be.
+      modelProviders: [],
+      // Omitting this defaults to "interactive" sources — CLI and VS Code
+      // only — so a chat started here, whose source is `appServer`, would
+      // never appear in this app's own list. The sub-agent kinds are left out
+      // on purpose: internal machinery, not conversations the user had.
+      sourceKinds: ["appServer", "cli", "vscode"],
+    })) as { data?: unknown[] };
     return (result.data ?? []).map((raw) => {
       const entry = raw as Record<string, unknown>;
       return {
@@ -396,10 +416,28 @@ export class OpenCliClient {
     });
   }
 
-  /** Reopen a stored thread so later turns append to it. */
-  async resumeThread(id: string): Promise<void> {
+  /**
+   * Reopen a stored thread and return what was said in it.
+   *
+   * `thread/resume` replays nothing, so a UI that only resumed showed an empty
+   * transcript — the conversation looked lost. The history comes from
+   * `thread/read`, whose stored items use the same shapes as the live stream.
+   */
+  async resumeThread(id: string): Promise<ThreadItem[]> {
     await this.request("thread/resume", { threadId: id });
     this.#threadId = id;
+
+    const result = (await this.request("thread/read", {
+      threadId: id,
+      includeTurns: true,
+    })) as { thread?: { turns?: { items?: unknown[] }[] } };
+
+    return (result.thread?.turns ?? []).flatMap((turn) =>
+      (turn.items ?? []).flatMap((raw) => {
+        const item = toThreadItem(raw as Record<string, unknown>);
+        return item ? [item] : [];
+      }),
+    );
   }
 
   async listSkills(cwd: string): Promise<SkillSummary[]> {

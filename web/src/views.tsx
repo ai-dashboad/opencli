@@ -133,16 +133,34 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
   );
 }
 
+/** Flatten nested config into `a.b.c` paths, matching how origins are keyed. */
+function flatten(value: unknown, prefix = ""): [string, unknown][] {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return prefix ? [[prefix, value]] : [];
+  }
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, nested]) =>
+    flatten(nested, prefix ? `${prefix}.${key}` : key),
+  );
+}
+
+/** The file a value came from, if the server reported one. */
+function originFile(origins: Record<string, unknown>, path: string): string | null {
+  const origin = origins[path] as { name?: { file?: string } } | undefined;
+  const file = origin?.name?.file;
+  return typeof file === "string" ? file : null;
+}
+
 export function SettingsView({ client }: { client: OpenCliClient }) {
-  const [config, setConfig] = useState<Record<string, unknown> | null>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     client
       .readConfig()
       .then((value) => {
-        if (!cancelled) setConfig(value);
+        if (!cancelled) setResult(value);
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -152,19 +170,48 @@ export function SettingsView({ client }: { client: OpenCliClient }) {
     };
   }, [client]);
 
+  const config = (result?.config ?? {}) as Record<string, unknown>;
+  const origins = (result?.origins ?? {}) as Record<string, unknown>;
+  const entries = flatten(config);
+  // A null here means "not set in any file", not "set to nothing" — the
+  // built-in default applies. Showing hundreds of them buries the few that
+  // were actually configured.
+  const set = entries.filter(([, value]) => value !== null && value !== undefined);
+
   return (
     <section className="panel">
       <h2>Settings</h2>
       <p className="hint">
-        The effective configuration after layering. Edit <code>~/.opencli/config.toml</code> to
-        change it.
+        What your configuration files set, and which file set it. Anything not listed uses the
+        built-in default. Edit <code>~/.opencli/config.toml</code> to change it.
       </p>
       {error ? <p className="error">{error}</p> : null}
-      {config ? (
-        <pre className="config">{JSON.stringify(config, null, 2)}</pre>
-      ) : error ? null : (
-        <p className="muted">Loading…</p>
-      )}
+      {!result && !error ? <p className="muted">Loading…</p> : null}
+
+      {result ? (
+        <>
+          <ul className="rows settings">
+            {set.length === 0 ? (
+              <li className="muted">Nothing configured; all defaults are in use.</li>
+            ) : null}
+            {set.map(([path, value]) => {
+              const file = originFile(origins, path);
+              return (
+                <li key={path}>
+                  <strong>{path}</strong>
+                  <span className="value">{JSON.stringify(value)}</span>
+                  {file ? <span className="source">{file}</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+
+          <button className="secondary" onClick={() => setShowAll(!showAll)}>
+            {showAll ? "Hide raw config" : `Show raw config (${entries.length} keys)`}
+          </button>
+          {showAll ? <pre className="config">{JSON.stringify(config, null, 2)}</pre> : null}
+        </>
+      ) : null}
     </section>
   );
 }
