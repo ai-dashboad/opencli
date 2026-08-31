@@ -110,8 +110,13 @@ export interface Project {
   id: string;
   name: string;
   cwd: string;
+  /** What the project is, for the card. Distinct from `instructions`. */
+  description: string;
+  /** Standing instructions given to the agent in every thread here. */
   instructions: string;
   createdAt: number;
+  updatedAt: number;
+  pinned: boolean;
   threadIds: string[];
 }
 
@@ -732,6 +737,7 @@ export class OpenCliClient {
     name: string;
     cwd: string;
     instructions: string;
+    description?: string;
   }): Promise<Project> {
     return (await this.request("project/create", project)) as Project;
   }
@@ -739,7 +745,13 @@ export class OpenCliClient {
   /** Save one or more fields; omitted fields keep their stored value. */
   async updateProject(
     id: string,
-    changes: { name?: string; cwd?: string; instructions?: string },
+    changes: {
+      name?: string;
+      cwd?: string;
+      instructions?: string;
+      description?: string;
+      pinned?: boolean;
+    },
   ): Promise<Project> {
     return (await this.request("project/update", { id, ...changes })) as Project;
   }

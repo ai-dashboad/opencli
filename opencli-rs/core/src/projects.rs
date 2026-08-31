@@ -30,6 +30,13 @@ pub struct Project {
     pub name: String,
     /// Directory every thread in this project runs in.
     pub cwd: String,
+    /// One line saying what the project is, for the card that lists it.
+    ///
+    /// Separate from `instructions`: that is what the agent is told, this is
+    /// what the user reads. Conflating them would put operating rules on a
+    /// card and a human summary into the model's context.
+    #[serde(default)]
+    pub description: String,
     /// Standing instructions prepended to each thread's context. Empty means
     /// the project only groups threads.
     #[serde(default)]
@@ -37,6 +44,12 @@ pub struct Project {
     /// Unix seconds the project was created.
     #[serde(default)]
     pub created_at: u64,
+    /// Unix seconds it was last changed or opened, for ordering by recency.
+    #[serde(default)]
+    pub updated_at: u64,
+    /// Kept at the top of the list.
+    #[serde(default)]
+    pub pinned: bool,
     /// Threads opened under this project, oldest first.
     #[serde(default)]
     pub thread_ids: Vec<String>,
@@ -67,13 +80,18 @@ pub fn create(
     name: String,
     cwd: String,
     instructions: String,
+    description: String,
 ) -> std::io::Result<Project> {
+    let now = now_seconds();
     let project = Project {
-        id: format!("proj-{}-{}", now_seconds(), rand_suffix()),
+        id: format!("proj-{}-{}", now, rand_suffix()),
         name,
         cwd,
+        description,
         instructions,
-        created_at: now_seconds(),
+        created_at: now,
+        updated_at: now,
+        pinned: false,
         thread_ids: Vec::new(),
     };
     let mut projects = load(opencli_home);
@@ -110,6 +128,8 @@ pub fn update(
     name: Option<String>,
     cwd: Option<String>,
     instructions: Option<String>,
+    description: Option<String>,
+    pinned: Option<bool>,
 ) -> std::io::Result<Option<Project>> {
     let mut projects = load(opencli_home);
     let Some(project) = projects.iter_mut().find(|project| project.id == id) else {
@@ -124,6 +144,13 @@ pub fn update(
     if let Some(instructions) = instructions {
         project.instructions = instructions;
     }
+    if let Some(description) = description {
+        project.description = description;
+    }
+    if let Some(pinned) = pinned {
+        project.pinned = pinned;
+    }
+    project.updated_at = now_seconds();
     let updated = project.clone();
     save(opencli_home, &projects)?;
     Ok(Some(updated))
@@ -142,6 +169,9 @@ pub fn attach_thread(opencli_home: &Path, id: &str, thread_id: &str) -> std::io:
         return Ok(true);
     }
     project.thread_ids.push(thread_id.to_string());
+    // Opening a chat in a project is the commonest way of using one, so it is
+    // what "last updated" should mostly reflect.
+    project.updated_at = now_seconds();
     save(opencli_home, &projects)?;
     Ok(true)
 }
@@ -159,7 +189,14 @@ mod tests {
     use tempfile::tempdir;
 
     fn make(home: &Path, name: &str) -> Project {
-        create(home, name.into(), "/tmp".into(), String::new()).expect("create")
+        create(
+            home,
+            name.into(),
+            "/tmp".into(),
+            String::new(),
+            String::new(),
+        )
+        .expect("create")
     }
 
     #[test]
@@ -176,6 +213,7 @@ mod tests {
             "Site".into(),
             "/srv/site".into(),
             "Never edit generated files.".into(),
+            "The public website.".into(),
         )
         .expect("create");
 
@@ -194,24 +232,33 @@ mod tests {
     #[test]
     fn should_update_only_the_fields_that_were_supplied() {
         let dir = tempdir().expect("tempdir");
-        let created = create(dir.path(), "Old".into(), "/a".into(), "keep me".into())
-            .expect("create");
+        let created = create(
+            dir.path(),
+            "Old".into(),
+            "/a".into(),
+            "keep me".into(),
+            "also keep me".into(),
+        )
+        .expect("create");
 
-        let updated = update(dir.path(), &created.id, Some("New".into()), None, None)
+        let updated = update(dir.path(), &created.id, Some("New".into()), None, None, None, None)
             .expect("update")
             .expect("the project exists");
 
         assert_eq!(updated.name, "New");
         assert_eq!(updated.cwd, "/a", "an omitted field is left alone");
         assert_eq!(updated.instructions, "keep me");
+        assert_eq!(updated.description, "also keep me");
     }
 
     #[test]
     fn should_report_an_unknown_id_rather_than_creating_one() {
         let dir = tempdir().expect("tempdir");
-        assert!(update(dir.path(), "nope", Some("x".into()), None, None)
-            .expect("update")
-            .is_none());
+        assert!(
+            update(dir.path(), "nope", Some("x".into()), None, None, None, None)
+                .expect("update")
+                .is_none()
+        );
         assert!(!delete(dir.path(), "nope").expect("delete"));
         assert!(!attach_thread(dir.path(), "nope", "t1").expect("attach"));
     }
@@ -240,6 +287,33 @@ mod tests {
         let remaining = load(dir.path());
         assert_eq!(remaining.len(), 1);
         assert_eq!(remaining[0].id, second.id);
+    }
+
+    #[test]
+    fn should_move_a_project_up_the_list_when_a_chat_is_opened_in_it() {
+        // Opening a chat is the commonest way of using a project, so it is
+        // what ordering by recency should mostly reflect.
+        let dir = tempdir().expect("tempdir");
+        let created = make(dir.path(), "p");
+
+        let mut stored = load(dir.path());
+        stored[0].updated_at = 0;
+        save(dir.path(), &stored).expect("save");
+
+        attach_thread(dir.path(), &created.id, "t1").expect("attach");
+        assert!(get(dir.path(), &created.id).expect("exists").updated_at > 0);
+    }
+
+    #[test]
+    fn should_pin_a_project_without_touching_anything_else() {
+        let dir = tempdir().expect("tempdir");
+        let created = make(dir.path(), "p");
+
+        let pinned = update(dir.path(), &created.id, None, None, None, None, Some(true))
+            .expect("update")
+            .expect("the project exists");
+        assert!(pinned.pinned);
+        assert_eq!(pinned.name, "p");
     }
 
     #[test]

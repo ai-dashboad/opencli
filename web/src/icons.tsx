@@ -286,3 +286,11 @@ export function GitHubIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function PinIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9.6 1.8 14.2 6.4l-1.7.6-1.1 3.3-3.7-3.7-4.9 4.9 4.9-4.9L4 2.9l3.3-1.1z" />
+    </Svg>
+  );
+}

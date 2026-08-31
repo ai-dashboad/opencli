@@ -1599,3 +1599,146 @@ textarea:focus {
   margin-top: auto;
   padding-top: 8px;
 }
+
+/* ── Project cards ─────────────────────────────────────────────────── */
+
+.panel h2.display {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 400;
+}
+
+.panel-head .grow {
+  flex: 1;
+}
+
+.sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.sort select {
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.panel button.filled {
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 999px;
+  padding: 7px 15px;
+}
+
+.cards.projects li {
+  position: relative;
+  min-height: 132px;
+  gap: 8px;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .open {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 550;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-title .open:hover {
+  color: var(--accent);
+}
+
+.pin {
+  display: flex;
+  padding: 3px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--line);
+}
+
+.pin:hover {
+  color: var(--text-dim);
+}
+
+.pin.on {
+  color: var(--accent);
+}
+
+.card-body {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  line-height: 1.5;
+  /* Three lines then an ellipsis: a long description must not make one card
+     twice the height of its neighbours. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.card-foot .grow {
+  flex: 1;
+}
+
+.chip-plain {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Edit and delete stay hidden until the card is under the pointer, so a grid
+   of cards reads as a list of projects rather than a wall of buttons. */
+.card-hover {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 34px;
+  gap: 6px;
+}
+
+.cards.projects li:hover .card-hover {
+  display: flex;
+}
+
+.card-hover button {
+  padding: 3px 9px;
+  font-size: 12px;
+}

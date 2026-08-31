@@ -43,8 +43,11 @@ fn project_json(project: &projects::Project) -> Value {
         "id": project.id,
         "name": project.name,
         "cwd": project.cwd,
+        "description": project.description,
         "instructions": project.instructions,
         "createdAt": project.created_at,
+        "updatedAt": project.updated_at,
+        "pinned": project.pinned,
         "threadIds": project.thread_ids,
     })
 }
@@ -102,6 +105,7 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
         .filter(|cwd| !cwd.is_empty())
         .ok_or("cwd is required")?;
     let instructions = optional_text(params, "instructions").unwrap_or_default();
+    let description = optional_text(params, "description").unwrap_or_default();
     ensure_directory(cwd)?;
 
     let project = projects::create(
@@ -109,6 +113,7 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
         name.to_string(),
         cwd.to_string(),
         instructions,
+        description,
     )
     .map_err(|err| format!("could not save the project: {err}"))?;
     Ok(project_json(&project))
@@ -126,6 +131,8 @@ fn update(opencli_home: &Path, params: &Value) -> Result<Value, String> {
         optional_text(params, "name"),
         cwd,
         optional_text(params, "instructions"),
+        optional_text(params, "description"),
+        params.get("pinned").and_then(Value::as_bool),
     )
     .map_err(|err| format!("could not save: {err}"))?;
     match updated {
@@ -283,6 +290,29 @@ mod tests {
             dir.path(),
         );
         assert!(reply["error"].is_object());
+    }
+
+    #[test]
+    fn should_pin_and_unpin_a_project() {
+        let dir = tempdir().expect("tempdir");
+        let id = create_one(dir.path());
+
+        let pinned = call(
+            &format!(
+                r#"{{"method":"project/update","id":2,"params":{{"id":"{id}","pinned":true}}}}"#
+            ),
+            dir.path(),
+        );
+        assert_eq!(pinned["result"]["pinned"], true);
+        assert_eq!(pinned["result"]["name"], "Site", "pinning changes nothing else");
+    }
+
+    #[test]
+    fn should_report_when_a_project_was_last_used() {
+        let dir = tempdir().expect("tempdir");
+        create_one(dir.path());
+        let listed = call(r#"{"method":"project/list","id":2}"#, dir.path());
+        assert!(listed["result"]["data"][0]["updatedAt"].as_u64().is_some_and(|at| at > 0));
     }
 
     #[test]

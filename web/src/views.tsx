@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { FolderIcon, PinIcon, SearchIcon } from "./icons";
 import type {
   ApprovalPolicy,
   ConnectorConfig,
@@ -534,6 +535,26 @@ export function parseInterval(raw: string): number | null {
  * already in context, which is the whole point — the alternative is retyping
  * the same preamble at the start of every conversation.
  */
+type ProjectSort = "updated" | "created" | "name";
+
+const SORTS: { value: ProjectSort; label: string }[] = [
+  { value: "updated", label: "Last updated" },
+  { value: "created", label: "Date created" },
+  { value: "name", label: "Name" },
+];
+
+/** The last part of a path, which is what identifies a folder at a glance. */
+function folderName(cwd: string): string {
+  return cwd.replace(/\/+$/, "").split("/").pop() || cwd;
+}
+
+/**
+ * Projects: a card each, newest or pinned first.
+ *
+ * The form is behind a button rather than always open: this screen is read far
+ * more often than it is written to, and a permanent form pushes the list — the
+ * thing being looked for — below the fold.
+ */
 export function ProjectsView({
   client,
   onOpen,
@@ -547,7 +568,11 @@ export function ProjectsView({
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [draft, setDraft] = useState({ name: "", cwd: "", instructions: "" });
+  const [composing, setComposing] = useState(false);
+  const [sort, setSort] = useState<ProjectSort>("updated");
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [draft, setDraft] = useState({ name: "", cwd: "", description: "", instructions: "" });
 
   const reload = useCallback(async () => {
     try {
@@ -562,6 +587,12 @@ export function ProjectsView({
     void reload();
   }, [reload]);
 
+  const close = useCallback(() => {
+    setComposing(false);
+    setEditing(null);
+    setDraft({ name: "", cwd: "", description: "", instructions: "" });
+  }, []);
+
   const save = useCallback(async () => {
     try {
       if (editing) {
@@ -569,96 +600,175 @@ export function ProjectsView({
       } else {
         await client.createProject(draft);
       }
-      setDraft({ name: "", cwd: "", instructions: "" });
-      setEditing(null);
+      close();
       await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [client, draft, editing, reload]);
+  }, [client, close, draft, editing, reload]);
 
   const edit = useCallback((project: Project) => {
     setEditing(project);
+    setComposing(true);
     setDraft({
       name: project.name,
       cwd: project.cwd,
+      description: project.description,
       instructions: project.instructions,
     });
   }, []);
+
+  const needle = query.trim().toLowerCase();
+  const shown = projects
+    .filter(
+      (project) =>
+        !needle ||
+        project.name.toLowerCase().includes(needle) ||
+        project.description.toLowerCase().includes(needle),
+    )
+    // Pinned first whatever the sort: pinning is a statement about importance,
+    // and a sort that ignored it would make the pin pointless.
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "created") return b.createdAt - a.createdAt;
+      return b.updatedAt - a.updatedAt;
+    });
 
   const canSave = draft.name.trim() !== "" && draft.cwd.trim() !== "";
 
   return (
     <section className="panel">
-      <h2>Projects</h2>
-      <p className="hint">
-        A directory and the context that always applies to it. Opening a project starts a chat
-        there with its instructions already loaded.
-      </p>
-      {error ? <p className="error">{error}</p> : null}
-
-      <div className="project-form">
-        <input
-          value={draft.name}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          placeholder="Project name"
-        />
-        <span className="path-input">
+      <div className="panel-head">
+        <h2 className="display">Projects</h2>
+        <span className="grow" />
+        {searching ? (
           <input
-            value={draft.cwd}
-            onChange={(e) => setDraft({ ...draft, cwd: e.target.value })}
-            placeholder="/path/to/project"
+            className="panel-search"
+            value={query}
+            autoFocus
+            placeholder="Search projects"
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setSearching(false);
+                setQuery("");
+              }
+            }}
           />
-          {onBrowse ? (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                void onBrowse(draft.cwd).then(
-                  (picked) => picked && setDraft((current) => ({ ...current, cwd: picked })),
-                );
-              }}
-            >
-              Browse…
-            </button>
-          ) : null}
-        </span>
-        <textarea
-          value={draft.instructions}
-          onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
-          placeholder="Standing instructions — how to build it, what not to touch (optional)"
-          rows={3}
-        />
-        <div className="actions">
-          <button onClick={() => void save()} disabled={!canSave}>
-            {editing ? "Save changes" : "Create project"}
+        ) : (
+          <button
+            className="icon-button"
+            aria-label="Search projects"
+            onClick={() => setSearching(true)}
+          >
+            <SearchIcon size={15} />
           </button>
-          {editing ? (
-            <button
-              className="secondary"
-              onClick={() => {
-                setEditing(null);
-                setDraft({ name: "", cwd: "", instructions: "" });
-              }}
-            >
-              Cancel
-            </button>
-          ) : null}
-        </div>
+        )}
+        <label className="sort">
+          Sort by
+          <select value={sort} onChange={(e) => setSort(e.target.value as ProjectSort)}>
+            {SORTS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="filled" onClick={() => setComposing(true)}>
+          New project
+        </button>
       </div>
 
-      <ul className="rows">
-        {projects.length === 0 ? <li className="muted">No projects yet.</li> : null}
-        {projects.map((project) => (
+      {error ? <p className="error">{error}</p> : null}
+
+      {composing ? (
+        <div className="project-form">
+          <input
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            placeholder="Project name"
+          />
+          <span className="path-input">
+            <input
+              value={draft.cwd}
+              onChange={(e) => setDraft({ ...draft, cwd: e.target.value })}
+              placeholder="/path/to/project"
+            />
+            {onBrowse ? (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  void onBrowse(draft.cwd).then(
+                    (picked) => picked && setDraft((current) => ({ ...current, cwd: picked })),
+                  );
+                }}
+              >
+                Browse…
+              </button>
+            ) : null}
+          </span>
+          <input
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            placeholder="What is it? (optional, shown on the card)"
+          />
+          <textarea
+            value={draft.instructions}
+            onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
+            placeholder="Standing instructions for the agent — how to build it, what not to touch (optional)"
+            rows={3}
+          />
+          <div className="actions">
+            <button onClick={() => void save()} disabled={!canSave}>
+              {editing ? "Save changes" : "Create project"}
+            </button>
+            <button className="secondary" onClick={close}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <ul className="cards projects">
+        {shown.length === 0 ? (
+          <li className="muted">{query ? "Nothing matches." : "No projects yet."}</li>
+        ) : null}
+        {shown.map((project) => (
           <li key={project.id}>
-            <strong>{project.name}</strong>
-            <span>{project.cwd}</span>
-            <span>
-              {project.threadIds.length} chat{project.threadIds.length === 1 ? "" : "s"}
-              {project.instructions ? " · has instructions" : ""}
-            </span>
-            <div className="actions">
-              <button onClick={() => onOpen(project)}>Open</button>
+            <div className="card-title">
+              <button className="open" onClick={() => onOpen(project)} title={project.cwd}>
+                {project.name}
+              </button>
+              <button
+                className={`pin${project.pinned ? " on" : ""}`}
+                aria-label={project.pinned ? "Unpin" : "Pin"}
+                title={project.pinned ? "Unpin" : "Pin to the top"}
+                onClick={() => {
+                  void client
+                    .updateProject(project.id, { pinned: !project.pinned })
+                    .then(reload);
+                }}
+              >
+                <PinIcon size={14} />
+              </button>
+            </div>
+            {project.description ? <p className="card-body">{project.description}</p> : null}
+
+            <div className="card-foot">
+              <span>{ago(project.updatedAt)}</span>
+              <span className="grow" />
+              <span className="chip-plain" title={project.cwd}>
+                <FolderIcon size={13} />
+                {folderName(project.cwd)}
+              </span>
+              <span className="chip-plain">
+                {project.threadIds.length} chat{project.threadIds.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            <div className="card-hover">
               <button className="secondary" onClick={() => edit(project)}>
                 Edit
               </button>
