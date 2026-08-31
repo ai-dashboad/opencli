@@ -1,6 +1,6 @@
 # AGENTS.md
 
-For information about AGENTS.md, see [this documentation](https://developers.openai.com/opencli/guides/agents-md).
+For information about AGENTS.md, see [this documentation](https://github.com/ai-dashboad/opencli/blob/main/docs/agents_md.md).
 
 ## Hierarchical agents message
 

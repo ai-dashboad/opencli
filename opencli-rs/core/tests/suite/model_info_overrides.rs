@@ -23,7 +23,7 @@ async fn offline_model_info_with_tool_output_override() {
     let mut config = load_default_config_for_test(&opencli_home).await;
     config.tool_output_token_limit = Some(123);
 
-    let model_info = ModelsManager::construct_model_info_offline("gpt-5.1-opencli", &config);
+    let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
 
     assert_eq!(
         model_info.truncation_policy,

@@ -699,7 +699,7 @@ async fn includes_configured_effort_in_request() -> anyhow::Result<()> {
 
     let resp_mock = mount_sse_once(&server, sse_completed("resp1")).await;
     let TestOpenCLI { opencli, .. } = test_opencli()
-        .with_model("gpt-5.1-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.model_reasoning_effort = Some(ReasoningEffort::Medium);
         })
@@ -740,7 +740,7 @@ async fn includes_no_effort_in_request() -> anyhow::Result<()> {
 
     let resp_mock = mount_sse_once(&server, sse_completed("resp1")).await;
     let TestOpenCLI { opencli, .. } = test_opencli()
-        .with_model("gpt-5.1-opencli")
+        .with_model("test-model")
         .build(&server)
         .await?;
 
@@ -819,7 +819,7 @@ async fn user_turn_collaboration_mode_overrides_model_and_effort() -> anyhow::Re
         session_configured,
         ..
     } = test_opencli()
-        .with_model("gpt-5.1-opencli")
+        .with_model("test-model")
         .build(&server)
         .await?;
 
@@ -986,7 +986,7 @@ async fn configured_verbosity_not_sent_for_models_without_support() -> anyhow::R
 
     let resp_mock = mount_sse_once(&server, sse_completed("resp1")).await;
     let TestOpenCLI { opencli, .. } = test_opencli()
-        .with_model("gpt-5.1-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.model_verbosity = Some(Verbosity::High);
         })
@@ -1397,7 +1397,7 @@ async fn token_count_includes_rate_limits_snapshot() {
                     "reasoning_output_tokens": 0,
                     "total_tokens": 123
                 },
-                // Default model is gpt-5.1-opencli-max in tests → 95% usable context window
+                // Default model is test-model-max in tests → 95% usable context window
                 "model_context_window": 258400
             },
             "rate_limits": {
@@ -1607,7 +1607,8 @@ async fn context_window_error_sets_total_tokens_to_model_window() -> anyhow::Res
     );
 
     let error_event = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::Error(_))).await;
-    let expected_context_window_message = OpenCLIErr::ContextWindowExceeded.to_string();
+    let expected_context_window_message =
+        OpenCLIErr::ContextWindowExceeded { context_limit: None }.to_string();
     assert!(
         matches!(
             error_event,

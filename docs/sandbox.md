@@ -1,3 +1,3 @@
 ## Sandbox & approvals
 
-For information about OpenCLI sandboxing and approvals, see [this documentation](https://developers.openai.com/opencli/security).
+For information about OpenCLI sandboxing and approvals, see [this documentation](https://github.com/ai-dashboad/opencli/blob/main/docs/sandbox.md).

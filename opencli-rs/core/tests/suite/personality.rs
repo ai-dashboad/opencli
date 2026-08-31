@@ -67,7 +67,7 @@ async fn base_instructions_override_disables_personality_template() {
     config.personality = Some(Personality::Friendly);
     config.base_instructions = Some("override instructions".to_string());
 
-    let model_info = ModelsManager::construct_model_info_offline("gpt-5.2-opencli", &config);
+    let model_info = ModelsManager::construct_model_info_offline("test-model-pro", &config);
 
     assert_eq!(model_info.base_instructions, "override instructions");
     assert_eq!(
@@ -83,7 +83,7 @@ async fn user_turn_personality_none_does_not_add_update_message() -> anyhow::Res
     let server = start_mock_server().await;
     let resp_mock = mount_sse_once(&server, sse_completed("resp-1")).await;
     let mut builder = test_opencli()
-        .with_model("gpt-5.2-opencli")
+        .with_model("test-model-pro")
         .with_config(|config| {
             config.features.disable(Feature::RemoteModels);
             config.features.enable(Feature::Personality);
@@ -129,7 +129,7 @@ async fn config_personality_some_sets_instructions_template() -> anyhow::Result<
     let server = start_mock_server().await;
     let resp_mock = mount_sse_once(&server, sse_completed("resp-1")).await;
     let mut builder = test_opencli()
-        .with_model("gpt-5.2-opencli")
+        .with_model("test-model-pro")
         .with_config(|config| {
             config.features.disable(Feature::RemoteModels);
             config.features.enable(Feature::Personality);
@@ -370,7 +370,7 @@ async fn instructions_uses_base_if_feature_disabled() -> anyhow::Result<()> {
     config.features.disable(Feature::Personality);
     config.personality = Some(Personality::Friendly);
 
-    let model_info = ModelsManager::construct_model_info_offline("gpt-5.2-opencli", &config);
+    let model_info = ModelsManager::construct_model_info_offline("test-model-pro", &config);
     assert_eq!(
         model_info.get_model_instructions(config.personality),
         model_info.base_instructions
@@ -477,7 +477,7 @@ async fn ignores_remote_personality_if_remote_models_disabled() -> anyhow::Resul
         .start()
         .await;
 
-    let remote_slug = "gpt-5.2-opencli";
+    let remote_slug = "test-model-pro";
     let remote_personality_message = "Friendly from remote template";
     let remote_model = ModelInfo {
         slug: remote_slug.to_string(),
@@ -758,7 +758,7 @@ async fn user_turn_personality_remote_model_template_includes_update_message() -
         .with_config(|config| {
             config.features.enable(Feature::RemoteModels);
             config.features.enable(Feature::Personality);
-            config.model = Some("gpt-5.2-opencli".to_string());
+            config.model = Some("test-model-pro".to_string());
         });
     let test = builder.build(&server).await?;
 

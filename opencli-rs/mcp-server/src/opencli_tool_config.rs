@@ -23,7 +23,7 @@ pub struct OpenCLIToolCallParam {
     /// The *initial user prompt* to start the OpenCLI conversation.
     pub prompt: String,
 
-    /// Optional override for the model name (e.g. 'gpt-5.2', 'gpt-5.2-opencli').
+    /// Optional override for the model name (e.g. 'gpt-5.2' or any model declared in config.toml).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
 
@@ -314,7 +314,7 @@ mod tests {
                 "type": "string"
               },
               "model": {
-                "description": "Optional override for the model name (e.g. 'gpt-5.2', 'gpt-5.2-opencli').",
+                "description": "Optional override for the model name (e.g. 'gpt-5.2' or any model declared in config.toml).",
                 "type": "string"
               },
               "profile": {

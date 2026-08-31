@@ -1,6 +1,8 @@
 use crate::auth::AuthCredentialsStoreMode;
 use crate::config::edit::ConfigEdit;
 use crate::config::edit::ConfigEditsBuilder;
+use crate::config::types::CustomModel;
+use crate::config::types::RateLimitFallbackModel;
 use crate::config::types::DEFAULT_OTEL_ENVIRONMENT;
 use crate::config::types::History;
 use crate::config::types::Hooks;
@@ -243,7 +245,7 @@ pub struct Config {
     /// Preferred store for MCP OAuth credentials.
     /// keyring: Use an OS-specific keyring service.
     ///          Credentials stored in the keyring will only be readable by OpenCLI unless the user explicitly grants access via OS-level keyring access.
-    ///          https://github.com/openai/opencli/blob/main/opencli-rs/rmcp-client/src/oauth.rs#L2
+    ///          https://github.com/ai-dashboad/opencli/blob/main/opencli-rs/rmcp-client/src/oauth.rs#L2
     /// file: OPENCLI_HOME/.credentials.json
     ///       This file will be readable to OpenCLI and other applications running as the same user.
     /// auto (default): keyring if available, otherwise file.
@@ -285,6 +287,19 @@ pub struct Config {
 
     /// Automatic cross-provider model routing. Disabled by default.
     pub routing: Routing,
+
+    /// Models declared by the user in `config.toml`, merged into the picker
+    /// alongside the built-in presets.
+    pub models: Vec<CustomModel>,
+
+    /// Whether the session model was named by the user (CLI `--model`, or a
+    /// profile's `model`) rather than inherited from the base config default.
+    /// Automatic routing backs off when this is set.
+    pub model_explicitly_selected: bool,
+
+    /// Model offered when usage approaches the provider's rate limit. Unset
+    /// leaves the prompt inert. See [`RateLimitFallbackModel`].
+    pub rate_limit_fallback_model: RateLimitFallbackModel,
 
     /// When true, session is not persisted on disk. Default to `false`
     pub ephemeral: bool,
@@ -478,6 +493,20 @@ impl ConfigBuilder {
 }
 
 impl Config {
+    /// Provider id serving `model`, or `None` when nothing claims it.
+    ///
+    /// A `[[models]]` entry wins over a built-in preset, so switching models
+    /// mid-session resolves the gateway the same way startup does. Without
+    /// this, a user-declared model picked from `/model` would keep talking to
+    /// the previous model's gateway.
+    pub fn provider_id_for_model(&self, model: &str) -> Option<String> {
+        self.models
+            .iter()
+            .find(|custom| custom.matches(model))
+            .map(|custom| custom.provider.clone())
+            .or_else(|| crate::models_manager::model_presets::provider_id_for_model(model))
+    }
+
     /// This is the preferred way to create an instance of [Config].
     pub async fn load_with_cli_overrides(
         cli_overrides: Vec<(String, TomlValue)>,
@@ -868,7 +897,7 @@ pub struct ConfigToml {
 
     /// Preferred backend for storing MCP OAuth credentials.
     /// keyring: Use an OS-specific keyring service.
-    ///          https://github.com/openai/opencli/blob/main/opencli-rs/rmcp-client/src/oauth.rs#L2
+    ///          https://github.com/ai-dashboad/opencli/blob/main/opencli-rs/rmcp-client/src/oauth.rs#L2
     /// file: Use a file in the OpenCLI home directory.
     /// auto (default): Use the OS-specific keyring service if available, otherwise use a file.
     #[serde(default)]
@@ -913,6 +942,15 @@ pub struct ConfigToml {
     /// Automatic cross-provider model routing. See [`Routing`].
     #[serde(default)]
     pub routing: Option<Routing>,
+
+    /// User-declared models. See [`CustomModel`]. Adding an entry here is the
+    /// supported way to use a model this build does not ship a preset for.
+    #[serde(default)]
+    pub models: Vec<CustomModel>,
+
+    /// Model to offer switching to when nearing rate limits. Unset by default.
+    #[serde(default)]
+    pub rate_limit_fallback_model: Option<String>,
 
     /// Optional URI-based file opener. If set, citations to files in the model
     /// output will be hyperlinked using the specified URI scheme.
@@ -1424,24 +1462,66 @@ impl Config {
             || cfg.sandbox_mode.is_some();
 
         let mut model_providers = built_in_model_providers();
-        // Merge user-defined providers into the built-in list.
+        // Merge user-defined providers into the built-in list. A user entry
+        // always wins: overriding a built-in provider's base_url or env_key is
+        // the whole point of the `model_providers` table, and silently keeping
+        // the built-in would make the config look applied when it was not.
         for (key, provider) in cfg.model_providers.into_iter() {
-            model_providers.entry(key).or_insert(provider);
+            model_providers.insert(key, provider);
         }
 
+        let custom_models = cfg.models;
+        // A `[[models]]` entry that names a provider nobody defines would fail
+        // at request time with a confusing error, so reject it while we still
+        // have a config file to point at.
+        for custom in &custom_models {
+            if !model_providers.contains_key(&custom.provider) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!(
+                        "model `{}` names provider `{}`, which is not defined; \
+                         add a `[model_providers.{}]` section to config.toml",
+                        custom.model, custom.provider, custom.provider
+                    ),
+                ));
+            }
+        }
+
+        // Whether the user named this session's model rather than inheriting the
+        // base config default. Automatic routing defers to an explicit choice:
+        // silently sending a turn to a different model than the one the user
+        // asked for is indistinguishable from the selection being broken.
+        let model_explicitly_selected = model.is_some() || config_profile.model.is_some();
         let model = model.or(config_profile.model).or(cfg.model);
 
         // An explicitly configured provider always wins. Otherwise the chosen
         // model decides: built-in presets each name the gateway that actually
         // serves them, so selecting a model is enough to route it correctly.
+        // User-defined `[[models]]` entries participate on the same footing.
         let model_provider_id = model_provider
             .or(config_profile.model_provider)
             .or(cfg.model_provider)
             .or_else(|| {
                 let model = model.as_deref()?;
-                crate::models_manager::model_presets::provider_id_for_model(model)
+                custom_models
+                    .iter()
+                    .find(|custom| custom.matches(model))
+                    .map(|custom| custom.provider.clone())
+                    .or_else(|| crate::models_manager::model_presets::provider_id_for_model(model))
             })
-            .unwrap_or_else(|| "openai".to_string());
+            .unwrap_or_else(|| {
+                // Nothing named a provider for this model. Falling back to
+                // OpenAI silently sends the turn to the wrong gateway and
+                // surfaces as an unrelated auth error, so say what happened.
+                if let Some(model) = model.as_deref() {
+                    tracing::warn!(
+                        "model `{model}` is not a built-in preset and no `model_provider` is set; \
+                         defaulting to `openai`. Add a `[[models]]` entry or set `model_provider` \
+                         in config.toml to route it to the right gateway."
+                    );
+                }
+                "openai".to_string()
+            });
         let model_provider = model_providers
             .get(&model_provider_id)
             .ok_or_else(|| {
@@ -1458,6 +1538,7 @@ impl Config {
         let hooks = cfg.hooks.unwrap_or_default();
         let pricing = cfg.pricing.unwrap_or_default();
         let routing = cfg.routing.unwrap_or_default();
+        let models = custom_models;
 
         let agent_max_threads = cfg
             .agents
@@ -1625,6 +1706,9 @@ impl Config {
             hooks,
             pricing,
             routing,
+            models,
+            model_explicitly_selected,
+            rate_limit_fallback_model: cfg.rate_limit_fallback_model,
             ephemeral: ephemeral.unwrap_or_default(),
             file_opener: cfg.file_opener.unwrap_or(UriBasedFileOpener::VsCode),
             opencli_linux_sandbox_exe,
@@ -2210,6 +2294,185 @@ trust_level = "trusted"
                 ("server-b".to_string(), (false, reason)),
             ])
         );
+    }
+
+    #[test]
+    fn should_let_a_user_entry_override_a_built_in_provider() -> std::io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let toml = r#"
+[model_providers.anthropic]
+name = "Anthropic via proxy"
+base_url = "https://proxy.example.com/v1"
+env_key = "PROXY_API_KEY"
+wire_api = "chat"
+"#;
+        let cfg: ConfigToml = toml::from_str(toml).expect("TOML deserialization should succeed");
+
+        let config = Config::load_from_base_config_with_overrides(
+            cfg,
+            ConfigOverrides {
+                model_provider: Some("anthropic".to_string()),
+                ..Default::default()
+            },
+            temp_dir.path().to_path_buf(),
+        )?;
+
+        assert_eq!(
+            config.model_provider.base_url.as_deref(),
+            Some("https://proxy.example.com/v1"),
+            "a user-defined provider must replace the built-in of the same name"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn should_route_a_user_declared_model_to_its_declared_provider() -> std::io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let toml = r#"
+model = "qwen3-max"
+
+[model_providers.my-gateway]
+name = "My Gateway"
+base_url = "https://gateway.example.com/v1"
+env_key = "MY_GATEWAY_API_KEY"
+wire_api = "chat"
+
+[[models]]
+model = "qwen3-max"
+provider = "my-gateway"
+"#;
+        let cfg: ConfigToml = toml::from_str(toml).expect("TOML deserialization should succeed");
+
+        let config = Config::load_from_base_config_with_overrides(
+            cfg,
+            ConfigOverrides::default(),
+            temp_dir.path().to_path_buf(),
+        )?;
+
+        assert_eq!(
+            config.model_provider.base_url.as_deref(),
+            Some("https://gateway.example.com/v1"),
+            "a `[[models]]` entry should decide which gateway serves its model"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn should_mark_a_cli_selected_model_as_explicit() -> std::io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let config = Config::load_from_base_config_with_overrides(
+            ConfigToml::default(),
+            ConfigOverrides {
+                model: Some("glm-5.2".to_string()),
+                ..Default::default()
+            },
+            temp_dir.path().to_path_buf(),
+        )?;
+
+        assert!(
+            config.model_explicitly_selected,
+            "`--model` should suppress automatic routing"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn should_mark_a_profile_selected_model_as_explicit() -> std::io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let toml = r#"
+[profiles.local]
+model = "some-model"
+model_provider = "openai"
+"#;
+        let cfg: ConfigToml = toml::from_str(toml).expect("TOML deserialization should succeed");
+
+        let config = Config::load_from_base_config_with_overrides(
+            cfg,
+            ConfigOverrides {
+                config_profile: Some("local".to_string()),
+                ..Default::default()
+            },
+            temp_dir.path().to_path_buf(),
+        )?;
+
+        assert!(config.model_explicitly_selected);
+        Ok(())
+    }
+
+    #[test]
+    fn should_not_mark_the_base_config_default_as_explicit() -> std::io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let cfg: ConfigToml =
+            toml::from_str("model = \"glm-5.2\"\n").expect("TOML deserialization should succeed");
+
+        let config = Config::load_from_base_config_with_overrides(
+            cfg,
+            ConfigOverrides::default(),
+            temp_dir.path().to_path_buf(),
+        )?;
+
+        assert!(
+            !config.model_explicitly_selected,
+            "a default in config.toml is what routing is meant to replace"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn should_resolve_a_user_declared_model_to_its_provider_at_runtime() -> std::io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let toml = r#"
+[model_providers.my-gateway]
+name = "My Gateway"
+base_url = "https://gateway.example.com/v1"
+env_key = "MY_GATEWAY_API_KEY"
+wire_api = "chat"
+
+[[models]]
+model = "qwen3-max"
+provider = "my-gateway"
+"#;
+        let cfg: ConfigToml = toml::from_str(toml).expect("TOML deserialization should succeed");
+
+        let config = Config::load_from_base_config_with_overrides(
+            cfg,
+            ConfigOverrides::default(),
+            temp_dir.path().to_path_buf(),
+        )?;
+
+        assert_eq!(
+            config.provider_id_for_model("qwen3-max").as_deref(),
+            Some("my-gateway"),
+            "a mid-session switch must find the declared gateway"
+        );
+        // With no built-in presets, anything the user has not declared resolves
+        // to nothing and falls back to the configured provider.
+        assert_eq!(config.provider_id_for_model("not-a-real-model"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn should_reject_a_model_naming_an_undefined_provider() -> std::io::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let toml = r#"
+[[models]]
+model = "qwen3-max"
+provider = "nowhere"
+"#;
+        let cfg: ConfigToml = toml::from_str(toml).expect("TOML deserialization should succeed");
+
+        let error = Config::load_from_base_config_with_overrides(
+            cfg,
+            ConfigOverrides::default(),
+            temp_dir.path().to_path_buf(),
+        )
+        .expect_err("a model pointing at an undefined provider should be rejected");
+
+        assert!(
+            error.to_string().contains("nowhere"),
+            "the error should name the missing provider: {error}"
+        );
+        Ok(())
     }
 
     #[test]
@@ -3481,7 +3744,7 @@ url = "https://example.com/mcp"
         let opencli_home = TempDir::new()?;
 
         ConfigEditsBuilder::new(opencli_home.path())
-            .set_model(Some("gpt-5.1-opencli"), Some(ReasoningEffort::High))
+            .set_model(Some("test-model"), Some(ReasoningEffort::High))
             .apply()
             .await?;
 
@@ -3489,7 +3752,7 @@ url = "https://example.com/mcp"
             tokio::fs::read_to_string(opencli_home.path().join(CONFIG_TOML_FILE)).await?;
         let parsed: ConfigToml = toml::from_str(&serialized)?;
 
-        assert_eq!(parsed.model.as_deref(), Some("gpt-5.1-opencli"));
+        assert_eq!(parsed.model.as_deref(), Some("test-model"));
         assert_eq!(parsed.model_reasoning_effort, Some(ReasoningEffort::High));
 
         Ok(())
@@ -3503,7 +3766,7 @@ url = "https://example.com/mcp"
         tokio::fs::write(
             &config_path,
             r#"
-model = "gpt-5.1-opencli"
+model = "test-model"
 model_reasoning_effort = "medium"
 
 [profiles.dev]
@@ -3539,7 +3802,7 @@ model = "gpt-4.1"
 
         ConfigEditsBuilder::new(opencli_home.path())
             .with_profile(Some("dev"))
-            .set_model(Some("gpt-5.1-opencli"), Some(ReasoningEffort::Medium))
+            .set_model(Some("test-model"), Some(ReasoningEffort::Medium))
             .apply()
             .await?;
 
@@ -3551,7 +3814,7 @@ model = "gpt-4.1"
             .get("dev")
             .expect("profile should be created");
 
-        assert_eq!(profile.model.as_deref(), Some("gpt-5.1-opencli"));
+        assert_eq!(profile.model.as_deref(), Some("test-model"));
         assert_eq!(
             profile.model_reasoning_effort,
             Some(ReasoningEffort::Medium)
@@ -3573,7 +3836,7 @@ model = "gpt-4"
 model_reasoning_effort = "medium"
 
 [profiles.prod]
-model = "gpt-5.1-opencli"
+model = "test-model"
 "#,
         )
         .await?;
@@ -3602,7 +3865,7 @@ model = "gpt-5.1-opencli"
                 .profiles
                 .get("prod")
                 .and_then(|profile| profile.model.as_deref()),
-            Some("gpt-5.1-opencli"),
+            Some("test-model"),
         );
 
         Ok(())
@@ -3843,6 +4106,9 @@ model_verbosity = "high"
                 hooks: Hooks::default(),
                 pricing: std::collections::HashMap::new(),
                 routing: Routing::default(),
+                models: Vec::new(),
+                model_explicitly_selected: true,
+                rate_limit_fallback_model: None,
                 ephemeral: false,
                 file_opener: UriBasedFileOpener::VsCode,
                 opencli_linux_sandbox_exe: None,
@@ -3859,7 +4125,7 @@ model_verbosity = "high"
                 compact_prompt: None,
                 forced_chatgpt_workspace_id: None,
                 forced_login_method: None,
-                include_apply_patch_tool: false,
+                include_apply_patch_tool: true,
                 web_search_mode: None,
                 use_experimental_unified_exec_tool: false,
                 ghost_snapshot: GhostSnapshotConfig::default(),
@@ -3931,6 +4197,9 @@ model_verbosity = "high"
             hooks: Hooks::default(),
             pricing: std::collections::HashMap::new(),
             routing: Routing::default(),
+            models: Vec::new(),
+            model_explicitly_selected: true,
+            rate_limit_fallback_model: None,
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,
@@ -3947,7 +4216,7 @@ model_verbosity = "high"
             compact_prompt: None,
             forced_chatgpt_workspace_id: None,
             forced_login_method: None,
-            include_apply_patch_tool: false,
+            include_apply_patch_tool: true,
             web_search_mode: None,
             use_experimental_unified_exec_tool: false,
             ghost_snapshot: GhostSnapshotConfig::default(),
@@ -4034,6 +4303,9 @@ model_verbosity = "high"
             hooks: Hooks::default(),
             pricing: std::collections::HashMap::new(),
             routing: Routing::default(),
+            models: Vec::new(),
+            model_explicitly_selected: true,
+            rate_limit_fallback_model: None,
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,
@@ -4050,7 +4322,7 @@ model_verbosity = "high"
             compact_prompt: None,
             forced_chatgpt_workspace_id: None,
             forced_login_method: None,
-            include_apply_patch_tool: false,
+            include_apply_patch_tool: true,
             web_search_mode: None,
             use_experimental_unified_exec_tool: false,
             ghost_snapshot: GhostSnapshotConfig::default(),
@@ -4123,6 +4395,9 @@ model_verbosity = "high"
             hooks: Hooks::default(),
             pricing: std::collections::HashMap::new(),
             routing: Routing::default(),
+            models: Vec::new(),
+            model_explicitly_selected: true,
+            rate_limit_fallback_model: None,
             ephemeral: false,
             file_opener: UriBasedFileOpener::VsCode,
             opencli_linux_sandbox_exe: None,
@@ -4139,7 +4414,7 @@ model_verbosity = "high"
             compact_prompt: None,
             forced_chatgpt_workspace_id: None,
             forced_login_method: None,
-            include_apply_patch_tool: false,
+            include_apply_patch_tool: true,
             web_search_mode: None,
             use_experimental_unified_exec_tool: false,
             ghost_snapshot: GhostSnapshotConfig::default(),

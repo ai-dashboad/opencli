@@ -36,7 +36,7 @@ async fn opencli_returns_json_result_for_gpt5() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn opencli_returns_json_result_for_gpt5_opencli() -> anyhow::Result<()> {
-    opencli_returns_json_result("gpt-5.1-opencli".to_string()).await
+    opencli_returns_json_result("test-model".to_string()).await
 }
 
 async fn opencli_returns_json_result(model: String) -> anyhow::Result<()> {

@@ -1,10 +1,10 @@
 {
-  "name": "@openai/opencli-sdk",
+  "name": "@ai-dashboad/opencli-sdk",
   "version": "0.0.0-dev",
   "description": "TypeScript SDK for OpenCLI APIs.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openai/opencli.git",
+    "url": "git+https://github.com/ai-dashboad/opencli.git",
     "directory": "sdk/typescript"
   },
   "keywords": [

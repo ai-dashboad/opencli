@@ -743,37 +743,37 @@ mod tests {
     #[test]
     fn model_cap_error_formats_message() {
         let err = ModelCapError {
-            model: "boomslang".to_string(),
+            model: "test-model-alt".to_string(),
             reset_after_seconds: Some(120),
         };
         assert_eq!(
             err.to_string(),
-            "Model boomslang is at capacity. Please try a different model. Try again in 2m."
+            "Model test-model-alt is at capacity. Please try a different model. Try again in 2m."
         );
     }
 
     #[test]
     fn model_cap_error_formats_message_without_reset() {
         let err = ModelCapError {
-            model: "boomslang".to_string(),
+            model: "test-model-alt".to_string(),
             reset_after_seconds: None,
         };
         assert_eq!(
             err.to_string(),
-            "Model boomslang is at capacity. Please try a different model. Try again later."
+            "Model test-model-alt is at capacity. Please try a different model. Try again later."
         );
     }
 
     #[test]
     fn model_cap_error_maps_to_protocol() {
         let err = OpenCLIErr::ModelCap(ModelCapError {
-            model: "boomslang".to_string(),
+            model: "test-model-alt".to_string(),
             reset_after_seconds: Some(30),
         });
         assert_eq!(
             err.to_opencli_protocol_error(),
             OpenCLIErrorInfo::ModelCap {
-                model: "boomslang".to_string(),
+                model: "test-model-alt".to_string(),
                 reset_after_seconds: Some(30),
             }
         );

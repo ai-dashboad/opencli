@@ -1,0 +1,9 @@
+# LM Studio — local models with a desktop UI.
+# Enable the local server from LM Studio's "Developer" tab.
+id = "lmstudio"
+name = "LM Studio (local)"
+base_url = "http://localhost:1234/v1"
+wire_api = "chat"
+docs = "https://lmstudio.ai"
+requires_key = false
+scan_ports = [1234]

@@ -748,23 +748,6 @@ impl ConfigEditsBuilder {
         self
     }
 
-    pub fn set_hide_model_migration_prompt(mut self, model: &str, acknowledged: bool) -> Self {
-        self.edits
-            .push(ConfigEdit::SetNoticeHideModelMigrationPrompt(
-                model.to_string(),
-                acknowledged,
-            ));
-        self
-    }
-
-    pub fn record_model_migration_seen(mut self, from: &str, to: &str) -> Self {
-        self.edits.push(ConfigEdit::RecordModelMigrationSeen {
-            from: from.to_string(),
-            to: to.to_string(),
-        });
-        self
-    }
-
     pub fn set_windows_wsl_setup_acknowledged(mut self, acknowledged: bool) -> Self {
         self.edits
             .push(ConfigEdit::SetWindowsWslSetupAcknowledged(acknowledged));
@@ -841,7 +824,7 @@ mod tests {
             opencli_home,
             None,
             &[ConfigEdit::SetModel {
-                model: Some("gpt-5.1-opencli".to_string()),
+                model: Some("test-model".to_string()),
                 effort: Some(ReasoningEffort::High),
             }],
         )
@@ -849,7 +832,7 @@ mod tests {
 
         let contents =
             std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
-        let expected = r#"model = "gpt-5.1-opencli"
+        let expected = r#"model = "test-model"
 model_reasoning_effort = "high"
 "#;
         assert_eq!(contents, expected);
@@ -985,7 +968,7 @@ profiles = { fast = { model = "gpt-4o", sandbox_mode = "strict" } }
             opencli_home,
             None,
             &[ConfigEdit::SetModel {
-                model: Some("gpt-5.1-opencli".to_string()),
+                model: Some("test-model".to_string()),
                 effort: Some(ReasoningEffort::High),
             }],
         )
@@ -995,7 +978,7 @@ profiles = { fast = { model = "gpt-4o", sandbox_mode = "strict" } }
         assert!(meta.file_type().is_symlink());
 
         let contents = std::fs::read_to_string(&target_path).expect("read target");
-        let expected = r#"model = "gpt-5.1-opencli"
+        let expected = r#"model = "test-model"
 model_reasoning_effort = "high"
 "#;
         assert_eq!(contents, expected);
@@ -1018,7 +1001,7 @@ model_reasoning_effort = "high"
             opencli_home,
             None,
             &[ConfigEdit::SetModel {
-                model: Some("gpt-5.1-opencli".to_string()),
+                model: Some("test-model".to_string()),
                 effort: None,
             }],
         )
@@ -1028,7 +1011,7 @@ model_reasoning_effort = "high"
         assert!(!meta.file_type().is_symlink());
 
         let contents = std::fs::read_to_string(&config_path).expect("read config");
-        let expected = r#"model = "gpt-5.1-opencli"
+        let expected = r#"model = "test-model"
 "#;
         assert_eq!(contents, expected);
     }
@@ -1172,7 +1155,7 @@ model = "o5-preview"
         std::fs::write(
             opencli_home.join(CONFIG_TOML_FILE),
             r#"[profiles."team a"]
-model = "gpt-5.1-opencli"
+model = "test-model"
 "#,
         )
         .expect("seed");
@@ -1253,98 +1236,6 @@ existing = "value"
         let expected = r#"[notice]
 existing = "value"
 hide_rate_limit_model_nudge = true
-"#;
-        assert_eq!(contents, expected);
-    }
-
-    #[test]
-    fn blocking_set_hide_gpt5_1_migration_prompt_preserves_table() {
-        let tmp = tempdir().expect("tmpdir");
-        let opencli_home = tmp.path();
-        std::fs::write(
-            opencli_home.join(CONFIG_TOML_FILE),
-            r#"[notice]
-existing = "value"
-"#,
-        )
-        .expect("seed");
-        apply_blocking(
-            opencli_home,
-            None,
-            &[ConfigEdit::SetNoticeHideModelMigrationPrompt(
-                "hide_gpt5_1_migration_prompt".to_string(),
-                true,
-            )],
-        )
-        .expect("persist");
-
-        let contents =
-            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
-        let expected = r#"[notice]
-existing = "value"
-hide_gpt5_1_migration_prompt = true
-"#;
-        assert_eq!(contents, expected);
-    }
-
-    #[test]
-    fn blocking_set_hide_gpt_5_1_opencli_max_migration_prompt_preserves_table() {
-        let tmp = tempdir().expect("tmpdir");
-        let opencli_home = tmp.path();
-        std::fs::write(
-            opencli_home.join(CONFIG_TOML_FILE),
-            r#"[notice]
-existing = "value"
-"#,
-        )
-        .expect("seed");
-        apply_blocking(
-            opencli_home,
-            None,
-            &[ConfigEdit::SetNoticeHideModelMigrationPrompt(
-                "hide_gpt-5.1-opencli-max_migration_prompt".to_string(),
-                true,
-            )],
-        )
-        .expect("persist");
-
-        let contents =
-            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
-        let expected = r#"[notice]
-existing = "value"
-"hide_gpt-5.1-opencli-max_migration_prompt" = true
-"#;
-        assert_eq!(contents, expected);
-    }
-
-    #[test]
-    fn blocking_record_model_migration_seen_preserves_table() {
-        let tmp = tempdir().expect("tmpdir");
-        let opencli_home = tmp.path();
-        std::fs::write(
-            opencli_home.join(CONFIG_TOML_FILE),
-            r#"[notice]
-existing = "value"
-"#,
-        )
-        .expect("seed");
-        apply_blocking(
-            opencli_home,
-            None,
-            &[ConfigEdit::RecordModelMigrationSeen {
-                from: "gpt-5".to_string(),
-                to: "gpt-5.1".to_string(),
-            }],
-        )
-        .expect("persist");
-
-        let contents =
-            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
-        let expected = r#"[notice]
-existing = "value"
-
-[notice.model_migrations]
-gpt-5 = "gpt-5.1"
 "#;
         assert_eq!(contents, expected);
     }
@@ -1669,14 +1560,14 @@ foo = { command = "cmd" , enabled = false }
         let opencli_home = tmp.path().to_path_buf();
 
         ConfigEditsBuilder::new(&opencli_home)
-            .set_model(Some("gpt-5.1-opencli"), Some(ReasoningEffort::High))
+            .set_model(Some("test-model"), Some(ReasoningEffort::High))
             .apply()
             .await
             .expect("persist");
 
         let contents =
             std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
-        let expected = r#"model = "gpt-5.1-opencli"
+        let expected = r#"model = "test-model"
 model_reasoning_effort = "high"
 "#;
         assert_eq!(contents, expected);
@@ -1698,11 +1589,11 @@ model_reasoning_effort = "low"
             std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
         assert_eq!(contents, initial_expected);
 
-        let updated_expected = r#"model = "gpt-5.1-opencli"
+        let updated_expected = r#"model = "test-model"
 model_reasoning_effort = "high"
 "#;
         ConfigEditsBuilder::new(opencli_home)
-            .set_model(Some("gpt-5.1-opencli"), Some(ReasoningEffort::High))
+            .set_model(Some("test-model"), Some(ReasoningEffort::High))
             .apply_blocking()
             .expect("persist update");
         contents = std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");

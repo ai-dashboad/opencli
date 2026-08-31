@@ -21,7 +21,13 @@ use std::collections::HashMap;
 use std::env::VarError;
 use std::time::Duration;
 
-const DEFAULT_STREAM_IDLE_TIMEOUT_MS: u64 = 300_000;
+/// How long a stream may produce nothing before it is treated as stalled.
+///
+/// 90s, not the upstream 300s: a gateway that has sent no token for a minute
+/// and a half is almost always wedged rather than thinking, and the retry that
+/// follows recovers far faster than continuing to wait. Raise it per provider
+/// with `stream_idle_timeout_ms` if a slow gateway needs more headroom.
+const DEFAULT_STREAM_IDLE_TIMEOUT_MS: u64 = 90_000;
 // Raised from upstream defaults (5/4): cheap gateways rate-limit aggressively,
 // and a few extra retries with backoff let a transient 429 recover on its own
 // instead of ending the turn.
@@ -286,149 +292,22 @@ pub const DEFAULT_OLLAMA_PORT: u16 = 11434;
 pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
 pub const OLLAMA_CHAT_PROVIDER_ID: &str = "ollama-chat";
-pub const CHEAPESTINFERENCE_PROVIDER_ID: &str = "cheapestinference";
-pub const OPENROUTER_PROVIDER_ID: &str = "openrouter";
-pub const ANTHROPIC_PROVIDER_ID: &str = "anthropic";
-pub const DEEPSEEK_PROVIDER_ID: &str = "deepseek";
-pub const MOONSHOT_PROVIDER_ID: &str = "moonshot";
-pub const ZHIPU_PROVIDER_ID: &str = "zhipu";
-pub const XAI_PROVIDER_ID: &str = "xai";
-pub const GROQ_PROVIDER_ID: &str = "groq";
-pub const MISTRAL_PROVIDER_ID: &str = "mistral";
-pub const GOOGLE_PROVIDER_ID: &str = "google";
 
-/// Build a third-party provider that speaks the OpenAI Chat Completions wire
-/// protocol. API keys are always read from the environment rather than being
-/// embedded in the binary, so a build of this tool carries no secrets.
-fn chat_completions_provider(
-    name: &str,
-    base_url: &str,
-    env_key: &str,
-    signup_url: &str,
-) -> ModelProviderInfo {
-    ModelProviderInfo {
-        name: name.into(),
-        base_url: Some(base_url.into()),
-        env_key: Some(env_key.into()),
-        env_key_instructions: Some(format!("Set {env_key} to your API key from {signup_url}")),
-        experimental_bearer_token: None,
-        wire_api: WireApi::Chat,
-        query_params: None,
-        http_headers: None,
-        env_http_headers: None,
-        request_max_retries: None,
-        stream_max_retries: None,
-        stream_idle_timeout_ms: None,
-        requires_openai_auth: false,
-        supports_websockets: false,
-    }
-}
 
-/// Built-in CheapestInference provider — the default gateway for this build.
-fn create_cheapestinference_provider() -> ModelProviderInfo {
-    chat_completions_provider(
-        "CheapestInference",
-        "https://api.cheapestinference.com/v1",
-        "CHEAPESTINFERENCE_API_KEY",
-        "https://cheapestinference.com/pools",
-    )
-}
 
 /// Built-in default provider list.
+/// Built-in default provider list.
+///
+/// Deliberately minimal: the OpenAI-compatible entry plus local runtimes. This
+/// build ships no commercial gateway presets and no API keys — add providers you
+/// use with `[model_providers.<id>]` in `config.toml`, and the models they serve
+/// with `[[models]]`. Keeping the binary provider-neutral means it carries no
+/// opinion about who you buy inference from, and no secrets.
 pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
     use ModelProviderInfo as P;
 
-    // We do not want to be in the business of adjucating which third-party
-    // providers are bundled with OpenCLI CLI, so we only include the OpenAI and
-    // open source ("oss") providers by default. Users are encouraged to add to
-    // `model_providers` in config.toml to add their own providers.
     [
         ("openai", P::create_openai_provider()),
-        (
-            CHEAPESTINFERENCE_PROVIDER_ID,
-            create_cheapestinference_provider(),
-        ),
-        (
-            OPENROUTER_PROVIDER_ID,
-            chat_completions_provider(
-                "OpenRouter",
-                "https://openrouter.ai/api/v1",
-                "OPENROUTER_API_KEY",
-                "https://openrouter.ai/keys",
-            ),
-        ),
-        (
-            ANTHROPIC_PROVIDER_ID,
-            chat_completions_provider(
-                "Anthropic",
-                "https://api.anthropic.com/v1",
-                "ANTHROPIC_API_KEY",
-                "https://console.anthropic.com/settings/keys",
-            ),
-        ),
-        (
-            DEEPSEEK_PROVIDER_ID,
-            chat_completions_provider(
-                "DeepSeek",
-                "https://api.deepseek.com/v1",
-                "DEEPSEEK_API_KEY",
-                "https://platform.deepseek.com/api_keys",
-            ),
-        ),
-        (
-            MOONSHOT_PROVIDER_ID,
-            chat_completions_provider(
-                "Moonshot",
-                "https://api.moonshot.cn/v1",
-                "MOONSHOT_API_KEY",
-                "https://platform.moonshot.cn/console/api-keys",
-            ),
-        ),
-        (
-            ZHIPU_PROVIDER_ID,
-            chat_completions_provider(
-                "Zhipu",
-                "https://open.bigmodel.cn/api/paas/v4",
-                "ZHIPU_API_KEY",
-                "https://open.bigmodel.cn/usercenter/apikeys",
-            ),
-        ),
-        (
-            XAI_PROVIDER_ID,
-            chat_completions_provider(
-                "xAI",
-                "https://api.x.ai/v1",
-                "XAI_API_KEY",
-                "https://console.x.ai",
-            ),
-        ),
-        (
-            GROQ_PROVIDER_ID,
-            chat_completions_provider(
-                "Groq",
-                "https://api.groq.com/openai/v1",
-                "GROQ_API_KEY",
-                "https://console.groq.com/keys",
-            ),
-        ),
-        (
-            MISTRAL_PROVIDER_ID,
-            chat_completions_provider(
-                "Mistral",
-                "https://api.mistral.ai/v1",
-                "MISTRAL_API_KEY",
-                "https://console.mistral.ai/api-keys",
-            ),
-        ),
-        (
-            GOOGLE_PROVIDER_ID,
-            chat_completions_provider(
-                "Google Gemini",
-                "https://generativelanguage.googleapis.com/v1beta/openai",
-                "GEMINI_API_KEY",
-                "https://aistudio.google.com/apikey",
-            ),
-        ),
         (
             OLLAMA_OSS_PROVIDER_ID,
             create_oss_provider(DEFAULT_OLLAMA_PORT, WireApi::Responses),

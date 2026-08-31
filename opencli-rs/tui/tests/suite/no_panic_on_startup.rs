@@ -4,7 +4,7 @@ use std::time::Duration;
 use tokio::select;
 use tokio::time::timeout;
 
-/// Regression test for https://github.com/openai/opencli/issues/8803.
+/// Regression test for https://github.com/ai-dashboad/opencli/issues/8803.
 #[tokio::test]
 async fn malformed_rules_should_not_panic() -> anyhow::Result<()> {
     // run_opencli_cli() does not work on Windows due to PTY limitations.

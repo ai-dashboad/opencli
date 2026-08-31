@@ -317,7 +317,8 @@ impl ExecCell {
                             lines.push(("Viewed", vec![name.clone().into()]));
                         }
                         ParsedCommand::ListFiles { cmd, path } => {
-                            lines.push(("Listed", vec![path.clone().unwrap_or(cmd.clone()).into()]));
+                            lines
+                                .push(("Listed", vec![path.clone().unwrap_or(cmd.clone()).into()]));
                         }
                         ParsedCommand::Search { cmd, query, path } => {
                             let spans = match (query, path) {
@@ -385,8 +386,8 @@ impl ExecCell {
             title.push(title_word.bold());
         }
 
-        // Inner content width, accounting for "│ " + " │" (4 columns).
-        let inner_width = (width as usize).saturating_sub(4).max(1);
+        // Inner content width, accounting for the "│ " rail (2 columns).
+        let inner_width = (width as usize).saturating_sub(2).max(1);
         let wrap_opts = RtOptions::new(inner_width).word_splitter(WordSplitter::NoHyphenation);
 
         // Command body: the highlighted command, wrapped and length-limited.
@@ -441,7 +442,7 @@ impl ExecCell {
             ))
         });
 
-        render_command_box(title, command_body, output_body, width, border_style)
+        render_command_box(title, command_body, output_body, border_style)
     }
 
     fn limit_lines_from_start(lines: &[Line<'static>], keep: usize) -> Vec<Line<'static>> {
@@ -532,7 +533,6 @@ impl PrefixedBlock {
 
 #[derive(Clone, Copy)]
 struct ExecDisplayLayout {
-    command_continuation: PrefixedBlock,
     command_continuation_max_lines: usize,
     output_block: PrefixedBlock,
     output_max_lines: usize,
@@ -540,13 +540,11 @@ struct ExecDisplayLayout {
 
 impl ExecDisplayLayout {
     const fn new(
-        command_continuation: PrefixedBlock,
         command_continuation_max_lines: usize,
         output_block: PrefixedBlock,
         output_max_lines: usize,
     ) -> Self {
         Self {
-            command_continuation,
             command_continuation_max_lines,
             output_block,
             output_max_lines,
@@ -554,12 +552,8 @@ impl ExecDisplayLayout {
     }
 }
 
-const EXEC_DISPLAY_LAYOUT: ExecDisplayLayout = ExecDisplayLayout::new(
-    PrefixedBlock::new("  │ ", "  │ "),
-    2,
-    PrefixedBlock::new("  ⎿ ", "    "),
-    5,
-);
+const EXEC_DISPLAY_LAYOUT: ExecDisplayLayout =
+    ExecDisplayLayout::new(2, PrefixedBlock::new("  ⎿ ", "    "), 5);
 
 #[cfg(test)]
 mod tests {
@@ -657,67 +651,59 @@ mod tests {
     }
 }
 
-/// Wrap a command and its output in a rounded box:
+/// Length of the horizontal rules that close a section. Deliberately short and
+/// fixed: a rule stretched to the terminal width would be wrong the moment the
+/// terminal is resized (see [`render_command_box`]).
+const RULE_WIDTH: usize = 8;
+
+/// Wrap a command and its output in a card with a left rail:
 /// ```text
-/// ╭─ ⏺ Executed ─────────╮
-/// │ <command>            │
-/// ├──────────────────────┤
-/// │ <output>             │
-/// ╰──────────────────────╯
+/// ╭─ ⏺ Executed
+/// │ <command>
+/// ├────────
+/// │ <output>
+/// ╰────────
 /// ```
+///
+/// The card is deliberately open on the right. Rendered lines are committed to
+/// the terminal's scrollback by `insert_history_lines` and are never re-drawn,
+/// so anything aligned to the right edge is frozen at the width it was built
+/// for: widening the terminal strands the old border mid-screen, and narrowing
+/// it pushes the border onto a soft-wrapped line. A rail has no right edge to
+/// strand, so the card survives any resize, and dropping the padding also keeps
+/// trailing whitespace out of copied text.
 fn render_command_box(
     title: Vec<Span<'static>>,
     command_body: Vec<Line<'static>>,
     output_body: Option<Vec<Line<'static>>>,
-    width: u16,
     border_style: Style,
 ) -> Vec<Line<'static>> {
-    let total = (width as usize).max(8);
-    let inner = total.saturating_sub(4).max(1);
     let mut out: Vec<Line<'static>> = Vec::new();
 
-    // Top border with the title inline: ╭─ <title> ───╮
-    let title_width: usize = title.iter().map(|span| span.width()).sum();
     let mut top: Vec<Span<'static>> = vec![Span::styled("╭─ ", border_style)];
     top.extend(title);
-    top.push(Span::styled(" ", border_style));
-    // Consumed so far: "╭─ " (3) + title + " " (1); reserve one for "╮".
-    let dashes = total.saturating_sub(3 + title_width + 1 + 1);
-    top.push(Span::styled("─".repeat(dashes), border_style));
-    top.push(Span::styled("╮", border_style));
     out.push(Line::from(top));
 
-    push_boxed_body(&mut out, command_body, inner, border_style);
+    push_railed_body(&mut out, command_body, border_style);
     if let Some(output_body) = output_body {
         out.push(Line::from(Span::styled(
-            format!("├{}┤", "─".repeat(total.saturating_sub(2))),
+            format!("├{}", "─".repeat(RULE_WIDTH)),
             border_style,
         )));
-        push_boxed_body(&mut out, output_body, inner, border_style);
+        push_railed_body(&mut out, output_body, border_style);
     }
     out.push(Line::from(Span::styled(
-        format!("╰{}╯", "─".repeat(total.saturating_sub(2))),
+        format!("╰{}", "─".repeat(RULE_WIDTH)),
         border_style,
     )));
     out
 }
 
-/// Push `body` lines into `out`, each framed by `│ … │` and right-padded to
-/// the inner width.
-fn push_boxed_body(
-    out: &mut Vec<Line<'static>>,
-    body: Vec<Line<'static>>,
-    inner: usize,
-    border_style: Style,
-) {
+/// Push `body` lines into `out`, each hung off the left rail as `│ …`.
+fn push_railed_body(out: &mut Vec<Line<'static>>, body: Vec<Line<'static>>, border_style: Style) {
     for line in body {
-        let pad = inner.saturating_sub(line.width());
         let mut spans: Vec<Span<'static>> = vec![Span::styled("│ ", border_style)];
         spans.extend(line.spans);
-        if pad > 0 {
-            spans.push(Span::from(" ".repeat(pad)));
-        }
-        spans.push(Span::styled(" │", border_style));
         out.push(Line::from(spans));
     }
 }

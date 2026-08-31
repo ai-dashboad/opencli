@@ -90,7 +90,7 @@ async fn prompt_tools_are_consistent_across_requests() -> anyhow::Result<()> {
     } = test_opencli()
         .with_config(|config| {
             config.user_instructions = Some("be consistent and helpful".to_string());
-            config.model = Some("gpt-5.1-opencli-max".to_string());
+            config.model = Some("test-model-max".to_string());
             // Keep tool expectations stable when the default web_search mode changes.
             config.web_search_mode = Some(WebSearchMode::Cached);
             config.features.enable(Feature::CollaborationModes);
@@ -426,7 +426,7 @@ async fn override_before_first_turn_emits_environment_context() -> anyhow::Resul
             approval_policy: Some(AskForApproval::Never),
             sandbox_policy: None,
             windows_sandbox_level: None,
-            model: Some("gpt-5.1-opencli".to_string()),
+            model: Some("test-model".to_string()),
             effort: Some(Some(ReasoningEffort::Low)),
             summary: None,
             collaboration_mode: Some(collaboration_mode),

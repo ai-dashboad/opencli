@@ -28,7 +28,7 @@ use super::textarea::TextArea;
 use super::textarea::TextAreaState;
 
 const BASE_BUG_ISSUE_URL: &str =
-    "https://github.com/openai/opencli/issues/new?template=2-bug-report.yml";
+    "https://github.com/ai-dashboad/opencli/issues/new?template=2-bug-report.yml";
 /// Internal routing link for employee feedback follow-ups. This must not be shown to external users.
 const OPENCLI_FEEDBACK_INTERNAL_URL: &str = "http://go/opencli-feedback-internal";
 

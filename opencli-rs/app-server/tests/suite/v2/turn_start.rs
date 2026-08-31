@@ -353,7 +353,7 @@ async fn turn_start_accepts_collaboration_mode_override_v2() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
-            model: Some("gpt-5.2-opencli".to_string()),
+            model: Some("test-model-pro".to_string()),
             ..Default::default()
         })
         .await?;

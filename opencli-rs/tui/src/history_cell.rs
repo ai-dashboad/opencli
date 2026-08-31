@@ -424,7 +424,7 @@ impl HistoryCell for UpdateAvailableHistoryCell {
         } else {
             line![
                 "See ",
-                "https://github.com/openai/opencli".cyan().underlined(),
+                "https://github.com/ai-dashboad/opencli".cyan().underlined(),
                 " for installation options."
             ]
         };
@@ -439,7 +439,7 @@ impl HistoryCell for UpdateAvailableHistoryCell {
             update_instruction,
             "",
             "See full release notes:",
-            "https://github.com/openai/opencli/releases/latest"
+            "https://github.com/ai-dashboad/opencli/releases/latest"
                 .cyan()
                 .underlined(),
         ];
@@ -1566,7 +1566,7 @@ pub(crate) fn empty_mcp_output() -> PlainHistoryCell {
         "  ⏺ No MCP servers configured.".italic().into(),
         Line::from(vec![
             "    See the ".into(),
-            "\u{1b}]8;;https://developers.openai.com/opencli/mcp\u{7}MCP docs\u{1b}]8;;\u{7}"
+            "\u{1b}]8;;https://github.com/ai-dashboad/opencli\u{7}MCP docs\u{1b}]8;;\u{7}"
                 .underlined(),
             " to configure them.".into(),
         ])
@@ -2389,16 +2389,25 @@ mod tests {
         ]);
         let cell = PrefixedWrappedHistoryCell::new(summary, "✔ ".green(), "  ");
         let rendered = render_lines(&cell.display_lines(24));
+        // Every line must fit the requested width of 24. The previous first
+        // line ("…opencli to") was 25 columns, so this expectation was asserting
+        // an overflow rather than the wrap actually produced.
         assert_eq!(
             rendered,
             vec![
-                "✔ You approved opencli to".to_string(),
-                "  run echo something".to_string(),
+                "✔ You approved opencli".to_string(),
+                "  to run echo something".to_string(),
                 "  really long to ensure".to_string(),
                 "  wrapping happens this".to_string(),
                 "  time".to_string(),
             ]
         );
+        for line in &rendered {
+            assert!(
+                line.chars().count() <= 24,
+                "line exceeds the wrap width: {line:?}"
+            );
+        }
     }
 
     #[test]

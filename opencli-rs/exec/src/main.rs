@@ -53,7 +53,7 @@ mod tests {
             "--last",
             "--json",
             "--model",
-            "gpt-5.2-opencli",
+            "test-model-pro",
             "--config",
             "reasoning_level=xhigh",
             "--dangerously-bypass-approvals-and-sandbox",

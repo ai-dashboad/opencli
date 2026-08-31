@@ -1,1 +1,1 @@
-The changelog can be found on the [releases page](https://github.com/openai/opencli/releases).
+The changelog can be found on the [releases page](https://github.com/ai-dashboad/opencli/releases).

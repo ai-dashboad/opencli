@@ -1,16 +1,15 @@
 ---
 source: tui/src/chatwidget/tests.rs
-assertion_line: 1548
+assertion_line: 3294
 expression: popup
 ---
-  Select Reasoning Level for gpt-5.1-opencli-max
+  Select Reasoning Level for test-model-a
 
-  1. Low                   Fast responses with lighter reasoning
-  2. Medium (default)      Balances speed and reasoning depth for everyday
-                           tasks
-  3. High                  Greater reasoning depth for complex problems
-› 4. Extra high (current)  Extra high reasoning depth for complex problems
-                           ⚠ Extra high reasoning effort can quickly consume
-                           Plus plan rate limits.
+  1. Low                   Faster, lighter reasoning
+  2. Medium (default)      Balanced
+  3. High                  Deeper reasoning
+› 4. Extra high (current)  Deepest reasoning
+                           ⚠ Extra high reasoning effort uses noticeably more
+                           tokens per turn.
 
   Press enter to confirm or esc to go back

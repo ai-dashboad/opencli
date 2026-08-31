@@ -16,6 +16,31 @@ use crate::truncate::truncate_text;
 pub use router::ToolRouter;
 use serde::Serialize;
 
+/// Appended to the model instructions when the structured file tools are
+/// enabled. The base prompt tells the model to search and read through the
+/// shell (`rg`, `cat`); this steers it to the dedicated tools instead, whose
+/// bounded, structured output is what keeps context clean and stops the model
+/// from re-reading files it has already seen.
+pub(crate) const STRUCTURED_FILE_TOOLS_GUIDANCE: &str = "
+
+# File navigation — IMPORTANT
+
+This session provides dedicated tools for exploring the workspace. They replace
+the shell for reading, searching, and listing. This rule overrides any earlier
+guidance that told you to use `rg`, `grep`, `cat`, `sed`, `ls`, or `find` in the
+shell for these purposes.
+
+- To search code, call `search_text`. It returns matching lines as
+  `path:line:text`. Do NOT run `rg`/`grep` in the shell.
+- To read a file, call `open_file` with the line range you need. Do NOT run
+  `cat`/`sed`/`head`/`tail` in the shell, and do not read a whole file when a
+  range will do.
+- To list a directory, call `browse_dir`. Do NOT run `ls`/`find` in the shell.
+
+Use the shell only to run programs — builds, tests, git, scripts. Never re-read
+a file you have already read unless you changed it. Following this keeps your
+context small and your work focused.";
+
 // Telemetry preview limits: keep log events smaller than model budgets.
 pub(crate) const TELEMETRY_PREVIEW_MAX_BYTES: usize = 2 * 1024; // 2 KiB
 pub(crate) const TELEMETRY_PREVIEW_MAX_LINES: usize = 64; // lines

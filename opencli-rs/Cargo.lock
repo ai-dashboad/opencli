@@ -630,7 +630,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b52af3cb4058c895d37317bb27508dccc8e5f2d39454016b297bf4a400597b8"
 dependencies = [
  "axum-core",
+ "base64",
  "bytes",
+ "form_urlencoded",
  "futures-util",
  "http 1.3.1",
  "http-body",
@@ -646,8 +648,11 @@ dependencies = [
  "serde_core",
  "serde_json",
  "serde_path_to_error",
+ "serde_urlencoded",
+ "sha1",
  "sync_wrapper",
  "tokio",
+ "tokio-tungstenite",
  "tower",
  "tower-layer",
  "tower-service",
@@ -4361,6 +4366,7 @@ dependencies = [
  "opencli-stdio-to-uds",
  "opencli-tui",
  "opencli-utils-cargo-bin",
+ "opencli-web-gateway",
  "opencli-windows-sandbox",
  "owo-colors",
  "predicates",
@@ -5177,6 +5183,23 @@ dependencies = [
 [[package]]
 name = "opencli-utils-string"
 version = "0.94.0"
+
+[[package]]
+name = "opencli-web-gateway"
+version = "0.94.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "futures",
+ "opencli-core",
+ "rand 0.9.2",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+]
 
 [[package]]
 name = "opencli-windows-sandbox"

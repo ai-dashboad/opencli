@@ -91,3 +91,10 @@ CHANGELOG.ignore.md
 __pycache__/
 *.pyc
 
+
+# web build output
+web/dist/
+
+# desktop build output
+desktop/src-tauri/target/
+desktop/src-tauri/gen/

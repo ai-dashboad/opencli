@@ -45,7 +45,7 @@ async fn thread_resume_returns_original_thread() -> Result<()> {
     // Start a thread.
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
-            model: Some("gpt-5.1-opencli-max".to_string()),
+            model: Some("test-model-max".to_string()),
             ..Default::default()
         })
         .await?;
@@ -272,7 +272,7 @@ async fn thread_resume_prefers_path_over_thread_id() -> Result<()> {
 
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
-            model: Some("gpt-5.1-opencli-max".to_string()),
+            model: Some("test-model-max".to_string()),
             ..Default::default()
         })
         .await?;
@@ -319,7 +319,7 @@ async fn thread_resume_supports_history_and_overrides() -> Result<()> {
     // Start a thread.
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
-            model: Some("gpt-5.1-opencli-max".to_string()),
+            model: Some("test-model-max".to_string()),
             ..Default::default()
         })
         .await?;
@@ -387,7 +387,7 @@ async fn thread_resume_accepts_personality_override() -> Result<()> {
 
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
-            model: Some("gpt-5.2-opencli".to_string()),
+            model: Some("test-model-pro".to_string()),
             ..Default::default()
         })
         .await?;
@@ -401,7 +401,7 @@ async fn thread_resume_accepts_personality_override() -> Result<()> {
     let resume_id = mcp
         .send_thread_resume_request(ThreadResumeParams {
             thread_id: thread.id.clone(),
-            model: Some("gpt-5.2-opencli".to_string()),
+            model: Some("test-model-pro".to_string()),
             personality: Some(Personality::Pragmatic),
             ..Default::default()
         })
@@ -459,7 +459,7 @@ fn create_config_toml(opencli_home: &std::path::Path, server_uri: &str) -> std::
         config_toml,
         format!(
             r#"
-model = "gpt-5.2-opencli"
+model = "test-model-pro"
 approval_policy = "never"
 sandbox_mode = "read-only"
 

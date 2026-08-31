@@ -136,7 +136,11 @@ fn parse_loop_interval(raw: &str) -> Result<std::time::Duration, String> {
         Some('m') => (&raw[..raw.len() - 1], 60),
         Some('h') => (&raw[..raw.len() - 1], 3600),
         Some(c) if c.is_ascii_digit() => (raw, 60),
-        _ => return Err(format!("invalid interval `{raw}`: use forms like 30s, 5m, 1h")),
+        _ => {
+            return Err(format!(
+                "invalid interval `{raw}`: use forms like 30s, 5m, 1h"
+            ));
+        }
     };
     let value: u64 = number
         .trim()
@@ -301,7 +305,6 @@ fn is_standard_tool_call(parsed_cmd: &[ParsedCommand]) -> bool {
 }
 
 const RATE_LIMIT_WARNING_THRESHOLDS: [f64; 3] = [75.0, 90.0, 95.0];
-const NUDGE_MODEL_SLUG: &str = "gpt-5.1-opencli-mini";
 const RATE_LIMIT_SWITCH_PROMPT_THRESHOLD: f64 = 90.0;
 
 #[derive(Default)]
@@ -1047,6 +1050,7 @@ impl ChatWidget {
         self.retry_status_header = None;
         self.bottom_pane.set_interrupt_hint_visible(true);
         self.set_status_header(crate::spinner_words::random());
+        self.bottom_pane.set_waiting_for_model(true);
         self.full_reasoning_buffer.clear();
         self.reasoning_buffer.clear();
         self.request_redraw();
@@ -1262,7 +1266,7 @@ impl ChatWidget {
 
             if high_usage
                 && !self.rate_limit_switch_prompt_hidden()
-                && self.current_model() != NUDGE_MODEL_SLUG
+                && Some(self.current_model()) != self.rate_limit_fallback_model()
                 && !matches!(
                     self.rate_limit_switch_prompt,
                     RateLimitSwitchPromptState::Shown
@@ -2949,6 +2953,9 @@ impl ChatWidget {
             SlashCommand::Quit | SlashCommand::Exit => {
                 self.request_quit_without_confirmation();
             }
+            SlashCommand::Restart => {
+                self.request_restart();
+            }
             SlashCommand::Logout => {
                 if let Err(e) = opencli_core::auth::logout(
                     &self.config.opencli_home,
@@ -3358,6 +3365,13 @@ impl ChatWidget {
         if !is_stream_error {
             self.restore_retry_status_header_if_present();
         }
+        // Any event other than the turn starting means the far end is alive, so
+        // the "no response yet" notice no longer applies. A stream error is the
+        // exception: it is followed by a reconnect, during which we are waiting
+        // again.
+        if !matches!(&msg, EventMsg::TurnStarted(_)) {
+            self.bottom_pane.set_waiting_for_model(is_stream_error);
+        }
 
         match msg {
             EventMsg::AgentMessageDelta(_)
@@ -3594,6 +3608,27 @@ impl ChatWidget {
     fn request_quit_without_confirmation(&self) {
         self.app_event_tx
             .send(AppEvent::Exit(ExitMode::ShutdownFirst));
+    }
+
+    /// Restart onto the binary currently on disk, keeping this conversation.
+    ///
+    /// A running process cannot pick up a rebuild, so this shuts down and lets
+    /// the caller re-exec and resume. Refuse when there is no thread to resume:
+    /// restarting would silently drop the conversation, which is the opposite
+    /// of what this command promises.
+    fn request_restart(&mut self) {
+        if self.thread_id.is_none() {
+            self.add_error_message(
+                "Nothing to restart into yet — send a message first so the conversation can be resumed."
+                    .to_string(),
+            );
+            return;
+        }
+        self.add_info_message(
+            "Restarting on the current binary; this conversation will be resumed.".to_string(),
+            None,
+        );
+        self.app_event_tx.send(AppEvent::RestartRequest);
     }
 
     fn request_redraw(&mut self) {
@@ -3839,11 +3874,20 @@ impl ChatWidget {
         self.rate_limit_poller = Some(handle);
     }
 
+    /// Slug the user nominated to fall back to when nearing rate limits.
+    fn rate_limit_fallback_model(&self) -> Option<&str> {
+        self.config.rate_limit_fallback_model.as_deref()
+    }
+
+    /// Preset for the nominated fallback model, when it is actually available.
+    /// `None` — the default — keeps the rate-limit prompt inert, which is right
+    /// for a build that ships no models of its own.
     fn lower_cost_preset(&self) -> Option<ModelPreset> {
+        let target = self.rate_limit_fallback_model()?;
         let models = self.models_manager.try_list_models(&self.config).ok()?;
         models
             .iter()
-            .find(|preset| preset.show_in_picker && preset.model == NUDGE_MODEL_SLUG)
+            .find(|preset| preset.show_in_picker && preset.model == target)
             .cloned()
     }
 
@@ -4084,6 +4128,19 @@ impl ChatWidget {
             .filter(|preset| preset.show_in_picker)
             .collect();
 
+        // This build ships no models, so a user who has not configured any would
+        // otherwise get an empty popup with no hint about what to do. Say where
+        // models come from instead of rendering a blank list.
+        if presets.is_empty() {
+            self.add_info_message(
+                "No models are configured. Add a `[model_providers.<id>]` section and a \
+                 `[[models]]` entry to ~/.opencli/config.toml, then run /model again."
+                    .to_string(),
+                Some("See docs/config.md for a complete example.".to_string()),
+            );
+            return;
+        }
+
         let current_model = self.current_model();
         let current_label = presets
             .iter()
@@ -4315,11 +4372,12 @@ impl ChatWidget {
         };
         let warning_text = warn_effort.map(|effort| {
             let effort_label = Self::reasoning_effort_label(effort);
-            format!("⚠ {effort_label} reasoning effort can quickly consume Plus plan rate limits.")
+            format!("⚠ {effort_label} reasoning effort uses noticeably more tokens per turn.")
         });
-        let warn_for_model = preset.model.starts_with("gpt-5.1-opencli")
-            || preset.model.starts_with("gpt-5.1-opencli-max")
-            || preset.model.starts_with("gpt-5.2");
+        // Applies to any model that offers the level, rather than a fixed slug
+        // list: this build ships no models, so naming specific ones would mean
+        // the warning never fires.
+        let warn_for_model = true;
 
         struct EffortChoice {
             stored: Option<ReasoningEffortConfig>,
@@ -4895,7 +4953,7 @@ impl ChatWidget {
             header.push(*Box::new(
                 Paragraph::new(vec![
                     line!["Agent mode on Windows uses an experimental sandbox to limit network and filesystem access.".bold()],
-                    line!["Learn more: https://developers.openai.com/opencli/windows"],
+                    line!["Learn more: https://github.com/ai-dashboad/opencli"],
                 ])
                 .wrap(Wrap { trim: false }),
             ));
@@ -4953,7 +5011,7 @@ impl ChatWidget {
                 line!["Set Up Agent Sandbox".bold()],
                 line![""],
                 line!["Agent mode uses an experimental Windows sandbox that protects your files and prevents network access by default."],
-                line!["Learn more: https://developers.openai.com/opencli/windows"],
+                line!["Learn more: https://github.com/ai-dashboad/opencli"],
             ])
             .wrap(Wrap { trim: false }),
         ));
@@ -5045,7 +5103,7 @@ impl ChatWidget {
             "Elevation failed. You can also use a non-elevated sandbox, which protects your files and prevents network access under most circumstances. However, it carries greater risk if prompt injected."
         ]);
         lines.push(line![
-            "Learn more: https://developers.openai.com/opencli/windows"
+            "Learn more: https://github.com/ai-dashboad/opencli"
         ]);
 
         let mut header = ColumnRenderable::new();

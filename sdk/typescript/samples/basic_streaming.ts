@@ -3,8 +3,8 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 
-import { OpenCLI } from "@openai/opencli-sdk";
-import type { ThreadEvent, ThreadItem } from "@openai/opencli-sdk";
+import { OpenCLI } from "@ai-dashboad/opencli-sdk";
+import type { ThreadEvent, ThreadItem } from "@ai-dashboad/opencli-sdk";
 import { opencliPathOverride } from "./helpers.ts";
 
 const opencli = new OpenCLI({ opencliPathOverride: opencliPathOverride() });

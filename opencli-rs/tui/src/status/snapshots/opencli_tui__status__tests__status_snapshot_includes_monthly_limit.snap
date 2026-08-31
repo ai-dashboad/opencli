@@ -1,5 +1,6 @@
 ---
 source: tui/src/status/tests.rs
+assertion_line: 280
 expression: sanitized
 ---
 /status
@@ -10,13 +11,13 @@ expression: sanitized
 │ Visit https://chatgpt.com/opencli/settings/usage for up-to-date            │
 │ information on rate limits and credits                                     │
 │                                                                            │
-│  Model:            gpt-5.1-opencli-max (reasoning none, summaries auto)    │
+│  Model:            test-model-max (reasoning none, summaries auto)         │
 │  Directory: [[workspace]]                                                  │
 │  Approval:         on-request                                              │
 │  Sandbox:          read-only                                               │
 │  Agents.md:        <none>                                                  │
 │                                                                            │
 │  Token usage:      1.2K total  (800 input + 400 output)                    │
-│  Context window:   100% left (1.2K used / 272K)                            │
+│  Context window:   100% left (1.2K used / 131K)                            │
 │  Monthly limit:    [██████████████████░░] 88% left (resets 07:08 on 7 May) │
 ╰────────────────────────────────────────────────────────────────────────────╯

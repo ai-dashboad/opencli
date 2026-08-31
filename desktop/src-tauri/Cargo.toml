@@ -1,0 +1,18 @@
+[package]
+name = "opencli-desktop"
+version = "0.1.0"
+edition = "2024"
+description = "Desktop client for the OpenCLI agent."
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+anyhow = "1"
+opencli-web-gateway = { path = "../../opencli-rs/web-gateway" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+tracing = "0.1"

@@ -109,6 +109,16 @@ async fn run_compact_task_inner(
     });
     sess.persist_rollout_items(&[rollout_item]).await;
 
+    // Compaction re-sends the whole thread to the model to summarize it, which
+    // on a slow gateway or a small context window can take a while and may trim
+    // in several passes. Announce it so the turn does not look frozen; the
+    // header updates again on each trim below.
+    sess.notify_background_event(
+        turn_context.as_ref(),
+        "Compacting the conversation to fit the model's context window…",
+    )
+    .await;
+
     loop {
         // Clone is required because of the loop
         let turn_input = history.clone().for_prompt();
@@ -146,6 +156,15 @@ async fn run_compact_task_inner(
                     history.remove_first_item();
                     truncated_count += 1;
                     retries = 0;
+                    // Show the trim so a multi-pass compaction reads as progress
+                    // rather than a hang.
+                    sess.notify_background_event(
+                        turn_context.as_ref(),
+                        format!(
+                            "Compacting… trimmed {truncated_count} old message(s) so the summary fits the context window."
+                        ),
+                    )
+                    .await;
                     continue;
                 }
                 sess.set_total_tokens_full(turn_context.as_ref()).await;

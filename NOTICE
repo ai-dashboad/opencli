@@ -1,5 +1,10 @@
-OpenAI OpenCLI
-Copyright 2025 OpenAI
+OpenCLI
+Copyright 2026 ai-dashboad
+
+This product includes software derived from OpenAI OpenCLI
+(https://github.com/openai/opencli).
+Copyright 2025 OpenAI
+Licensed under the Apache License, Version 2.0.
 
 This project includes code derived from [Ratatui](https://github.com/ratatui/ratatui), licensed under the MIT license.
 Copyright (c) 2016-2022 Florian Dehau

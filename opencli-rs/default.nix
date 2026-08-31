@@ -32,6 +32,6 @@ rustPlatform.buildRustPackage (_: {
   meta = with lib; {
     description = "OpenAI OpenCLI command‑line interface rust implementation";
     license = licenses.asl20;
-    homepage = "https://github.com/openai/opencli";
+    homepage = "https://github.com/ai-dashboad/opencli";
   };
 })

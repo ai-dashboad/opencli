@@ -93,7 +93,7 @@ fn reset_at_from(captured_at: &chrono::DateTime<chrono::Local>, seconds: i64) ->
 async fn status_snapshot_includes_reasoning_details() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli-max".to_string());
+    config.model = Some("test-model-max".to_string());
     config.model_provider_id = "openai".to_string();
     config.model_reasoning_summary = ReasoningSummary::Detailed;
     config
@@ -170,7 +170,7 @@ async fn status_snapshot_includes_reasoning_details() {
 async fn status_snapshot_includes_forked_from() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli-max".to_string());
+    config.model = Some("test-model-max".to_string());
     config.model_provider_id = "openai".to_string();
     config.cwd = PathBuf::from("/workspace/tests");
 
@@ -224,7 +224,7 @@ async fn status_snapshot_includes_forked_from() {
 async fn status_snapshot_includes_monthly_limit() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli-max".to_string());
+    config.model = Some("test-model-max".to_string());
     config.model_provider_id = "openai".to_string();
     config.cwd = PathBuf::from("/workspace/tests");
 
@@ -468,7 +468,7 @@ async fn status_snapshot_hides_when_has_no_credits_flag() {
 async fn status_card_token_usage_excludes_cached_tokens() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli-max".to_string());
+    config.model = Some("test-model-max".to_string());
     config.cwd = PathBuf::from("/workspace/tests");
 
     let auth_manager = test_auth_manager(&config);
@@ -514,7 +514,7 @@ async fn status_card_token_usage_excludes_cached_tokens() {
 async fn status_snapshot_truncates_in_narrow_terminal() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli-max".to_string());
+    config.model = Some("test-model-max".to_string());
     config.model_provider_id = "openai".to_string();
     config.model_reasoning_summary = ReasoningSummary::Detailed;
     config.cwd = PathBuf::from("/workspace/tests");
@@ -577,7 +577,7 @@ async fn status_snapshot_truncates_in_narrow_terminal() {
 async fn status_snapshot_shows_missing_limits_message() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli-max".to_string());
+    config.model = Some("test-model-max".to_string());
     config.cwd = PathBuf::from("/workspace/tests");
 
     let auth_manager = test_auth_manager(&config);
@@ -625,7 +625,7 @@ async fn status_snapshot_shows_missing_limits_message() {
 async fn status_snapshot_includes_credits_and_limits() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli".to_string());
+    config.model = Some("test-model".to_string());
     config.cwd = PathBuf::from("/workspace/tests");
 
     let auth_manager = test_auth_manager(&config);
@@ -692,7 +692,7 @@ async fn status_snapshot_includes_credits_and_limits() {
 async fn status_snapshot_shows_empty_limits_message() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli-max".to_string());
+    config.model = Some("test-model-max".to_string());
     config.cwd = PathBuf::from("/workspace/tests");
 
     let auth_manager = test_auth_manager(&config);
@@ -747,7 +747,7 @@ async fn status_snapshot_shows_empty_limits_message() {
 async fn status_snapshot_shows_stale_limits_message() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli-max".to_string());
+    config.model = Some("test-model-max".to_string());
     config.cwd = PathBuf::from("/workspace/tests");
 
     let auth_manager = test_auth_manager(&config);
@@ -811,7 +811,7 @@ async fn status_snapshot_shows_stale_limits_message() {
 async fn status_snapshot_cached_limits_hide_credits_without_flag() {
     let temp_home = TempDir::new().expect("temp home");
     let mut config = test_config(&temp_home).await;
-    config.model = Some("gpt-5.1-opencli".to_string());
+    config.model = Some("test-model".to_string());
     config.cwd = PathBuf::from("/workspace/tests");
 
     let auth_manager = test_auth_manager(&config);

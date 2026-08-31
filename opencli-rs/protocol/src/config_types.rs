@@ -278,7 +278,7 @@ mod tests {
         let mode = CollaborationMode {
             mode: ModeKind::Code,
             settings: Settings {
-                model: "gpt-5.2-opencli".to_string(),
+                model: "test-model-pro".to_string(),
                 reasoning_effort: Some(ReasoningEffort::High),
                 developer_instructions: Some("stay focused".to_string()),
             },
@@ -294,7 +294,7 @@ mod tests {
         let expected = CollaborationMode {
             mode: ModeKind::Code,
             settings: Settings {
-                model: "gpt-5.2-opencli".to_string(),
+                model: "test-model-pro".to_string(),
                 reasoning_effort: None,
                 developer_instructions: None,
             },

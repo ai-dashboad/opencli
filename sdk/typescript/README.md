@@ -7,7 +7,7 @@ The TypeScript SDK wraps the bundled `opencli` binary. It spawns the CLI and exc
 ## Installation
 
 ```bash
-npm install @openai/opencli-sdk
+npm install @ai-dashboad/opencli-sdk
 ```
 
 Requires Node.js 18+.
@@ -15,7 +15,7 @@ Requires Node.js 18+.
 ## Quickstart
 
 ```typescript
-import { OpenCLI } from "@openai/opencli-sdk";
+import { OpenCLI } from "@ai-dashboad/opencli-sdk";
 
 const opencli = new OpenCLI();
 const thread = opencli.startThread();

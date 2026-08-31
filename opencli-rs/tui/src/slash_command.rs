@@ -37,6 +37,7 @@ pub enum SlashCommand {
     Mcp,
     Apps,
     Logout,
+    Restart,
     Quit,
     Exit,
     Feedback,
@@ -78,6 +79,7 @@ impl SlashCommand {
             SlashCommand::Mcp => "list configured MCP tools",
             SlashCommand::Apps => "manage apps",
             SlashCommand::Logout => "log out of OpenCLI",
+            SlashCommand::Restart => "restart on the current binary, keeping this conversation",
             SlashCommand::Rollout => "print the rollout file path",
             SlashCommand::TestApproval => "test approval request",
         }
@@ -105,6 +107,9 @@ impl SlashCommand {
             | SlashCommand::ElevateSandbox
             | SlashCommand::Experimental
             | SlashCommand::Review
+            // Restarting mid-turn would strand the in-flight request, and the
+            // resumed session would not show its result.
+            | SlashCommand::Restart
             | SlashCommand::Logout => false,
             SlashCommand::Diff
             | SlashCommand::Rename

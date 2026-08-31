@@ -9,9 +9,9 @@ body:
       value: |
         Thank you for submitting a bug report! It helps make OpenCLI better for everyone.
 
-        If you need help or support using OpenCLI, and are not reporting a bug, please post on [opencli/discussions](https://github.com/openai/opencli/discussions), where you can ask questions or engage with others on ideas for how to improve opencli.
+        If you need help or support using OpenCLI, and are not reporting a bug, please post on [opencli/discussions](https://github.com/ai-dashboad/opencli/discussions), where you can ask questions or engage with others on ideas for how to improve opencli.
 
-        Make sure you are running the [latest](https://npmjs.com/package/@openai/opencli) version of OpenCLI CLI. The bug you are experiencing may already have been fixed.
+        Make sure you are running the [latest](https://npmjs.com/package/@ai-dashboad/opencli) version of OpenCLI CLI. The bug you are experiencing may already have been fixed.
 
         Please try to include as much information as possible.
 

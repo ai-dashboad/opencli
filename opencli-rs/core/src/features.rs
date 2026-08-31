@@ -127,6 +127,12 @@ pub enum Feature {
     Personality,
     /// Use the Responses API WebSocket transport for OpenAI by default.
     ResponsesWebsockets,
+    /// Give the model dedicated file tools (search_text/open_file/browse_dir)
+    /// instead of forcing every read, search, and listing through the shell.
+    /// Bounded, structured results keep the model from dumping whole files into
+    /// context and re-exploring, which is the main cause of undisciplined
+    /// third-party-model runs.
+    StructuredFileTools,
 }
 
 impl Feature {
@@ -349,7 +355,7 @@ fn legacy_usage_notice(alias: &str, feature: Feature) -> (String, Option<String>
                 None
             } else {
                 Some(format!(
-                    "Enable it with `--enable {canonical}` or `[features].{canonical}` in config.toml. See https://github.com/openai/opencli/blob/main/docs/config.md#feature-flags for details."
+                    "Enable it with `--enable {canonical}` or `[features].{canonical}` in config.toml. See https://github.com/ai-dashboad/opencli/blob/main/docs/config.md#feature-flags for details."
                 ))
             };
             (summary, details)
@@ -460,8 +466,13 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::ApplyPatchFreeform,
         key: "apply_patch_freeform",
-        stage: Stage::UnderDevelopment,
-        default_enabled: false,
+        // On by default: without it a model edits files by shelling out to
+        // heredocs and `sed`, which is markedly less reliable than a structured
+        // patch. Upstream could leave this off because its own models declared
+        // `apply_patch_tool_type` per slug; this build ships no model presets,
+        // so every model would otherwise fall back to the shell.
+        stage: Stage::Stable,
+        default_enabled: true,
     },
     FeatureSpec {
         id: Feature::ExecPolicy,
@@ -496,8 +507,13 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::RemoteModels,
         key: "remote_models",
+        // Off by default: this fetches OpenAI's model catalog, which no other
+        // provider serves. With no built-in presets a local-only setup resolves
+        // its provider to `openai`, so leaving this on made every startup fire a
+        // doomed request and log a 401 the user cannot act on. Enable it if you
+        // actually use OpenAI.
         stage: Stage::UnderDevelopment,
-        default_enabled: true,
+        default_enabled: false,
     },
     FeatureSpec {
         id: Feature::PowershellUtf8,
@@ -572,6 +588,12 @@ pub const FEATURES: &[FeatureSpec] = &[
         key: "responses_websockets",
         stage: Stage::UnderDevelopment,
         default_enabled: false,
+    },
+    FeatureSpec {
+        id: Feature::StructuredFileTools,
+        key: "structured_file_tools",
+        stage: Stage::Stable,
+        default_enabled: true,
     },
 ];
 

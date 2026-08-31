@@ -60,8 +60,8 @@ fn expected_models_for_api_key() -> Vec<ModelPreset> {
         gpt_5_opencli(),
         gpt_5(),
         gpt_5_opencli_mini(),
-        bengalfox(),
-        boomslang(),
+        test_model_pro_preset(),
+        test_model_alt_preset(),
     ]
 }
 
@@ -71,10 +71,10 @@ fn expected_models_for_chatgpt() -> Vec<ModelPreset> {
 
 fn gpt_52_opencli() -> ModelPreset {
     ModelPreset {
-        id: "gpt-5.2-opencli".to_string(),
-        model: "gpt-5.2-opencli".to_string(),
+        id: "test-model-pro".to_string(),
+        model: "test-model-pro".to_string(),
         provider: None,
-        display_name: "gpt-5.2-opencli".to_string(),
+        display_name: "test-model-pro".to_string(),
         description: "Latest frontier agentic coding model.".to_string(),
         default_reasoning_effort: ReasoningEffort::Medium,
         supported_reasoning_efforts: vec![
@@ -105,10 +105,10 @@ fn gpt_52_opencli() -> ModelPreset {
 
 fn gpt_5_1_opencli_max() -> ModelPreset {
     ModelPreset {
-        id: "gpt-5.1-opencli-max".to_string(),
-        model: "gpt-5.1-opencli-max".to_string(),
+        id: "test-model-max".to_string(),
+        model: "test-model-max".to_string(),
         provider: None,
-        display_name: "gpt-5.1-opencli-max".to_string(),
+        display_name: "test-model-max".to_string(),
         description: "OpenCLI-optimized flagship for deep and fast reasoning.".to_string(),
         default_reasoning_effort: ReasoningEffort::Medium,
         supported_reasoning_efforts: vec![
@@ -132,7 +132,7 @@ fn gpt_5_1_opencli_max() -> ModelPreset {
         supports_personality: false,
         is_default: false,
         upgrade: Some(gpt52_opencli_upgrade(
-            "gpt-5.1-opencli-max",
+            "test-model-max",
             HashMap::from([
                 (ReasoningEffort::Low, ReasoningEffort::Low),
                 (ReasoningEffort::None, ReasoningEffort::Low),
@@ -149,10 +149,10 @@ fn gpt_5_1_opencli_max() -> ModelPreset {
 
 fn gpt_5_1_opencli_mini() -> ModelPreset {
     ModelPreset {
-        id: "gpt-5.1-opencli-mini".to_string(),
-        model: "gpt-5.1-opencli-mini".to_string(),
+        id: "test-model-mini".to_string(),
+        model: "test-model-mini".to_string(),
         provider: None,
-        display_name: "gpt-5.1-opencli-mini".to_string(),
+        display_name: "test-model-mini".to_string(),
         description: "Optimized for opencli. Cheaper, faster, but less capable.".to_string(),
         default_reasoning_effort: ReasoningEffort::Medium,
         supported_reasoning_efforts: vec![
@@ -168,7 +168,7 @@ fn gpt_5_1_opencli_mini() -> ModelPreset {
         supports_personality: false,
         is_default: false,
         upgrade: Some(gpt52_opencli_upgrade(
-            "gpt-5.1-opencli-mini",
+            "test-model-mini",
             HashMap::from([
                 (ReasoningEffort::High, ReasoningEffort::High),
                 (ReasoningEffort::XHigh, ReasoningEffort::High),
@@ -229,13 +229,13 @@ fn gpt_5_2() -> ModelPreset {
     }
 }
 
-fn bengalfox() -> ModelPreset {
+fn test_model_pro_preset() -> ModelPreset {
     ModelPreset {
-        id: "bengalfox".to_string(),
-        model: "bengalfox".to_string(),
+        id: "test-model-pro".to_string(),
+        model: "test-model-pro".to_string(),
         provider: None,
-        display_name: "bengalfox".to_string(),
-        description: "bengalfox".to_string(),
+        display_name: "test-model-pro".to_string(),
+        description: "test-model-pro".to_string(),
         default_reasoning_effort: ReasoningEffort::Medium,
         supported_reasoning_efforts: vec![
             effort(
@@ -263,13 +263,13 @@ fn bengalfox() -> ModelPreset {
     }
 }
 
-fn boomslang() -> ModelPreset {
+fn test_model_alt_preset() -> ModelPreset {
     ModelPreset {
-        id: "boomslang".to_string(),
-        model: "boomslang".to_string(),
+        id: "test-model-alt".to_string(),
+        model: "test-model-alt".to_string(),
         provider: None,
-        display_name: "boomslang".to_string(),
-        description: "boomslang".to_string(),
+        display_name: "test-model-alt".to_string(),
+        description: "test-model-alt".to_string(),
         default_reasoning_effort: ReasoningEffort::Medium,
         supported_reasoning_efforts: vec![
             effort(
@@ -299,10 +299,10 @@ fn boomslang() -> ModelPreset {
 
 fn gpt_5_opencli() -> ModelPreset {
     ModelPreset {
-        id: "gpt-5-opencli".to_string(),
-        model: "gpt-5-opencli".to_string(),
+        id: "test-model".to_string(),
+        model: "test-model".to_string(),
         provider: None,
-        display_name: "gpt-5-opencli".to_string(),
+        display_name: "test-model".to_string(),
         description: "Optimized for opencli.".to_string(),
         default_reasoning_effort: ReasoningEffort::Medium,
         supported_reasoning_efforts: vec![
@@ -322,7 +322,7 @@ fn gpt_5_opencli() -> ModelPreset {
         supports_personality: false,
         is_default: false,
         upgrade: Some(gpt52_opencli_upgrade(
-            "gpt-5-opencli",
+            "test-model",
             HashMap::from([
                 (ReasoningEffort::Minimal, ReasoningEffort::Low),
                 (ReasoningEffort::High, ReasoningEffort::High),
@@ -339,10 +339,10 @@ fn gpt_5_opencli() -> ModelPreset {
 
 fn gpt_5_opencli_mini() -> ModelPreset {
     ModelPreset {
-        id: "gpt-5-opencli-mini".to_string(),
-        model: "gpt-5-opencli-mini".to_string(),
+        id: "test-model-mini".to_string(),
+        model: "test-model-mini".to_string(),
         provider: None,
-        display_name: "gpt-5-opencli-mini".to_string(),
+        display_name: "test-model-mini".to_string(),
         description: "Optimized for opencli. Cheaper, faster, but less capable.".to_string(),
         default_reasoning_effort: ReasoningEffort::Medium,
         supported_reasoning_efforts: vec![
@@ -358,7 +358,7 @@ fn gpt_5_opencli_mini() -> ModelPreset {
         supports_personality: false,
         is_default: false,
         upgrade: Some(gpt52_opencli_upgrade(
-            "gpt-5-opencli-mini",
+            "test-model-mini",
             HashMap::from([
                 (ReasoningEffort::None, ReasoningEffort::Medium),
                 (ReasoningEffort::XHigh, ReasoningEffort::High),
@@ -375,10 +375,10 @@ fn gpt_5_opencli_mini() -> ModelPreset {
 
 fn gpt_5_1_opencli() -> ModelPreset {
     ModelPreset {
-        id: "gpt-5.1-opencli".to_string(),
-        model: "gpt-5.1-opencli".to_string(),
+        id: "test-model".to_string(),
+        model: "test-model".to_string(),
         provider: None,
-        display_name: "gpt-5.1-opencli".to_string(),
+        display_name: "test-model".to_string(),
         description: "Optimized for opencli.".to_string(),
         default_reasoning_effort: ReasoningEffort::Medium,
         supported_reasoning_efforts: vec![
@@ -398,7 +398,7 @@ fn gpt_5_1_opencli() -> ModelPreset {
         supports_personality: false,
         is_default: false,
         upgrade: Some(gpt52_opencli_upgrade(
-            "gpt-5.1-opencli",
+            "test-model",
             HashMap::from([
                 (ReasoningEffort::Minimal, ReasoningEffort::Low),
                 (ReasoningEffort::Low, ReasoningEffort::Low),
@@ -502,7 +502,7 @@ fn gpt52_opencli_upgrade(
     reasoning_effort_mapping: HashMap<ReasoningEffort, ReasoningEffort>,
 ) -> ModelUpgrade {
     ModelUpgrade {
-        id: "gpt-5.2-opencli".to_string(),
+        id: "test-model-pro".to_string(),
         reasoning_effort_mapping: Some(reasoning_effort_mapping),
         migration_config_key: migration_config_key.to_string(),
         model_link: None,

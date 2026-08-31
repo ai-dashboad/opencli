@@ -36,7 +36,7 @@ async fn truncate_function_error_trims_respond_to_model() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let server = start_mock_server().await;
-    let mut builder = test_opencli().with_model("test-gpt-5.1-opencli");
+    let mut builder = test_opencli().with_model("test-test-model");
     let test = builder.build(&server).await?;
 
     // Construct a very long, non-existent path to force a RespondToModel error with a large message
@@ -250,7 +250,7 @@ async fn tool_call_output_exceeds_limit_truncated_for_model() -> Result<()> {
     let server = start_mock_server().await;
 
     // Use a model that exposes the shell_command tool.
-    let mut builder = test_opencli().with_model("gpt-5.1-opencli");
+    let mut builder = test_opencli().with_model("test-model");
     let fixture = builder.build(&server).await?;
 
     let call_id = "shell-too-large";
@@ -326,7 +326,7 @@ async fn tool_call_output_truncated_only_once() -> Result<()> {
 
     let server = start_mock_server().await;
 
-    let mut builder = test_opencli().with_model("gpt-5.1-opencli");
+    let mut builder = test_opencli().with_model("test-model");
     let fixture = builder.build(&server).await?;
     let call_id = "shell-single-truncation";
     let command = if cfg!(windows) {
@@ -577,7 +577,7 @@ async fn token_policy_marker_reports_tokens() -> Result<()> {
 
     let server = start_mock_server().await;
     let mut builder = test_opencli()
-        .with_model("gpt-5.1-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.tool_output_token_limit = Some(50); // small budget to force truncation
         });
@@ -681,7 +681,7 @@ async fn shell_command_output_not_truncated_with_custom_limit() -> Result<()> {
 
     let server = start_mock_server().await;
     let mut builder = test_opencli()
-        .with_model("gpt-5.1-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.tool_output_token_limit = Some(50_000); // ample budget
         });

@@ -36,7 +36,10 @@ mod doctor_cmd;
 mod export_cmd;
 mod loop_cmd;
 mod mcp_cmd;
+mod model_cmd;
 mod parallel;
+mod provider_cmd;
+mod serve_cmd;
 #[cfg(not(windows))]
 mod wsl_paths;
 
@@ -45,7 +48,10 @@ use crate::doctor_cmd::DoctorArgs;
 use crate::export_cmd::ExportArgs;
 use crate::loop_cmd::LoopArgs;
 use crate::mcp_cmd::McpCli;
+use crate::model_cmd::ModelArgs;
+use crate::serve_cmd::ServeArgs;
 use crate::parallel::ParallelArgs;
+use crate::provider_cmd::ProviderArgs;
 
 use opencli_core::config::Config;
 use opencli_core::config::ConfigOverrides;
@@ -108,6 +114,15 @@ enum Subcommand {
 
     /// Read and edit config.toml from the command line.
     Config(ConfigArgs),
+
+    /// Discover and install model providers.
+    Provider(ProviderArgs),
+
+    /// Inspect and probe configured models.
+    Model(ModelArgs),
+
+    /// Serve the agent over WebSocket for a browser or desktop UI.
+    Serve(ServeArgs),
 
     /// Manage login.
     Login(LoginCommand),
@@ -306,7 +321,7 @@ struct AppServerCommand {
     /// enabled = false
     /// ```
     ///
-    /// See https://developers.openai.com/opencli/config-advanced/#metrics for more details.
+    /// See https://github.com/ai-dashboad/opencli/blob/main/docs/config.md for more details.
     #[arg(long = "analytics-default-enabled")]
     analytics_default_enabled: bool,
 }
@@ -383,6 +398,11 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
             eprintln!("ERROR: {message}");
             std::process::exit(1);
         }
+        ExitReason::Restart => {
+            // Reached only after the TUI has restored the terminal, so the exec
+            // below inherits a sane terminal. Returns only on failure.
+            return restart_into_current_binary(exit_info.thread_id);
+        }
         ExitReason::UserRequested => { /* normal exit */ }
     }
 
@@ -395,6 +415,61 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
         run_update_action(action)?;
     }
     Ok(())
+}
+
+/// Replace this process with a fresh one resuming `thread_id`.
+///
+/// This is what `/restart` ultimately does. A rebuild cannot affect a running
+/// process — its code is already loaded — so picking up a new binary requires a
+/// new process; resuming the thread is what makes that invisible to the user.
+///
+/// `exec` rather than spawn-and-exit keeps the same PID and terminal, so job
+/// control and any wrapping script see one continuous process. On success this
+/// never returns.
+#[cfg(unix)]
+fn restart_into_current_binary(thread_id: Option<opencli_protocol::ThreadId>) -> anyhow::Result<()> {
+    use std::os::unix::process::CommandExt;
+
+    let Some(thread_id) = thread_id else {
+        anyhow::bail!("cannot restart: this session has no thread to resume");
+    };
+    // Re-exec by path, not by the original inode: an upgrade replaces the file
+    // at this path, and resolving it now is what makes the restart pick up the
+    // new build.
+    let exe = std::env::current_exe()
+        .map_err(|err| anyhow::anyhow!("cannot restart: could not locate the running binary: {err}"))?;
+
+    let error = std::process::Command::new(&exe)
+        .arg("resume")
+        .arg(thread_id.to_string())
+        .exec();
+
+    // exec only returns on failure.
+    Err(anyhow::anyhow!(
+        "cannot restart: failed to re-exec {}: {error}",
+        exe.display()
+    ))
+}
+
+#[cfg(not(unix))]
+fn restart_into_current_binary(
+    thread_id: Option<opencli_protocol::ThreadId>,
+) -> anyhow::Result<()> {
+    // Windows has no exec, so run the successor as a child and adopt its status
+    // rather than leaving the user at a shell prompt mid-conversation.
+    let Some(thread_id) = thread_id else {
+        anyhow::bail!("cannot restart: this session has no thread to resume");
+    };
+    let exe = std::env::current_exe()
+        .map_err(|err| anyhow::anyhow!("cannot restart: could not locate the running binary: {err}"))?;
+
+    let status = std::process::Command::new(&exe)
+        .arg("resume")
+        .arg(thread_id.to_string())
+        .status()
+        .map_err(|err| anyhow::anyhow!("cannot restart: failed to launch {}: {err}", exe.display()))?;
+
+    std::process::exit(status.code().unwrap_or(1));
 }
 
 /// Run the update action and print the result.
@@ -551,6 +626,15 @@ async fn cli_main(opencli_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<
         }
         Some(Subcommand::Config(config_args)) => {
             config_cmd::run_main(config_args)?;
+        }
+        Some(Subcommand::Provider(provider_args)) => {
+            provider_cmd::run_main(provider_args).await?;
+        }
+        Some(Subcommand::Model(model_args)) => {
+            model_cmd::run_main(model_args).await?;
+        }
+        Some(Subcommand::Serve(serve_args)) => {
+            serve_cmd::run_main(serve_args).await?;
         }
         Some(Subcommand::Review(review_args)) => {
             let mut exec_cli = ExecCli::try_parse_from(["opencli", "exec"])?;

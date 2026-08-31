@@ -113,7 +113,7 @@ Start a fresh thread when you need a new OpenCLI conversation.
 { "method": "thread/start", "id": 10, "params": {
     // Optionally set config settings. If not specified, will use the user's
     // current config settings.
-    "model": "gpt-5.1-opencli",
+    "model": "test-model",
     "cwd": "/Users/me/project",
     "approvalPolicy": "never",
     "sandbox": "workspaceWrite",
@@ -258,7 +258,7 @@ You can optionally specify config overrides on the new turn. If specified, these
         "writableRoots": ["/Users/me/project"],
         "networkAccess": true
     },
-    "model": "gpt-5.1-opencli",
+    "model": "test-model",
     "effort": "medium",
     "summary": "concise",
     "personality": "friendly",

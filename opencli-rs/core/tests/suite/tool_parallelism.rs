@@ -65,7 +65,7 @@ async fn run_turn_and_measure(test: &TestOpenCLI, prompt: &str) -> anyhow::Resul
 
 #[allow(clippy::expect_used)]
 async fn build_opencli_with_test_tool(server: &wiremock::MockServer) -> anyhow::Result<TestOpenCLI> {
-    let mut builder = test_opencli().with_model("test-gpt-5.1-opencli");
+    let mut builder = test_opencli().with_model("test-test-model");
     builder.build(server).await
 }
 

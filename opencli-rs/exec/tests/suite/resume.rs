@@ -341,7 +341,7 @@ fn exec_resume_accepts_global_flags_after_subcommand() -> anyhow::Result<()> {
         .arg("--last")
         .arg("--json")
         .arg("--model")
-        .arg("gpt-5.2-opencli")
+        .arg("test-model-pro")
         .arg("--config")
         .arg("reasoning_level=xhigh")
         .arg("--dangerously-bypass-approvals-and-sandbox")

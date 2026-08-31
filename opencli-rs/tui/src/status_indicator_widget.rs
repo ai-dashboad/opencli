@@ -29,11 +29,20 @@ use crate::wrapping::word_wrap_lines;
 const DETAILS_MAX_LINES: usize = 3;
 const DETAILS_PREFIX: &str = "  ⎿ ";
 
+/// How long the model may produce nothing before the status line says so.
+///
+/// A bare spinner and a ticking clock cannot distinguish "thinking" from
+/// "the gateway is wedged", which is the single most confusing way for a turn
+/// to fail. After this long, say what is being waited on and how to get out.
+const STALL_NOTICE_AFTER: Duration = Duration::from_secs(15);
+
 pub(crate) struct StatusIndicatorWidget {
     /// Animated header text (defaults to "Processing").
     header: String,
     details: Option<String>,
     show_interrupt_hint: bool,
+    /// Set while a turn is running and the model has not produced anything yet.
+    waiting_since: Option<Instant>,
 
     elapsed_running: Duration,
     last_resume_at: Instant,
@@ -70,6 +79,7 @@ impl StatusIndicatorWidget {
             header: crate::spinner_words::random(),
             details: None,
             show_interrupt_hint: true,
+            waiting_since: None,
             elapsed_running: Duration::ZERO,
             last_resume_at: Instant::now(),
             is_paused: false,
@@ -156,11 +166,47 @@ impl StatusIndicatorWidget {
         self.elapsed_seconds_at(Instant::now())
     }
 
+    /// Mark whether the turn is waiting on the model's first output.
+    ///
+    /// Called with `true` when a turn starts and `false` as soon as anything
+    /// arrives, so the stall notice only ever describes a genuinely silent
+    /// gateway.
+    pub(crate) fn set_waiting_for_model(&mut self, waiting: bool) {
+        match (waiting, self.waiting_since) {
+            // Already waiting: keep the original instant so the notice reports
+            // the full wait rather than restarting on every event.
+            (true, Some(_)) => {}
+            (true, None) => self.waiting_since = Some(Instant::now()),
+            (false, _) => self.waiting_since = None,
+        }
+    }
+
+    /// Text for the details slot: whatever the session set, or a stall notice
+    /// once the model has been silent long enough to be worth mentioning.
+    fn effective_details(&self, now: Instant) -> Option<String> {
+        if let Some(details) = self.details.clone() {
+            return Some(details);
+        }
+        let waited = now.saturating_duration_since(self.waiting_since?);
+        if waited < STALL_NOTICE_AFTER {
+            return None;
+        }
+        Some(format!(
+            "No response from the model yet ({}) — it will reconnect automatically if the connection has stalled.",
+            fmt_elapsed_compact(waited.as_secs())
+        ))
+    }
+
     /// Wrap the details text into a fixed width and return the lines, truncating if necessary.
     fn wrapped_details_lines(&self, width: u16) -> Vec<Line<'static>> {
-        let Some(details) = self.details.as_deref() else {
+        self.wrapped_details_lines_at(width, Instant::now())
+    }
+
+    fn wrapped_details_lines_at(&self, width: u16, now: Instant) -> Vec<Line<'static>> {
+        let Some(details) = self.effective_details(now) else {
             return Vec::new();
         };
+        let details = details.as_str();
         if width == 0 {
             return Vec::new();
         }
@@ -229,7 +275,7 @@ impl Renderable for StatusIndicatorWidget {
         lines.push(Line::from(spans));
         if area.height > 1 {
             // If there is enough space, add the details lines below the header.
-            let details = self.wrapped_details_lines(area.width);
+            let details = self.wrapped_details_lines_at(area.width, now);
             let max_details = usize::from(area.height.saturating_sub(1));
             lines.extend(details.into_iter().take(max_details));
         }
@@ -334,6 +380,85 @@ mod tests {
         widget.resume_timer_at(baseline + Duration::from_secs(10));
         let after_resume = widget.elapsed_seconds_at(baseline + Duration::from_secs(13));
         assert_eq!(after_resume, before_pause + 3);
+    }
+
+    fn widget_for_waiting_tests() -> StatusIndicatorWidget {
+        let (tx_raw, _rx) = unbounded_channel::<AppEvent>();
+        let tx = AppEventSender::new(tx_raw);
+        StatusIndicatorWidget::new(tx, crate::tui::FrameRequester::test_dummy(), false)
+    }
+
+    #[test]
+    fn should_stay_quiet_while_the_model_has_only_been_silent_briefly() {
+        let mut w = widget_for_waiting_tests();
+        let started = Instant::now();
+        w.set_waiting_for_model(true);
+        w.waiting_since = Some(started);
+
+        assert_eq!(
+            w.effective_details(started + STALL_NOTICE_AFTER - Duration::from_secs(1)),
+            None
+        );
+    }
+
+    #[test]
+    fn should_report_the_wait_once_the_model_has_been_silent_long_enough() {
+        let mut w = widget_for_waiting_tests();
+        let started = Instant::now();
+        w.set_waiting_for_model(true);
+        w.waiting_since = Some(started);
+
+        let details = w
+            .effective_details(started + STALL_NOTICE_AFTER + Duration::from_secs(5))
+            .expect("a stall notice is expected once the threshold has passed");
+        assert!(
+            details.contains("No response from the model yet"),
+            "unexpected notice: {details}"
+        );
+        assert!(
+            details.contains("20s"),
+            "notice should report the wait: {details}"
+        );
+    }
+
+    #[test]
+    fn should_drop_the_stall_notice_as_soon_as_the_model_responds() {
+        let mut w = widget_for_waiting_tests();
+        let started = Instant::now();
+        w.set_waiting_for_model(true);
+        w.waiting_since = Some(started);
+        w.set_waiting_for_model(false);
+
+        assert_eq!(
+            w.effective_details(started + STALL_NOTICE_AFTER + Duration::from_secs(60)),
+            None
+        );
+    }
+
+    #[test]
+    fn should_report_the_whole_wait_rather_than_restarting_the_clock() {
+        let mut w = widget_for_waiting_tests();
+        let started = Instant::now();
+        w.set_waiting_for_model(true);
+        w.waiting_since = Some(started);
+        // A second "still waiting" signal must not reset the elapsed wait.
+        w.set_waiting_for_model(true);
+
+        assert_eq!(w.waiting_since, Some(started));
+    }
+
+    #[test]
+    fn should_prefer_session_details_over_the_stall_notice() {
+        let mut w = widget_for_waiting_tests();
+        let started = Instant::now();
+        w.set_waiting_for_model(true);
+        w.waiting_since = Some(started);
+        w.update_details(Some("Retrying after 429".to_string()));
+
+        let details = w
+            .effective_details(started + STALL_NOTICE_AFTER + Duration::from_secs(5))
+            .expect("session details should still be shown");
+        assert_eq!(details, "Retrying after 429");
     }
 
     #[test]

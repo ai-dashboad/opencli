@@ -1,0 +1,11 @@
+# Ollama — local models on your own machine.
+# Start the server with `ollama serve`; no API key is required.
+id = "ollama"
+name = "Ollama (local)"
+base_url = "http://localhost:11434/v1"
+wire_api = "chat"
+docs = "https://ollama.com"
+# Local servers need no credential.
+requires_key = false
+# Ports to probe during `opencli provider scan`.
+scan_ports = [11434]

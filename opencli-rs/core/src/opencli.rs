@@ -323,7 +323,16 @@ impl OpenCLI {
             .base_instructions
             .clone()
             .or_else(|| conversation_history.get_base_instructions().map(|s| s.text))
-            .unwrap_or_else(|| model_info.get_model_instructions(config.personality));
+            .unwrap_or_else(|| {
+                // Only the model-derived default is augmented: a user override is
+                // left untouched, and resumed history already carries whatever
+                // was persisted, so the guidance is appended exactly once.
+                let mut instructions = model_info.get_model_instructions(config.personality);
+                if config.features.enabled(crate::features::Feature::StructuredFileTools) {
+                    instructions.push_str(crate::tools::STRUCTURED_FILE_TOOLS_GUIDANCE);
+                }
+                instructions
+            });
         // Respect explicit thread-start tools; fall back to persisted tools when resuming a thread.
         let dynamic_tools = if dynamic_tools.is_empty() {
             conversation_history.get_dynamic_tools().unwrap_or_default()
@@ -586,16 +595,17 @@ impl SessionConfiguration {
             // Built-in presets each name the gateway that serves them, so a
             // mid-session model switch has to re-point the provider too;
             // otherwise the new model is requested from the old gateway.
-            if let Some(provider) = crate::models_manager::model_presets::provider_id_for_model(
-                next_configuration.collaboration_mode.model(),
-            )
-            .and_then(|provider_id| {
-                next_configuration
-                    .original_config_do_not_use
-                    .model_providers
-                    .get(&provider_id)
-                    .cloned()
-            }) {
+            if let Some(provider) = next_configuration
+                .original_config_do_not_use
+                .provider_id_for_model(next_configuration.collaboration_mode.model())
+                .and_then(|provider_id| {
+                    next_configuration
+                        .original_config_do_not_use
+                        .model_providers
+                        .get(&provider_id)
+                        .cloned()
+                })
+            {
                 next_configuration.provider = provider;
             }
         }
@@ -2594,15 +2604,21 @@ mod handlers {
     /// empty, or the matched tier names no model — in which case the session
     /// model is left unchanged.
     async fn route_turn_model(sess: &Arc<Session>, items: &[UserInput]) -> Option<String> {
-        let routing = {
+        let (config, routing, model_explicitly_selected) = {
             let state = sess.state.lock().await;
-            state
-                .session_configuration
-                .original_config_do_not_use
-                .routing
-                .clone()
+            let config = Arc::clone(&state.session_configuration.original_config_do_not_use);
+            let routing = config.routing.clone();
+            let explicit = config.model_explicitly_selected;
+            (config, routing, explicit)
         };
         if !routing.enabled {
+            return None;
+        }
+        // The user named a model for this session, so honor it. Routing exists
+        // to pick a model when nobody has; overriding an explicit choice makes
+        // `--model` and `--profile` look broken, and the turn silently runs on
+        // a different gateway than the one the header reports.
+        if model_explicitly_selected {
             return None;
         }
         let text: String = items
@@ -2619,8 +2635,9 @@ mod handlers {
         let model = crate::routing::route_model(&text, &routing)?;
         // Guard against a stale or misspelled slug in the routing config: only
         // route to a model that actually exists, otherwise fall back to the
-        // session's default model instead of failing the turn.
-        if crate::models_manager::model_presets::provider_id_for_model(&model).is_none() {
+        // session's default model instead of failing the turn. `[[models]]`
+        // entries count, so a routing tier may name a user-declared model.
+        if config.provider_id_for_model(&model).is_none() {
             tracing::warn!(
                 "routing target `{model}` is not a known model; using the default model instead"
             );
@@ -4697,19 +4714,11 @@ mod tests {
                 expects_apply_patch_instructions: false,
             },
             InstructionsTestCase {
-                slug: "opencli-mini-latest",
-                expects_apply_patch_instructions: true,
-            },
-            InstructionsTestCase {
                 slug: "gpt-oss:120b",
                 expects_apply_patch_instructions: false,
             },
             InstructionsTestCase {
-                slug: "gpt-5.1-opencli",
-                expects_apply_patch_instructions: false,
-            },
-            InstructionsTestCase {
-                slug: "gpt-5.1-opencli-max",
+                slug: "gpt-5.2",
                 expects_apply_patch_instructions: false,
             },
         ];

@@ -7,11 +7,11 @@ We provide OpenCLI CLI as a standalone, native executable to ensure a zero-depen
 Today, the easiest way to install OpenCLI is via `npm`:
 
 ```shell
-npm i -g @openai/opencli
+npm i -g @ai-dashboad/opencli
 opencli
 ```
 
-You can also install via Homebrew (`brew install --cask opencli`) or download a platform-specific release directly from our [GitHub Releases](https://github.com/openai/opencli/releases).
+You can also install via Homebrew (`brew install --cask opencli`) or download a platform-specific release directly from our [GitHub Releases](https://github.com/ai-dashboad/opencli/releases).
 
 ## Documentation quickstart
 

@@ -1,0 +1,8 @@
+# Fireworks AI — OpenAI-compatible Chat Completions endpoint.
+id = "fireworks"
+name = "Fireworks AI"
+base_url = "https://api.fireworks.ai/inference/v1"
+wire_api = "chat"
+env_key = "FIREWORKS_API_KEY"
+docs = "https://fireworks.ai/account/api-keys"
+requires_key = true

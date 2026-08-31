@@ -1,0 +1,8 @@
+# Mistral — OpenAI-compatible Chat Completions endpoint.
+id = "mistral"
+name = "Mistral"
+base_url = "https://api.mistral.ai/v1"
+wire_api = "chat"
+env_key = "MISTRAL_API_KEY"
+docs = "https://console.mistral.ai/api-keys"
+requires_key = true

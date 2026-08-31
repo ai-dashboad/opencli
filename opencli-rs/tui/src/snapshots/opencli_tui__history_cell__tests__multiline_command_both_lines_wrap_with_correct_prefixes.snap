@@ -1,12 +1,13 @@
 ---
 source: tui/src/history_cell.rs
+assertion_line: 3016
 expression: rendered
 ---
-╭─ ⏺ Executed ─────────────╮
-│ first_token_is_long_enou │
-│ gh_to_wrap               │
-│ second_token_is_also_lon │
-│ … +1 lines               │
-├──────────────────────────┤
-│ (no output)              │
-╰──────────────────────────╯
+╭─ ⏺ Executed
+│ first_token_is_long_enough
+│ _to_wrap
+│ second_token_is_also_long_
+│ … +1 lines
+├────────
+│ (no output)
+╰────────

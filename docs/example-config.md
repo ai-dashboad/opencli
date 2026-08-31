@@ -1,3 +1,3 @@
 # Sample configuration
 
-For a sample configuration file, see [this documentation](https://developers.openai.com/opencli/config-sample).
+For a sample configuration file, see [this documentation](https://github.com/ai-dashboad/opencli).

@@ -96,11 +96,39 @@ use toml::Value as TomlValue;
 async fn test_config() -> Config {
     // Use base defaults to avoid depending on host state.
     let opencli_home = std::env::temp_dir();
-    ConfigBuilder::default()
+    let mut config = ConfigBuilder::default()
         .opencli_home(opencli_home.clone())
         .build()
         .await
-        .expect("config")
+        .expect("config");
+    // This build ships no models, so tests that exercise the picker have to
+    // declare them the way a real user does — via `[[models]]`.
+    config.models = test_models();
+    config.rate_limit_fallback_model = Some("test-model-b".to_string());
+    config
+}
+
+/// Stand-in models for tests that need a populated `/model` picker.
+fn test_models() -> Vec<opencli_core::config::types::CustomModel> {
+    ["test-model-a", "test-model-b"]
+        .into_iter()
+        .map(|model| opencli_core::config::types::CustomModel {
+            model: model.to_string(),
+            provider: "openai".to_string(),
+            display_name: None,
+            description: None,
+            context_window: None,
+            // Multiple efforts so the reasoning picker has something to show.
+            reasoning_efforts: vec![
+                opencli_protocol::openai_models::ReasoningEffort::Low,
+                opencli_protocol::openai_models::ReasoningEffort::Medium,
+                opencli_protocol::openai_models::ReasoningEffort::High,
+                opencli_protocol::openai_models::ReasoningEffort::XHigh,
+            ],
+            supports_personality: true,
+            show_in_picker: true,
+        })
+        .collect()
 }
 
 fn invalid_value(candidate: impl Into<String>, allowed: impl Into<String>) -> ConstraintError {
@@ -1092,7 +1120,7 @@ async fn rate_limit_snapshot_updates_and_retains_plan_type() {
 
 #[tokio::test]
 async fn rate_limit_switch_prompt_skips_when_on_lower_cost_model() {
-    let (mut chat, _, _) = make_chatwidget_manual(Some(NUDGE_MODEL_SLUG)).await;
+    let (mut chat, _, _) = make_chatwidget_manual(Some("test-model-b")).await;
     chat.auth_manager =
         AuthManager::from_auth_for_testing(OpenCLIAuth::create_dummy_chatgpt_auth_for_testing());
 
@@ -2322,10 +2350,17 @@ async fn collaboration_modes_defaults_to_code_on_startup() {
     let opencli_home = tempdir().expect("tempdir");
     let cfg = ConfigBuilder::default()
         .opencli_home(opencli_home.path().to_path_buf())
-        .cli_overrides(vec![(
-            "features.collaboration_modes".to_string(),
-            TomlValue::Boolean(true),
-        )])
+        .cli_overrides(vec![
+            (
+                "features.collaboration_modes".to_string(),
+                TomlValue::Boolean(true),
+            ),
+            // No models ship with this build, so name one the way a user would.
+            (
+                "model".to_string(),
+                TomlValue::String("test-model-a".to_string()),
+            ),
+        ])
         .build()
         .await
         .expect("config");
@@ -2370,6 +2405,11 @@ async fn experimental_mode_plan_applies_on_startup() {
                 "tui.experimental_mode".to_string(),
                 TomlValue::String("plan".to_string()),
             ),
+            // No models ship with this build, so name one the way a user would.
+            (
+                "model".to_string(),
+                TomlValue::String("test-model-a".to_string()),
+            ),
         ])
         .build()
         .await
@@ -2410,9 +2450,9 @@ async fn set_model_updates_active_collaboration_mask() {
             .expect("expected plan collaboration mask");
     chat.set_collaboration_mask(plan_mask);
 
-    chat.set_model("gpt-5.1-opencli-mini");
+    chat.set_model("test-model-mini");
 
-    assert_eq!(chat.current_model(), "gpt-5.1-opencli-mini");
+    assert_eq!(chat.current_model(), "test-model-mini");
     assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Plan);
 }
 
@@ -2464,10 +2504,12 @@ async fn collab_mode_enabling_keeps_custom_until_selected() {
 
 #[tokio::test]
 async fn user_turn_includes_personality_from_config() {
-    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(Some("bengalfox")).await;
+    // Must be a model seeded by `test_models()`, since personality is gated on
+    // the preset's `supports_personality`.
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(Some("test-model-a")).await;
     chat.set_feature_enabled(Feature::Personality, true);
     chat.thread_id = Some(ThreadId::new());
-    chat.set_model("bengalfox");
+    chat.set_model("test-model-a");
     chat.set_personality(Personality::Friendly);
 
     chat.bottom_pane
@@ -3019,7 +3061,7 @@ async fn experimental_features_toggle_saves_on_exit() {
 
 #[tokio::test]
 async fn model_selection_popup_snapshot() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5-opencli")).await;
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("test-model")).await;
     chat.thread_id = Some(ThreadId::new());
     chat.open_model_popup();
 
@@ -3029,7 +3071,7 @@ async fn model_selection_popup_snapshot() {
 
 #[tokio::test]
 async fn personality_selection_popup_snapshot() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("bengalfox")).await;
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("test-model-pro")).await;
     chat.thread_id = Some(ThreadId::new());
     chat.open_personality_popup();
 
@@ -3077,8 +3119,8 @@ async fn model_picker_hides_show_in_picker_false_models_from_cache() {
 
 #[tokio::test]
 async fn model_cap_error_does_not_switch_models() {
-    let (mut chat, mut rx, mut op_rx) = make_chatwidget_manual(Some("boomslang")).await;
-    chat.set_model("boomslang");
+    let (mut chat, mut rx, mut op_rx) = make_chatwidget_manual(Some("test-model-alt")).await;
+    chat.set_model("test-model-alt");
     while rx.try_recv().is_ok() {}
     while op_rx.try_recv().is_ok() {}
 
@@ -3087,7 +3129,7 @@ async fn model_cap_error_does_not_switch_models() {
         msg: EventMsg::Error(ErrorEvent {
             message: "model cap".to_string(),
             opencli_error_info: Some(OpenCLIErrorInfo::ModelCap {
-                model: "boomslang".to_string(),
+                model: "test-model-alt".to_string(),
                 reset_after_seconds: Some(120),
             }),
         }),
@@ -3096,7 +3138,7 @@ async fn model_cap_error_does_not_switch_models() {
     while let Ok(event) = rx.try_recv() {
         if let AppEvent::UpdateModel(model) = event {
             assert_eq!(
-                model, "boomslang",
+                model, "test-model-alt",
                 "did not expect model switch on model-cap error"
             );
         }
@@ -3229,12 +3271,12 @@ async fn startup_prompts_for_windows_sandbox_when_agent_requested() {
 
 #[tokio::test]
 async fn model_reasoning_selection_popup_snapshot() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5.1-opencli-max")).await;
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("test-model-a")).await;
 
     set_chatgpt_auth(&mut chat);
     chat.set_reasoning_effort(Some(ReasoningEffortConfig::High));
 
-    let preset = get_available_model(&chat, "gpt-5.1-opencli-max");
+    let preset = get_available_model(&chat, "test-model-a");
     chat.open_reasoning_popup(preset);
 
     let popup = render_bottom_popup(&chat, 80);
@@ -3243,12 +3285,12 @@ async fn model_reasoning_selection_popup_snapshot() {
 
 #[tokio::test]
 async fn model_reasoning_selection_popup_extra_high_warning_snapshot() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5.1-opencli-max")).await;
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("test-model-a")).await;
 
     set_chatgpt_auth(&mut chat);
     chat.set_reasoning_effort(Some(ReasoningEffortConfig::XHigh));
 
-    let preset = get_available_model(&chat, "gpt-5.1-opencli-max");
+    let preset = get_available_model(&chat, "test-model-a");
     chat.open_reasoning_popup(preset);
 
     let popup = render_bottom_popup(&chat, 80);
@@ -3257,11 +3299,11 @@ async fn model_reasoning_selection_popup_extra_high_warning_snapshot() {
 
 #[tokio::test]
 async fn reasoning_popup_shows_extra_high_with_space() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5.1-opencli-max")).await;
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("test-model-a")).await;
 
     set_chatgpt_auth(&mut chat);
 
-    let preset = get_available_model(&chat, "gpt-5.1-opencli-max");
+    let preset = get_available_model(&chat, "test-model-a");
     chat.open_reasoning_popup(preset);
 
     let popup = render_bottom_popup(&chat, 120);
@@ -3342,11 +3384,11 @@ async fn feedback_upload_consent_popup_snapshot() {
 
 #[tokio::test]
 async fn reasoning_popup_escape_returns_to_model_popup() {
-    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5.1-opencli-max")).await;
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("test-model-a")).await;
     chat.thread_id = Some(ThreadId::new());
     chat.open_model_popup();
 
-    let preset = get_available_model(&chat, "gpt-5.1-opencli-max");
+    let preset = get_available_model(&chat, "test-model-a");
     chat.open_reasoning_popup(preset);
 
     let before_escape = render_bottom_popup(&chat, 80);

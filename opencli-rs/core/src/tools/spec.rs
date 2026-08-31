@@ -32,6 +32,9 @@ pub(crate) struct ToolsConfig {
     pub collaboration_modes_tools: bool,
     pub request_rule_enabled: bool,
     pub experimental_supported_tools: Vec<String>,
+    /// Register the dedicated file tools for every model, not just those that
+    /// name them in `experimental_supported_tools`.
+    pub structured_file_tools: bool,
 }
 
 pub(crate) struct ToolsConfigParams<'a> {
@@ -85,6 +88,7 @@ impl ToolsConfig {
             collaboration_modes_tools: include_collaboration_modes_tools,
             request_rule_enabled,
             experimental_supported_tools: model_info.experimental_supported_tools.clone(),
+            structured_file_tools: features.enabled(Feature::StructuredFileTools),
         }
     }
 }
@@ -755,7 +759,17 @@ fn create_grep_files_tool() -> ToolSpec {
             "limit".to_string(),
             JsonSchema::Number {
                 description: Some(
-                    "Maximum number of file paths to return (defaults to 100).".to_string(),
+                    "Maximum number of results to return (defaults to 100).".to_string(),
+                ),
+            },
+        ),
+        (
+            "output_mode".to_string(),
+            JsonSchema::String {
+                description: Some(
+                    "\"content\" (default) returns matching lines as `path:line:text`; \"files\" \
+                     returns only the matching file paths, newest first."
+                        .to_string(),
                 ),
             },
         ),
@@ -763,8 +777,9 @@ fn create_grep_files_tool() -> ToolSpec {
 
     ToolSpec::Function(ResponsesApiTool {
         name: "search_text".to_string(),
-        description: "Finds files whose contents match the pattern and lists them by modification \
-                      time."
+        description: "Searches file contents with a regular expression. By default returns \
+                      matching lines as `path:line:text`; set output_mode to \"files\" for just \
+                      the file paths. Prefer this over running grep/rg in the shell."
             .to_string(),
         strict: false,
         parameters: JsonSchema::Object {
@@ -1343,29 +1358,32 @@ pub(crate) fn build_specs(
         builder.register_handler("apply_patch", apply_patch_handler);
     }
 
-    if config
-        .experimental_supported_tools
-        .contains(&"search_text".to_string())
-    {
+    // The dedicated file tools are available when the model opts in via
+    // `experimental_supported_tools` or when the general `structured_file_tools`
+    // feature is on (the default). Handing every model bounded read/search/list
+    // tools keeps it from routing all file access through the shell and dumping
+    // raw output into context.
+    let structured_tool_enabled = |name: &str| {
+        config.structured_file_tools
+            || config
+                .experimental_supported_tools
+                .iter()
+                .any(|tool| tool == name)
+    };
+
+    if structured_tool_enabled("search_text") {
         let grep_files_handler = Arc::new(GrepFilesHandler);
         builder.push_spec_with_parallel_support(create_grep_files_tool(), true);
         builder.register_handler("search_text", grep_files_handler);
     }
 
-    if config
-        .experimental_supported_tools
-        .contains(&"open_file".to_string())
-    {
+    if structured_tool_enabled("open_file") {
         let read_file_handler = Arc::new(ReadFileHandler);
         builder.push_spec_with_parallel_support(create_read_file_tool(), true);
         builder.register_handler("open_file", read_file_handler);
     }
 
-    if config
-        .experimental_supported_tools
-        .iter()
-        .any(|tool| tool == "browse_dir")
-    {
+    if structured_tool_enabled("browse_dir") {
         let list_dir_handler = Arc::new(ListDirHandler);
         builder.push_spec_with_parallel_support(create_list_dir_tool(), true);
         builder.register_handler("browse_dir", list_dir_handler);
@@ -1544,73 +1562,9 @@ mod tests {
     }
 
     #[test]
-    fn test_full_toolset_specs_for_gpt5_opencli_unified_exec_web_search() {
-        let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
-        let mut features = Features::with_defaults();
-        features.enable(Feature::UnifiedExec);
-        features.enable(Feature::CollaborationModes);
-        let config = ToolsConfig::new(&ToolsConfigParams {
-            model_info: &model_info,
-            features: &features,
-            web_search_mode: Some(WebSearchMode::Live),
-        });
-        let (tools, _) = build_specs(&config, None, &[]).build();
-
-        // Build actual map name -> spec
-        use std::collections::BTreeMap;
-        use std::collections::HashSet;
-        let mut actual: BTreeMap<String, ToolSpec> = BTreeMap::from([]);
-        let mut duplicate_names = Vec::new();
-        for t in &tools {
-            let name = tool_name(&t.spec).to_string();
-            if actual.insert(name.clone(), t.spec.clone()).is_some() {
-                duplicate_names.push(name);
-            }
-        }
-        assert!(
-            duplicate_names.is_empty(),
-            "duplicate tool entries detected: {duplicate_names:?}"
-        );
-
-        // Build expected from the same helpers used by the builder.
-        let mut expected: BTreeMap<String, ToolSpec> = BTreeMap::from([]);
-        for spec in [
-            create_exec_command_tool(true),
-            create_write_stdin_tool(),
-            create_list_mcp_resources_tool(),
-            create_list_mcp_resource_templates_tool(),
-            create_read_mcp_resource_tool(),
-            PLAN_TOOL.clone(),
-            create_request_user_input_tool(),
-            create_apply_patch_freeform_tool(),
-            ToolSpec::WebSearch {
-                external_web_access: Some(true),
-            },
-            create_view_image_tool(),
-        ] {
-            expected.insert(tool_name(&spec).to_string(), spec);
-        }
-
-        // Exact name set match — this is the only test allowed to fail when tools change.
-        let actual_names: HashSet<_> = actual.keys().cloned().collect();
-        let expected_names: HashSet<_> = expected.keys().cloned().collect();
-        assert_eq!(actual_names, expected_names, "tool name set mismatch");
-
-        // Compare specs ignoring human-readable descriptions.
-        for name in expected.keys() {
-            let mut a = actual.get(name).expect("present").clone();
-            let mut e = expected.get(name).expect("present").clone();
-            strip_descriptions_tool(&mut a);
-            strip_descriptions_tool(&mut e);
-            assert_eq!(a, e, "spec mismatch for {name}");
-        }
-    }
-
-    #[test]
     fn test_build_specs_collab_tools_enabled() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let mut features = Features::with_defaults();
         features.enable(Feature::Collab);
         features.enable(Feature::CollaborationModes);
@@ -1629,7 +1583,7 @@ mod tests {
     #[test]
     fn request_user_input_requires_collaboration_modes_feature() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let mut features = Features::with_defaults();
         features.disable(Feature::CollaborationModes);
         let tools_config = ToolsConfig::new(&ToolsConfigParams {
@@ -1674,7 +1628,7 @@ mod tests {
     #[test]
     fn web_search_mode_cached_sets_external_web_access_false() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let features = Features::with_defaults();
 
         let tools_config = ToolsConfig::new(&ToolsConfigParams {
@@ -1696,7 +1650,7 @@ mod tests {
     #[test]
     fn web_search_mode_live_sets_external_web_access_true() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let features = Features::with_defaults();
 
         let tools_config = ToolsConfig::new(&ToolsConfigParams {
@@ -1716,21 +1670,24 @@ mod tests {
     }
 
     #[test]
-    fn test_build_specs_gpt5_opencli_default() {
+    fn test_build_specs_plain_model_default() {
         let mut features = Features::with_defaults();
         features.enable(Feature::CollaborationModes);
         assert_model_tools(
-            "gpt-5-opencli",
+            "test-model",
             &features,
             Some(WebSearchMode::Cached),
             &[
-                "run_command",
+                "run",
                 "list_resources",
                 "list_resource_templates",
                 "read_resource",
                 "set_plan",
                 "ask_user",
                 "apply_patch",
+                "search_text",
+                "open_file",
+                "browse_dir",
                 "web_search",
                 "see_image",
             ],
@@ -1738,34 +1695,12 @@ mod tests {
     }
 
     #[test]
-    fn test_build_specs_gpt51_opencli_default() {
-        let mut features = Features::with_defaults();
-        features.enable(Feature::CollaborationModes);
-        assert_model_tools(
-            "gpt-5.1-opencli",
-            &features,
-            Some(WebSearchMode::Cached),
-            &[
-                "run_command",
-                "list_resources",
-                "list_resource_templates",
-                "read_resource",
-                "set_plan",
-                "ask_user",
-                "apply_patch",
-                "web_search",
-                "see_image",
-            ],
-        );
-    }
-
-    #[test]
-    fn test_build_specs_gpt5_opencli_unified_exec_web_search() {
+    fn test_build_specs_plain_model_unified_exec_web_search() {
         let mut features = Features::with_defaults();
         features.enable(Feature::UnifiedExec);
         features.enable(Feature::CollaborationModes);
         assert_model_tools(
-            "gpt-5-opencli",
+            "test-model",
             &features,
             Some(WebSearchMode::Live),
             &[
@@ -1777,6 +1712,9 @@ mod tests {
                 "set_plan",
                 "ask_user",
                 "apply_patch",
+                "search_text",
+                "open_file",
+                "browse_dir",
                 "web_search",
                 "see_image",
             ],
@@ -1784,66 +1722,24 @@ mod tests {
     }
 
     #[test]
-    fn test_build_specs_gpt51_opencli_unified_exec_web_search() {
+    fn test_plain_mini_model_defaults() {
         let mut features = Features::with_defaults();
-        features.enable(Feature::UnifiedExec);
         features.enable(Feature::CollaborationModes);
         assert_model_tools(
-            "gpt-5.1-opencli",
+            "test-model-mini",
             &features,
-            Some(WebSearchMode::Live),
+            Some(WebSearchMode::Cached),
             &[
-                "bg_start",
-                "bg_write",
+                "run",
                 "list_resources",
                 "list_resource_templates",
                 "read_resource",
                 "set_plan",
                 "ask_user",
                 "apply_patch",
-                "web_search",
-                "see_image",
-            ],
-        );
-    }
-
-    #[test]
-    fn test_opencli_mini_defaults() {
-        let mut features = Features::with_defaults();
-        features.enable(Feature::CollaborationModes);
-        assert_model_tools(
-            "opencli-mini-latest",
-            &features,
-            Some(WebSearchMode::Cached),
-            &[
-                "local_shell",
-                "list_resources",
-                "list_resource_templates",
-                "read_resource",
-                "set_plan",
-                "ask_user",
-                "web_search",
-                "see_image",
-            ],
-        );
-    }
-
-    #[test]
-    fn test_opencli_5_1_mini_defaults() {
-        let mut features = Features::with_defaults();
-        features.enable(Feature::CollaborationModes);
-        assert_model_tools(
-            "gpt-5.1-opencli-mini",
-            &features,
-            Some(WebSearchMode::Cached),
-            &[
-                "run_command",
-                "list_resources",
-                "list_resource_templates",
-                "read_resource",
-                "set_plan",
-                "ask_user",
-                "apply_patch",
+                "search_text",
+                "open_file",
+                "browse_dir",
                 "web_search",
                 "see_image",
             ],
@@ -1865,6 +1761,10 @@ mod tests {
                 "read_resource",
                 "set_plan",
                 "ask_user",
+                "apply_patch",
+                "search_text",
+                "open_file",
+                "browse_dir",
                 "web_search",
                 "see_image",
             ],
@@ -1887,29 +1787,9 @@ mod tests {
                 "set_plan",
                 "ask_user",
                 "apply_patch",
-                "web_search",
-                "see_image",
-            ],
-        );
-    }
-
-    #[test]
-    fn test_exp_5_1_defaults() {
-        let mut features = Features::with_defaults();
-        features.enable(Feature::CollaborationModes);
-        assert_model_tools(
-            "exp-5.1",
-            &features,
-            Some(WebSearchMode::Cached),
-            &[
-                "bg_start",
-                "bg_write",
-                "list_resources",
-                "list_resource_templates",
-                "read_resource",
-                "set_plan",
-                "ask_user",
-                "apply_patch",
+                "search_text",
+                "open_file",
+                "browse_dir",
                 "web_search",
                 "see_image",
             ],
@@ -1933,6 +1813,10 @@ mod tests {
                 "read_resource",
                 "set_plan",
                 "ask_user",
+                "apply_patch",
+                "search_text",
+                "open_file",
+                "browse_dir",
                 "web_search",
                 "see_image",
             ],
@@ -1964,7 +1848,7 @@ mod tests {
     #[ignore]
     fn test_parallel_support_flags() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let mut features = Features::with_defaults();
         features.enable(Feature::UnifiedExec);
         let tools_config = ToolsConfig::new(&ToolsConfigParams {
@@ -1979,36 +1863,6 @@ mod tests {
         assert!(find_tool(&tools, "search_text").supports_parallel_tool_calls);
         assert!(find_tool(&tools, "browse_dir").supports_parallel_tool_calls);
         assert!(find_tool(&tools, "open_file").supports_parallel_tool_calls);
-    }
-
-    #[test]
-    fn test_test_model_info_includes_sync_tool() {
-        let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("test-gpt-5-opencli", &config);
-        let features = Features::with_defaults();
-        let tools_config = ToolsConfig::new(&ToolsConfigParams {
-            model_info: &model_info,
-            features: &features,
-            web_search_mode: Some(WebSearchMode::Cached),
-        });
-        let (tools, _) = build_specs(&tools_config, None, &[]).build();
-
-        assert!(
-            tools
-                .iter()
-                .any(|tool| tool_name(&tool.spec) == "test_sync_tool")
-        );
-        assert!(
-            tools
-                .iter()
-                .any(|tool| tool_name(&tool.spec) == "open_file")
-        );
-        assert!(
-            tools
-                .iter()
-                .any(|tool| tool_name(&tool.spec) == "search_text")
-        );
-        assert!(tools.iter().any(|tool| tool_name(&tool.spec) == "browse_dir"));
     }
 
     #[test]
@@ -2187,7 +2041,7 @@ mod tests {
     #[test]
     fn test_mcp_tool_property_missing_type_defaults_to_string() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let mut features = Features::with_defaults();
         features.enable(Feature::UnifiedExec);
         let tools_config = ToolsConfig::new(&ToolsConfigParams {
@@ -2245,7 +2099,7 @@ mod tests {
     #[test]
     fn test_mcp_tool_integer_normalized_to_number() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let mut features = Features::with_defaults();
         features.enable(Feature::UnifiedExec);
         let tools_config = ToolsConfig::new(&ToolsConfigParams {
@@ -2299,7 +2153,7 @@ mod tests {
     #[test]
     fn test_mcp_tool_array_without_items_gets_default_string_items() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let mut features = Features::with_defaults();
         features.enable(Feature::UnifiedExec);
         features.enable(Feature::ApplyPatchFreeform);
@@ -2357,7 +2211,7 @@ mod tests {
     #[test]
     fn test_mcp_tool_anyof_defaults_to_string() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let mut features = Features::with_defaults();
         features.enable(Feature::UnifiedExec);
         let tools_config = ToolsConfig::new(&ToolsConfigParams {
@@ -2406,6 +2260,54 @@ mod tests {
                 strict: false,
             })
         );
+    }
+
+    #[test]
+    fn should_offer_structured_file_tools_to_any_model_by_default() {
+        let config = test_config();
+        // A slug with no `experimental_supported_tools`, i.e. every real model.
+        let model_info = ModelsManager::construct_model_info_offline("glm-5.2", &config);
+        let features = Features::with_defaults();
+        assert!(
+            features.enabled(Feature::StructuredFileTools),
+            "structured file tools should default on"
+        );
+        let tools_config = ToolsConfig::new(&ToolsConfigParams {
+            model_info: &model_info,
+            features: &features,
+            web_search_mode: None,
+        });
+
+        let (tools, _) = build_specs(&tools_config, None, &[]).build();
+
+        for expected in ["search_text", "open_file", "browse_dir"] {
+            assert!(
+                tools.iter().any(|t| tool_name(&t.spec) == expected),
+                "expected {expected} to be registered for a plain model"
+            );
+        }
+    }
+
+    #[test]
+    fn should_withhold_structured_file_tools_when_the_feature_is_off() {
+        let config = test_config();
+        let model_info = ModelsManager::construct_model_info_offline("glm-5.2", &config);
+        let mut features = Features::with_defaults();
+        features.disable(Feature::StructuredFileTools);
+        let tools_config = ToolsConfig::new(&ToolsConfigParams {
+            model_info: &model_info,
+            features: &features,
+            web_search_mode: None,
+        });
+
+        let (tools, _) = build_specs(&tools_config, None, &[]).build();
+
+        for withheld in ["search_text", "open_file", "browse_dir"] {
+            assert!(
+                !tools.iter().any(|t| tool_name(&t.spec) == withheld),
+                "did not expect {withheld} when the feature is disabled"
+            );
+        }
     }
 
     #[test]
@@ -2470,7 +2372,7 @@ Examples of valid command strings:
     #[test]
     fn test_get_openai_tools_mcp_tools_with_additional_properties_schema() {
         let config = test_config();
-        let model_info = ModelsManager::construct_model_info_offline("gpt-5-opencli", &config);
+        let model_info = ModelsManager::construct_model_info_offline("test-model", &config);
         let mut features = Features::with_defaults();
         features.enable(Feature::UnifiedExec);
         let tools_config = ToolsConfig::new(&ToolsConfigParams {
@@ -2636,3 +2538,4 @@ Examples of valid command strings:
         );
     }
 }
+

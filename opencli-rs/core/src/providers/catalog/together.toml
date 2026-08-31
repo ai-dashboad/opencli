@@ -1,0 +1,8 @@
+# Together AI — OpenAI-compatible Chat Completions endpoint.
+id = "together"
+name = "Together AI"
+base_url = "https://api.together.xyz/v1"
+wire_api = "chat"
+env_key = "TOGETHER_API_KEY"
+docs = "https://api.together.ai/settings/api-keys"
+requires_key = true

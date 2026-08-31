@@ -1,0 +1,9 @@
+# llama.cpp — the llama-server OpenAI-compatible endpoint.
+# Serve with `llama-server -m <model.gguf> --port 8080`.
+id = "llamacpp"
+name = "llama.cpp (self-hosted)"
+base_url = "http://localhost:8080/v1"
+wire_api = "chat"
+docs = "https://github.com/ggml-org/llama.cpp"
+requires_key = false
+scan_ports = [8080]

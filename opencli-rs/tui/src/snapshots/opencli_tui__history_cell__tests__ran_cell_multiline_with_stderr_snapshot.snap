@@ -1,15 +1,16 @@
 ---
 source: tui/src/history_cell.rs
+assertion_line: 3112
 expression: rendered
 ---
-╭─ ⏺ Executed ─────────────╮
-│ echo                     │
-│ this_is_a_very_long_sing │
-│ le_token_that_will_wrap_ │
-│ … +2 lines               │
-├──────────────────────────┤
-│ error: first line on     │
-│ stderr                   │
-│ error: second line on    │
-│ stderr                   │
-╰──────────────────────────╯
+╭─ ⏺ Executed
+│ echo
+│ this_is_a_very_long_single
+│ _token_that_will_wrap_acro
+│ … +1 lines
+├────────
+│ error: first line on
+│ stderr
+│ error: second line on
+│ stderr
+╰────────

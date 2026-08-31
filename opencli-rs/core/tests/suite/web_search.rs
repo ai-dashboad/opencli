@@ -45,7 +45,7 @@ async fn web_search_mode_cached_sets_external_web_access_false() {
     let resp_mock = responses::mount_sse_once(&server, sse).await;
 
     let mut builder = test_opencli()
-        .with_model("gpt-5-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.web_search_mode = Some(WebSearchMode::Cached);
         });
@@ -76,7 +76,7 @@ async fn web_search_mode_takes_precedence_over_legacy_flags() {
     let resp_mock = responses::mount_sse_once(&server, sse).await;
 
     let mut builder = test_opencli()
-        .with_model("gpt-5-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.features.enable(Feature::WebSearchRequest);
             config.web_search_mode = Some(WebSearchMode::Cached);
@@ -108,7 +108,7 @@ async fn web_search_mode_defaults_to_cached_when_unset() {
     let resp_mock = responses::mount_sse_once(&server, sse).await;
 
     let mut builder = test_opencli()
-        .with_model("gpt-5-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.web_search_mode = None;
             config.features.disable(Feature::WebSearchCached);
@@ -144,7 +144,7 @@ async fn web_search_mode_updates_between_turns_with_sandbox_policy() {
     .await;
 
     let mut builder = test_opencli()
-        .with_model("gpt-5-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.web_search_mode = None;
             config.features.disable(Feature::WebSearchCached);
@@ -195,7 +195,7 @@ async fn web_search_mode_defaults_to_disabled_for_azure_responses() {
     let resp_mock = responses::mount_sse_once(&server, sse).await;
 
     let mut builder = test_opencli()
-        .with_model("gpt-5-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             let base_url = config.model_provider.base_url.clone();
             let mut provider = built_in_model_providers()["openai"].clone();

@@ -48,9 +48,9 @@ async fn list_models_returns_all_models_with_large_limit() -> Result<()> {
 
     let expected_models = vec![
         Model {
-            id: "gpt-5.2-opencli".to_string(),
-            model: "gpt-5.2-opencli".to_string(),
-            display_name: "gpt-5.2-opencli".to_string(),
+            id: "test-model-pro".to_string(),
+            model: "test-model-pro".to_string(),
+            display_name: "test-model-pro".to_string(),
             description: "Latest frontier agentic coding model.".to_string(),
             supported_reasoning_efforts: vec![
                 ReasoningEffortOption {
@@ -76,9 +76,9 @@ async fn list_models_returns_all_models_with_large_limit() -> Result<()> {
             is_default: true,
         },
         Model {
-            id: "gpt-5.1-opencli-max".to_string(),
-            model: "gpt-5.1-opencli-max".to_string(),
-            display_name: "gpt-5.1-opencli-max".to_string(),
+            id: "test-model-max".to_string(),
+            model: "test-model-max".to_string(),
+            display_name: "test-model-max".to_string(),
             description: "OpenCLI-optimized flagship for deep and fast reasoning.".to_string(),
             supported_reasoning_efforts: vec![
                 ReasoningEffortOption {
@@ -104,9 +104,9 @@ async fn list_models_returns_all_models_with_large_limit() -> Result<()> {
             is_default: false,
         },
         Model {
-            id: "gpt-5.1-opencli-mini".to_string(),
-            model: "gpt-5.1-opencli-mini".to_string(),
-            display_name: "gpt-5.1-opencli-mini".to_string(),
+            id: "test-model-mini".to_string(),
+            model: "test-model-mini".to_string(),
+            display_name: "test-model-mini".to_string(),
             description: "Optimized for opencli. Cheaper, faster, but less capable.".to_string(),
             supported_reasoning_efforts: vec![
                 ReasoningEffortOption {
@@ -191,7 +191,7 @@ async fn list_models_pagination_works() -> Result<()> {
     } = to_response::<ModelListResponse>(first_response)?;
 
     assert_eq!(first_items.len(), 1);
-    assert_eq!(first_items[0].id, "gpt-5.2-opencli");
+    assert_eq!(first_items[0].id, "test-model-pro");
     let next_cursor = first_cursor.ok_or_else(|| anyhow!("cursor for second page"))?;
 
     let second_request = mcp
@@ -213,7 +213,7 @@ async fn list_models_pagination_works() -> Result<()> {
     } = to_response::<ModelListResponse>(second_response)?;
 
     assert_eq!(second_items.len(), 1);
-    assert_eq!(second_items[0].id, "gpt-5.1-opencli-max");
+    assert_eq!(second_items[0].id, "test-model-max");
     let third_cursor = second_cursor.ok_or_else(|| anyhow!("cursor for third page"))?;
 
     let third_request = mcp
@@ -235,7 +235,7 @@ async fn list_models_pagination_works() -> Result<()> {
     } = to_response::<ModelListResponse>(third_response)?;
 
     assert_eq!(third_items.len(), 1);
-    assert_eq!(third_items[0].id, "gpt-5.1-opencli-mini");
+    assert_eq!(third_items[0].id, "test-model-mini");
     let fourth_cursor = third_cursor.ok_or_else(|| anyhow!("cursor for fourth page"))?;
 
     let fourth_request = mcp

@@ -1,0 +1,9 @@
+# vLLM — high-throughput self-hosted inference.
+# Serve with `vllm serve <model> --port 8000`.
+id = "vllm"
+name = "vLLM (self-hosted)"
+base_url = "http://localhost:8000/v1"
+wire_api = "chat"
+docs = "https://docs.vllm.ai"
+requires_key = false
+scan_ports = [8000]

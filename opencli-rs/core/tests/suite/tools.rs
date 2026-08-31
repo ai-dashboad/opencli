@@ -193,7 +193,7 @@ async fn sandbox_denied_shell_returns_original_output() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let server = start_mock_server().await;
-    let mut builder = test_opencli().with_model("gpt-5.1-opencli");
+    let mut builder = test_opencli().with_model("test-model");
     let fixture = builder.build(&server).await?;
 
     let call_id = "sandbox-denied-shell";

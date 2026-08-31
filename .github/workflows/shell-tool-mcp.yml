@@ -355,7 +355,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build (shell-tool-mcp)
-        run: pnpm --filter @openai/opencli-shell-tool-mcp run build
+        run: pnpm --filter @ai-dashboad/opencli-shell-tool-mcp run build
 
       - name: Download build artifacts
         uses: actions/download-artifact@v7

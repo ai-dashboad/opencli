@@ -46,6 +46,14 @@ If you are invited by a OpenCLI team member to contribute a PR, here is the reco
 - Fill in the PR template (or include similar information) - **What? Why? How?**
 - Include a link to a bug report or enhancement request in the issue tracker
 - Run **all** checks locally. Use the root `just` helpers so you stay consistent with the rest of the workspace: `just fmt`, `just fix -p <crate>` for the crate you touched, and the relevant tests (e.g., `cargo test -p opencli-tui` or `just test` if you need a full sweep). CI failures that could have been caught locally slow down the process.
+
+  **Do not run a bare `cargo fmt`.** The tree is formatted with
+  `imports_granularity=Item`, which is nightly-only. On stable that option is
+  silently ignored, so `cargo fmt` rewrites the import block of nearly every
+  file in the workspace and buries your change in hundreds of unrelated diffs.
+  `just fmt` invokes nightly for this reason. If you do not have a nightly
+  toolchain (`rustup toolchain install nightly`), format only the files you
+  touched and let CI confirm the rest.
 - Make sure your branch is up-to-date with `main` and that you have resolved merge conflicts.
 - Mark the PR as **Ready for review** only when you believe it is in a merge-able state.
 

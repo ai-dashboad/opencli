@@ -141,7 +141,7 @@ async fn compact_resume_and_fork_preserve_model_history_view() {
     // 1. Arrange mocked SSE responses for the initial compact/resume/fork flow.
     let server = MockServer::start().await;
     let request_log = mount_initial_flow(&server).await;
-    let expected_model = "gpt-5.1-opencli";
+    let expected_model = "test-model";
     // 2. Start a new conversation and drive it through the compact/resume/fork steps.
     let (_home, config, manager, base) =
         start_test_conversation(&server, Some(expected_model)).await;

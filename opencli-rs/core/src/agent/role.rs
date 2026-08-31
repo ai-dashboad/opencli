@@ -6,9 +6,6 @@ use serde::Serialize;
 
 /// Base instructions for the orchestrator role.
 const ORCHESTRATOR_PROMPT: &str = include_str!("../../templates/agents/orchestrator.md");
-/// Default model override used.
-// TODO(jif) update when we have something smarter.
-const EXPLORER_MODEL: &str = "gpt-5.2-opencli";
 
 /// Enumerated list of all supported agent roles.
 const ALL_ROLES: [AgentRole; 3] = [
@@ -91,7 +88,10 @@ Rules:
                 ..Default::default()
             },
             AgentRole::Explorer => AgentProfile {
-                model: Some(EXPLORER_MODEL),
+                // Inherit the session model, like the worker role does. Pinning
+                // a slug here would break every deployment that does not serve
+                // that exact model, and this build ships none.
+                model: None,
                 reasoning_effort: Some(ReasoningEffort::Medium),
                 description: r#"Use `explorer` for all codebase questions.
 Explorers are fast and authoritative.

@@ -4,6 +4,7 @@ members = [
     "ansi-escape",
     "async-utils",
     "app-server",
+    "web-gateway",
     "app-server-protocol",
     "app-server-test-client",
     "debug-client",
@@ -98,6 +99,7 @@ opencli-rmcp-client = { path = "rmcp-client" }
 opencli-state = { path = "state" }
 opencli-stdio-to-uds = { path = "stdio-to-uds" }
 opencli-tui = { path = "tui" }
+opencli-web-gateway = { path = "web-gateway" }
 opencli-utils-absolute-path = { path = "utils/absolute-path" }
 opencli-utils-cache = { path = "utils/cache" }
 opencli-utils-cargo-bin = { path = "utils/cargo-bin" }
@@ -298,7 +300,7 @@ lto = "fat"
 # remove everything to make the binary as small as possible.
 strip = "symbols"
 
-# See https://github.com/openai/opencli/issues/1411 for details.
+# See https://github.com/ai-dashboad/opencli/issues/1411 for details.
 codegen-units = 1
 
 [profile.ci-test]

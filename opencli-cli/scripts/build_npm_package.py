@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage and optionally package the @openai/opencli npm module."""
+"""Stage and optionally package the @ai-dashboad/opencli npm module."""
 
 import argparse
 import json

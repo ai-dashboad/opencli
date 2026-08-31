@@ -128,7 +128,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             MODEL_CAP_MODEL_HEADER,
-            http::HeaderValue::from_static("boomslang"),
+            http::HeaderValue::from_static("test-model-alt"),
         );
         headers.insert(
             MODEL_CAP_RESET_AFTER_HEADER,
@@ -144,7 +144,7 @@ mod tests {
         let OpenCLIErr::ModelCap(model_cap) = err else {
             panic!("expected OpenCLIErr::ModelCap, got {err:?}");
         };
-        assert_eq!(model_cap.model, "boomslang");
+        assert_eq!(model_cap.model, "test-model-alt");
         assert_eq!(model_cap.reset_after_seconds, Some(120));
     }
 }

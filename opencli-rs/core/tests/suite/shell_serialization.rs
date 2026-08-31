@@ -104,9 +104,9 @@ fn configure_shell_model(
     include_apply_patch_tool: bool,
 ) -> TestOpenCLIBuilder {
     let builder = match (output_type, include_apply_patch_tool) {
-        (ShellModelOutput::ShellCommand, _) => builder.with_model("test-gpt-5-opencli"),
-        (ShellModelOutput::LocalShell, true) => builder.with_model("gpt-5.1-opencli"),
-        (ShellModelOutput::Shell, true) => builder.with_model("gpt-5.1-opencli"),
+        (ShellModelOutput::ShellCommand, _) => builder.with_model("test-test-model"),
+        (ShellModelOutput::LocalShell, true) => builder.with_model("test-model"),
+        (ShellModelOutput::Shell, true) => builder.with_model("test-model"),
         (ShellModelOutput::LocalShell, false) => builder.with_model("opencli-mini-latest"),
         (ShellModelOutput::Shell, false) => builder.with_model("gpt-5"),
     };
@@ -695,7 +695,7 @@ async fn shell_output_is_structured_for_nonzero_exit(output_type: ShellModelOutp
 
     let server = start_mock_server().await;
     let mut builder = test_opencli()
-        .with_model("gpt-5.1-opencli")
+        .with_model("test-model")
         .with_config(move |config| {
             config.include_apply_patch_tool = true;
         });
@@ -886,7 +886,7 @@ async fn local_shell_call_output_is_structured() -> Result<()> {
 
     let server = start_mock_server().await;
     let mut builder = test_opencli()
-        .with_model("gpt-5.1-opencli")
+        .with_model("test-model")
         .with_config(|config| {
             config.include_apply_patch_tool = true;
         });

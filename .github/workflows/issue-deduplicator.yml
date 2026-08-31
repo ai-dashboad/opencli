@@ -121,7 +121,7 @@ jobs:
               '',
               ...filteredIssues.map((value) => `- #${String(value)}`),
               '',
-              '*Powered by [OpenCLI Action](https://github.com/openai/opencli-action)*'];
+              '*Powered by [OpenCLI Action](https://github.com/ai-dashboad/opencli-action)*'];
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

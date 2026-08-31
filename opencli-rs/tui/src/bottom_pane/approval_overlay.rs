@@ -694,13 +694,23 @@ mod tests {
                     .collect::<String>()
             })
             .collect();
+        // Must fit the requested width of 28; the previous first line
+        // ("…to run") was 29 columns, so this asserted an overflow rather than
+        // the wrap actually produced.
         let expected = vec![
-            "✔ You approved opencli to run".to_string(),
-            "  git add tui/src/render/".to_string(),
-            "  mod.rs tui/src/render/".to_string(),
-            "  renderable.rs this time".to_string(),
+            "✔ You approved opencli to".to_string(),
+            "  run git add tui/src/".to_string(),
+            "  render/mod.rs tui/src/".to_string(),
+            "  render/renderable.rs this".to_string(),
+            "  time".to_string(),
         ];
         assert_eq!(rendered, expected);
+        for line in &rendered {
+            assert!(
+                line.chars().count() <= 28,
+                "line exceeds the wrap width: {line:?}"
+            );
+        }
     }
 
     #[test]

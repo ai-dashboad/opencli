@@ -1,0 +1,8 @@
+# DeepSeek — OpenAI-compatible Chat Completions endpoint.
+id = "deepseek"
+name = "DeepSeek"
+base_url = "https://api.deepseek.com/v1"
+wire_api = "chat"
+env_key = "DEEPSEEK_API_KEY"
+docs = "https://platform.deepseek.com/api_keys"
+requires_key = true

@@ -22,9 +22,6 @@ use crate::history_cell;
 use crate::history_cell::HistoryCell;
 #[cfg(not(debug_assertions))]
 use crate::history_cell::UpdateAvailableHistoryCell;
-use crate::model_migration::ModelMigrationOutcome;
-use crate::model_migration::migration_copy_for_models;
-use crate::model_migration::run_model_migration_prompt;
 use crate::pager_overlay::Overlay;
 use crate::render::highlight::highlight_bash_to_lines;
 use crate::render::renderable::Renderable;
@@ -45,8 +42,6 @@ use opencli_core::config::edit::ConfigEditsBuilder;
 use opencli_core::config_loader::ConfigLayerStackOrdering;
 use opencli_core::features::Feature;
 use opencli_core::models_manager::manager::RefreshStrategy;
-use opencli_core::models_manager::model_presets::HIDE_GPT_5_1_OPENCLI_MAX_MIGRATION_PROMPT_CONFIG;
-use opencli_core::models_manager::model_presets::HIDE_GPT5_1_MIGRATION_PROMPT_CONFIG;
 use opencli_core::protocol::AskForApproval;
 use opencli_core::protocol::DeprecationNoticeEvent;
 use opencli_core::protocol::Event;
@@ -67,7 +62,6 @@ use opencli_protocol::config_types::Personality;
 use opencli_protocol::config_types::WindowsSandboxLevel;
 use opencli_protocol::items::TurnItem;
 use opencli_protocol::openai_models::ModelPreset;
-use opencli_protocol::openai_models::ModelUpgrade;
 use opencli_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use opencli_protocol::protocol::SessionConfiguredEvent;
 use opencli_utils_absolute_path::AbsolutePathBuf;
@@ -80,7 +74,6 @@ use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 use ratatui::widgets::Wrap;
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -135,6 +128,11 @@ pub(crate) enum AppRunControl {
 pub enum ExitReason {
     UserRequested,
     Fatal(String),
+    /// The user asked to restart onto the binary now on disk. The caller is
+    /// expected to re-exec and resume `AppExitInfo::thread_id`, which is the
+    /// only way to pick up a rebuild: the running process has its code loaded
+    /// already, so only a new process can be running different code.
+    Restart,
 }
 
 fn session_summary(
@@ -353,165 +351,9 @@ impl ThreadEventChannel {
     }
 }
 
-fn should_show_model_migration_prompt(
-    current_model: &str,
-    target_model: &str,
-    seen_migrations: &BTreeMap<String, String>,
-    available_models: &[ModelPreset],
-) -> bool {
-    if target_model == current_model {
-        return false;
-    }
 
-    if let Some(seen_target) = seen_migrations.get(current_model)
-        && seen_target == target_model
-    {
-        return false;
-    }
 
-    if available_models
-        .iter()
-        .any(|preset| preset.model == current_model && preset.upgrade.is_some())
-    {
-        return true;
-    }
 
-    if available_models
-        .iter()
-        .any(|preset| preset.upgrade.as_ref().map(|u| u.id.as_str()) == Some(target_model))
-    {
-        return true;
-    }
-
-    false
-}
-
-fn migration_prompt_hidden(config: &Config, migration_config_key: &str) -> bool {
-    match migration_config_key {
-        HIDE_GPT_5_1_OPENCLI_MAX_MIGRATION_PROMPT_CONFIG => config
-            .notices
-            .hide_gpt_5_1_opencli_max_migration_prompt
-            .unwrap_or(false),
-        HIDE_GPT5_1_MIGRATION_PROMPT_CONFIG => {
-            config.notices.hide_gpt5_1_migration_prompt.unwrap_or(false)
-        }
-        _ => false,
-    }
-}
-
-fn target_preset_for_upgrade<'a>(
-    available_models: &'a [ModelPreset],
-    target_model: &str,
-) -> Option<&'a ModelPreset> {
-    available_models
-        .iter()
-        .find(|preset| preset.model == target_model)
-}
-
-async fn handle_model_migration_prompt_if_needed(
-    tui: &mut tui::Tui,
-    config: &mut Config,
-    model: &str,
-    app_event_tx: &AppEventSender,
-    available_models: Vec<ModelPreset>,
-) -> Option<AppExitInfo> {
-    let upgrade = available_models
-        .iter()
-        .find(|preset| preset.model == model)
-        .and_then(|preset| preset.upgrade.as_ref());
-
-    if let Some(ModelUpgrade {
-        id: target_model,
-        reasoning_effort_mapping,
-        migration_config_key,
-        model_link,
-        upgrade_copy,
-        migration_markdown,
-    }) = upgrade
-    {
-        if migration_prompt_hidden(config, migration_config_key.as_str()) {
-            return None;
-        }
-
-        let target_model = target_model.to_string();
-        if !should_show_model_migration_prompt(
-            model,
-            &target_model,
-            &config.notices.model_migrations,
-            &available_models,
-        ) {
-            return None;
-        }
-
-        let current_preset = available_models.iter().find(|preset| preset.model == model);
-        let target_preset = target_preset_for_upgrade(&available_models, &target_model);
-        let target_preset = target_preset?;
-        let target_display_name = target_preset.display_name.clone();
-        let heading_label = if target_display_name == model {
-            target_model.clone()
-        } else {
-            target_display_name.clone()
-        };
-        let target_description =
-            (!target_preset.description.is_empty()).then(|| target_preset.description.clone());
-        let can_opt_out = current_preset.is_some();
-        let prompt_copy = migration_copy_for_models(
-            model,
-            &target_model,
-            model_link.clone(),
-            upgrade_copy.clone(),
-            migration_markdown.clone(),
-            heading_label,
-            target_description,
-            can_opt_out,
-        );
-        match run_model_migration_prompt(tui, prompt_copy).await {
-            ModelMigrationOutcome::Accepted => {
-                app_event_tx.send(AppEvent::PersistModelMigrationPromptAcknowledged {
-                    from_model: model.to_string(),
-                    to_model: target_model.clone(),
-                });
-
-                let mapped_effort = if let Some(reasoning_effort_mapping) = reasoning_effort_mapping
-                    && let Some(reasoning_effort) = config.model_reasoning_effort
-                {
-                    reasoning_effort_mapping
-                        .get(&reasoning_effort)
-                        .cloned()
-                        .or(config.model_reasoning_effort)
-                } else {
-                    config.model_reasoning_effort
-                };
-
-                config.model = Some(target_model.clone());
-                config.model_reasoning_effort = mapped_effort;
-                app_event_tx.send(AppEvent::UpdateModel(target_model.clone()));
-                app_event_tx.send(AppEvent::UpdateReasoningEffort(mapped_effort));
-                app_event_tx.send(AppEvent::PersistModelSelection {
-                    model: target_model.clone(),
-                    effort: mapped_effort,
-                });
-            }
-            ModelMigrationOutcome::Rejected => {
-                app_event_tx.send(AppEvent::PersistModelMigrationPromptAcknowledged {
-                    from_model: model.to_string(),
-                    to_model: target_model.clone(),
-                });
-            }
-            ModelMigrationOutcome::Exit => {
-                return Some(AppExitInfo {
-                    token_usage: TokenUsage::default(),
-                    thread_id: None,
-                    thread_name: None,
-                    update_action: None,
-                    exit_reason: ExitReason::UserRequested,
-                });
-            }
-        }
-    }
-
-    None
-}
 
 pub(crate) struct App {
     pub(crate) server: Arc<ThreadManager>,
@@ -556,6 +398,9 @@ pub(crate) struct App {
     /// Ignore the next ShutdownComplete event when we're intentionally
     /// stopping a thread (e.g., before starting a new one).
     suppress_shutdown_complete: bool,
+
+    /// Set by `/restart`; turns the pending quit into a re-exec on the way out.
+    restart_requested: bool,
 
     windows_sandbox: WindowsSandboxState,
 
@@ -917,7 +762,7 @@ impl App {
     pub async fn run(
         tui: &mut tui::Tui,
         auth_manager: Arc<AuthManager>,
-        mut config: Config,
+        config: Config,
         cli_kv_overrides: Vec<(String, TomlValue)>,
         harness_overrides: ConfigOverrides,
         active_profile: Option<String>,
@@ -946,21 +791,10 @@ impl App {
             .get_models_manager()
             .get_default_model(&config.model, &config, RefreshStrategy::Offline)
             .await;
-        let available_models = thread_manager
+        let _available_models = thread_manager
             .get_models_manager()
             .list_models(&config, RefreshStrategy::Offline)
             .await;
-        let exit_info = handle_model_migration_prompt_if_needed(
-            tui,
-            &mut config,
-            model.as_str(),
-            &app_event_tx,
-            available_models,
-        )
-        .await;
-        if let Some(exit_info) = exit_info {
-            return Ok(exit_info);
-        }
         if let Some(updated_model) = config.model.clone() {
             model = updated_model;
         }
@@ -1105,6 +939,7 @@ impl App {
             feedback_audience,
             pending_update_action: None,
             suppress_shutdown_complete: false,
+            restart_requested: false,
             windows_sandbox: WindowsSandboxState::default(),
             thread_event_channels: HashMap::new(),
             active_thread_id: None,
@@ -1515,9 +1350,21 @@ impl App {
             AppEvent::Exit(mode) => match mode {
                 ExitMode::ShutdownFirst => self.chat_widget.submit_op(Op::Shutdown),
                 ExitMode::Immediate => {
-                    return Ok(AppRunControl::Exit(ExitReason::UserRequested));
+                    let reason = if self.restart_requested {
+                        ExitReason::Restart
+                    } else {
+                        ExitReason::UserRequested
+                    };
+                    return Ok(AppRunControl::Exit(reason));
                 }
             },
+            AppEvent::RestartRequest => {
+                self.restart_requested = true;
+                // Same graceful path as `/quit`: shut core down first so the
+                // rollout is flushed, otherwise the resumed session could be
+                // missing its most recent turns.
+                self.chat_widget.submit_op(Op::Shutdown);
+            }
             AppEvent::FatalExitRequest(message) => {
                 return Ok(AppRunControl::Exit(ExitReason::Fatal(message)));
             }
@@ -2094,24 +1941,6 @@ impl App {
                     ));
                 }
             }
-            AppEvent::PersistModelMigrationPromptAcknowledged {
-                from_model,
-                to_model,
-            } => {
-                if let Err(err) = ConfigEditsBuilder::new(&self.config.opencli_home)
-                    .record_model_migration_seen(from_model.as_str(), to_model.as_str())
-                    .apply()
-                    .await
-                {
-                    tracing::error!(
-                        error = %err,
-                        "failed to persist model migration prompt acknowledgement"
-                    );
-                    self.chat_widget.add_error_message(format!(
-                        "Failed to save model migration prompt preference: {err}"
-                    ));
-                }
-            }
             AppEvent::OpenApprovalsPopup => {
                 self.chat_widget.open_approvals_popup();
             }
@@ -2521,7 +2350,6 @@ mod tests {
     use opencli_core::AuthManager;
     use opencli_core::OpenCLIAuth;
     use opencli_core::ThreadManager;
-    use opencli_core::config::ConfigBuilder;
     use opencli_core::config::ConfigOverrides;
     use opencli_core::models_manager::manager::ModelsManager;
     use opencli_core::protocol::AskForApproval;
@@ -2533,7 +2361,6 @@ mod tests {
     use opencli_otel::OtelManager;
     use opencli_protocol::ThreadId;
     use opencli_protocol::user_input::TextElement;
-    use insta::assert_snapshot;
     use pretty_assertions::assert_eq;
     use ratatui::prelude::Line;
     use std::path::PathBuf;
@@ -2640,6 +2467,7 @@ mod tests {
             feedback_audience: FeedbackAudience::External,
             pending_update_action: None,
             suppress_shutdown_complete: false,
+            restart_requested: false,
             windows_sandbox: WindowsSandboxState::default(),
             thread_event_channels: HashMap::new(),
             active_thread_id: None,
@@ -2693,6 +2521,7 @@ mod tests {
                 feedback_audience: FeedbackAudience::External,
                 pending_update_action: None,
                 suppress_shutdown_complete: false,
+                restart_requested: false,
                 windows_sandbox: WindowsSandboxState::default(),
                 thread_event_channels: HashMap::new(),
                 active_thread_id: None,
@@ -2719,167 +2548,6 @@ mod tests {
             "test".to_string(),
             SessionSource::Cli,
         )
-    }
-
-    fn all_model_presets() -> Vec<ModelPreset> {
-        opencli_core::models_manager::model_presets::all_model_presets().clone()
-    }
-
-    fn model_migration_copy_to_plain_text(
-        copy: &crate::model_migration::ModelMigrationCopy,
-    ) -> String {
-        if let Some(markdown) = copy.markdown.as_ref() {
-            return markdown.clone();
-        }
-        let mut s = String::new();
-        for span in &copy.heading {
-            s.push_str(&span.content);
-        }
-        s.push('\n');
-        s.push('\n');
-        for line in &copy.content {
-            for span in &line.spans {
-                s.push_str(&span.content);
-            }
-            s.push('\n');
-        }
-        s
-    }
-
-    #[tokio::test]
-    async fn model_migration_prompt_only_shows_for_deprecated_models() {
-        let seen = BTreeMap::new();
-        assert!(should_show_model_migration_prompt(
-            "gpt-5",
-            "gpt-5.1",
-            &seen,
-            &all_model_presets()
-        ));
-        assert!(should_show_model_migration_prompt(
-            "gpt-5-opencli",
-            "gpt-5.1-opencli",
-            &seen,
-            &all_model_presets()
-        ));
-        assert!(should_show_model_migration_prompt(
-            "gpt-5-opencli-mini",
-            "gpt-5.1-opencli-mini",
-            &seen,
-            &all_model_presets()
-        ));
-        assert!(should_show_model_migration_prompt(
-            "gpt-5.1-opencli",
-            "gpt-5.1-opencli-max",
-            &seen,
-            &all_model_presets()
-        ));
-        assert!(!should_show_model_migration_prompt(
-            "gpt-5.1-opencli",
-            "gpt-5.1-opencli",
-            &seen,
-            &all_model_presets()
-        ));
-    }
-
-    #[tokio::test]
-    async fn model_migration_prompt_respects_hide_flag_and_self_target() {
-        let mut seen = BTreeMap::new();
-        seen.insert("gpt-5".to_string(), "gpt-5.1".to_string());
-        assert!(!should_show_model_migration_prompt(
-            "gpt-5",
-            "gpt-5.1",
-            &seen,
-            &all_model_presets()
-        ));
-        assert!(!should_show_model_migration_prompt(
-            "gpt-5.1",
-            "gpt-5.1",
-            &seen,
-            &all_model_presets()
-        ));
-    }
-
-    #[tokio::test]
-    async fn model_migration_prompt_skips_when_target_missing() {
-        let mut available = all_model_presets();
-        let mut current = available
-            .iter()
-            .find(|preset| preset.model == "gpt-5-opencli")
-            .cloned()
-            .expect("preset present");
-        current.upgrade = Some(ModelUpgrade {
-            id: "missing-target".to_string(),
-            reasoning_effort_mapping: None,
-            migration_config_key: HIDE_GPT5_1_MIGRATION_PROMPT_CONFIG.to_string(),
-            model_link: None,
-            upgrade_copy: None,
-            migration_markdown: None,
-        });
-        available.retain(|preset| preset.model != "gpt-5-opencli");
-        available.push(current.clone());
-
-        assert!(should_show_model_migration_prompt(
-            &current.model,
-            "missing-target",
-            &BTreeMap::new(),
-            &available,
-        ));
-
-        assert!(target_preset_for_upgrade(&available, "missing-target").is_none());
-    }
-
-    #[tokio::test]
-    async fn model_migration_prompt_shows_for_hidden_model() {
-        let opencli_home = tempdir().expect("temp opencli home");
-        let config = ConfigBuilder::default()
-            .opencli_home(opencli_home.path().to_path_buf())
-            .build()
-            .await
-            .expect("config");
-
-        let available_models = all_model_presets();
-        let current = available_models
-            .iter()
-            .find(|preset| preset.model == "gpt-5.1-opencli")
-            .cloned()
-            .expect("gpt-5.1-opencli preset present");
-        assert!(
-            !current.show_in_picker,
-            "expected gpt-5.1-opencli to be hidden from picker for this test"
-        );
-
-        let upgrade = current.upgrade.as_ref().expect("upgrade configured");
-        assert!(
-            should_show_model_migration_prompt(
-                &current.model,
-                &upgrade.id,
-                &config.notices.model_migrations,
-                &available_models,
-            ),
-            "expected migration prompt to be eligible for hidden model"
-        );
-
-        let target = target_preset_for_upgrade(&available_models, &upgrade.id)
-            .expect("upgrade target present");
-        let target_description =
-            (!target.description.is_empty()).then(|| target.description.clone());
-        let can_opt_out = true;
-        let copy = migration_copy_for_models(
-            &current.model,
-            &upgrade.id,
-            upgrade.model_link.clone(),
-            upgrade.upgrade_copy.clone(),
-            upgrade.migration_markdown.clone(),
-            target.display_name.clone(),
-            target_description,
-            can_opt_out,
-        );
-
-        // Snapshot the copy we would show; rendering is covered by model_migration snapshots.
-        assert_snapshot!(
-            "model_migration_prompt_shows_for_hidden_model",
-            model_migration_copy_to_plain_text(&copy)
-        );
     }
 
     #[tokio::test]

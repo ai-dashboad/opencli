@@ -39,7 +39,7 @@ SERVER_NOTIFICATION_TYPE_NAMES: list[str] = []
 LARGE_ENUMS = {"ServerResult"}
 
 # some types need setting a default value for `r#type`
-# ref: [#7417](https://github.com/openai/opencli/pull/7417)
+# ref: [#7417](https://github.com/ai-dashboad/opencli/pull/7417)
 default_type_values: dict[str, str] = {
     "ToolInputSchema": "object",
     "ToolOutputSchema": "object",

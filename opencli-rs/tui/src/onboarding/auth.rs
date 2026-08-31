@@ -403,7 +403,7 @@ impl AuthModeWidget {
             "  Decide how much autonomy you want to grant OpenCLI".into(),
             Line::from(vec![
                 "  For more details see the ".into(),
-                "\u{1b}]8;;https://github.com/openai/opencli\u{7}OpenCLI docs\u{1b}]8;;\u{7}".underlined(),
+                "\u{1b}]8;;https://github.com/ai-dashboad/opencli\u{7}OpenCLI docs\u{1b}]8;;\u{7}".underlined(),
             ])
             .dim(),
             "".into(),

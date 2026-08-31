@@ -1,12 +1,12 @@
 ---
 source: tui/src/chatwidget/tests.rs
+assertion_line: 1204
 expression: popup
 ---
   Approaching rate limits
-  Switch to gpt-5.1-opencli-mini for lower credit usage?
+  Switch to test-model-b for lower credit usage?
 
-› 1. Switch to gpt-5.1-opencli-mini         Optimized for opencli. Cheaper,
-                                            faster, but less capable.
+› 1. Switch to test-model-b                 test-model-b via openai.
   2. Keep current model
   3. Keep current model (never show again)  Hide future rate limit reminders
                                             about switching models.

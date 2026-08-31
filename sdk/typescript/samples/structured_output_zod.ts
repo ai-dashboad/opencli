@@ -1,6 +1,6 @@
 #!/usr/bin/env -S NODE_NO_WARNINGS=1 pnpm ts-node-esm --files
 
-import { OpenCLI } from "@openai/opencli-sdk";
+import { OpenCLI } from "@ai-dashboad/opencli-sdk";
 import { opencliPathOverride } from "./helpers.ts";
 import z from "zod";
 import zodToJsonSchema from "zod-to-json-schema";

@@ -25,6 +25,8 @@ pub mod config_loader;
 pub mod connectors;
 mod context_manager;
 pub mod custom_prompts;
+pub mod providers;
+pub mod scheduled;
 pub mod env;
 mod environment_context;
 pub mod error;

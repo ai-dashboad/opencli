@@ -75,6 +75,13 @@ pub(crate) enum AppEvent {
     /// Request to exit the application due to a fatal error.
     FatalExitRequest(String),
 
+    /// Shut down like a normal quit, but report `ExitReason::Restart` so the
+    /// caller re-execs and resumes this conversation on the binary currently on
+    /// disk. Reusing the quit path is deliberate: the terminal is restored by
+    /// the same code that handles every other exit, so a restart cannot leave
+    /// the terminal in raw mode.
+    RestartRequest,
+
     /// Forward an `Op` to the Agent. Using an `AppEvent` for this avoids
     /// bubbling channels through layers of widgets.
     OpenCLIOp(opencli_core::protocol::Op),
@@ -229,12 +236,6 @@ pub(crate) enum AppEvent {
 
     /// Persist the acknowledgement flag for the rate limit switch prompt.
     PersistRateLimitSwitchPromptHidden,
-
-    /// Persist the acknowledgement flag for the model migration prompt.
-    PersistModelMigrationPromptAcknowledged {
-        from_model: String,
-        to_model: String,
-    },
 
     /// Skip the next world-writable scan (one-shot) after a user-confirmed continue.
     #[cfg_attr(not(target_os = "windows"), allow(dead_code))]

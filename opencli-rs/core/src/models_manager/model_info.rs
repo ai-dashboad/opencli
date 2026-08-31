@@ -2,8 +2,6 @@ use opencli_protocol::config_types::Verbosity;
 use opencli_protocol::openai_models::ApplyPatchToolType;
 use opencli_protocol::openai_models::ConfigShellToolType;
 use opencli_protocol::openai_models::ModelInfo;
-use opencli_protocol::openai_models::ModelInstructionsVariables;
-use opencli_protocol::openai_models::ModelMessages;
 use opencli_protocol::openai_models::ModelVisibility;
 use opencli_protocol::openai_models::ReasoningEffort;
 use opencli_protocol::openai_models::ReasoningEffortPreset;
@@ -18,19 +16,10 @@ pub const BASE_INSTRUCTIONS: &str = include_str!("../../prompt.md");
 const BASE_INSTRUCTIONS_WITH_APPLY_PATCH: &str =
     include_str!("../../prompt_with_apply_patch_instructions.md");
 
-const GPT_5_OPENCLI_INSTRUCTIONS: &str = include_str!("../../gpt_5_opencli_prompt.md");
 const GPT_5_1_INSTRUCTIONS: &str = include_str!("../../gpt_5_1_prompt.md");
 const GPT_5_2_INSTRUCTIONS: &str = include_str!("../../gpt_5_2_prompt.md");
-const GPT_5_1_OPENCLI_MAX_INSTRUCTIONS: &str = include_str!("../../gpt-5.1-opencli-max_prompt.md");
 
-const GPT_5_2_OPENCLI_INSTRUCTIONS: &str = include_str!("../../gpt-5.2-opencli_prompt.md");
-const GPT_5_2_OPENCLI_INSTRUCTIONS_TEMPLATE: &str =
-    include_str!("../../templates/model_instructions/gpt-5.2-opencli_instructions_template.md");
 
-const GPT_5_2_OPENCLI_PERSONALITY_FRIENDLY: &str =
-    include_str!("../../templates/personalities/gpt-5.2-opencli_friendly.md");
-const GPT_5_2_OPENCLI_PERSONALITY_PRAGMATIC: &str =
-    include_str!("../../templates/personalities/gpt-5.2-opencli_pragmatic.md");
 
 pub(crate) const CONTEXT_WINDOW_272K: i64 = 272_000;
 
@@ -123,14 +112,6 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             supports_reasoning_summaries: true,
             context_window: Some(200_000),
         )
-    } else if slug.starts_with("opencli-mini-latest") {
-        model_info!(
-            slug,
-            base_instructions: BASE_INSTRUCTIONS_WITH_APPLY_PATCH.to_string(),
-            shell_type: ConfigShellToolType::Local,
-            supports_reasoning_summaries: true,
-            context_window: Some(200_000),
-        )
     } else if slug.starts_with("gpt-4.1") {
         model_info!(
             slug,
@@ -158,124 +139,7 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             supports_reasoning_summaries: false,
             context_window: Some(16_385),
         )
-    } else if slug.starts_with("test-gpt-5") {
-        model_info!(
-            slug,
-            base_instructions: GPT_5_OPENCLI_INSTRUCTIONS.to_string(),
-            experimental_supported_tools: vec![
-                "search_text".to_string(),
-                "browse_dir".to_string(),
-                "open_file".to_string(),
-                "test_sync_tool".to_string(),
-            ],
-            supports_parallel_tool_calls: true,
-            supports_reasoning_summaries: true,
-            shell_type: ConfigShellToolType::ShellCommand,
-            support_verbosity: true,
-            truncation_policy: TruncationPolicyConfig::tokens(10_000),
-        )
-    } else if slug.starts_with("exp-opencli") || slug.starts_with("opencli-1p") {
-        model_info!(
-            slug,
-            base_instructions: GPT_5_2_OPENCLI_INSTRUCTIONS.to_string(),
-            model_messages: Some(ModelMessages {
-                instructions_template: Some(GPT_5_2_OPENCLI_INSTRUCTIONS_TEMPLATE.to_string()),
-                instructions_variables: Some(ModelInstructionsVariables {
-                    personality_default: Some("".to_string()),
-                    personality_friendly: Some(GPT_5_2_OPENCLI_PERSONALITY_FRIENDLY.to_string()),
-                    personality_pragmatic: Some(GPT_5_2_OPENCLI_PERSONALITY_PRAGMATIC.to_string()),
-                }),
-            }),
-            apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
-            shell_type: ConfigShellToolType::ShellCommand,
-            supports_parallel_tool_calls: true,
-            supports_reasoning_summaries: true,
-            support_verbosity: false,
-            truncation_policy: TruncationPolicyConfig::tokens(10_000),
-            context_window: Some(CONTEXT_WINDOW_272K),
-        )
-    } else if slug.starts_with("exp-") {
-        model_info!(
-            slug,
-            apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
-            supports_reasoning_summaries: true,
-            support_verbosity: true,
-            default_verbosity: Some(Verbosity::Low),
-            base_instructions: BASE_INSTRUCTIONS.to_string(),
-            default_reasoning_level: Some(ReasoningEffort::Medium),
-            truncation_policy: TruncationPolicyConfig::bytes(10_000),
-            shell_type: ConfigShellToolType::UnifiedExec,
-            supports_parallel_tool_calls: true,
-            context_window: Some(CONTEXT_WINDOW_272K),
-        )
-    } else if slug.starts_with("gpt-5.2-opencli") || slug.starts_with("bengalfox") {
-        model_info!(
-            slug,
-            base_instructions: GPT_5_2_OPENCLI_INSTRUCTIONS.to_string(),
-            apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
-            shell_type: ConfigShellToolType::ShellCommand,
-            supports_parallel_tool_calls: true,
-            supports_reasoning_summaries: true,
-            support_verbosity: false,
-            truncation_policy: TruncationPolicyConfig::tokens(10_000),
-            context_window: Some(CONTEXT_WINDOW_272K),
-            supported_reasoning_levels: supported_reasoning_level_low_medium_high_xhigh(),
-            base_instructions: GPT_5_2_OPENCLI_INSTRUCTIONS.to_string(),
-            model_messages: Some(ModelMessages {
-                instructions_template: Some(GPT_5_2_OPENCLI_INSTRUCTIONS_TEMPLATE.to_string()),
-                instructions_variables: Some(ModelInstructionsVariables {
-                    personality_default: Some("".to_string()),
-                    personality_friendly: Some(GPT_5_2_OPENCLI_PERSONALITY_FRIENDLY.to_string()),
-                    personality_pragmatic: Some(GPT_5_2_OPENCLI_PERSONALITY_PRAGMATIC.to_string()),
-                }),
-            }),
-        )
-    } else if slug.starts_with("gpt-5.1-opencli-max") {
-        model_info!(
-            slug,
-            base_instructions: GPT_5_1_OPENCLI_MAX_INSTRUCTIONS.to_string(),
-            apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
-            shell_type: ConfigShellToolType::ShellCommand,
-            supports_parallel_tool_calls: false,
-            supports_reasoning_summaries: true,
-            support_verbosity: false,
-            truncation_policy: TruncationPolicyConfig::tokens(10_000),
-            context_window: Some(CONTEXT_WINDOW_272K),
-            supported_reasoning_levels: supported_reasoning_level_low_medium_high_xhigh(),
-        )
-    } else if (slug.starts_with("gpt-5-opencli")
-        || slug.starts_with("gpt-5.1-opencli")
-        || slug.starts_with("opencli-"))
-        && !slug.contains("-mini")
-    {
-        model_info!(
-            slug,
-            base_instructions: GPT_5_OPENCLI_INSTRUCTIONS.to_string(),
-            apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
-            shell_type: ConfigShellToolType::ShellCommand,
-            supports_parallel_tool_calls: false,
-            supports_reasoning_summaries: true,
-            support_verbosity: false,
-            truncation_policy: TruncationPolicyConfig::tokens(10_000),
-            context_window: Some(CONTEXT_WINDOW_272K),
-            supported_reasoning_levels: supported_reasoning_level_low_medium_high(),
-        )
-    } else if slug.starts_with("gpt-5-opencli")
-        || slug.starts_with("gpt-5.1-opencli")
-        || slug.starts_with("opencli-")
-    {
-        model_info!(
-            slug,
-            base_instructions: GPT_5_OPENCLI_INSTRUCTIONS.to_string(),
-            apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
-            shell_type: ConfigShellToolType::ShellCommand,
-            supports_parallel_tool_calls: false,
-            supports_reasoning_summaries: true,
-            support_verbosity: false,
-            truncation_policy: TruncationPolicyConfig::tokens(10_000),
-            context_window: Some(CONTEXT_WINDOW_272K),
-        )
-    } else if slug.starts_with("gpt-5.2") || slug.starts_with("boomslang") {
+    } else if slug.starts_with("gpt-5.2") {
         model_info!(
             slug,
             apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
@@ -364,26 +228,6 @@ fn supported_reasoning_level_low_medium_high_non_opencli() -> Vec<ReasoningEffor
     ]
 }
 
-fn supported_reasoning_level_low_medium_high_xhigh() -> Vec<ReasoningEffortPreset> {
-    vec![
-        ReasoningEffortPreset {
-            effort: ReasoningEffort::Low,
-            description: "Fast responses with lighter reasoning".to_string(),
-        },
-        ReasoningEffortPreset {
-            effort: ReasoningEffort::Medium,
-            description: "Balances speed and reasoning depth for everyday tasks".to_string(),
-        },
-        ReasoningEffortPreset {
-            effort: ReasoningEffort::High,
-            description: "Greater reasoning depth for complex problems".to_string(),
-        },
-        ReasoningEffortPreset {
-            effort: ReasoningEffort::XHigh,
-            description: "Extra high reasoning depth for complex problems".to_string(),
-        },
-    ]
-}
 
 fn supported_reasoning_level_low_medium_high_xhigh_non_opencli() -> Vec<ReasoningEffortPreset> {
     vec![

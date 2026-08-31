@@ -259,7 +259,7 @@ mod tests {
             "--last",
             "--json",
             "--model",
-            "gpt-5.2-opencli",
+            "test-model-pro",
             "--dangerously-bypass-approvals-and-sandbox",
             "--skip-git-repo-check",
             PROMPT,

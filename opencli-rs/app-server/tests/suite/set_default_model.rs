@@ -57,7 +57,7 @@ fn create_config_toml(opencli_home: &Path) -> std::io::Result<()> {
     std::fs::write(
         config_toml,
         r#"
-model = "gpt-5.1-opencli-max"
+model = "test-model-max"
 model_reasoning_effort = "medium"
 "#,
     )

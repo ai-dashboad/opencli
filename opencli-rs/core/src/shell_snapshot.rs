@@ -267,6 +267,14 @@ fi
 echo '# Snapshot file'
 echo '# Unset all aliases to avoid conflicts with functions'
 unalias -a 2>/dev/null || true
+# Restore `shopt` options before the function definitions below, not after.
+# Widely-installed functions (rvm, git-completion) use extglob patterns such as
+# `+([0-9])`, which are a syntax error unless extglob is already on when the
+# definition is parsed. `set -o` further down does not cover shopt options, so
+# without this the whole snapshot fails to reload and the shell tool silently
+# loses every function, alias and export from the user's profile.
+echo '# Shell options'
+shopt -p 2>/dev/null || true
 echo '# Functions'
 declare -f
 echo ''

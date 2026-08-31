@@ -35,6 +35,7 @@ opencli-responses-api-proxy = { workspace = true }
 opencli-rmcp-client = { workspace = true }
 opencli-stdio-to-uds = { workspace = true }
 opencli-tui = { workspace = true }
+opencli-web-gateway = { workspace = true }
 libc = { workspace = true }
 owo-colors = { workspace = true }
 regex-lite = { workspace = true }

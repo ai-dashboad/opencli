@@ -23,9 +23,15 @@ app-server-test-client *args:
     cargo build -p opencli-cli
     cargo run -p opencli-app-server-test-client -- --opencli-bin ./target/debug/opencli "$@"
 
-# format code
+# Format code.
+#
+# `imports_granularity` is a nightly-only rustfmt option, and the tree is
+# formatted with it. Run through nightly so stable does not silently ignore it
+# and rewrite every import block in the workspace. stderr is intentionally not
+# discarded: swallowing the "unstable feature" warning is what let that churn go
+# unnoticed.
 fmt:
-    cargo fmt -- --config imports_granularity=Item 2>/dev/null
+    cargo +nightly fmt -- --config imports_granularity=Item
 
 fix *args:
     cargo clippy --fix --all-features --tests --allow-dirty "$@"

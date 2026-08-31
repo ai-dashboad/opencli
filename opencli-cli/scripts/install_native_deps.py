@@ -20,7 +20,7 @@ from urllib.request import urlopen
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 OPENCLI_CLI_ROOT = SCRIPT_DIR.parent
-DEFAULT_WORKFLOW_URL = "https://github.com/openai/opencli/actions/runs/17952349351"  # rust-v0.40.0
+DEFAULT_WORKFLOW_URL = "https://github.com/ai-dashboad/opencli/actions/runs/17952349351"  # rust-v0.40.0
 VENDOR_DIR_NAME = "vendor"
 RG_MANIFEST = OPENCLI_CLI_ROOT / "bin" / "rg"
 BINARY_TARGETS = (

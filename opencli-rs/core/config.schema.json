@@ -229,6 +229,9 @@
             "steer": {
               "type": "boolean"
             },
+            "structured_file_tools": {
+              "type": "boolean"
+            },
             "undo": {
               "type": "boolean"
             },
@@ -293,6 +296,59 @@
           "$ref": "#/definitions/WebSearchMode"
         }
       },
+      "type": "object"
+    },
+    "CustomModel": {
+      "additionalProperties": false,
+      "description": "A model declared by the user in `config.toml`, so that adding a model does not require rebuilding the binary. User entries are merged with the built-in presets and appear in the `/model` picker alongside them; when a slug collides with a built-in, the user entry wins.\n\n```toml [[models]] model = \"qwen3-max\" provider = \"my-gateway\" display_name = \"Qwen3 Max\" ```",
+      "properties": {
+        "context_window": {
+          "default": null,
+          "description": "Context window in tokens. Without this a model this build has no metadata for gets a generic default, which auto-compaction then trusts — too large a value means the gateway rejects the turn instead.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "description": {
+          "default": null,
+          "description": "One-line description shown in the picker.",
+          "type": "string"
+        },
+        "display_name": {
+          "default": null,
+          "description": "Name shown in the picker. Defaults to the slug.",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model slug sent to the provider.",
+          "type": "string"
+        },
+        "provider": {
+          "description": "Key into the `model_providers` map naming the gateway that serves this model. Required, because routing a model to the wrong gateway fails in ways that are hard to diagnose.",
+          "type": "string"
+        },
+        "reasoning_efforts": {
+          "default": [],
+          "description": "Reasoning efforts this model accepts, offered in the `/model` picker. Defaults to `[\"medium\"]`, which is all a provider without a reasoning knob can honor; list more only when the model actually supports them.",
+          "items": {
+            "$ref": "#/definitions/ReasoningEffort"
+          },
+          "type": "array"
+        },
+        "show_in_picker": {
+          "default": true,
+          "description": "Hide from the `/model` picker while keeping the slug configurable.",
+          "type": "boolean"
+        },
+        "supports_personality": {
+          "default": false,
+          "description": "Whether `/personality` applies to this model. Off by default: the personality prompts assume a model that follows tone instructions closely, and applying them to one that does not just wastes context.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model",
+        "provider"
+      ],
       "type": "object"
     },
     "FeedbackConfigToml": {
@@ -557,14 +613,6 @@
       "properties": {
         "hide_full_access_warning": {
           "description": "Tracks whether the user has acknowledged the full access warning prompt.",
-          "type": "boolean"
-        },
-        "hide_gpt-5.1-opencli-max_migration_prompt": {
-          "description": "Tracks whether the user has seen the gpt-5.1-opencli-max migration prompt",
-          "type": "boolean"
-        },
-        "hide_gpt5_1_migration_prompt": {
-          "description": "Tracks whether the user has seen the model migration prompt",
           "type": "boolean"
         },
         "hide_rate_limit_model_nudge": {
@@ -1388,6 +1436,9 @@
         "steer": {
           "type": "boolean"
         },
+        "structured_file_tools": {
+          "type": "boolean"
+        },
         "undo": {
           "type": "boolean"
         },
@@ -1484,7 +1535,7 @@
         }
       ],
       "default": null,
-      "description": "Preferred backend for storing MCP OAuth credentials. keyring: Use an OS-specific keyring service. https://github.com/openai/opencli/blob/main/opencli-rs/rmcp-client/src/oauth.rs#L2 file: Use a file in the OpenCLI home directory. auto (default): Use the OS-specific keyring service if available, otherwise use a file."
+      "description": "Preferred backend for storing MCP OAuth credentials. keyring: Use an OS-specific keyring service. https://github.com/ai-dashboad/opencli/blob/main/opencli-rs/rmcp-client/src/oauth.rs#L2 file: Use a file in the OpenCLI home directory. auto (default): Use the OS-specific keyring service if available, otherwise use a file."
     },
     "mcp_servers": {
       "additionalProperties": {
@@ -1545,6 +1596,14 @@
         }
       ],
       "description": "Optional verbosity control for GPT-5 models (Responses API `text.verbosity`)."
+    },
+    "models": {
+      "default": [],
+      "description": "User-declared models. See [`CustomModel`]. Adding an entry here is the supported way to use a model this build does not ship a preset for.",
+      "items": {
+        "$ref": "#/definitions/CustomModel"
+      },
+      "type": "array"
     },
     "notice": {
       "allOf": [
@@ -1628,6 +1687,11 @@
         "$ref": "#/definitions/ProjectConfig"
       },
       "type": "object"
+    },
+    "rate_limit_fallback_model": {
+      "default": null,
+      "description": "Model to offer switching to when nearing rate limits. Unset by default.",
+      "type": "string"
     },
     "review_model": {
       "description": "Review model override used by the `/review` feature.",

@@ -73,7 +73,7 @@ async fn model_selects_expected_tools() {
         "opencli-mini-latest should expose the local shell tool",
     );
 
-    let gpt5_opencli_tools = collect_tool_identifiers_for_model("gpt-5-opencli").await;
+    let gpt5_opencli_tools = collect_tool_identifiers_for_model("test-model").await;
     assert_eq!(
         gpt5_opencli_tools,
         vec![
@@ -87,10 +87,10 @@ async fn model_selects_expected_tools() {
             "web_search".to_string(),
             "see_image".to_string()
         ],
-        "gpt-5-opencli should expose the apply_patch tool",
+        "test-model should expose the apply_patch tool",
     );
 
-    let gpt51_opencli_tools = collect_tool_identifiers_for_model("gpt-5.1-opencli").await;
+    let gpt51_opencli_tools = collect_tool_identifiers_for_model("test-model").await;
     assert_eq!(
         gpt51_opencli_tools,
         vec![
@@ -104,7 +104,7 @@ async fn model_selects_expected_tools() {
             "web_search".to_string(),
             "see_image".to_string()
         ],
-        "gpt-5.1-opencli should expose the apply_patch tool",
+        "test-model should expose the apply_patch tool",
     );
 
     let gpt5_tools = collect_tool_identifiers_for_model("gpt-5").await;

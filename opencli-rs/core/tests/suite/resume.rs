@@ -190,7 +190,7 @@ async fn resume_switches_models_preserves_base_instructions() -> Result<()> {
     let resumed_mock = mount_sse_once(&server, resumed_sse).await;
 
     let mut resume_builder = test_opencli().with_config(|config| {
-        config.model = Some("gpt-5.2-opencli".to_string());
+        config.model = Some("test-model-pro".to_string());
     });
     let resumed = resume_builder.resume(&server, home, rollout_path).await?;
     resumed

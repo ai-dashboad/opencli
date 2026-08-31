@@ -1,7 +1,7 @@
 #!/usr/bin/env dotslash
 
 // This is an instance of the fork of Bash that we bundle with
-// https://www.npmjs.com/package/@openai/opencli-shell-tool-mcp.
+// https://www.npmjs.com/package/@ai-dashboad/opencli-shell-tool-mcp.
 // Fetching the prebuilt version via DotSlash makes it easier to write
 // integration tests for the MCP server.
 //
@@ -12,7 +12,7 @@
   "name": "opencli-bash",
   "platforms": {
     // macOS 13 builds (and therefore x86_64) were dropped in
-    // https://github.com/openai/opencli/pull/7295, so we only provide an
+    // https://github.com/ai-dashboad/opencli/pull/7295, so we only provide an
     // Apple Silicon build for now.
     "macos-aarch64": {
       "size": 37003612,
@@ -22,7 +22,7 @@
       "path": "package/vendor/aarch64-apple-darwin/bash/macos-15/bash",
       "providers": [
         {
-          "url": "https://github.com/openai/opencli/releases/download/rust-v0.65.0/opencli-shell-tool-mcp-npm-0.65.0.tgz"
+          "url": "https://github.com/ai-dashboad/opencli/releases/download/rust-v0.65.0/opencli-shell-tool-mcp-npm-0.65.0.tgz"
         },
         {
           "type": "github-release",
@@ -43,7 +43,7 @@
       "path": "package/vendor/x86_64-unknown-linux-musl/bash/ubuntu-24.04/bash",
       "providers": [
         {
-          "url": "https://github.com/openai/opencli/releases/download/rust-v0.65.0/opencli-shell-tool-mcp-npm-0.65.0.tgz"
+          "url": "https://github.com/ai-dashboad/opencli/releases/download/rust-v0.65.0/opencli-shell-tool-mcp-npm-0.65.0.tgz"
         },
         {
           "type": "github-release",
@@ -61,7 +61,7 @@
       "path": "package/vendor/aarch64-unknown-linux-musl/bash/ubuntu-24.04/bash",
       "providers": [
         {
-          "url": "https://github.com/openai/opencli/releases/download/rust-v0.65.0/opencli-shell-tool-mcp-npm-0.65.0.tgz"
+          "url": "https://github.com/ai-dashboad/opencli/releases/download/rust-v0.65.0/opencli-shell-tool-mcp-npm-0.65.0.tgz"
         },
         {
           "type": "github-release",

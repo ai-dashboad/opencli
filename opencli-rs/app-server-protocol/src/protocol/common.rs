@@ -663,7 +663,7 @@ mod tests {
         let request = ClientRequest::NewConversation {
             request_id: RequestId::Integer(42),
             params: v1::NewConversationParams {
-                model: Some("gpt-5.1-opencli-max".to_string()),
+                model: Some("test-model-max".to_string()),
                 model_provider: None,
                 profile: None,
                 cwd: None,
@@ -681,7 +681,7 @@ mod tests {
                 "method": "newConversation",
                 "id": 42,
                 "params": {
-                    "model": "gpt-5.1-opencli-max",
+                    "model": "test-model-max",
                     "modelProvider": null,
                     "profile": null,
                     "cwd": null,

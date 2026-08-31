@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command as StdCommand;
 
-const MODEL_WITH_TOOL: &str = "test-gpt-5.1-opencli";
+const MODEL_WITH_TOOL: &str = "test-test-model";
 
 fn ripgrep_available() -> bool {
     StdCommand::new("rg")

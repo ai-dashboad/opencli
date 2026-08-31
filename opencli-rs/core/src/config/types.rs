@@ -367,6 +367,91 @@ fn default_complex_keywords() -> Vec<String> {
     .collect()
 }
 
+/// A model declared by the user in `config.toml`, so that adding a model does
+/// not require rebuilding the binary. User entries are merged with the built-in
+/// presets and appear in the `/model` picker alongside them; when a slug
+/// collides with a built-in, the user entry wins.
+///
+/// ```toml
+/// [[models]]
+/// model = "qwen3-max"
+/// provider = "my-gateway"
+/// display_name = "Qwen3 Max"
+/// ```
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct CustomModel {
+    /// Model slug sent to the provider.
+    pub model: String,
+
+    /// Key into the `model_providers` map naming the gateway that serves this
+    /// model. Required, because routing a model to the wrong gateway fails in
+    /// ways that are hard to diagnose.
+    pub provider: String,
+
+    /// Name shown in the picker. Defaults to the slug.
+    #[serde(default)]
+    pub display_name: Option<String>,
+
+    /// One-line description shown in the picker.
+    #[serde(default)]
+    pub description: Option<String>,
+
+    /// Context window in tokens. Without this a model this build has no
+    /// metadata for gets a generic default, which auto-compaction then trusts —
+    /// too large a value means the gateway rejects the turn instead.
+    #[serde(default)]
+    pub context_window: Option<i64>,
+
+    /// Reasoning efforts this model accepts, offered in the `/model` picker.
+    /// Defaults to `["medium"]`, which is all a provider without a reasoning
+    /// knob can honor; list more only when the model actually supports them.
+    #[serde(default)]
+    pub reasoning_efforts: Vec<opencli_protocol::openai_models::ReasoningEffort>,
+
+    /// Whether `/personality` applies to this model. Off by default: the
+    /// personality prompts assume a model that follows tone instructions
+    /// closely, and applying them to one that does not just wastes context.
+    #[serde(default)]
+    pub supports_personality: bool,
+
+    /// Hide from the `/model` picker while keeping the slug configurable.
+    #[serde(default = "default_show_in_picker")]
+    pub show_in_picker: bool,
+}
+
+fn default_show_in_picker() -> bool {
+    true
+}
+
+impl CustomModel {
+    /// Whether this entry declares `slug`.
+    pub fn matches(&self, slug: &str) -> bool {
+        self.model == slug
+    }
+
+    /// Name to show in pickers.
+    pub fn display_name(&self) -> String {
+        self.display_name
+            .clone()
+            .unwrap_or_else(|| self.model.clone())
+    }
+
+    /// Description to show in pickers.
+    pub fn description(&self) -> String {
+        self.description
+            .clone()
+            .unwrap_or_else(|| format!("{} via {}.", self.model, self.provider))
+    }
+}
+
+/// Model offered when usage approaches the provider's rate limit.
+///
+/// Unset by default, which makes the prompt inert: this build ships no models,
+/// so there is no sensible slug to hardcode, and offering a model the user's
+/// provider does not serve would be worse than staying quiet.
+pub type RateLimitFallbackModel = Option<String>;
+
 /// Per-model token pricing, in US dollars per one million tokens. Used only to
 /// render a cost estimate in `/status`; when a model has no entry, no estimate
 /// is shown rather than a guessed one. Rates are the user's own — this build
@@ -640,11 +725,6 @@ pub struct Notice {
     pub hide_world_writable_warning: Option<bool>,
     /// Tracks whether the user opted out of the rate limit model switch reminder.
     pub hide_rate_limit_model_nudge: Option<bool>,
-    /// Tracks whether the user has seen the model migration prompt
-    pub hide_gpt5_1_migration_prompt: Option<bool>,
-    /// Tracks whether the user has seen the gpt-5.1-opencli-max migration prompt
-    #[serde(rename = "hide_gpt-5.1-opencli-max_migration_prompt")]
-    pub hide_gpt_5_1_opencli_max_migration_prompt: Option<bool>,
     /// Tracks acknowledged model migrations as old->new model slug mappings.
     #[serde(default)]
     pub model_migrations: BTreeMap<String, String>,

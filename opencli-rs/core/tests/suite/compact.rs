@@ -14,6 +14,7 @@ use opencli_core::protocol::Op;
 use opencli_core::protocol::RolloutItem;
 use opencli_core::protocol::RolloutLine;
 use opencli_core::protocol::SandboxPolicy;
+use opencli_core::protocol::BackgroundEventEvent;
 use opencli_core::protocol::WarningEvent;
 use opencli_protocol::config_types::ReasoningSummary;
 use opencli_protocol::items::TurnItem;
@@ -317,6 +318,47 @@ async fn summarize_context_three_requests_and_instructions() {
         saw_compacted_summary,
         "expected a Compacted entry containing the summarizer output"
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn compaction_announces_progress_so_the_turn_is_not_silent() {
+    skip_if_no_network!();
+
+    let server = start_mock_server().await;
+    let sse_stream = sse(vec![
+        ev_assistant_message("m1", SUMMARY_TEXT),
+        ev_completed("r1"),
+    ]);
+    mount_sse_once(&server, sse_stream).await;
+
+    let model_provider = non_openai_model_provider(&server);
+    let mut builder = test_opencli().with_config(move |config| {
+        config.model_provider = model_provider;
+        set_test_compact_prompt(config);
+    });
+    let opencli = builder
+        .build(&server)
+        .await
+        .expect("create conversation")
+        .opencli;
+
+    opencli.submit(Op::Compact).await.expect("trigger compact");
+
+    // A background event must arrive so the UI shows a live "Compacting…" status
+    // instead of a silent spinner while the summary is generated.
+    let background_event = wait_for_event(&opencli, |ev| {
+        matches!(ev, EventMsg::BackgroundEvent(_))
+    })
+    .await;
+    let EventMsg::BackgroundEvent(BackgroundEventEvent { message }) = background_event else {
+        panic!("expected a background event during compaction");
+    };
+    assert!(
+        message.contains("Compacting"),
+        "compaction should announce itself, got: {message}"
+    );
+
+    wait_for_event(&opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1741,8 +1783,14 @@ async fn manual_compact_retries_after_context_window_error() {
     wait_for_event(&opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
 
     opencli.submit(Op::Compact).await.unwrap();
-    let EventMsg::BackgroundEvent(event) =
-        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::BackgroundEvent(_))).await
+    // Compaction now emits an opening "Compacting…" status before this
+    // post-trim summary, so wait for the specific message rather than the first
+    // background event.
+    let EventMsg::BackgroundEvent(event) = wait_for_event(&opencli, |ev| {
+        matches!(ev, EventMsg::BackgroundEvent(BackgroundEventEvent { message })
+            if message.contains("Trimmed 1 older thread item"))
+    })
+    .await
     else {
         panic!("expected background event after compact retry");
     };

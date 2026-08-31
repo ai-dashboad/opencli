@@ -4,6 +4,7 @@ use crate::api_bridge::map_api_error;
 use crate::auth::AuthManager;
 use crate::auth::AuthMode;
 use crate::config::Config;
+use crate::config::types::CustomModel;
 use crate::default_client::build_reqwest_client;
 use crate::error::OpenCLIErr;
 use crate::error::Result as CoreResult;
@@ -18,6 +19,8 @@ use opencli_protocol::config_types::CollaborationModeMask;
 use opencli_protocol::openai_models::ModelInfo;
 use opencli_protocol::openai_models::ModelPreset;
 use opencli_protocol::openai_models::ModelsResponse;
+use opencli_protocol::openai_models::ReasoningEffort;
+use opencli_protocol::openai_models::ReasoningEffortPreset;
 use http::HeaderMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -85,7 +88,7 @@ impl ModelsManager {
             error!("failed to refresh available models: {err}");
         }
         let remote_models = self.get_remote_models(config).await;
-        self.build_available_models(remote_models)
+        self.build_available_models(remote_models, config)
     }
 
     /// List collaboration mode presets.
@@ -100,7 +103,7 @@ impl ModelsManager {
     /// Returns an error if the internal lock cannot be acquired.
     pub fn try_list_models(&self, config: &Config) -> Result<Vec<ModelPreset>, TryLockError> {
         let remote_models = self.try_get_remote_models(config)?;
-        Ok(self.build_available_models(remote_models))
+        Ok(self.build_available_models(remote_models, config))
     }
 
     // todo(aibrahim): should be visible to core only and sent on session_configured event
@@ -124,7 +127,7 @@ impl ModelsManager {
             error!("failed to refresh available models: {err}");
         }
         let remote_models = self.get_remote_models(config).await;
-        let available = self.build_available_models(remote_models);
+        let available = self.build_available_models(remote_models, config);
         available
             .iter()
             .find(|model| model.is_default)
@@ -141,11 +144,22 @@ impl ModelsManager {
             .await
             .into_iter()
             .find(|m| m.slug == model);
-        let model = if let Some(remote) = remote {
+        let mut model = if let Some(remote) = remote {
             remote
         } else {
             model_info::find_model_info_for_slug(model)
         };
+        // A `[[models]]` window beats the built-in guess but not an explicit
+        // `model_context_window` or a window learned from a real rejection,
+        // both of which `with_config_overrides` applies on top.
+        if let Some(context_window) = config
+            .models
+            .iter()
+            .find(|custom| custom.matches(&model.slug))
+            .and_then(|custom| custom.context_window)
+        {
+            model.context_window = Some(context_window);
+        }
         model_info::with_config_overrides(model, config)
     }
 
@@ -270,11 +284,18 @@ impl ModelsManager {
     }
 
     /// Merge remote model metadata into picker-ready presets, preserving existing entries.
-    fn build_available_models(&self, mut remote_models: Vec<ModelInfo>) -> Vec<ModelPreset> {
+    fn build_available_models(
+        &self,
+        mut remote_models: Vec<ModelInfo>,
+        config: &Config,
+    ) -> Vec<ModelPreset> {
         remote_models.sort_by(|a, b| a.priority.cmp(&b.priority));
 
         let remote_presets: Vec<ModelPreset> = remote_models.into_iter().map(Into::into).collect();
-        let existing_presets = self.local_models.clone();
+        // Fold in `[[models]]` from config.toml so adding a model does not
+        // require a rebuild. A user entry shadows the built-in preset with the
+        // same slug, making config.toml the last word on how a slug is routed.
+        let existing_presets = merge_custom_models(&config.models, self.local_models.clone());
         let mut merged_presets = ModelPreset::merge(remote_presets, existing_presets);
         let chatgpt_mode = matches!(
             self.auth_manager.get_internal_auth_mode(),
@@ -293,6 +314,13 @@ impl ModelsManager {
         } else if let Some(default) = merged_presets.first_mut() {
             default.is_default = true;
         }
+
+        // Surface user-declared models first. The picker shows only 8 rows at a
+        // time, and appending these left them below the fold behind catalog
+        // entries the user may not even have a key for — indistinguishable from
+        // the model not being configured at all. Done after `is_default` is
+        // assigned so display order does not change which model is the default.
+        promote_custom_models(&config.models, &mut merged_presets);
 
         merged_presets
     }
@@ -354,6 +382,96 @@ impl ModelsManager {
     }
 }
 
+/// Fold user-declared models into `presets`.
+///
+/// An entry replaces a built-in preset with the same slug in place, and is
+/// otherwise appended. Replacing in place keeps the built-in ordering — and so
+/// the default-model choice — stable when a user adds models.
+///
+/// Unlike built-in presets, user entries are never hidden for a missing API
+/// key: the user asked for them explicitly, and a key error names the variable
+/// to set, whereas a silently absent model looks like the config was ignored.
+fn merge_custom_models(
+    custom_models: &[CustomModel],
+    mut presets: Vec<ModelPreset>,
+) -> Vec<ModelPreset> {
+    for custom in custom_models {
+        let preset = ModelPreset {
+            id: custom.model.clone(),
+            model: custom.model.clone(),
+            provider: Some(custom.provider.clone()),
+            display_name: custom.display_name(),
+            description: custom.description(),
+            default_reasoning_effort: custom
+                .reasoning_efforts
+                .iter()
+                .copied()
+                .find(|effort| *effort == ReasoningEffort::Medium)
+                .or_else(|| custom.reasoning_efforts.first().copied())
+                .unwrap_or(ReasoningEffort::Medium),
+            supported_reasoning_efforts: reasoning_effort_presets(&custom.reasoning_efforts),
+            supports_personality: custom.supports_personality,
+            is_default: false,
+            upgrade: None,
+            show_in_picker: custom.show_in_picker,
+            supported_in_api: true,
+        };
+        match presets
+            .iter()
+            .position(|existing| existing.model == custom.model)
+        {
+            Some(index) => presets[index] = preset,
+            None => presets.push(preset),
+        }
+    }
+    presets
+}
+
+/// Build picker entries for the reasoning efforts a user declared.
+///
+/// Falls back to a single "medium" entry, which is what a provider with no
+/// reasoning knob can honor — offering more would let the user pick a level the
+/// gateway silently ignores.
+fn reasoning_effort_presets(efforts: &[ReasoningEffort]) -> Vec<ReasoningEffortPreset> {
+    if efforts.is_empty() {
+        return vec![ReasoningEffortPreset {
+            effort: ReasoningEffort::Medium,
+            description: "Standard".to_string(),
+        }];
+    }
+    efforts
+        .iter()
+        .map(|effort| ReasoningEffortPreset {
+            effort: *effort,
+            description: match effort {
+                ReasoningEffort::Minimal => "Fastest, minimal reasoning".to_string(),
+                ReasoningEffort::Low => "Faster, lighter reasoning".to_string(),
+                ReasoningEffort::Medium => "Balanced".to_string(),
+                ReasoningEffort::High => "Deeper reasoning".to_string(),
+                ReasoningEffort::XHigh => "Deepest reasoning".to_string(),
+                ReasoningEffort::None => "No reasoning".to_string(),
+            },
+        })
+        .collect()
+}
+
+/// Move user-declared models to the front of `presets`, keeping the relative
+/// order of both the promoted entries and everything else.
+fn promote_custom_models(custom_models: &[CustomModel], presets: &mut Vec<ModelPreset>) {
+    if custom_models.is_empty() {
+        return;
+    }
+    let is_custom = |preset: &ModelPreset| {
+        custom_models
+            .iter()
+            .any(|custom| custom.matches(&preset.model))
+    };
+    let (mut promoted, rest): (Vec<_>, Vec<_>) =
+        std::mem::take(presets).into_iter().partition(is_custom);
+    promoted.extend(rest);
+    *presets = promoted;
+}
+
 /// Convert a client version string to a whole version string (e.g. "1.2.3-alpha.4" -> "1.2.3")
 fn format_client_version_to_whole() -> String {
     format!(
@@ -373,8 +491,8 @@ mod tests {
     use crate::features::Feature;
     use crate::model_provider_info::WireApi;
     use chrono::Utc;
-    use opencli_protocol::openai_models::ModelsResponse;
     use core_test_support::responses::mount_models_once;
+    use opencli_protocol::openai_models::ModelsResponse;
     use pretty_assertions::assert_eq;
     use serde_json::json;
     use tempfile::tempdir;
@@ -466,8 +584,9 @@ mod tests {
             .await
             .expect("load default test config");
         config.features.enable(Feature::RemoteModels);
-        let auth_manager =
-            AuthManager::from_auth_for_testing(OpenCLIAuth::create_dummy_chatgpt_auth_for_testing());
+        let auth_manager = AuthManager::from_auth_for_testing(
+            OpenCLIAuth::create_dummy_chatgpt_auth_for_testing(),
+        );
         let provider = provider_for(server.uri());
         let manager =
             ModelsManager::with_provider(opencli_home.path().to_path_buf(), auth_manager, provider);
@@ -636,8 +755,9 @@ mod tests {
             .await
             .expect("load default test config");
         config.features.enable(Feature::RemoteModels);
-        let auth_manager =
-            AuthManager::from_auth_for_testing(OpenCLIAuth::create_dummy_chatgpt_auth_for_testing());
+        let auth_manager = AuthManager::from_auth_for_testing(
+            OpenCLIAuth::create_dummy_chatgpt_auth_for_testing(),
+        );
         let provider = provider_for(server.uri());
         let mut manager =
             ModelsManager::with_provider(opencli_home.path().to_path_buf(), auth_manager, provider);
@@ -686,9 +806,14 @@ mod tests {
         );
     }
 
-    #[test]
-    fn build_available_models_picks_default_after_hiding_hidden_models() {
+    #[tokio::test]
+    async fn build_available_models_picks_default_after_hiding_hidden_models() {
         let opencli_home = tempdir().expect("temp dir");
+        let config = ConfigBuilder::default()
+            .opencli_home(opencli_home.path().to_path_buf())
+            .build()
+            .await
+            .expect("load default test config");
         let auth_manager =
             AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
         let provider = provider_for("http://example.test".to_string());
@@ -703,9 +828,171 @@ mod tests {
         let mut expected_visible = ModelPreset::from(visible_model.clone());
         expected_visible.is_default = true;
 
-        let available = manager.build_available_models(vec![hidden_model, visible_model]);
+        let available = manager.build_available_models(vec![hidden_model, visible_model], &config);
 
         assert_eq!(available, vec![expected_hidden, expected_visible]);
+    }
+
+    fn custom_model(model: &str, provider: &str) -> CustomModel {
+        CustomModel {
+            model: model.to_string(),
+            provider: provider.to_string(),
+            display_name: None,
+            description: None,
+            context_window: None,
+            reasoning_efforts: Vec::new(),
+            supports_personality: false,
+            show_in_picker: true,
+        }
+    }
+
+    #[test]
+    fn should_append_a_user_declared_model_that_is_not_built_in() {
+        let presets = merge_custom_models(
+            &[custom_model("qwen3-max", "my-gateway")],
+            builtin_model_presets(None),
+        );
+
+        let added = presets
+            .iter()
+            .find(|preset| preset.model == "qwen3-max")
+            .expect("user-declared model should be listed");
+        assert_eq!(added.provider.as_deref(), Some("my-gateway"));
+        assert_eq!(added.display_name, "qwen3-max");
+    }
+
+    #[test]
+    fn should_let_a_user_entry_shadow_an_existing_preset_without_reordering() {
+        // This build ships no presets, so stand in for the remote catalog (or a
+        // downstream build's defaults) to exercise the shadowing rule.
+        let existing = merge_custom_models(
+            &[
+                custom_model("first", "catalog"),
+                custom_model("shadow-me", "catalog"),
+                custom_model("last", "catalog"),
+            ],
+            Vec::new(),
+        );
+
+        let presets =
+            merge_custom_models(&[custom_model("shadow-me", "my-gateway")], existing.clone());
+
+        assert_eq!(presets.len(), existing.len(), "shadowing must not add a row");
+        assert_eq!(
+            presets.iter().map(|p| p.model.as_str()).collect::<Vec<_>>(),
+            vec!["first", "shadow-me", "last"],
+            "shadowing must not reorder the list"
+        );
+        assert_eq!(
+            presets[1].provider.as_deref(),
+            Some("my-gateway"),
+            "the user entry should win at the original position"
+        );
+    }
+
+    #[test]
+    fn should_use_the_declared_display_name_and_description() {
+        let custom = CustomModel {
+            model: "qwen3-max".to_string(),
+            provider: "my-gateway".to_string(),
+            display_name: Some("Qwen3 Max".to_string()),
+            description: Some("Self-hosted.".to_string()),
+            context_window: None,
+            reasoning_efforts: Vec::new(),
+            supports_personality: false,
+            show_in_picker: true,
+        };
+
+        let presets = merge_custom_models(&[custom], Vec::new());
+
+        assert_eq!(presets[0].display_name, "Qwen3 Max");
+        assert_eq!(presets[0].description, "Self-hosted.");
+    }
+
+    #[test]
+    fn should_list_a_user_declared_model_ahead_of_catalog_models() {
+        let mut presets = vec![
+            ModelPreset {
+                is_default: true,
+                ..merge_custom_models(&[custom_model("catalog-a", "openai")], Vec::new())[0].clone()
+            },
+            merge_custom_models(&[custom_model("catalog-b", "openai")], Vec::new())[0].clone(),
+            merge_custom_models(&[custom_model("mine", "my-gateway")], Vec::new())[0].clone(),
+        ];
+
+        promote_custom_models(&[custom_model("mine", "my-gateway")], &mut presets);
+
+        assert_eq!(
+            presets.iter().map(|p| p.model.as_str()).collect::<Vec<_>>(),
+            vec!["mine", "catalog-a", "catalog-b"],
+            "a declared model must be reachable without scrolling past the catalog"
+        );
+        assert!(
+            presets[1].is_default,
+            "promotion must not move the default onto a different model"
+        );
+    }
+
+    #[test]
+    fn should_leave_order_untouched_when_no_models_are_declared() {
+        let mut presets = builtin_model_presets(None);
+        let before: Vec<String> = presets.iter().map(|p| p.model.clone()).collect();
+
+        promote_custom_models(&[], &mut presets);
+
+        let after: Vec<String> = presets.iter().map(|p| p.model.clone()).collect();
+        assert_eq!(before, after);
+    }
+
+    #[tokio::test]
+    async fn should_apply_the_declared_context_window_to_an_unknown_model() {
+        let opencli_home = tempdir().expect("temp dir");
+        let mut config = ConfigBuilder::default()
+            .opencli_home(opencli_home.path().to_path_buf())
+            .build()
+            .await
+            .expect("load default test config");
+        let mut declared = custom_model("huihui-qwen3.8-27b", "my-gateway");
+        declared.context_window = Some(32_768);
+        config.models = vec![declared];
+
+        let auth_manager =
+            AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
+        let provider = provider_for("http://example.test".to_string());
+        let manager =
+            ModelsManager::with_provider(opencli_home.path().to_path_buf(), auth_manager, provider);
+
+        let info = manager.get_model_info("huihui-qwen3.8-27b", &config).await;
+
+        assert_eq!(
+            info.context_window,
+            Some(32_768),
+            "a declared window should replace the generic default for an unknown model"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_let_an_explicit_override_beat_the_declared_context_window() {
+        let opencli_home = tempdir().expect("temp dir");
+        let mut config = ConfigBuilder::default()
+            .opencli_home(opencli_home.path().to_path_buf())
+            .build()
+            .await
+            .expect("load default test config");
+        let mut declared = custom_model("huihui-qwen3.8-27b", "my-gateway");
+        declared.context_window = Some(32_768);
+        config.models = vec![declared];
+        config.model_context_window = Some(8_192);
+
+        let auth_manager =
+            AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
+        let provider = provider_for("http://example.test".to_string());
+        let manager =
+            ModelsManager::with_provider(opencli_home.path().to_path_buf(), auth_manager, provider);
+
+        let info = manager.get_model_info("huihui-qwen3.8-27b", &config).await;
+
+        assert_eq!(info.context_window, Some(8_192));
     }
 
     #[test]
@@ -723,9 +1010,10 @@ mod tests {
             response, roundtripped,
             "bundled models.json should round trip through serde"
         );
-        assert!(
-            !response.models.is_empty(),
-            "bundled models.json should contain at least one model"
-        );
+        // Intentionally empty in this provider-neutral build; the assertion is
+        // that the file still parses and round-trips, not that it has entries.
+        assert!(response.models.is_empty());
     }
 }
+
+

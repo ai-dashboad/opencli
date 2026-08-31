@@ -1,21 +1,12 @@
 ---
 source: tui/src/chatwidget/tests.rs
+assertion_line: 3046
 expression: popup
 ---
   Select Model and Effort
   Access legacy models by running opencli -m <model_name> or in your config.to
 
-› 1. gpt-5.2-opencli (default)  Latest frontier agentic coding model.
-  2. gpt-5.2                    Latest frontier model with improvements across
-                                knowledge, reasoning and coding
-  3. gpt-5.1-opencli-max        OpenCLI-optimized flagship for deep and fast
-                                reasoning.
-  4. gpt-5.1-opencli-mini       Optimized for opencli. Cheaper, faster, but
-                                less capable.
-  5. GLM 5.2                    GLM 5.2 via CheapestInference (default).
-  6. MiniMax M3                 MiniMax M3 via CheapestInference.
-  7. DeepSeek V4 Flash          DeepSeek V4 Flash via CheapestInference (Core
-                                pool).
-  8. MiMo v2.5                  MiMo v2.5 via CheapestInference (Core pool).
+› 1. test-model-a (default)  test-model-a via openai.
+  2. test-model-b            test-model-b via openai.
 
   Press enter to select reasoning effort, or esc to dismiss.

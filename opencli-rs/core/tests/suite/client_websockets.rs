@@ -34,7 +34,7 @@ use std::time::Duration;
 use tempfile::TempDir;
 use tracing_test::traced_test;
 
-const MODEL: &str = "gpt-5.2-opencli";
+const MODEL: &str = "test-model-pro";
 
 struct WebsocketTestHarness {
     _opencli_home: TempDir,

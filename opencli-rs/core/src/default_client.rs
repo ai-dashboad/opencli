@@ -16,7 +16,7 @@ use std::sync::RwLock;
 /// However, future users of this should use this with caution as a result.
 /// In addition, we want to be confident that this value is used for ALL clients and doing that requires a
 /// lot of wiring and it's easy to miss code paths by doing so.
-/// See https://github.com/openai/opencli/pull/3388/files for an example of what that would look like.
+/// See https://github.com/ai-dashboad/opencli/pull/3388/files for an example of what that would look like.
 /// Finally, we want to make sure this is set for ALL mcp clients without needing to know a special env var
 /// or having to set data that they already specified in the mcp initialize request somewhere else.
 ///
@@ -25,7 +25,8 @@ use std::sync::RwLock;
 /// Parenthesis will be added by OpenCLI. This should only specify what goes inside of the parenthesis.
 pub static USER_AGENT_SUFFIX: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| Mutex::new(None));
 pub const DEFAULT_ORIGINATOR: &str = "opencli_cli_rs";
-pub const OPENCLI_INTERNAL_ORIGINATOR_OVERRIDE_ENV_VAR: &str = "OPENCLI_INTERNAL_ORIGINATOR_OVERRIDE";
+pub const OPENCLI_INTERNAL_ORIGINATOR_OVERRIDE_ENV_VAR: &str =
+    "OPENCLI_INTERNAL_ORIGINATOR_OVERRIDE";
 pub const RESIDENCY_HEADER_NAME: &str = "x-openai-internal-opencli-residency";
 
 #[derive(Debug, Clone)]
@@ -202,9 +203,9 @@ pub fn build_reqwest_client() -> reqwest::Client {
         // silent: if no bytes arrive for this long the request errors and the
         // retry logic reconnects, instead of the turn hanging forever. This is
         // per-read, so a streaming response that keeps producing tokens is
-        // unaffected. 300s matches the stream idle timeout and tolerates a slow
-        // first token on a very large prompt.
-        .read_timeout(std::time::Duration::from_secs(300));
+        // unaffected. 120s sits above the 90s stream idle timeout so the
+        // stream-level error, which carries the better message, fires first.
+        .read_timeout(std::time::Duration::from_secs(120));
     if is_sandboxed() {
         builder = builder.no_proxy();
     }

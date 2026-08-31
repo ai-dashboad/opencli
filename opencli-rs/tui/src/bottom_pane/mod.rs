@@ -465,6 +465,15 @@ impl BottomPane {
         }
     }
 
+    /// Mark whether the turn is still waiting on the model's first output, so
+    /// the status indicator can explain a long silence instead of just ticking.
+    pub(crate) fn set_waiting_for_model(&mut self, waiting: bool) {
+        if let Some(status) = self.status.as_mut() {
+            status.set_waiting_for_model(waiting);
+            self.request_redraw();
+        }
+    }
+
     /// Show the transient "press again to quit" hint for `key`.
     ///
     /// `ChatWidget` owns the quit shortcut state machine (it decides when quit is
@@ -832,10 +841,10 @@ impl Renderable for BottomPane {
 mod tests {
     use super::*;
     use crate::app_event::AppEvent;
-    use opencli_core::protocol::Op;
-    use opencli_protocol::protocol::SkillScope;
     use crossterm::event::KeyModifiers;
     use insta::assert_snapshot;
+    use opencli_protocol::protocol::SkillScope;
+    use opencli_core::protocol::Op;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use std::cell::Cell;

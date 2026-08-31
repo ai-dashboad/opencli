@@ -1,0 +1,8 @@
+# Groq — OpenAI-compatible Chat Completions endpoint.
+id = "groq"
+name = "Groq"
+base_url = "https://api.groq.com/openai/v1"
+wire_api = "chat"
+env_key = "GROQ_API_KEY"
+docs = "https://console.groq.com/keys"
+requires_key = true
