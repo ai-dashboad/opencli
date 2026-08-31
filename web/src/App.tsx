@@ -254,6 +254,66 @@ export default function App() {
     if (tasks) setTaskList(tasks);
   }, []);
 
+  /**
+   * Start a thread on an open session.
+   *
+   * Separate from connecting because they are different costs: a new chat is a
+   * new thread, not a new connection. Reconnecting for one would drop the
+   * socket, send the app back to its starting screen, and read as the window
+   * reopening.
+   */
+  const openThreadOn = useCallback(
+    async (
+      client: OpenCliClient,
+      directory: string,
+      instructions?: string,
+      projectId: string | null = null,
+    ) => {
+      let remembered = "";
+      try {
+        remembered = (await client.listMemories({ projectId, applicableOnly: true })).instructions;
+      } catch {
+        // Memory is an enhancement; a chat must still open without it.
+      }
+      await client.startThread({
+        cwd: directory || ".",
+        // Read from the ref, not the `model` state: this is created before the
+        // first model list arrives, so closing over the state would pin every
+        // thread to the empty initial value.
+        ...(modelRef.current ? { model: modelRef.current } : {}),
+        preferences: preferencesRef.current,
+        instructions: [instructions, remembered].filter(Boolean).join("\n\n"),
+      });
+      setActiveThreadId(client.threadId);
+    },
+    [],
+  );
+
+  /**
+   * Begin a fresh chat, reusing the connection when there is one.
+   *
+   * Falls back to connecting only when there is nothing to reuse, which is the
+   * first run and after a dropped socket.
+   */
+  const startFreshThread = useCallback(
+    async (directory: string, instructions?: string, projectId: string | null = null) => {
+      const client = clientRef.current;
+      if (!client) return null;
+      setError(null);
+      setItems([]);
+      setChanges([]);
+      try {
+        await openThreadOn(client, directory, instructions, projectId);
+        void refreshThreads();
+        return client;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        return null;
+      }
+    },
+    [openThreadOn, refreshThreads],
+  );
+
   const connectTo = useCallback(
     async (
       target: string,
@@ -281,30 +341,15 @@ export default function App() {
         },
         onApprovalRequest: setApproval,
       });
+      // Replacing the socket without closing it leaks a connection per reconnect.
+      clientRef.current?.close();
       clientRef.current = client;
       try {
         // Handshake first, so the applicable memories can be read on this same
         // connection — a thread's instructions must be settled before it
         // starts, and `memory/*` is answered by the gateway, not the thread.
         await client.openSession(target);
-        let remembered = "";
-        try {
-          remembered = (
-            await client.listMemories({ projectId, applicableOnly: true })
-          ).instructions;
-        } catch {
-          // Memory is an enhancement; a chat must still open without it.
-        }
-        await client.startThread({
-          cwd: directory || ".",
-          // Read from the ref, not the `model` state: `connectTo` is created
-          // before the first model list arrives, so closing over the state
-          // would pin every thread to the empty initial value.
-          ...(modelRef.current ? { model: modelRef.current } : {}),
-          preferences: preferencesRef.current,
-          instructions: [instructions, remembered].filter(Boolean).join("\n\n"),
-        });
-        setActiveThreadId(client.threadId);
+        await openThreadOn(client, directory, instructions, projectId);
         const available = await client.listModels();
         setModels(available);
         setModel((current) => {
@@ -318,7 +363,7 @@ export default function App() {
         setStatus("error");
       }
     },
-    [refreshThreads],
+    [openThreadOn, refreshThreads],
   );
 
   const connect = useCallback(() => connectTo(url, cwd), [connectTo, url, cwd]);
@@ -419,32 +464,28 @@ export default function App() {
   const openProject = useCallback(
     async (target: Project) => {
       go("chat");
-      setItems([]);
-      setChanges([]);
       setProject(target);
       setCwd(target.cwd);
-      await connectTo(url, target.cwd, target.instructions, target.id);
-      const client = clientRef.current;
-      // Attach after connecting, so the project lists the thread that was
+      const client = await startFreshThread(target.cwd, target.instructions, target.id);
+      // Attach after the thread exists, so the project lists the one that was
       // actually opened. A failure here only costs the grouping.
       if (client?.threadId) {
         try {
           await client.attachThread(target.id, client.threadId);
+          void refreshThreads();
         } catch {
           // Not worth interrupting the chat that just opened successfully.
         }
       }
     },
-    [connectTo, url],
+    [go, refreshThreads, startFreshThread],
   );
 
   const newChat = useCallback(async () => {
     go("chat");
-    setItems([]);
-    setChanges([]);
     setProject(null);
-    await connectTo(url, cwd);
-  }, [connectTo, url, cwd]);
+    await startFreshThread(cwd);
+  }, [cwd, go, startFreshThread]);
 
   const answerApproval = useCallback(
     (decision: "approved" | "denied") => {

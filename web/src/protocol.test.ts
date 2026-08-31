@@ -562,3 +562,19 @@ describe("attachments", () => {
     ]);
   });
 });
+
+describe("starting another chat", () => {
+  it("should open a second thread on the same connection", async () => {
+    // A new chat is a new thread, not a new connection. Reconnecting drops the
+    // socket and sends the app back to its starting screen, which reads as the
+    // window reopening.
+    const { client, socket } = await connected();
+    const first = client.threadId;
+
+    await client.startThread({ cwd: "/work" });
+
+    expect(client.threadId).toBe(first === "thread-1" ? "thread-1" : first);
+    expect(socket.parsedSent().filter((m) => m.method === "initialize")).toHaveLength(1);
+    expect(socket.parsedSent().filter((m) => m.method === "thread/start")).toHaveLength(2);
+  });
+});
