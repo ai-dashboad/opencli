@@ -10,6 +10,7 @@ import {
   ConnectorIcon,
   MemoryIcon,
   PaletteIcon,
+  PlugIcon,
   PlusIcon,
   ProjectIcon,
   SearchIcon,
@@ -29,6 +30,7 @@ export type View =
   | "scheduled"
   | "skills"
   | "connectors"
+  | "plugins"
   | "settings";
 
 interface SidebarProps {
@@ -95,6 +97,7 @@ const NAV: { id: View; label: string; icon: React.ReactNode; badge?: string }[] 
 const SECONDARY: { id: View; label: string; icon: React.ReactNode }[] = [
   { id: "skills", label: "Skills", icon: <SkillIcon /> },
   { id: "connectors", label: "Connectors", icon: <ConnectorIcon /> },
+  { id: "plugins", label: "Plugins", icon: <PlugIcon /> },
   { id: "settings", label: "Settings", icon: <SettingsIcon /> },
 ];
 

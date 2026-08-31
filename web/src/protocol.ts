@@ -196,6 +196,22 @@ export interface Preferences {
   showThinking?: boolean;
 }
 
+/** A skill installed under the home directory. */
+export interface InstalledPlugin {
+  name: string;
+  description: string;
+  path: string;
+}
+
+/** A skill offered by name, with where it comes from. */
+export interface PluginOffer {
+  id: string;
+  name: string;
+  description: string;
+  source: string;
+  note?: string;
+}
+
 /** A connector as configured on this machine. */
 export interface ConnectorConfig {
   name: string;
@@ -825,6 +841,33 @@ export class OpenCliClient {
 
   async removeConnector(name: string): Promise<void> {
     await this.request("connector/remove", { name });
+  }
+
+  async listPlugins(): Promise<InstalledPlugin[]> {
+    const result = (await this.request("plugin/list", {})) as { data?: unknown[] };
+    return (result.data ?? []) as InstalledPlugin[];
+  }
+
+  async pluginCatalog(): Promise<PluginOffer[]> {
+    const result = (await this.request("plugin/catalog", {})) as { data?: unknown[] };
+    return (result.data ?? []) as PluginOffer[];
+  }
+
+  /**
+   * Install a skill by cloning it.
+   *
+   * `loadable` says whether what arrived is itself a skill: a repository *of*
+   * skills is not one, and the agent will not pick it up directly.
+   */
+  async installPlugin(name: string, source: string): Promise<{ name: string; loadable: boolean }> {
+    return (await this.request("plugin/install", { name, source })) as {
+      name: string;
+      loadable: boolean;
+    };
+  }
+
+  async removePlugin(name: string): Promise<void> {
+    await this.request("plugin/remove", { name });
   }
 
   /** Read the effective config after layering. */

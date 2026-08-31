@@ -10,6 +10,7 @@ import {
   ProjectsView,
   ScheduledView,
   SettingsView,
+  PluginsView,
   SkillsView,
   ago,
 } from "./views";
@@ -715,6 +716,8 @@ export default function App() {
           <SkillsView client={client} cwd={cwd || "."} />
         ) : view === "connectors" && client ? (
           <ConnectorsView client={client} />
+        ) : view === "plugins" && client ? (
+          <PluginsView client={client} />
         ) : view === "settings" && client ? (
           <SettingsView client={client} />
         ) : (
@@ -931,6 +934,10 @@ export default function App() {
                       onManageConnectors={() => {
                         setAttachMenu(false);
                         go("connectors");
+                      }}
+                      onBrowsePlugins={() => {
+                        setAttachMenu(false);
+                        go("plugins");
                       }}
                     />
                   </Popover>

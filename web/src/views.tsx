@@ -5,11 +5,13 @@ import type {
   ConnectorOffer,
   ConnectorSummary,
   FileChange,
+  InstalledPlugin,
   Memory,
   OpenCliClient,
   Personality,
   Preferences,
   ReasoningEffort,
+  PluginOffer,
   Project,
   Run,
   RunStatus,
@@ -1176,6 +1178,163 @@ export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cw
           />
         ))}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * Plugins: the skills installed on this machine, and the ones on offer.
+ *
+ * A skill is a directory the agent reads when a task calls for it, so
+ * installing one is a clone and removing one is a delete. There is no hosted
+ * marketplace behind this — the catalogue is a short list of repositories that
+ * exist, plus a field for any other.
+ */
+export function PluginsView({ client }: { client: OpenCliClient }) {
+  const [installed, setInstalled] = useState<InstalledPlugin[]>([]);
+  const [offers, setOffers] = useState<PluginOffer[]>([]);
+  const [tab, setTab] = useState<"yours" | "discover">("discover");
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [custom, setCustom] = useState({ name: "", source: "" });
+
+  const reload = useCallback(async () => {
+    try {
+      const [rows, catalogued] = await Promise.all([client.listPlugins(), client.pluginCatalog()]);
+      setInstalled(rows);
+      setOffers(catalogued);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const install = useCallback(
+    async (name: string, source: string) => {
+      setBusy(name);
+      setNote(null);
+      try {
+        const result = await client.installPlugin(name, source);
+        setNote(
+          result.loadable
+            ? `Installed ${result.name}. It is available in new chats.`
+            : `Installed ${result.name}, but it has no SKILL.md at its root — it is a collection, not a skill the agent loads on its own.`,
+        );
+        setError(null);
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [client, reload],
+  );
+
+  const needle = query.trim().toLowerCase();
+  const matches = <T extends { name: string; description: string }>(row: T) =>
+    !needle ||
+    row.name.toLowerCase().includes(needle) ||
+    row.description.toLowerCase().includes(needle);
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2>Plugins</h2>
+        <input
+          className="panel-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search skills and plugins"
+        />
+      </div>
+
+      <div className="tabs">
+        <button className={tab === "yours" ? "on" : ""} onClick={() => setTab("yours")}>
+          Your plugins
+        </button>
+        <button className={tab === "discover" ? "on" : ""} onClick={() => setTab("discover")}>
+          Discover
+        </button>
+      </div>
+
+      {error ? <p className="error">{error}</p> : null}
+      {note ? <p className="hint">{note}</p> : null}
+
+      {tab === "yours" ? (
+        <ul className="cards">
+          {installed.filter(matches).length === 0 ? (
+            <li className="muted">Nothing installed yet.</li>
+          ) : null}
+          {installed.filter(matches).map((plugin) => (
+            <li key={plugin.name}>
+              <strong>{plugin.name}</strong>
+              <span>{plugin.description || "No description."}</span>
+              <div className="actions">
+                <button
+                  className="secondary"
+                  onClick={() => void client.removePlugin(plugin.name).then(reload)}
+                >
+                  Remove
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          <ul className="cards">
+            {offers.filter(matches).map((offer) => {
+              const already = installed.some((plugin) => plugin.name === offer.id);
+              return (
+                <li key={offer.id}>
+                  <strong>{offer.name}</strong>
+                  <span>{offer.description}</span>
+                  {offer.note ? <span className="muted">{offer.note}</span> : null}
+                  <div className="actions">
+                    <button
+                      disabled={already || busy === offer.id}
+                      onClick={() => void install(offer.id, offer.source)}
+                    >
+                      {already ? "Installed" : busy === offer.id ? "Installing…" : "Add"}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          <h3>Install from a repository</h3>
+          <div className="task-form">
+            <input
+              value={custom.name}
+              onChange={(e) => setCustom({ ...custom, name: e.target.value })}
+              placeholder="Name"
+            />
+            <input
+              value={custom.source}
+              onChange={(e) => setCustom({ ...custom, source: e.target.value })}
+              placeholder="https://github.com/owner/repo"
+            />
+            <button
+              disabled={!custom.name.trim() || !custom.source.trim() || busy !== null}
+              onClick={() => {
+                void install(custom.name.trim(), custom.source.trim()).then(() =>
+                  setCustom({ name: "", source: "" }),
+                );
+              }}
+            >
+              Install
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 }

@@ -269,3 +269,12 @@ export function ChevronRightIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function PlugIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 2.6v3.2M10 2.6v3.2M4.4 5.8h7.2v2.4a3.6 3.6 0 0 1-3.6 3.6 3.6 3.6 0 0 1-3.6-3.6z" />
+      <path d="M8 11.8v1.8" />
+    </Svg>
+  );
+}

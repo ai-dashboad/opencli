@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { ConnectorSummary, ModelOption, Project, ReasoningEffort, SkillSummary } from "./protocol";
-import { CheckIcon, ChevronRightIcon, PaperclipIcon, ProjectIcon, SkillIcon, ConnectorIcon } from "./icons";
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  ConnectorIcon,
+  PaperclipIcon,
+  PlugIcon,
+  ProjectIcon,
+  SkillIcon,
+} from "./icons";
 
 /**
  * A popover anchored to its trigger.
@@ -142,6 +150,7 @@ export function AttachMenu({
   onUseSkill,
   onManageSkills,
   onManageConnectors,
+  onBrowsePlugins,
   canAddFile,
 }: {
   projects: Project[];
@@ -153,6 +162,7 @@ export function AttachMenu({
   onUseSkill: (skill: SkillSummary) => void;
   onManageSkills: () => void;
   onManageConnectors: () => void;
+  onBrowsePlugins: () => void;
   /** Attaching a file needs a path, which only the desktop host can supply. */
   canAddFile: boolean;
 }) {
@@ -208,8 +218,14 @@ export function AttachMenu({
             )}
             <MenuSeparator />
             <MenuItem label="Manage skills" onClick={onManageSkills} />
+            <MenuItem label="Browse skills" onClick={onBrowsePlugins} />
           </>
         }
+      />
+      <MenuItem
+        icon={<PlugIcon size={14} />}
+        label="Add plugins…"
+        onClick={onBrowsePlugins}
       />
       <MenuItem
         icon={<ConnectorIcon size={14} />}
