@@ -112,13 +112,51 @@ fn choose_directory(start: Option<String>) -> Result<Option<String>, String> {
     }
 }
 
+/// Ask the OS for one or more files, returning their paths.
+///
+/// The browser gives a `File` with no path, so a file can only be referenced —
+/// rather than inlined — when the host supplies one.
+#[tauri::command]
+fn choose_files() -> Result<Vec<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        // `with multiple selections allowed` returns a list; joining on a
+        // newline keeps paths intact, which a comma would not.
+        let script = "set chosen to choose file with multiple selections allowed\n\
+                      set out to \"\"\n\
+                      repeat with f in chosen\n\
+                      set out to out & POSIX path of f & linefeed\n\
+                      end repeat\n\
+                      return out";
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(script)
+            .output()
+            .map_err(|err| format!("could not open the file chooser: {err}"))?;
+        if !output.status.success() {
+            // A cancelled dialog exits non-zero; that is not an error.
+            return Ok(Vec::new());
+        }
+        return Ok(String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(str::to_string)
+            .collect());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    Ok(Vec::new())
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(GatewayUrl::default())
         .invoke_handler(tauri::generate_handler![
             gateway_url,
             default_cwd,
-            choose_directory
+            choose_directory,
+            choose_files
         ])
         .setup(|app| {
             let handle = app.handle().clone();

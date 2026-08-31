@@ -489,7 +489,7 @@ describe("preferences", () => {
     // Effort is a turn option, so changing it applies to the next message
     // instead of needing a new chat.
     const { client, socket } = await connected();
-    void client.send("hello", "high");
+    void client.send("hello", { effort: "high" });
     await settle();
 
     const turn = socket.parsedSent().find((message) => message.method === "turn/start")!;
@@ -517,5 +517,48 @@ describe("preferences", () => {
       name: "Deploy notes",
     });
     expect(sent.find((m) => m.method === "thread/archive")!.params).toEqual({ threadId: "t-2" });
+  });
+});
+
+describe("attachments", () => {
+  it("should send an image before the text so it reads as context", async () => {
+    const { client, socket } = await connected();
+    void client.send("what is this?", {
+      attachments: [{ kind: "image", name: "shot.png", dataUrl: "data:image/png;base64,AAA" }],
+    });
+    await settle();
+
+    const turn = socket.parsedSent().find((message) => message.method === "turn/start")!;
+    expect((turn.params as Record<string, unknown>).input).toEqual([
+      { type: "image", url: "data:image/png;base64,AAA" },
+      { type: "text", text: "what is this?" },
+    ]);
+  });
+
+  it("should name an attached file in the text so the agent can read it", async () => {
+    // Sending it as a `mention` looks right but is dropped: the server resolves
+    // those against connectors and skills, so an ordinary path never reaches
+    // the model and the agent never learns the file exists.
+    const { client, socket } = await connected();
+    void client.send("review this", {
+      attachments: [{ kind: "file", name: "notes.md", path: "/work/notes.md" }],
+    });
+    await settle();
+
+    const turn = socket.parsedSent().find((message) => message.method === "turn/start")!;
+    expect((turn.params as Record<string, unknown>).input).toEqual([
+      { type: "text", text: "review this\n\nAttached files:\n- /work/notes.md" },
+    ]);
+  });
+
+  it("should still send a plain message with no attachments", async () => {
+    const { client, socket } = await connected();
+    void client.send("just text");
+    await settle();
+
+    const turn = socket.parsedSent().find((message) => message.method === "turn/start")!;
+    expect((turn.params as Record<string, unknown>).input).toEqual([
+      { type: "text", text: "just text" },
+    ]);
   });
 });

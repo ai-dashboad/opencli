@@ -254,3 +254,73 @@ button.link {
 .thread-actions button:hover {
   color: var(--text);
 }
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.attachments li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  max-width: 220px;
+}
+
+.attachments img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.attachments span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachments button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.attach {
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.attach input {
+  display: none;
+}
+
+.attach:hover {
+  color: var(--text);
+}
+
+button.attach {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}

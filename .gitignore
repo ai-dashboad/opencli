@@ -98,3 +98,6 @@ web/dist/
 # desktop build output
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
+
+# The agent binary is copied in at package time, not tracked.
+desktop/src-tauri/bin/

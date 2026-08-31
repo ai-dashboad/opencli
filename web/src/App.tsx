@@ -17,6 +17,7 @@ import {
   type ConnectionStatus,
   type FileChange,
   type ModelOption,
+  type Attachment,
   type Preferences,
   type Project,
   type ThreadItem,
@@ -69,6 +70,26 @@ async function fromHost(command: "gateway_url" | "default_cwd"): Promise<string 
  * Returns `null` in the browser build and when the user cancels — in both
  * cases the caller should leave whatever path is already there.
  */
+/**
+ * Open the platform's file chooser, if the host offers one.
+ *
+ * Only the desktop build can attach a file: the browser hands over a `File`
+ * with no path, and a path is what the agent needs to read it.
+ */
+export async function chooseFiles(): Promise<{ name: string; path: string }[]> {
+  const core = bridge();
+  if (!core) return [];
+  try {
+    const chosen = await core.invoke("choose_files");
+    if (!Array.isArray(chosen)) return [];
+    return chosen
+      .filter((path): path is string => typeof path === "string" && path.length > 0)
+      .map((path) => ({ name: path.split("/").pop() || path, path }));
+  } catch {
+    return [];
+  }
+}
+
 export async function chooseDirectory(start: string): Promise<string | null> {
   const core = bridge();
   if (!core) return null;
@@ -78,6 +99,45 @@ export async function chooseDirectory(start: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Images the composer will inline; anything else is referenced by path. */
+function isImage(file: File): boolean {
+  return file.type.startsWith("image/");
+}
+
+/** Read a file as a data URL so it can be inlined in a message. */
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error(`could not read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Turn dropped or pasted files into attachments.
+ *
+ * A browser `File` has no path, so a non-image can only be referenced when the
+ * host gives us one — otherwise it is skipped with a reason rather than
+ * silently dropped.
+ */
+async function toAttachments(files: File[]): Promise<{ ok: Attachment[]; skipped: string[] }> {
+  const ok: Attachment[] = [];
+  const skipped: string[] = [];
+  for (const file of files) {
+    if (isImage(file)) {
+      try {
+        ok.push({ kind: "image", name: file.name || "pasted image", dataUrl: await readAsDataUrl(file) });
+      } catch {
+        skipped.push(file.name);
+      }
+    } else {
+      skipped.push(file.name);
+    }
+  }
+  return { ok, skipped };
 }
 
 const KIND_LABEL: Record<ThreadItem["kind"], string> = {
@@ -107,6 +167,7 @@ export default function App() {
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [busy, setBusy] = useState(false);
 
   const clientRef = useRef<OpenCliClient | null>(null);
@@ -243,21 +304,40 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const attach = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
+    const { ok, skipped } = await toAttachments(files);
+    if (ok.length > 0) setAttachments((prev) => [...prev, ...ok]);
+    if (skipped.length > 0) {
+      setError(
+        `Dropped files are inlined only when they are images. Skipped: ${skipped.join(", ")}. ` +
+          (isDesktop()
+            ? "Use “Attach file” to reference one by path instead."
+            : "Name the file by path in your message — the agent can read it."),
+      );
+    }
+  }, []);
+
   const send = useCallback(async () => {
     const text = draft.trim();
     const client = clientRef.current;
-    if (!text || !client) return;
+    if ((!text && attachments.length === 0) || !client) return;
+    const sending = attachments;
     setDraft("");
+    setAttachments([]);
     setBusy(true);
     // The server echoes the user message back as a thread item, so do not add
     // it locally — doing so showed every prompt twice.
     try {
-      await client.send(text, preferencesRef.current.effort);
+      await client.send(text, {
+        effort: preferencesRef.current.effort,
+        attachments: sending,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
     }
-  }, [draft]);
+  }, [attachments, draft]);
 
   const interrupt = useCallback(async () => {
     try {
@@ -509,22 +589,89 @@ export default function App() {
                 e.preventDefault();
                 void send();
               }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                void attach([...e.dataTransfer.files]);
+              }}
             >
+              {attachments.length > 0 ? (
+                <ul className="attachments">
+                  {attachments.map((attachment, index) => (
+                    <li key={`${attachment.name}-${index}`}>
+                      {attachment.kind === "image" ? (
+                        <img src={attachment.dataUrl} alt={attachment.name} />
+                      ) : null}
+                      <span>{attachment.name}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${attachment.name}`}
+                        onClick={() =>
+                          setAttachments((prev) => prev.filter((_, at) => at !== index))
+                        }
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
+                onPaste={(e) => {
+                  // A pasted screenshot arrives as a file on the clipboard with
+                  // no name; letting the default run would insert nothing.
+                  const files = [...e.clipboardData.files];
+                  if (files.length > 0) {
+                    e.preventDefault();
+                    void attach(files);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     void send();
                   }
                 }}
-                placeholder="Ask OpenCLI to do anything"
+                placeholder="Ask OpenCLI to do anything — paste or drop an image"
                 rows={3}
               />
-              <button type="submit" disabled={busy || !draft.trim()}>
-                Send
-              </button>
+
+              <div className="composer-actions">
+                <label className="attach">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      void attach([...(e.target.files ?? [])]);
+                      e.target.value = "";
+                    }}
+                  />
+                  Attach image
+                </label>
+                {isDesktop() ? (
+                  <button
+                    type="button"
+                    className="attach"
+                    onClick={() => {
+                      void chooseFiles().then((files) =>
+                        setAttachments((prev) => [
+                          ...prev,
+                          ...files.map((file) => ({ kind: "file" as const, ...file })),
+                        ]),
+                      );
+                    }}
+                  >
+                    Attach file
+                  </button>
+                ) : null}
+                <button type="submit" disabled={busy || (!draft.trim() && attachments.length === 0)}>
+                  Send
+                </button>
+              </div>
             </form>
           </>
         )}

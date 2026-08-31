@@ -126,6 +126,18 @@ export interface ConnectorSummary {
   status: string;
 }
 
+/**
+ * Something sent alongside a message.
+ *
+ * An image is inlined as a data URL, because a browser `File` has no path to
+ * refer to. A file is named in the message text instead: the agent reads it
+ * with the tools it already has, and a large file would otherwise be pasted
+ * into the context whether or not it was needed.
+ */
+export type Attachment =
+  | { kind: "image"; name: string; dataUrl: string }
+  | { kind: "file"; name: string; path: string };
+
 /** How the agent should read: the two personalities the server accepts. */
 export type Personality = "friendly" | "pragmatic";
 
@@ -430,12 +442,32 @@ export class OpenCliClient {
    * passed here — changing it takes effect on the next message rather than
    * needing a new chat.
    */
-  async send(text: string, effort?: ReasoningEffort): Promise<void> {
+  async send(
+    text: string,
+    options: { effort?: ReasoningEffort; attachments?: Attachment[] } = {},
+  ): Promise<void> {
     if (!this.#threadId) throw new Error("no thread open");
+    const attachments = options.attachments ?? [];
+    const input: Record<string, unknown>[] = attachments
+      .filter((attachment) => attachment.kind === "image")
+      .map((attachment) => ({ type: "image", url: attachment.dataUrl }));
+
+    // Files are named in the text rather than sent as `mention` inputs: the
+    // server resolves those against connectors and skills, so a file path it
+    // does not recognise is dropped without a word — the agent never learns the
+    // file exists. Naming it lets the agent read it with the tools it has.
+    const paths = attachments
+      .filter((attachment) => attachment.kind === "file")
+      .map((attachment) => `- ${attachment.path}`);
+    const body = paths.length > 0 ? `${text}\n\nAttached files:\n${paths.join("\n")}` : text;
+
+    // The images go first so they read as context for the text.
+    input.push({ type: "text", text: body });
+
     await this.request("turn/start", {
       threadId: this.#threadId,
-      input: [{ type: "text", text }],
-      ...(effort ? { effort } : {}),
+      input,
+      ...(options.effort ? { effort: options.effort } : {}),
     });
   }
 
