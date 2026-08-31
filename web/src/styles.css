@@ -1880,3 +1880,8 @@ textarea:focus {
 .empty-note {
   margin: 0;
 }
+
+.field-note {
+  color: var(--text-faint);
+  font-size: 12px;
+}

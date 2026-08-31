@@ -733,11 +733,18 @@ export class OpenCliClient {
     return (result.data ?? []) as Project[];
   }
 
+  /** Where new projects go by default, and whether that place exists yet. */
+  async projectsRoot(): Promise<{ root: string; exists: boolean }> {
+    return (await this.request("project/root", {})) as { root: string; exists: boolean };
+  }
+
   async createProject(project: {
     name: string;
     cwd: string;
     instructions: string;
     description?: string;
+    /** Make the folder if it is not there. Only its last component. */
+    createDirectory?: boolean;
   }): Promise<Project> {
     return (await this.request("project/create", project)) as Project;
   }

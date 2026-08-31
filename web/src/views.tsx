@@ -550,6 +550,21 @@ function folderName(cwd: string): string {
 }
 
 /**
+ * Turn a project name into a folder name.
+ *
+ * Spaces and punctuation become dashes: a folder is typed at a shell and
+ * quoted in scripts, and one named `My Project (v2)` is a nuisance in both.
+ * The server applies the same rule; this is only to show the path as it is
+ * typed.
+ */
+function slug(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9._]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+/**
  * Projects: a card each, newest or pinned first.
  *
  * The form is behind a button rather than always open: this screen is read far
@@ -574,6 +589,9 @@ export function ProjectsView({
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [draft, setDraft] = useState({ name: "", cwd: "", description: "", instructions: "" });
+  const [root, setRoot] = useState("");
+  // Once the path is chosen by hand, the name must stop overwriting it.
+  const [pathTouched, setPathTouched] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -588,9 +606,17 @@ export function ProjectsView({
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    void client
+      .projectsRoot()
+      .then((where) => setRoot(where.root))
+      .catch(() => setRoot(""));
+  }, [client]);
+
   const close = useCallback(() => {
     setComposing(false);
     setEditing(null);
+    setPathTouched(false);
     setDraft({ name: "", cwd: "", description: "", instructions: "" });
   }, []);
 
@@ -599,7 +625,9 @@ export function ProjectsView({
       if (editing) {
         await client.updateProject(editing.id, draft);
       } else {
-        await client.createProject(draft);
+        // The folder is usually new; making it is the point of suggesting a
+        // path rather than demanding one that already exists.
+        await client.createProject({ ...draft, createDirectory: true });
       }
       close();
       await reload();
@@ -611,6 +639,7 @@ export function ProjectsView({
   const edit = useCallback((project: Project) => {
     setEditing(project);
     setComposing(true);
+    setPathTouched(true);
     setDraft({
       name: project.name,
       cwd: project.cwd,
@@ -703,7 +732,16 @@ export function ProjectsView({
           <input
             value={draft.name}
             autoFocus
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            onChange={(e) => {
+              const name = e.target.value;
+              const folder = slug(name);
+              setDraft({
+                ...draft,
+                name,
+                // Follow the name until the path is edited or browsed to.
+                cwd: pathTouched || !root ? draft.cwd : folder ? `${root}/${folder}` : "",
+              });
+            }}
             placeholder="Name your project"
           />
         </label>
@@ -723,7 +761,10 @@ export function ProjectsView({
           <span className="path-input">
             <input
               value={draft.cwd}
-              onChange={(e) => setDraft({ ...draft, cwd: e.target.value })}
+              onChange={(e) => {
+                setPathTouched(true);
+                setDraft({ ...draft, cwd: e.target.value });
+              }}
               placeholder="/path/to/project"
             />
             {onBrowse ? (
@@ -731,9 +772,11 @@ export function ProjectsView({
                 type="button"
                 className="ghost"
                 onClick={() => {
-                  void onBrowse(draft.cwd).then(
-                    (picked) => picked && setDraft((current) => ({ ...current, cwd: picked })),
-                  );
+                  void onBrowse(draft.cwd || root).then((picked) => {
+                    if (!picked) return;
+                    setPathTouched(true);
+                    setDraft((current) => ({ ...current, cwd: picked }));
+                  });
                 }}
               >
                 <FolderPlusIcon size={14} />
@@ -741,6 +784,11 @@ export function ProjectsView({
               </button>
             ) : null}
           </span>
+          {!editing && draft.cwd && !pathTouched ? (
+            <span className="field-note">
+              This folder will be created if it does not exist.
+            </span>
+          ) : null}
         </label>
 
         <details className="more-field">

@@ -983,6 +983,13 @@ pub struct ConfigToml {
 
     pub projects: Option<HashMap<String, ProjectConfig>>,
 
+    /// Where new projects are created when no folder is chosen.
+    ///
+    /// Defaults to `Projects` under the home directory. Named rather than
+    /// derived so that someone who keeps their work elsewhere says so once
+    /// instead of correcting the path on every new project.
+    pub projects_root: Option<PathBuf>,
+
     /// Controls the web search tool mode: disabled, cached, or live.
     pub web_search: Option<WebSearchMode>,
 

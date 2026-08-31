@@ -6,6 +6,7 @@
 
 use opencli_core::memory;
 use opencli_core::projects;
+use std::path::PathBuf;
 use serde_json::Value;
 use serde_json::json;
 use std::path::Path;
@@ -27,6 +28,7 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
         "project/update" => update(opencli_home, &params),
         "project/delete" => delete(opencli_home, &params),
         "project/attachThread" => attach_thread(opencli_home, &params),
+        "project/root" => Ok(root_json(opencli_home)),
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -63,6 +65,85 @@ fn required_id(params: &Value) -> Result<&str, String> {
 /// so a client can omit fields it is not editing.
 fn optional_text(params: &Value, key: &str) -> Option<String> {
     params.get(key).and_then(Value::as_str).map(str::to_string)
+}
+
+/// Where a new project's folder goes when the user does not choose one.
+///
+/// Read from `projects_root` in config.toml, falling back to `Projects` under
+/// the home directory. Read from the file rather than the running session so a
+/// change made a moment ago is honoured.
+fn projects_root(opencli_home: &Path) -> PathBuf {
+    let configured = std::fs::read_to_string(opencli_home.join("config.toml"))
+        .ok()
+        .and_then(|text| toml::from_str::<opencli_core::config::ConfigToml>(&text).ok())
+        .and_then(|parsed| parsed.projects_root);
+    if let Some(root) = configured {
+        return root;
+    }
+    match std::env::var_os("HOME").filter(|home| !home.is_empty()) {
+        Some(home) => PathBuf::from(home).join("Projects"),
+        // No home to put it under; the working directory is the only place
+        // left that is certainly writable.
+        None => PathBuf::from("."),
+    }
+}
+
+fn root_json(opencli_home: &Path) -> Value {
+    let root = projects_root(opencli_home);
+    json!({
+        "root": root.to_string_lossy(),
+        "exists": root.is_dir(),
+    })
+}
+
+/// Turn a project name into a folder name.
+///
+/// Spaces and punctuation become dashes: a folder is typed at a shell and
+/// quoted in scripts, and one named `My Project (v2)` is a nuisance in both.
+pub(crate) fn folder_name(name: &str) -> String {
+    let mut out = String::new();
+    let mut last_dash = true;
+    for character in name.chars() {
+        if character.is_ascii_alphanumeric() || character == '.' || character == '_' {
+            out.push(character.to_ascii_lowercase());
+            last_dash = false;
+        } else if !last_dash {
+            out.push('-');
+            last_dash = true;
+        }
+    }
+    out.trim_matches('-').to_string()
+}
+
+/// Create a project's folder.
+///
+/// Under the projects root the whole path is made, including the root itself:
+/// this app suggested that location, so failing there on a path the user never
+/// typed would be its own fault to fix.
+///
+/// Anywhere else only the last component is made. A typo in a parent should
+/// not silently build a tree of empty directories somewhere the user chose by
+/// hand.
+fn make_directory(opencli_home: &Path, path: &Path) -> Result<(), String> {
+    if path.is_dir() {
+        return Ok(());
+    }
+    if path.exists() {
+        return Err(format!("`{}` is a file, not a directory", path.display()));
+    }
+
+    if path.starts_with(projects_root(opencli_home)) {
+        return std::fs::create_dir_all(path)
+            .map_err(|err| format!("could not create `{}`: {err}", path.display()));
+    }
+
+    let Some(parent) = path.parent() else {
+        return Err(format!("`{}` has no parent directory", path.display()));
+    };
+    if !parent.is_dir() {
+        return Err(format!("`{}` does not exist", parent.display()));
+    }
+    std::fs::create_dir(path).map_err(|err| format!("could not create `{}`: {err}", path.display()))
 }
 
 /// Reject a directory that does not exist.
@@ -106,6 +187,12 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
         .ok_or("cwd is required")?;
     let instructions = optional_text(params, "instructions").unwrap_or_default();
     let description = optional_text(params, "description").unwrap_or_default();
+
+    // Making the folder is the common case for a new project, so it is offered
+    // rather than demanded up front.
+    if params.get("createDirectory").and_then(Value::as_bool) == Some(true) {
+        make_directory(opencli_home, Path::new(cwd))?;
+    }
     ensure_directory(cwd)?;
 
     let project = projects::create(
@@ -286,6 +373,115 @@ mod tests {
         let reply = call(
             &format!(
                 r#"{{"method":"project/update","id":2,"params":{{"id":"{id}","cwd":"/no/such"}}}}"#
+            ),
+            dir.path(),
+        );
+        assert!(reply["error"].is_object());
+    }
+
+    #[test]
+    fn should_turn_a_project_name_into_a_usable_folder_name() {
+        // A folder is typed at a shell and quoted in scripts; one named
+        // `My Project (v2)` is a nuisance in both.
+        assert_eq!(folder_name("My Project (v2)"), "my-project-v2");
+        assert_eq!(folder_name("  spaced  out  "), "spaced-out");
+        assert_eq!(folder_name("already-fine"), "already-fine");
+        assert_eq!(folder_name("!!!"), "");
+    }
+
+    #[test]
+    fn should_fall_back_to_a_folder_under_home_when_none_is_configured() {
+        let dir = tempdir().expect("tempdir");
+        let root = call(r#"{"method":"project/root","id":1}"#, dir.path());
+        assert!(
+            root["result"]["root"]
+                .as_str()
+                .is_some_and(|root| root.ends_with("Projects")),
+            "got {:?}",
+            root["result"]["root"]
+        );
+    }
+
+    #[test]
+    fn should_read_the_configured_root_from_the_file() {
+        let dir = tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("config.toml"),
+            "projects_root = \"/srv/work\"\n",
+        )
+        .expect("write");
+
+        let root = call(r#"{"method":"project/root","id":1}"#, dir.path());
+        assert_eq!(root["result"]["root"], "/srv/work");
+    }
+
+    #[test]
+    fn should_create_the_folder_when_asked_to() {
+        let dir = tempdir().expect("tempdir");
+        let target = dir.path().join("brand-new");
+
+        let created = call(
+            &format!(
+                r#"{{"method":"project/create","id":1,"params":
+                   {{"name":"Brand New","cwd":"{}","createDirectory":true}}}}"#,
+                target.display()
+            ),
+            dir.path(),
+        );
+        assert!(created["result"].is_object(), "got {created}");
+        assert!(target.is_dir());
+    }
+
+    #[test]
+    fn should_create_the_projects_root_the_first_time_it_is_used() {
+        // The default location is one this app suggested, so it must work on a
+        // machine that has never had it.
+        let dir = tempdir().expect("tempdir");
+        let root = dir.path().join("Projects");
+        std::fs::write(
+            dir.path().join("config.toml"),
+            format!("projects_root = \"{}\"\n", root.display()),
+        )
+        .expect("write");
+
+        let created = call(
+            &format!(
+                r#"{{"method":"project/create","id":1,"params":
+                   {{"name":"First","cwd":"{}/first","createDirectory":true}}}}"#,
+                root.display()
+            ),
+            dir.path(),
+        );
+        assert!(created["result"].is_object(), "got {created}");
+        assert!(root.join("first").is_dir());
+    }
+
+    #[test]
+    fn should_refuse_to_build_a_tree_of_directories_from_a_typo() {
+        // Only the last component is created; a mistyped parent should not
+        // silently produce a chain of empty folders.
+        let dir = tempdir().expect("tempdir");
+        let target = dir.path().join("mistyped").join("child");
+
+        let reply = call(
+            &format!(
+                r#"{{"method":"project/create","id":1,"params":
+                   {{"name":"x","cwd":"{}","createDirectory":true}}}}"#,
+                target.display()
+            ),
+            dir.path(),
+        );
+        assert!(reply["error"].is_object());
+        assert!(!dir.path().join("mistyped").exists());
+    }
+
+    #[test]
+    fn should_still_refuse_a_missing_folder_when_not_asked_to_create_one() {
+        let dir = tempdir().expect("tempdir");
+        let reply = call(
+            &format!(
+                r#"{{"method":"project/create","id":1,"params":{{"name":"x","cwd":"{}/nope"}}}}"#,
+                dir.path().display()
             ),
             dir.path(),
         );
