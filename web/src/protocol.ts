@@ -124,6 +124,27 @@ export interface Memory {
   createdAt: number;
 }
 
+/** Where a background run came from. */
+export type RunSource = "dispatch" | "cowork" | "scheduled";
+
+export type RunStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+
+/** Work the agent is doing, or has done, without the chat waiting on it. */
+export interface Run {
+  id: string;
+  title: string;
+  prompt: string;
+  cwd: string;
+  model: string | null;
+  source: RunSource;
+  status: RunStatus;
+  startedAt: number;
+  finishedAt: number | null;
+  output: string;
+  exitCode: number | null;
+  taskId: string | null;
+}
+
 /** A configured MCP server and whether it is usable. */
 export interface ConnectorSummary {
   name: string;
@@ -701,6 +722,45 @@ export class OpenCliClient {
 
   async deleteMemory(id: string): Promise<void> {
     await this.request("memory/delete", { id });
+  }
+
+  /**
+   * List background runs.
+   *
+   * `activeOnly` narrows to what has not finished, which is what the Active
+   * list on the landing screen shows.
+   */
+  async listRuns(options: { activeOnly?: boolean; limit?: number } = {}): Promise<Run[]> {
+    const result = (await this.request("dispatch/list", {
+      ...(options.activeOnly ? { activeOnly: true } : {}),
+      ...(options.limit ? { limit: options.limit } : {}),
+    })) as { data?: unknown[] };
+    return (result.data ?? []) as Run[];
+  }
+
+  async dispatchRun(run: {
+    prompt: string;
+    cwd: string;
+    title?: string;
+    model?: string;
+    source?: RunSource;
+  }): Promise<Run> {
+    return (await this.request("dispatch/create", run)) as Run;
+  }
+
+  /** Stop a run being started, or mark a running one as abandoned. */
+  async cancelRun(id: string): Promise<void> {
+    await this.request("dispatch/cancel", { id });
+  }
+
+  async deleteRun(id: string): Promise<void> {
+    await this.request("dispatch/delete", { id });
+  }
+
+  /** Forget every finished run. Returns how many were cleared. */
+  async clearRuns(): Promise<number> {
+    const result = (await this.request("dispatch/clear", {})) as { cleared?: number };
+    return result.cleared ?? 0;
   }
 
   /** Read the effective config after layering. */

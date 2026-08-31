@@ -5,11 +5,13 @@ import {
   ArtifactsView,
   ConnectorsView,
   CustomizeView,
+  DispatchView,
   MemoryView,
   ProjectsView,
   ScheduledView,
   SettingsView,
   SkillsView,
+  ago,
 } from "./views";
 import {
   OpenCliClient,
@@ -21,6 +23,7 @@ import {
   type ConnectorSummary,
   type Preferences,
   type Project,
+  type Run,
   type ScheduledTask,
   type SkillSummary,
   type ThreadItem,
@@ -156,15 +159,6 @@ async function toAttachments(files: File[]): Promise<{ ok: Attachment[]; skipped
   return { ok, skipped };
 }
 
-/** When a scheduled task last ran, in the words a person would use. */
-function describeRun(task: ScheduledTask): string {
-  if (!task.lastRun) return "not run yet";
-  const days = Math.floor((Date.now() / 1000 - task.lastRun) / 86400);
-  if (days <= 0) return "today";
-  if (days === 1) return "yesterday";
-  return `${days} days ago`;
-}
-
 const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   user: "You",
   agent: "OpenCLI",
@@ -193,6 +187,10 @@ export default function App() {
   const [skillList, setSkillList] = useState<SkillSummary[]>([]);
   const [connectorList, setConnectorList] = useState<ConnectorSummary[]>([]);
   const [attachMenu, setAttachMenu] = useState(false);
+  const [runs, setRuns] = useState<Run[]>([]);
+  // Cowork sends work to the background instead of waiting on it inline.
+  const [cowork, setCowork] = useState(false);
+  const [showAllRuns, setShowAllRuns] = useState(false);
   const [modelMenu, setModelMenu] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -271,18 +269,20 @@ export default function App() {
     if (!client) return;
     // Each list decorates the sidebar independently, so one failing should not
     // blank the others.
-    const [listed, projects, tasks, skills, connectors] = await Promise.all([
+    const [listed, projects, tasks, skills, connectors, recent] = await Promise.all([
       client.listThreads().catch(() => null),
       client.listProjects().catch(() => null),
       client.listTasks().catch(() => null),
       client.listSkills(cwdRef.current || ".").catch(() => null),
       client.listConnectors().catch(() => null),
+      client.listRuns({ limit: 30 }).catch(() => null),
     ]);
     if (listed) setThreads(listed);
     if (projects) setProjectList(projects);
     if (tasks) setTaskList(tasks);
     if (skills) setSkillList(skills);
     if (connectors) setConnectorList(connectors);
+    if (recent) setRuns(recent);
   }, []);
 
   /**
@@ -455,6 +455,25 @@ export default function App() {
     const sending = attachments;
     setDraft("");
     setAttachments([]);
+
+    // Cowork sends the work away rather than waiting on it: the run appears in
+    // the Active list and keeps going after this window moves on. Attachments
+    // are not carried — a background run has no conversation to attach them to.
+    if (cowork) {
+      try {
+        await client.dispatchRun({
+          prompt: text,
+          cwd: cwd || ".",
+          ...(modelRef.current ? { model: modelRef.current } : {}),
+          source: "cowork",
+        });
+        void refreshThreads();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+      return;
+    }
+
     setBusy(true);
     // The server echoes the user message back as a thread item, so do not add
     // it locally — doing so showed every prompt twice.
@@ -467,7 +486,7 @@ export default function App() {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
     }
-  }, [attachments, draft]);
+  }, [attachments, cowork, cwd, draft, refreshThreads]);
 
   const interrupt = useCallback(async () => {
     try {
@@ -656,7 +675,9 @@ export default function App() {
           </button>
         </header>
 
-        {view === "customize" ? (
+        {view === "dispatch" && client ? (
+          <DispatchView client={client} cwd={cwd || "."} model={model} />
+        ) : view === "customize" ? (
           <CustomizeView
             preferences={preferences}
             onChange={setPreferences}
@@ -690,25 +711,42 @@ export default function App() {
                       <SunburstIcon size={30} />
                       <span>Ready when you are</span>
                     </h1>
-                    {taskList.length > 0 ? (
+                    {runs.length > 0 ? (
                       <section className="recent">
                         <div className="recent-head">
-                          <span>Scheduled</span>
-                          <button className="link" onClick={() => go("scheduled")}>
-                            Manage
+                          <span>Active</span>
+                          <button
+                            className="link"
+                            onClick={() => {
+                              void clientRef.current?.clearRuns().then(refreshThreads);
+                            }}
+                          >
+                            Clear active
                           </button>
                         </div>
                         <ul>
-                          {taskList.slice(0, 5).map((task) => (
-                            <li key={task.id}>
-                              <ClockIcon size={15} />
-                              <span className="what">
-                                <strong>{task.name}</strong>
-                                <em>{describeRun(task)}</em>
+                          {runs.slice(0, showAllRuns ? 20 : 5).map((run) => (
+                            <li key={run.id}>
+                              <span className="run-icon">
+                                <ClockIcon size={15} />
+                                <i className={`run-dot ${run.status}`} />
                               </span>
+                              <button
+                                className="what"
+                                onClick={() => go("dispatch")}
+                                title={run.prompt}
+                              >
+                                <strong>{run.title}</strong>
+                                <em>{ago(run.finishedAt ?? run.startedAt)}</em>
+                              </button>
                             </li>
                           ))}
                         </ul>
+                        {runs.length > 5 ? (
+                          <button className="link more" onClick={() => setShowAllRuns(!showAllRuns)}>
+                            {showAllRuns ? "Show less" : "Show more"}
+                          </button>
+                        ) : null}
                       </section>
                     ) : null}
                   </div>
@@ -816,7 +854,11 @@ export default function App() {
                     void send();
                   }
                 }}
-                placeholder="Ask OpenCLI to do anything — paste or drop an image"
+                placeholder={
+                  cowork
+                    ? "Describe the work; it will run on its own"
+                    : "Ask OpenCLI to do anything — paste or drop an image"
+                }
                 rows={3}
               />
 
@@ -888,6 +930,25 @@ export default function App() {
                     e.target.value = "";
                   }}
                 />
+
+                <span className="mode-toggle" role="group" aria-label="Send mode">
+                  <button
+                    type="button"
+                    className={cowork ? "" : "on"}
+                    onClick={() => setCowork(false)}
+                    title="Answer here, now"
+                  >
+                    Chat
+                  </button>
+                  <button
+                    type="button"
+                    className={cowork ? "on" : ""}
+                    onClick={() => setCowork(true)}
+                    title="Send it off to run on its own"
+                  >
+                    Cowork
+                  </button>
+                </span>
 
                 <span className="grow" />
 

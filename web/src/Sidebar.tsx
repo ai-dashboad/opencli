@@ -4,6 +4,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ArtifactIcon,
+  DispatchIcon,
   ChevronIcon,
   ClockIcon,
   ConnectorIcon,
@@ -24,6 +25,7 @@ export type View =
   | "artifacts"
   | "memory"
   | "customize"
+  | "dispatch"
   | "scheduled"
   | "skills"
   | "connectors"
@@ -85,6 +87,7 @@ const NAV: { id: View; label: string; icon: React.ReactNode; badge?: string }[] 
   { id: "projects", label: "Projects", icon: <ProjectIcon /> },
   { id: "artifacts", label: "Artifacts", icon: <ArtifactIcon /> },
   { id: "scheduled", label: "Scheduled", icon: <ClockIcon /> },
+  { id: "dispatch", label: "Dispatch", icon: <DispatchIcon />, badge: "Beta" },
   { id: "memory", label: "Memory", icon: <MemoryIcon /> },
   { id: "customize", label: "Customize", icon: <SlidersIcon /> },
 ];

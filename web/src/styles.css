@@ -1334,3 +1334,129 @@ textarea:focus {
   background: var(--surface-hover);
   color: var(--text);
 }
+
+/* ── Modes and runs ────────────────────────────────────────────────── */
+
+.mode-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-sidebar);
+  border-radius: 8px;
+}
+
+.mode-toggle button {
+  padding: 4px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+.mode-toggle button.on {
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+.run-icon {
+  position: relative;
+  display: flex;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.run-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.run-icon .run-dot {
+  position: absolute;
+  top: -1px;
+  right: -3px;
+  border: 2px solid var(--bg);
+  width: 9px;
+  height: 9px;
+}
+
+.run-dot.running,
+.run-dot.queued {
+  background: var(--link);
+}
+
+.run-dot.done {
+  background: var(--added);
+}
+
+.run-dot.failed {
+  background: var(--danger);
+}
+
+.run-dot.cancelled {
+  background: var(--text-faint);
+}
+
+.recent .what {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+}
+
+.recent .more {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+.rows li.run {
+  gap: 0;
+}
+
+.run-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.run-what {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.run-what em {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: normal;
+  text-transform: capitalize;
+}
+
+.run-head .actions {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+}
+
+.run-output {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  max-height: 300px;
+  overflow: auto;
+  background: var(--bg-sidebar);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--text-dim);
+}
+
+.panel h3 .clear {
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 400;
+}

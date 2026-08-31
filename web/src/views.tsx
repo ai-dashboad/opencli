@@ -9,6 +9,8 @@ import type {
   Preferences,
   ReasoningEffort,
   Project,
+  Run,
+  RunStatus,
   ScheduledTask,
   SkillSummary,
 } from "./protocol";
@@ -829,6 +831,184 @@ export function CustomizeView({
           The agent will run commands on this machine without asking.
         </p>
       ) : null}
+    </section>
+  );
+}
+
+/** How long ago, in the words a person would use. */
+export function ago(unix: number | null): string {
+  if (!unix) return "";
+  const days = Math.floor((Date.now() / 1000 - unix) / 86400);
+  if (days <= 0) {
+    const mins = Math.floor((Date.now() / 1000 - unix) / 60);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.floor(mins / 60)}h ago`;
+  }
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
+const STATUS_LABEL: Record<RunStatus, string> = {
+  queued: "Queued",
+  running: "Running",
+  done: "Done",
+  failed: "Failed",
+  cancelled: "Cancelled",
+};
+
+/** One run, expandable to show what it printed. */
+function RunRow({
+  run,
+  onCancel,
+  onDelete,
+}: {
+  run: Run;
+  onCancel: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const finished = run.status === "done" || run.status === "failed" || run.status === "cancelled";
+
+  return (
+    <li className={`run ${run.status}`}>
+      <div className="run-head">
+        <i className={`run-dot ${run.status}`} />
+        <span className="run-what">
+          <strong>{run.title}</strong>
+          <em>
+            {STATUS_LABEL[run.status]} · {ago(run.finishedAt ?? run.startedAt)} · {run.source}
+          </em>
+        </span>
+        <span className="actions">
+          {run.output ? (
+            <button className="secondary" onClick={() => setOpen(!open)}>
+              {open ? "Hide" : "Output"}
+            </button>
+          ) : null}
+          {finished ? (
+            <button className="secondary" onClick={() => onDelete(run.id)}>
+              Remove
+            </button>
+          ) : (
+            <button className="secondary" onClick={() => onCancel(run.id)}>
+              Cancel
+            </button>
+          )}
+        </span>
+      </div>
+      {open ? <pre className="run-output">{run.output}</pre> : null}
+    </li>
+  );
+}
+
+/**
+ * Dispatch: work started here and left to finish on its own.
+ *
+ * Runs are polled rather than pushed. The gateway owns them, not the thread,
+ * so there is no per-run notification to subscribe to — and a run takes
+ * minutes, so a few seconds of staleness costs nothing.
+ */
+export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cwd: string; model: string }) {
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [directory, setDirectory] = useState(cwd);
+
+  const reload = useCallback(async () => {
+    try {
+      setRuns(await client.listRuns({ limit: 100 }));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client]);
+
+  useEffect(() => {
+    void reload();
+    const timer = setInterval(() => void reload(), 4000);
+    return () => clearInterval(timer);
+  }, [reload]);
+
+  const dispatch = useCallback(async () => {
+    try {
+      await client.dispatchRun({
+        prompt: prompt.trim(),
+        cwd: directory || ".",
+        ...(model ? { model } : {}),
+      });
+      setPrompt("");
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client, directory, model, prompt, reload]);
+
+  const active = runs.filter((run) => run.status === "queued" || run.status === "running");
+  const past = runs.filter((run) => run.status !== "queued" && run.status !== "running");
+
+  return (
+    <section className="panel">
+      <h2>Dispatch</h2>
+      <p className="hint">
+        Send work off to run on its own. Each run is a separate agent in its own directory, so it
+        keeps going after you close the chat that started it. Three run at a time.
+      </p>
+      {error ? <p className="error">{error}</p> : null}
+
+      <div className="project-form">
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="What should it do?"
+          rows={3}
+        />
+        <span className="path-input">
+          <input
+            value={directory}
+            onChange={(e) => setDirectory(e.target.value)}
+            placeholder="/path/to/work/in"
+          />
+        </span>
+        <div className="actions">
+          <button onClick={() => void dispatch()} disabled={!prompt.trim()}>
+            Dispatch
+          </button>
+        </div>
+      </div>
+
+      <h3>Active</h3>
+      <ul className="rows">
+        {active.length === 0 ? <li className="muted">Nothing running.</li> : null}
+        {active.map((run) => (
+          <RunRow
+            key={run.id}
+            run={run}
+            onCancel={(id) => void client.cancelRun(id).then(reload)}
+            onDelete={(id) => void client.deleteRun(id).then(reload)}
+          />
+        ))}
+      </ul>
+
+      <h3>
+        Finished
+        {past.length > 0 ? (
+          <button className="link clear" onClick={() => void client.clearRuns().then(reload)}>
+            Clear
+          </button>
+        ) : null}
+      </h3>
+      <ul className="rows">
+        {past.length === 0 ? <li className="muted">Nothing has run yet.</li> : null}
+        {past.map((run) => (
+          <RunRow
+            key={run.id}
+            run={run}
+            onCancel={(id) => void client.cancelRun(id).then(reload)}
+            onDelete={(id) => void client.deleteRun(id).then(reload)}
+          />
+        ))}
+      </ul>
     </section>
   );
 }
