@@ -29,6 +29,7 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
         "project/delete" => delete(opencli_home, &params),
         "project/attachThread" => attach_thread(opencli_home, &params),
         "project/root" => Ok(root_json(opencli_home)),
+        "project/files" => files(opencli_home, &params),
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -113,6 +114,44 @@ pub(crate) fn folder_name(name: &str) -> String {
         }
     }
     out.trim_matches('-').to_string()
+}
+
+/// What is at the top level of a project's directory.
+///
+/// One level only. A project directory is a source tree; walking it would
+/// mean reading thousands of files to render a page nobody asked to be
+/// exhaustive.
+fn files(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let id = required_id(params)?;
+    let project =
+        projects::get(opencli_home, id).ok_or_else(|| format!("no project with id `{id}`"))?;
+
+    let dir = Path::new(&project.cwd);
+    if !dir.is_dir() {
+        return Err(format!("`{}` is no longer there", project.cwd));
+    }
+
+    let mut data = Vec::new();
+    let entries = std::fs::read_dir(dir).map_err(|err| format!("could not read: {err}"))?;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        // Dot files are configuration and noise on a page meant to say what a
+        // project holds.
+        if name.starts_with('.') {
+            continue;
+        }
+        let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
+        let size = entry.metadata().ok().map(|meta| meta.len()).unwrap_or(0);
+        data.push(json!({ "name": name, "isDir": is_dir, "size": size }));
+    }
+    // Directories first, then by name: that is how a file browser is read.
+    data.sort_by(|a, b| {
+        b["isDir"]
+            .as_bool()
+            .cmp(&a["isDir"].as_bool())
+            .then_with(|| a["name"].as_str().cmp(&b["name"].as_str()))
+    });
+    Ok(json!({ "data": data }))
 }
 
 /// Create a project's folder.
@@ -430,6 +469,62 @@ mod tests {
         );
         assert!(created["result"].is_object(), "got {created}");
         assert!(target.is_dir());
+    }
+
+    #[test]
+    fn should_list_what_is_at_the_top_of_a_project_directory() {
+        let dir = tempdir().expect("tempdir");
+        let work = dir.path().join("work");
+        std::fs::create_dir_all(work.join("src")).expect("mkdir");
+        std::fs::write(work.join("README.md"), "hello").expect("write");
+        std::fs::write(work.join(".hidden"), "x").expect("write");
+
+        let created = call(
+            &format!(
+                r#"{{"method":"project/create","id":1,"params":
+                   {{"name":"Work","cwd":"{}"}}}}"#,
+                work.display()
+            ),
+            dir.path(),
+        );
+        let id = created["result"]["id"].as_str().expect("id").to_string();
+
+        let listed = call(
+            &format!(r#"{{"method":"project/files","id":2,"params":{{"id":"{id}"}}}}"#),
+            dir.path(),
+        );
+        let rows = listed["result"]["data"].as_array().expect("data");
+        // Directories first, and dot files left out as configuration noise.
+        assert_eq!(rows[0]["name"], "src");
+        assert_eq!(rows[0]["isDir"], true);
+        assert_eq!(rows[1]["name"], "README.md");
+        assert_eq!(rows.len(), 2);
+    }
+
+    #[test]
+    fn should_say_when_a_projects_directory_has_gone_away() {
+        // A project outlives its folder if the folder is moved or deleted, and
+        // an empty file list would read as an empty project.
+        let dir = tempdir().expect("tempdir");
+        let gone = dir.path().join("gone");
+        std::fs::create_dir_all(&gone).expect("mkdir");
+        let created = call(
+            &format!(
+                r#"{{"method":"project/create","id":1,"params":{{"name":"G","cwd":"{}"}}}}"#,
+                gone.display()
+            ),
+            dir.path(),
+        );
+        let id = created["result"]["id"].as_str().expect("id").to_string();
+        std::fs::remove_dir_all(&gone).expect("remove");
+
+        let listed = call(
+            &format!(r#"{{"method":"project/files","id":2,"params":{{"id":"{id}"}}}}"#),
+            dir.path(),
+        );
+        assert!(listed["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("no longer there")));
     }
 
     #[test]

@@ -216,6 +216,13 @@ export interface Preferences {
   research?: boolean;
 }
 
+/** One entry at the top of a project's directory. */
+export interface ProjectFile {
+  name: string;
+  isDir: boolean;
+  size: number;
+}
+
 /** A skill installed under the home directory. */
 export interface InstalledPlugin {
   name: string;
@@ -731,6 +738,12 @@ export class OpenCliClient {
   async listProjects(): Promise<Project[]> {
     const result = (await this.request("project/list", {})) as { data?: unknown[] };
     return (result.data ?? []) as Project[];
+  }
+
+  /** What is at the top level of a project's directory. */
+  async projectFiles(id: string): Promise<ProjectFile[]> {
+    const result = (await this.request("project/files", { id })) as { data?: unknown[] };
+    return (result.data ?? []) as ProjectFile[];
   }
 
   /** Where new projects go by default, and whether that place exists yet. */

@@ -15,10 +15,12 @@ import type {
   ReasoningEffort,
   PluginOffer,
   Project,
+  ProjectFile,
   Run,
   RunStatus,
   ScheduledTask,
   SkillSummary,
+  ThreadSummary,
 } from "./protocol";
 
 /**
@@ -1523,6 +1525,158 @@ export function PluginsView({ client }: { client: OpenCliClient }) {
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+/** A size a person can read at a glance. */
+function readableSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * One project: its chats, what it holds, and what the agent is told about it.
+ *
+ * Reached by clicking a project rather than starting a chat in it — opening a
+ * chat immediately would make the description, the instructions and the
+ * existing conversations unreachable.
+ */
+export function ProjectDetailView({
+  client,
+  project,
+  threads,
+  onNewChat,
+  onOpenThread,
+  onChanged,
+  onBack,
+}: {
+  client: OpenCliClient;
+  project: Project;
+  threads: ThreadSummary[];
+  onNewChat: () => void;
+  onOpenThread: (id: string) => void;
+  onChanged: () => void;
+  onBack: () => void;
+}) {
+  const [files, setFiles] = useState<ProjectFile[]>([]);
+  const [filesError, setFilesError] = useState<string | null>(null);
+  const [instructions, setInstructions] = useState(project.instructions);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setInstructions(project.instructions);
+    setSaved(false);
+  }, [project.id, project.instructions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    client
+      .projectFiles(project.id)
+      .then((rows) => {
+        if (!cancelled) {
+          setFiles(rows);
+          setFilesError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setFilesError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, project.id]);
+
+  const own = project.threadIds
+    .map((id) => threads.find((thread) => thread.id === id))
+    .filter((thread): thread is ThreadSummary => thread !== undefined)
+    .reverse();
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <button className="link back" onClick={onBack}>
+          ← Projects
+        </button>
+      </div>
+
+      <div className="panel-head">
+        <h2 className="display">{project.name}</h2>
+        <span className="grow" />
+        <button className="filled" onClick={onNewChat}>
+          New chat
+        </button>
+      </div>
+      <p className="hint">
+        {project.description || "No description."} · {project.cwd}
+      </p>
+
+      <h3>Chats</h3>
+      <ul className="rows">
+        {own.length === 0 ? (
+          <li className="muted">No chats here yet. Start one and it will be grouped here.</li>
+        ) : null}
+        {own.map((thread) => (
+          <li key={thread.id}>
+            <strong>{thread.name ?? thread.preview}</strong>
+            <span>{ago(thread.updatedAt)}</span>
+            <div className="actions">
+              <button className="secondary" onClick={() => onOpenThread(thread.id)}>
+                Open
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <h3>In this folder</h3>
+      {filesError ? <p className="error">{filesError}</p> : null}
+      <ul className="rows files">
+        {!filesError && files.length === 0 ? <li className="muted">Empty.</li> : null}
+        {files.map((file) => (
+          <li key={file.name}>
+            <strong>
+              {file.isDir ? <FolderIcon size={13} /> : null}
+              {file.name}
+            </strong>
+            <span>{file.isDir ? "folder" : readableSize(file.size)}</span>
+          </li>
+        ))}
+      </ul>
+
+      <h3>Standing instructions</h3>
+      <p className="hint">
+        Given to the agent in every chat opened here. Changes apply to the next chat, not the one
+        already open.
+      </p>
+      <div className="project-form">
+        <textarea
+          value={instructions}
+          onChange={(e) => {
+            setInstructions(e.target.value);
+            setSaved(false);
+          }}
+          rows={5}
+          placeholder="How to build it, what not to touch…"
+        />
+        <div className="actions">
+          <button
+            disabled={instructions === project.instructions}
+            onClick={() => {
+              void client
+                .updateProject(project.id, { instructions })
+                .then(() => {
+                  setSaved(true);
+                  onChanged();
+                });
+            }}
+          >
+            Save
+          </button>
+          {saved ? <span className="field-note">Saved.</span> : null}
+        </div>
+      </div>
     </section>
   );
 }

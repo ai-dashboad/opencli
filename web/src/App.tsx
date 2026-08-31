@@ -7,6 +7,7 @@ import {
   CustomizeView,
   DispatchView,
   MemoryView,
+  ProjectDetailView,
   ProjectsView,
   ScheduledView,
   SettingsView,
@@ -210,6 +211,9 @@ export default function App() {
   // Cowork sends work to the background instead of waiting on it inline.
   const [cowork, setCowork] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
+  // The project whose page is being read, which is not necessarily the one the
+  // current chat belongs to.
+  const [viewing, setViewing] = useState<Project | null>(null);
   const [modelMenu, setModelMenu] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -550,6 +554,20 @@ export default function App() {
     }
   }, []);
 
+  /**
+   * Show a project's page.
+   *
+   * Starting a chat immediately, as this used to, made the description, the
+   * instructions and the existing conversations unreachable.
+   */
+  const showProject = useCallback(
+    (target: Project) => {
+      setViewing(target);
+      go("project");
+    },
+    [go],
+  );
+
   const openProject = useCallback(
     async (target: Project) => {
       go("chat");
@@ -744,7 +762,7 @@ export default function App() {
         onNavigate={go}
         onNewChat={() => void newChat()}
         onOpenThread={(id) => void openThread(id)}
-        onOpenProject={(target) => void openProject(target)}
+        onOpenProject={showProject}
         onToggle={() => setSidebarOpen(false)}
         onBack={() => step(-1)}
         onForward={() => step(1)}
@@ -818,7 +836,7 @@ export default function App() {
         ) : view === "projects" && client ? (
           <ProjectsView
             client={client}
-            onOpen={(target) => void openProject(target)}
+            onOpen={showProject}
             onBrowse={isDesktop() ? chooseDirectory : undefined}
           />
         ) : view === "scheduled" && client ? (
@@ -827,6 +845,26 @@ export default function App() {
           <SkillsView client={client} cwd={cwd || "."} />
         ) : view === "connectors" && client ? (
           <ConnectorsView client={client} />
+        ) : view === "project" && client && viewing ? (
+          <ProjectDetailView
+            client={client}
+            project={viewing}
+            threads={threads}
+            onNewChat={() => void openProject(viewing)}
+            onOpenThread={(id) => {
+              setProject(viewing);
+              setCwd(viewing.cwd);
+              void openThread(id);
+            }}
+            onChanged={() => {
+              void refreshThreads();
+              void client.listProjects().then((rows) => {
+                const fresh = rows.find((row) => row.id === viewing.id);
+                if (fresh) setViewing(fresh);
+              });
+            }}
+            onBack={() => go("projects")}
+          />
         ) : view === "plugins" && client ? (
           <PluginsView client={client} />
         ) : view === "settings" && client ? (

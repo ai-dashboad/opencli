@@ -31,6 +31,7 @@ export type View =
   | "skills"
   | "connectors"
   | "plugins"
+  | "project"
   | "settings";
 
 interface SidebarProps {
