@@ -18,13 +18,17 @@ import {
   type FileChange,
   type ModelOption,
   type Attachment,
+  type ConnectorSummary,
   type Preferences,
   type Project,
   type ScheduledTask,
+  type SkillSummary,
   type ThreadItem,
   type ThreadSummary,
 } from "./protocol";
 import {
+  ChevronIcon,
+  ClockIcon,
   FolderIcon,
   PanelIcon,
   PlusIcon,
@@ -32,7 +36,9 @@ import {
   SendIcon,
   SidebarToggleIcon,
   StopIcon,
+  SunburstIcon,
 } from "./icons";
+import { AttachMenu, ModelMenu, Popover } from "./menus";
 import "./styles.css";
 
 /**
@@ -150,6 +156,15 @@ async function toAttachments(files: File[]): Promise<{ ok: Attachment[]; skipped
   return { ok, skipped };
 }
 
+/** When a scheduled task last ran, in the words a person would use. */
+function describeRun(task: ScheduledTask): string {
+  if (!task.lastRun) return "not run yet";
+  const days = Math.floor((Date.now() / 1000 - task.lastRun) / 86400);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
 const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   user: "You",
   agent: "OpenCLI",
@@ -175,6 +190,10 @@ export default function App() {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [projectList, setProjectList] = useState<Project[]>([]);
   const [taskList, setTaskList] = useState<ScheduledTask[]>([]);
+  const [skillList, setSkillList] = useState<SkillSummary[]>([]);
+  const [connectorList, setConnectorList] = useState<ConnectorSummary[]>([]);
+  const [attachMenu, setAttachMenu] = useState(false);
+  const [modelMenu, setModelMenu] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [model, setModel] = useState<string>("");
@@ -190,11 +209,15 @@ export default function App() {
 
   const clientRef = useRef<OpenCliClient | null>(null);
   const modelRef = useRef<string>("");
+  // Skills are listed per directory, and this refresh runs from callbacks
+  // created before the directory is known.
+  const cwdRef = useRef<string>("");
   // Same reason as the model: `connectTo` is created before the user has had a
   // chance to change anything, so closing over the state would pin every
   // thread to the initial preferences.
   const preferencesRef = useRef<Preferences>(preferences);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
@@ -238,20 +261,28 @@ export default function App() {
     preferencesRef.current = preferences;
   }, [preferences]);
 
+  useEffect(() => {
+    cwdRef.current = cwd;
+  }, [cwd]);
+
   /** Refresh the sidebar; failures here must not break the chat. */
   const refreshThreads = useCallback(async () => {
     const client = clientRef.current;
     if (!client) return;
     // Each list decorates the sidebar independently, so one failing should not
     // blank the others.
-    const [listed, projects, tasks] = await Promise.all([
+    const [listed, projects, tasks, skills, connectors] = await Promise.all([
       client.listThreads().catch(() => null),
       client.listProjects().catch(() => null),
       client.listTasks().catch(() => null),
+      client.listSkills(cwdRef.current || ".").catch(() => null),
+      client.listConnectors().catch(() => null),
     ]);
     if (listed) setThreads(listed);
     if (projects) setProjectList(projects);
     if (tasks) setTaskList(tasks);
+    if (skills) setSkillList(skills);
+    if (connectors) setConnectorList(connectors);
   }, []);
 
   /**
@@ -652,9 +683,35 @@ export default function App() {
         ) : (
           <>
             <div className="transcript" ref={transcriptRef}>
-              <div className="thread">
+              <div className={`thread${items.length === 0 ? " empty" : ""}`}>
                 {items.length === 0 ? (
-                  <p className="muted">Ask OpenCLI to do anything in {cwd || "."}.</p>
+                  <div className="landing">
+                    <h1>
+                      <SunburstIcon size={30} />
+                      <span>Ready when you are</span>
+                    </h1>
+                    {taskList.length > 0 ? (
+                      <section className="recent">
+                        <div className="recent-head">
+                          <span>Scheduled</span>
+                          <button className="link" onClick={() => go("scheduled")}>
+                            Manage
+                          </button>
+                        </div>
+                        <ul>
+                          {taskList.slice(0, 5).map((task) => (
+                            <li key={task.id}>
+                              <ClockIcon size={15} />
+                              <span className="what">
+                                <strong>{task.name}</strong>
+                                <em>{describeRun(task)}</em>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null}
+                  </div>
                 ) : null}
                 {items.map((item) => (
                   <article key={item.id} className={`item ${item.kind}`}>
@@ -764,37 +821,99 @@ export default function App() {
               />
 
               <div className="composer-actions">
-                <label className="attach" title="Attach an image">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => {
-                      void attach([...(e.target.files ?? [])]);
-                      e.target.value = "";
-                    }}
-                  />
-                  <PlusIcon />
-                </label>
-                {isDesktop() ? (
+                <span className="menu-anchor">
                   <button
                     type="button"
-                    className="icon-button"
-                    title="Attach a file by path"
-                    onClick={() => {
-                      void chooseFiles().then((files) =>
-                        setAttachments((prev) => [
-                          ...prev,
-                          ...files.map((file) => ({ kind: "file" as const, ...file })),
-                        ]),
-                      );
-                    }}
+                    className={`icon-button${attachMenu ? " on" : ""}`}
+                    title="Add to this message"
+                    onClick={() => setAttachMenu(!attachMenu)}
                   >
-                    <ProjectIcon />
+                    <PlusIcon />
                   </button>
-                ) : null}
+                  <Popover open={attachMenu} onClose={() => setAttachMenu(false)}>
+                    <AttachMenu
+                      projects={projectList}
+                      skills={skillList}
+                      connectors={connectorList}
+                      canAddFile={isDesktop()}
+                      onAddImages={() => {
+                        setAttachMenu(false);
+                        imageInputRef.current?.click();
+                      }}
+                      onAddFile={() => {
+                        setAttachMenu(false);
+                        void chooseFiles().then((files) =>
+                          setAttachments((prev) => [
+                            ...prev,
+                            ...files.map((file) => ({ kind: "file" as const, ...file })),
+                          ]),
+                        );
+                      }}
+                      onAddToProject={(target) => {
+                        setAttachMenu(false);
+                        const client = clientRef.current;
+                        if (client?.threadId) {
+                          void client
+                            .attachThread(target.id, client.threadId)
+                            .then(() => setProject(target))
+                            .then(refreshThreads);
+                        }
+                      }}
+                      onManageSkills={() => {
+                        setAttachMenu(false);
+                        go("skills");
+                      }}
+                      onManageConnectors={() => {
+                        setAttachMenu(false);
+                        go("connectors");
+                      }}
+                    />
+                  </Popover>
+                </span>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={(e) => {
+                    void attach([...(e.target.files ?? [])]);
+                    e.target.value = "";
+                  }}
+                />
 
                 <span className="grow" />
+
+                <span className="menu-anchor">
+                  <button
+                    type="button"
+                    className={`model-button${modelMenu ? " on" : ""}`}
+                    onClick={() => setModelMenu(!modelMenu)}
+                    title="Model and effort"
+                  >
+                    <span>
+                      {models.find((option) => option.model === model)?.displayName ?? "No model"}
+                    </span>
+                    {preferences.effort ? <em>{preferences.effort}</em> : null}
+                    <ChevronIcon size={13} />
+                  </button>
+                  <Popover open={modelMenu} onClose={() => setModelMenu(false)} align="right">
+                    <ModelMenu
+                      models={models}
+                      model={model}
+                      effort={preferences.effort}
+                      onPickModel={(next) => {
+                        setModel(next);
+                        modelRef.current = next;
+                        setModelMenu(false);
+                      }}
+                      onPickEffort={(next) => {
+                        setPreferences({ ...preferences, effort: next });
+                        setModelMenu(false);
+                      }}
+                    />
+                  </Popover>
+                </span>
 
                 {busy ? (
                   <button
@@ -837,25 +956,7 @@ export default function App() {
                 <span>{cwd || "."}</span>
               </button>
               <span className="grow" />
-              <select
-                className="foot-select"
-                value={model}
-                onChange={(e) => {
-                  setModel(e.target.value);
-                  modelRef.current = e.target.value;
-                }}
-                title="Used by the next chat you start"
-              >
-                {models.length === 0 ? <option value="">no model</option> : null}
-                {models.map((option) => (
-                  <option key={option.id} value={option.model}>
-                    {option.displayName}
-                  </option>
-                ))}
-              </select>
-              {preferences.effort ? (
-                <span className="foot-note">{preferences.effort}</span>
-              ) : null}
+              {project ? <span className="foot-note">{project.name}</span> : null}
             </div>
             </div>
           </>

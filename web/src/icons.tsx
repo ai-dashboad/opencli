@@ -216,3 +216,56 @@ export function FolderIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** The mark shown on the landing screen: a many-armed asterisk. */
+export function SunburstIcon({ size = 34 }: IconProps) {
+  const arms = Array.from({ length: 12 }, (_, index) => {
+    const angle = (index * Math.PI) / 6;
+    return {
+      x1: 16 + Math.cos(angle) * 3.4,
+      y1: 16 + Math.sin(angle) * 3.4,
+      x2: 16 + Math.cos(angle) * 13,
+      y2: 16 + Math.sin(angle) * 13,
+    };
+  });
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      stroke="currentColor"
+      strokeWidth="2.1"
+      strokeLinecap="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {arms.map((arm, index) => (
+        <line key={index} x1={arm.x1} y1={arm.y1} x2={arm.x2} y2={arm.y2} />
+      ))}
+    </svg>
+  );
+}
+
+export function PaperclipIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M11.6 7.4 7.1 11.9a2.1 2.1 0 0 1-3-3l5.3-5.3a3.4 3.4 0 0 1 4.8 4.8l-5.3 5.3a4.7 4.7 0 0 1-6.6-6.6l4.5-4.5" />
+    </Svg>
+  );
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m3.4 8.4 3.1 3.1 6.1-6.9" />
+    </Svg>
+  );
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m6.4 4.6 3.4 3.4-3.4 3.4" />
+    </Svg>
+  );
+}
