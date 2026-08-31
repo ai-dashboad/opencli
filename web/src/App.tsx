@@ -20,9 +20,11 @@ import {
   type Attachment,
   type Preferences,
   type Project,
+  type ScheduledTask,
   type ThreadItem,
   type ThreadSummary,
 } from "./protocol";
+import { PlusIcon, ProjectIcon, SendIcon, StopIcon } from "./icons";
 import "./styles.css";
 
 /**
@@ -157,6 +159,8 @@ export default function App() {
 
   const [items, setItems] = useState<ThreadItem[]>([]);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [projectList, setProjectList] = useState<Project[]>([]);
+  const [taskList, setTaskList] = useState<ScheduledTask[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [model, setModel] = useState<string>("");
@@ -192,12 +196,18 @@ export default function App() {
 
   /** Refresh the sidebar; failures here must not break the chat. */
   const refreshThreads = useCallback(async () => {
-    try {
-      const listed = await (clientRef.current?.listThreads() ?? Promise.resolve([]));
-      setThreads(listed);
-    } catch {
-      // Listing is a convenience; leave the previous list in place.
-    }
+    const client = clientRef.current;
+    if (!client) return;
+    // Each list decorates the sidebar independently, so one failing should not
+    // blank the others.
+    const [listed, projects, tasks] = await Promise.all([
+      client.listThreads().catch(() => null),
+      client.listProjects().catch(() => null),
+      client.listTasks().catch(() => null),
+    ]);
+    if (listed) setThreads(listed);
+    if (projects) setProjectList(projects);
+    if (tasks) setTaskList(tasks);
   }, []);
 
   const connectTo = useCallback(
@@ -462,10 +472,14 @@ export default function App() {
       <Sidebar
         view={view}
         threads={threads}
+        projects={projectList}
+        tasks={taskList}
         activeThreadId={activeThreadId}
+        activeProjectId={project?.id ?? null}
         onNavigate={setView}
         onNewChat={() => void newChat()}
         onOpenThread={(id) => void openThread(id)}
+        onOpenProject={(target) => void openProject(target)}
         onRenameThread={(id, name) => {
           void clientRef.current
             ?.renameThread(id, name)
@@ -482,16 +496,27 @@ export default function App() {
 
       <main className="chat">
         <header>
-          <span className="badge">connected</span>
-          {project ? <span className="badge project">{project.name}</span> : null}
+          <span className="crumb">
+            <ProjectIcon size={15} />
+            {project ? (
+              <>
+                <span>{project.name}</span>
+                <span className="sep">/</span>
+              </>
+            ) : null}
+            <span className="cwd">{cwd || "."}</span>
+          </span>
+
+          <span className="spacer" />
+
           {changes.length > 0 ? (
-            <button className="link" onClick={() => setView("artifacts")}>
-              {new Set(changes.map((change) => change.path)).size} file(s) changed
+            <button className="chip" onClick={() => setView("artifacts")}>
+              {new Set(changes.map((change) => change.path)).size} changed
             </button>
           ) : null}
-          <span className="cwd">{cwd || "."}</span>
+
           <select
-            className="model"
+            className="model-select"
             value={model}
             onChange={(e) => {
               setModel(e.target.value);
@@ -535,28 +560,30 @@ export default function App() {
         ) : (
           <>
             <div className="transcript" ref={transcriptRef}>
-              {items.length === 0 ? (
-                <p className="muted">Ask OpenCLI to do anything in {cwd || "."}.</p>
-              ) : null}
-              {items.map((item) => (
-                <article key={item.id} className={`item ${item.kind}`}>
-                  {KIND_LABEL[item.kind] ? (
-                    <span className="label">{KIND_LABEL[item.kind]}</span>
-                  ) : null}
-                  <pre>{item.text}</pre>
-                  {item.exitCode !== undefined && item.exitCode !== 0 ? (
-                    <span className="exit">exit {item.exitCode}</span>
-                  ) : null}
-                </article>
-              ))}
-              {busy ? (
-                <p className="working">
-                  Working…{" "}
-                  <button className="link" onClick={() => void interrupt()}>
-                    stop
-                  </button>
-                </p>
-              ) : null}
+              <div className="thread">
+                {items.length === 0 ? (
+                  <p className="muted">Ask OpenCLI to do anything in {cwd || "."}.</p>
+                ) : null}
+                {items.map((item) => (
+                  <article key={item.id} className={`item ${item.kind}`}>
+                    {KIND_LABEL[item.kind] ? (
+                      <span className="label">{KIND_LABEL[item.kind]}</span>
+                    ) : null}
+                    <pre>{item.text}</pre>
+                    {item.exitCode !== undefined && item.exitCode !== 0 ? (
+                      <span className="exit">exit {item.exitCode}</span>
+                    ) : null}
+                  </article>
+                ))}
+                {busy ? (
+                  <p className="working">
+                    Working…{" "}
+                    <button className="link" onClick={() => void interrupt()}>
+                      stop
+                    </button>
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             {approval ? (
@@ -581,8 +608,13 @@ export default function App() {
               </div>
             ) : null}
 
-            {error ? <p className="error">{error}</p> : null}
+            {error ? (
+              <div className="composer-wrap">
+                <p className="error">{error}</p>
+              </div>
+            ) : null}
 
+            <div className="composer-wrap">
             <form
               className="composer"
               onSubmit={(e) => {
@@ -640,7 +672,7 @@ export default function App() {
               />
 
               <div className="composer-actions">
-                <label className="attach">
+                <label className="attach" title="Attach an image">
                   <input
                     type="file"
                     accept="image/*"
@@ -650,12 +682,13 @@ export default function App() {
                       e.target.value = "";
                     }}
                   />
-                  Attach image
+                  <PlusIcon />
                 </label>
                 {isDesktop() ? (
                   <button
                     type="button"
-                    className="attach"
+                    className="icon-button"
+                    title="Attach a file by path"
                     onClick={() => {
                       void chooseFiles().then((files) =>
                         setAttachments((prev) => [
@@ -665,14 +698,33 @@ export default function App() {
                       );
                     }}
                   >
-                    Attach file
+                    <ProjectIcon />
                   </button>
                 ) : null}
-                <button type="submit" disabled={busy || (!draft.trim() && attachments.length === 0)}>
-                  Send
+
+                <span className="grow" />
+
+                {busy ? (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    title="Stop"
+                    onClick={() => void interrupt()}
+                  >
+                    <StopIcon />
+                  </button>
+                ) : null}
+                <button
+                  type="submit"
+                  className="icon-button send"
+                  title="Send"
+                  disabled={busy || (!draft.trim() && attachments.length === 0)}
+                >
+                  <SendIcon />
                 </button>
               </div>
             </form>
+            </div>
           </>
         )}
       </main>
