@@ -4,6 +4,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   ConnectorIcon,
+  GitHubIcon,
   PaperclipIcon,
   PlugIcon,
   ProjectIcon,
@@ -149,8 +150,14 @@ export function AttachMenu({
   onAddToProject,
   onUseSkill,
   onManageSkills,
+  onRecordSkill,
   onManageConnectors,
   onBrowsePlugins,
+  onCloneRepo,
+  webSearch,
+  research,
+  onToggleWebSearch,
+  onToggleResearch,
   canAddFile,
 }: {
   projects: Project[];
@@ -161,8 +168,14 @@ export function AttachMenu({
   onAddToProject: (project: Project) => void;
   onUseSkill: (skill: SkillSummary) => void;
   onManageSkills: () => void;
+  onRecordSkill: () => void;
   onManageConnectors: () => void;
   onBrowsePlugins: () => void;
+  onCloneRepo: () => void;
+  webSearch: boolean;
+  research: boolean;
+  onToggleWebSearch: (on: boolean) => void;
+  onToggleResearch: (on: boolean) => void;
   /** Attaching a file needs a path, which only the desktop host can supply. */
   canAddFile: boolean;
 }) {
@@ -177,6 +190,11 @@ export function AttachMenu({
       {canAddFile ? (
         <MenuItem icon={<ProjectIcon size={14} />} label="Add files" onClick={onAddFile} />
       ) : null}
+      <MenuItem
+        icon={<GitHubIcon size={14} />}
+        label="Add from GitHub"
+        onClick={onCloneRepo}
+      />
       <MenuItem
         icon={<ProjectIcon size={14} />}
         label="Add to project"
@@ -217,6 +235,7 @@ export function AttachMenu({
                 ))
             )}
             <MenuSeparator />
+            <MenuItem label="Record a skill" onClick={onRecordSkill} />
             <MenuItem label="Manage skills" onClick={onManageSkills} />
             <MenuItem label="Browse skills" onClick={onBrowsePlugins} />
           </>
@@ -247,6 +266,21 @@ export function AttachMenu({
             <MenuItem label="Manage connectors" onClick={onManageConnectors} />
           </>
         }
+      />
+
+      <MenuSeparator />
+
+      <MenuToggle
+        label="Research"
+        hint="Investigate thoroughly across sources before answering"
+        checked={research}
+        onChange={onToggleResearch}
+      />
+      <MenuToggle
+        label="Web search"
+        hint="Run by the model provider, not by OpenCLI"
+        checked={webSearch}
+        onChange={onToggleWebSearch}
       />
     </>
   );

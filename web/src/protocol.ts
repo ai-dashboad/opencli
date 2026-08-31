@@ -194,6 +194,21 @@ export interface Preferences {
    * about what turning it off saves.
    */
   showThinking?: boolean;
+  /**
+   * Offer the web search tool.
+   *
+   * The tool is executed by the provider, not by OpenCLI — there is no local
+   * handler for it. Turning it on for a provider that does not run it gives
+   * the model a tool nobody answers, so the UI says where it works.
+   */
+  webSearch?: boolean;
+  /**
+   * Ask for thorough, multi-source investigation before answering.
+   *
+   * This is instructions, not a retrieval pipeline: it changes how the agent
+   * is told to work, and is only as good as the tools it already has.
+   */
+  research?: boolean;
 }
 
 /** A skill installed under the home directory. */
@@ -352,6 +367,9 @@ export class OpenCliClient {
       ...(options.preferences?.personality
         ? { personality: options.preferences.personality }
         : {}),
+      // Per-thread config overrides. `live` is the mode that actually queries;
+      // `disabled` removes the tool rather than leaving it declared and unused.
+      config: { web_search: options.preferences?.webSearch ? "live" : "disabled" },
       // `developerInstructions` appends a message to the context;
       // `baseInstructions` would *replace* the whole system prompt and cost the
       // agent its normal operating rules. Projects and memory add context, so
@@ -868,6 +886,25 @@ export class OpenCliClient {
 
   async removePlugin(name: string): Promise<void> {
     await this.request("plugin/remove", { name });
+  }
+
+  /**
+   * Write a skill from what this chat just did.
+   *
+   * The transcript is raw material, not the product: what is stored is the
+   * summary the user approved, not every message that led to it.
+   */
+  async recordSkill(skill: {
+    name: string;
+    description: string;
+    body: string;
+  }): Promise<{ name: string; path: string }> {
+    return (await this.request("plugin/record", skill)) as { name: string; path: string };
+  }
+
+  /** Clone a repository into a directory, to work on rather than to load. */
+  async cloneRepository(url: string, into: string): Promise<{ name: string; path: string }> {
+    return (await this.request("plugin/clone", { url, into })) as { name: string; path: string };
   }
 
   /** Read the effective config after layering. */

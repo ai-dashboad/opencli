@@ -160,6 +160,24 @@ async function toAttachments(files: File[]): Promise<{ ok: Attachment[]; skipped
   return { ok, skipped };
 }
 
+/**
+ * What Research adds to a thread.
+ *
+ * Instructions, not a retrieval pipeline: it changes how the agent is told to
+ * work and is only as good as the tools it already has. Saying so here keeps
+ * the claim honest at the one place it is made.
+ */
+function researchInstructions(preferences: Preferences): string {
+  if (!preferences.research) return "";
+  return [
+    "Work in research mode for this conversation:",
+    "- Gather evidence from several independent sources before concluding.",
+    "- Say which source each claim rests on, and how you checked it.",
+    "- State plainly what you could not verify rather than filling the gap.",
+    "- Prefer reading the actual file, page or output over recalling it.",
+  ].join("\n");
+}
+
 const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   user: "You",
   agent: "OpenCLI",
@@ -211,6 +229,8 @@ export default function App() {
   // Skills are listed per directory, and this refresh runs from callbacks
   // created before the directory is known.
   const cwdRef = useRef<string>("");
+  // `cloneRepo` opens the project it just made, but is defined above it.
+  const openProjectRef = useRef<((project: Project) => Promise<void>) | null>(null);
   // Same reason as the model: `connectTo` is created before the user has had a
   // chance to change anything, so closing over the state would pin every
   // thread to the initial preferences.
@@ -327,7 +347,9 @@ export default function App() {
         // thread to the empty initial value.
         ...(modelRef.current ? { model: modelRef.current } : {}),
         preferences: preferencesRef.current,
-        instructions: [instructions, remembered].filter(Boolean).join("\n\n"),
+        instructions: [instructions, remembered, researchInstructions(preferencesRef.current)]
+          .filter(Boolean)
+          .join("\n\n"),
       });
       setActiveThreadId(client.threadId);
     },
@@ -547,6 +569,95 @@ export default function App() {
     },
     [go, refreshThreads, startFreshThread],
   );
+
+  useEffect(() => {
+    openProjectRef.current = openProject;
+  }, [openProject]);
+
+  /**
+   * Clone a repository and open it as a project.
+   *
+   * The clone alone would leave a directory nobody is pointed at, so the
+   * project is created in the same step and the chat moves into it.
+   */
+  const cloneRepo = useCallback(async () => {
+    const client = clientRef.current;
+    if (!client) return;
+    const url = window.prompt("Repository URL", "https://github.com/");
+    if (!url?.trim()) return;
+    const into = isDesktop()
+      ? await chooseDirectory(cwd)
+      : window.prompt("Clone into which directory?", cwd);
+    if (!into?.trim()) return;
+
+    setError(null);
+    try {
+      const cloned = await client.cloneRepository(url.trim(), into.trim());
+      const created = await client.createProject({
+        name: cloned.name,
+        cwd: cloned.path,
+        instructions: "",
+      });
+      await refreshThreads();
+      await openProjectRef.current?.(created);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [cwd, refreshThreads]);
+
+  /**
+   * Turn what this chat did into a skill.
+   *
+   * The transcript is raw material, not the product: a skill is a short set of
+   * instructions for next time, so what is written is the agent's own summary
+   * of its steps — shown for the user to edit before it is saved, because a
+   * skill nobody read is one nobody can trust.
+   */
+  const recordSkill = useCallback(async () => {
+    const client = clientRef.current;
+    if (!client) return;
+    if (items.length === 0) {
+      setError("There is nothing to record yet — have the chat do something first.");
+      return;
+    }
+
+    const name = window.prompt("Name this skill (letters, digits, - and _)");
+    if (!name?.trim()) return;
+    const description = window.prompt(
+      "When should the agent use it? This is what decides whether it is loaded.",
+    );
+    if (!description?.trim()) return;
+
+    // Draw the steps from what actually happened rather than asking the model
+    // to recall them, so the skill matches the run it came from.
+    const steps = items
+      .filter((item) => item.kind === "command" || item.kind === "fileChange")
+      .map((item) => `- ${item.text.split("\n")[0]}`)
+      .slice(0, 30);
+    const draft = [
+      "## Steps",
+      steps.length > 0 ? steps.join("\n") : "- (describe the steps here)",
+      "",
+      "## Notes",
+      `Recorded from a chat in ${cwd || "."}.`,
+    ].join("\n");
+
+    const body = window.prompt("Edit the steps before saving:", draft);
+    if (!body?.trim()) return;
+
+    try {
+      const saved = await client.recordSkill({
+        name: name.trim(),
+        description: description.trim(),
+        body: body.trim(),
+      });
+      setError(null);
+      await refreshThreads();
+      window.alert(`Saved ${saved.name}. It is available in new chats.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [cwd, items, refreshThreads]);
 
   const newChat = useCallback(async () => {
     go("chat");
@@ -931,6 +1042,10 @@ export default function App() {
                         setAttachMenu(false);
                         go("skills");
                       }}
+                      onRecordSkill={() => {
+                        setAttachMenu(false);
+                        void recordSkill();
+                      }}
                       onManageConnectors={() => {
                         setAttachMenu(false);
                         go("connectors");
@@ -939,6 +1054,16 @@ export default function App() {
                         setAttachMenu(false);
                         go("plugins");
                       }}
+                      onCloneRepo={() => {
+                        setAttachMenu(false);
+                        void cloneRepo();
+                      }}
+                      webSearch={preferences.webSearch ?? false}
+                      research={preferences.research ?? false}
+                      onToggleWebSearch={(on) =>
+                        setPreferences({ ...preferences, webSearch: on })
+                      }
+                      onToggleResearch={(on) => setPreferences({ ...preferences, research: on })}
                     />
                   </Popover>
                 </span>

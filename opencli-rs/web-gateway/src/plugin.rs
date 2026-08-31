@@ -32,6 +32,8 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
         "plugin/catalog" => Ok(catalog()),
         "plugin/install" => install(opencli_home, &params),
         "plugin/remove" => remove(opencli_home, &params),
+        "plugin/record" => record(opencli_home, &params),
+        "plugin/clone" => clone_repo(&params),
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -219,6 +221,99 @@ fn remove(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     Ok(json!({}))
 }
 
+/// Write a skill from what a chat just did.
+///
+/// The transcript is the raw material, not the product: a skill is a short set
+/// of instructions for next time, so what is stored is the summary the user
+/// approved, not every message that led to it.
+fn record(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let name = required_name(params)?;
+    let description = params
+        .get("description")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|description| !description.is_empty())
+        .ok_or("description is required")?;
+    let body = params
+        .get("body")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|body| !body.is_empty())
+        .ok_or("body is required")?;
+
+    let target = skills_root(opencli_home).join(&name);
+    if target.exists() {
+        return Err(format!("`{name}` already exists"));
+    }
+    std::fs::create_dir_all(&target).map_err(|err| format!("could not create: {err}"))?;
+
+    // The front matter is what the loader reads to decide when a skill
+    // applies, so a description that does not say *when* makes the skill
+    // invisible in practice.
+    let contents = format!(
+        "---\nname: {name}\ndescription: {description}\n---\n\n# {name}\n\n{body}\n"
+    );
+    std::fs::write(target.join(SKILL_FILE), contents)
+        .map_err(|err| format!("could not write: {err}"))?;
+
+    Ok(json!({ "name": name, "path": target.to_string_lossy() }))
+}
+
+/// Clone a repository somewhere the user chose.
+///
+/// Separate from installing a skill: this one lands wherever they say, to be
+/// worked on, rather than under the skills root to be loaded.
+fn clone_repo(params: &Value) -> Result<Value, String> {
+    let url = params
+        .get("url")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .ok_or("url is required")?;
+    if !url.starts_with("https://") && !url.starts_with("git@") {
+        return Err("url must be an https:// or git@ repository".to_string());
+    }
+    let parent = params
+        .get("into")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|into| !into.is_empty())
+        .ok_or("into is required")?;
+    let parent = Path::new(parent);
+    if !parent.is_dir() {
+        return Err(format!("`{}` is not a directory", parent.display()));
+    }
+
+    // Name the checkout after the repository, as `git clone` itself would.
+    let folder = url
+        .trim_end_matches('/')
+        .trim_end_matches(".git")
+        .rsplit('/')
+        .next()
+        .filter(|folder| !folder.is_empty())
+        .ok_or("could not work out a folder name from that url")?;
+    let target = parent.join(folder);
+    if target.exists() {
+        return Err(format!("`{}` already exists", target.display()));
+    }
+
+    let output = std::process::Command::new("git")
+        .arg("clone")
+        .arg(url)
+        .arg(&target)
+        .output()
+        .map_err(|err| format!("could not run git: {err}"))?;
+    if !output.status.success() {
+        let _ = std::fs::remove_dir_all(&target);
+        return Err(format!(
+            "could not clone: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    Ok(json!({ "name": folder, "path": target.to_string_lossy() }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -360,6 +455,82 @@ mod tests {
             dir.path(),
         );
         assert!(missing["error"].is_object());
+    }
+
+    #[test]
+    fn should_record_a_skill_the_loader_can_read() {
+        let dir = tempdir().expect("tempdir");
+        let made = call(
+            r#"{"method":"plugin/record","id":1,"params":
+               {"name":"deploy","description":"Use when shipping a release.",
+                "body":"Run `just ship`, then tag."}}"#,
+            dir.path(),
+        );
+        assert_eq!(made["result"]["name"], "deploy");
+
+        let written =
+            std::fs::read_to_string(skills_root(dir.path()).join("deploy").join(SKILL_FILE))
+                .expect("read");
+        // The front matter is what decides when the skill applies; without it
+        // the skill is invisible in practice.
+        assert!(written.contains("description: Use when shipping a release."), "got: {written}");
+        assert!(written.contains("just ship"), "got: {written}");
+    }
+
+    #[test]
+    fn should_refuse_to_record_over_an_existing_skill() {
+        let dir = tempdir().expect("tempdir");
+        place_skill(dir.path(), "deploy", "x");
+        let reply = call(
+            r#"{"method":"plugin/record","id":1,"params":
+               {"name":"deploy","description":"d","body":"b"}}"#,
+            dir.path(),
+        );
+        assert!(reply["error"].is_object());
+    }
+
+    #[test]
+    fn should_refuse_to_record_a_skill_that_never_says_when_it_applies() {
+        let dir = tempdir().expect("tempdir");
+        let reply = call(
+            r#"{"method":"plugin/record","id":1,"params":{"name":"x","body":"b"}}"#,
+            dir.path(),
+        );
+        assert!(reply["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("description")));
+    }
+
+    #[test]
+    fn should_name_a_clone_after_its_repository() {
+        let dir = tempdir().expect("tempdir");
+        // No network here; the name is worked out before git is reached, and a
+        // missing parent is refused before that.
+        let reply = call(
+            &format!(
+                r#"{{"method":"plugin/clone","id":1,"params":
+                   {{"url":"https://example.com/owner/thing.git","into":"{}/nope"}}}}"#,
+                dir.path().display()
+            ),
+            dir.path(),
+        );
+        assert!(reply["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("not a directory")));
+    }
+
+    #[test]
+    fn should_refuse_a_clone_url_that_is_not_a_repository() {
+        let dir = tempdir().expect("tempdir");
+        let reply = call(
+            &format!(
+                r#"{{"method":"plugin/clone","id":1,"params":
+                   {{"url":"file:///etc","into":"{}"}}}}"#,
+                dir.path().display()
+            ),
+            dir.path(),
+        );
+        assert!(reply["error"].is_object());
     }
 
     #[test]
