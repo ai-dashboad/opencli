@@ -3,6 +3,7 @@ import type { ConnectorSummary, ModelOption, Project, ReasoningEffort, SkillSumm
 import {
   CheckIcon,
   ChevronRightIcon,
+  CloseIcon,
   ConnectorIcon,
   GitHubIcon,
   PaperclipIcon,
@@ -414,5 +415,57 @@ export function ModelMenu({
         </>
       ) : null}
     </>
+  );
+}
+
+/**
+ * A modal dialog.
+ *
+ * Used where a form would otherwise push the thing being looked at off the
+ * screen. Closes on Escape and on a click outside — a dialog that can only be
+ * dismissed by completing it traps anyone who opened it by accident.
+ */
+export function Dialog({
+  open,
+  title,
+  onClose,
+  footer,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="scrim" onMouseDown={onClose}>
+      <div
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-head">
+          <h3>{title}</h3>
+          <button className="icon-button" aria-label="Close" onClick={onClose}>
+            <CloseIcon size={15} />
+          </button>
+        </div>
+        <div className="dialog-body">{children}</div>
+        {footer ? <div className="dialog-foot">{footer}</div> : null}
+      </div>
+    </div>
   );
 }

@@ -833,7 +833,12 @@ textarea:focus {
   font-size: 13px;
 }
 
-.panel button,
+/* Scoped to real action buttons. As `.panel button` this painted every button
+   inside a panel — icon buttons, pins, tabs — solid accent. */
+.panel .actions button,
+.panel .task-form button,
+.panel .project-form button,
+.panel > button,
 .approval button {
   padding: 7px 13px;
   background: var(--accent);
@@ -843,19 +848,27 @@ textarea:focus {
   font-size: 13px;
 }
 
-.panel button:disabled {
+.panel .actions button:disabled,
+.panel .task-form button:disabled,
+.panel .project-form button:disabled,
+.panel > button:disabled {
   background: var(--surface-hover);
   color: var(--text-faint);
   cursor: default;
 }
 
-.panel button.secondary,
+.panel .actions button.secondary,
+.panel .task-form button.secondary,
+.panel .project-form button.secondary,
+.panel > button.secondary,
 .approval button.secondary {
   background: var(--surface-hover);
   color: var(--text-dim);
 }
 
-.panel button.secondary:hover,
+.panel .actions button.secondary:hover,
+.panel .project-form button.secondary:hover,
+.panel > button.secondary:hover,
 .approval button.secondary:hover {
   color: var(--text);
 }
@@ -1741,4 +1754,129 @@ textarea:focus {
 .card-hover button {
   padding: 3px 9px;
   font-size: 12px;
+}
+
+/* ── Dialog ────────────────────────────────────────────────────────── */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 55%);
+}
+
+.dialog {
+  width: min(520px, 100%);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 50%);
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 18px 4px;
+}
+
+.dialog-head h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 550;
+  color: var(--text);
+}
+
+.dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.dialog-foot button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.dialog-foot button.filled {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.dialog-foot button:disabled {
+  background: var(--surface-hover);
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field .path-input button.ghost {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.field .path-input button.ghost:hover {
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+
+.more-field summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.more-field .hint {
+  margin: 10px 0 8px;
+}
+
+.more-field textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.empty-note {
+  margin: 0;
 }

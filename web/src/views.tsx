@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { FolderIcon, PinIcon, SearchIcon } from "./icons";
+import { FolderIcon, FolderPlusIcon, PinIcon, SearchIcon } from "./icons";
+import { Dialog } from "./menus";
 import type {
   ApprovalPolicy,
   ConnectorConfig,
@@ -682,13 +683,43 @@ export function ProjectsView({
 
       {error ? <p className="error">{error}</p> : null}
 
-      {composing ? (
-        <div className="project-form">
+      <Dialog
+        open={composing}
+        title={editing ? "Edit project" : "Create a project"}
+        onClose={close}
+        footer={
+          <>
+            <button className="secondary" onClick={close}>
+              Cancel
+            </button>
+            <button className="filled" onClick={() => void save()} disabled={!canSave}>
+              {editing ? "Save changes" : "Create project"}
+            </button>
+          </>
+        }
+      >
+        <label className="field">
+          What are you working on?
           <input
             value={draft.name}
+            autoFocus
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            placeholder="Project name"
+            placeholder="Name your project"
           />
+        </label>
+
+        <label className="field">
+          What are you trying to achieve?
+          <textarea
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            placeholder="Describe your project, goals, subject…"
+            rows={4}
+          />
+        </label>
+
+        <label className="field">
+          Which folder?
           <span className="path-input">
             <input
               value={draft.cwd}
@@ -698,43 +729,42 @@ export function ProjectsView({
             {onBrowse ? (
               <button
                 type="button"
-                className="secondary"
+                className="ghost"
                 onClick={() => {
                   void onBrowse(draft.cwd).then(
                     (picked) => picked && setDraft((current) => ({ ...current, cwd: picked })),
                   );
                 }}
               >
-                Browse…
+                <FolderPlusIcon size={14} />
+                Use a folder
               </button>
             ) : null}
           </span>
-          <input
-            value={draft.description}
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            placeholder="What is it? (optional, shown on the card)"
-          />
+        </label>
+
+        <details className="more-field">
+          <summary>Standing instructions (optional)</summary>
+          <p className="hint">
+            Given to the agent in every chat here — how to build it, what not to touch. Separate
+            from the description above, which only you read.
+          </p>
           <textarea
             value={draft.instructions}
             onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
-            placeholder="Standing instructions for the agent — how to build it, what not to touch (optional)"
             rows={3}
           />
-          <div className="actions">
-            <button onClick={() => void save()} disabled={!canSave}>
-              {editing ? "Save changes" : "Create project"}
-            </button>
-            <button className="secondary" onClick={close}>
-              Cancel
-            </button>
-          </div>
-        </div>
+        </details>
+      </Dialog>
+
+      {shown.length === 0 ? (
+        <p className="muted empty-note">
+          {query ? "Nothing matches." : "No projects yet. Create one to group chats by directory."}
+        </p>
       ) : null}
 
       <ul className="cards projects">
-        {shown.length === 0 ? (
-          <li className="muted">{query ? "Nothing matches." : "No projects yet."}</li>
-        ) : null}
+
         {shown.map((project) => (
           <li key={project.id}>
             <div className="card-title">

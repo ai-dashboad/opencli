@@ -294,3 +294,20 @@ export function PinIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m4 4 8 8M12 4l-8 8" />
+    </Svg>
+  );
+}
+
+export function FolderPlusIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2 5.2c0-.7.5-1.2 1.2-1.2h2.6l1.3 1.6h5.7c.7 0 1.2.5 1.2 1.2v4.4c0 .7-.5 1.2-1.2 1.2H3.2c-.7 0-1.2-.5-1.2-1.2z" />
+      <path d="M8 7.6v3.2M6.4 9.2h3.2" />
+    </Svg>
+  );
+}
