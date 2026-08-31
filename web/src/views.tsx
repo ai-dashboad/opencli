@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
   ApprovalPolicy,
+  ConnectorConfig,
+  ConnectorOffer,
   ConnectorSummary,
   FileChange,
   Memory,
@@ -106,36 +108,201 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
   );
 }
 
+/**
+ * Connectors: the MCP servers this machine will start.
+ *
+ * Two lists in one: what is configured, and what can be added by name.
+ * Changes are written to `config.toml`, and servers start with a session — so
+ * a change applies to the next chat, which the panel says rather than leaving
+ * the user to wonder why nothing happened.
+ */
 export function ConnectorsView({ client }: { client: OpenCliClient }) {
-  const { rows, error, loading } = useRemote<ConnectorSummary>(
-    () => client.listConnectors(),
-    [client],
+  const [configured, setConfigured] = useState<ConnectorConfig[]>([]);
+  const [offers, setOffers] = useState<ConnectorOffer[]>([]);
+  const [status, setStatus] = useState<ConnectorSummary[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ name: "", kind: "stdio", command: "", url: "" });
+
+  const reload = useCallback(async () => {
+    try {
+      const [rows, catalogued, live] = await Promise.all([
+        client.listConnectorConfigs(),
+        client.connectorCatalog(),
+        client.listConnectors().catch(() => []),
+      ]);
+      setConfigured(rows);
+      setOffers(catalogued);
+      setStatus(live);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const run = useCallback(
+    async (work: Promise<unknown>) => {
+      try {
+        await work;
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [reload],
+  );
+
+  const addManual = useCallback(() => {
+    const transport =
+      draft.kind === "http"
+        ? { kind: "http" as const, url: draft.url.trim() }
+        : {
+            kind: "stdio" as const,
+            command: draft.command.trim().split(/\s+/)[0] ?? "",
+            args: draft.command.trim().split(/\s+/).slice(1),
+          };
+    void run(
+      client.addConnector({ name: draft.name.trim(), transport }).then(() => {
+        setAdding(false);
+        setDraft({ name: "", kind: "stdio", command: "", url: "" });
+      }),
+    );
+  }, [client, draft, run]);
+
+  const notYetAdded = offers.filter(
+    (offer) => !configured.some((row) => row.name === offer.id || row.name === offer.name),
   );
 
   return (
-    <Panel
-      title="Connectors"
-      subtitle="MCP servers this session can call tools through"
-      loading={loading}
-      error={error}
-      empty={rows.length === 0}
-    >
+    <section className="panel">
+      <h2>Connectors</h2>
+      <p className="hint">
+        MCP servers the agent can call tools through. Servers start with a chat, so a change here
+        applies to the next one you open.
+      </p>
+      {error ? <p className="error">{error}</p> : null}
+
+      <h3>Configured</h3>
       <ul className="rows">
-        {rows.map((connector) => (
-          <li key={connector.name}>
-            <strong>{connector.name}</strong>
-            <span>
-              {connector.toolCount} tool{connector.toolCount === 1 ? "" : "s"} · {connector.status}
-            </span>
+        {configured.length === 0 ? <li className="muted">None yet.</li> : null}
+        {configured.map((row) => {
+          const live = status.find((entry) => entry.name === row.name);
+          return (
+            <li key={row.name}>
+              <strong>{row.name}</strong>
+              <span>
+                {row.transport.kind === "http"
+                  ? row.transport.url
+                  : [row.transport.command, ...(row.transport.args ?? [])].join(" ")}
+              </span>
+              {live ? (
+                <span>
+                  {live.toolCount} tool{live.toolCount === 1 ? "" : "s"} · {live.status}
+                </span>
+              ) : null}
+              <div className="actions">
+                <label className="scope">
+                  <input
+                    type="checkbox"
+                    checked={row.enabled}
+                    onChange={(e) => void run(client.setConnectorEnabled(row.name, e.target.checked))}
+                  />
+                  Enabled
+                </label>
+                <button className="secondary" onClick={() => void run(client.removeConnector(row.name))}>
+                  Remove
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <h3>Add a connector</h3>
+      <ul className="rows">
+        {notYetAdded.map((offer) => (
+          <li key={offer.id}>
+            <strong>{offer.name}</strong>
+            <span>{offer.description}</span>
+            {offer.note ? <span>{offer.note}</span> : null}
+            <div className="actions">
+              <button
+                onClick={() =>
+                  void run(client.addConnector({ name: offer.id, transport: offer.transport }))
+                }
+              >
+                Add
+              </button>
+            </div>
           </li>
         ))}
       </ul>
-      {!loading && rows.length === 0 ? (
-        <p className="muted">
-          Add servers under <code>[mcp_servers]</code> in <code>config.toml</code>.
-        </p>
-      ) : null}
-    </Panel>
+
+      {adding ? (
+        <div className="project-form">
+          <input
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            placeholder="Name (letters, digits, - and _)"
+          />
+          <div className="choices">
+            {(["stdio", "http"] as const).map((kind) => (
+              <label key={kind} className="choice">
+                <input
+                  type="radio"
+                  name="transport"
+                  checked={draft.kind === kind}
+                  onChange={() => setDraft({ ...draft, kind })}
+                />
+                <span>
+                  <strong>{kind === "stdio" ? "Local command" : "HTTP server"}</strong>
+                  <span className="hint">
+                    {kind === "stdio"
+                      ? "A program on this machine, started by OpenCLI."
+                      : "A server reachable over HTTP."}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {draft.kind === "stdio" ? (
+            <input
+              value={draft.command}
+              onChange={(e) => setDraft({ ...draft, command: e.target.value })}
+              placeholder="npx -y @modelcontextprotocol/server-github"
+            />
+          ) : (
+            <input
+              value={draft.url}
+              onChange={(e) => setDraft({ ...draft, url: e.target.value })}
+              placeholder="https://example.com/mcp"
+            />
+          )}
+          <div className="actions">
+            <button
+              onClick={addManual}
+              disabled={
+                !draft.name.trim() ||
+                (draft.kind === "stdio" ? !draft.command.trim() : !draft.url.trim())
+              }
+            >
+              Add
+            </button>
+            <button className="secondary" onClick={() => setAdding(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button className="secondary" onClick={() => setAdding(true)}>
+          Add another…
+        </button>
+      )}
+    </section>
   );
 }
 

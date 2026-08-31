@@ -263,6 +263,19 @@ export default function App() {
     cwdRef.current = cwd;
   }, [cwd]);
 
+  // ⌘U opens the file picker, the shortcut the reference shows next to
+  // "Add files or photos".
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "u") {
+        event.preventDefault();
+        imageInputRef.current?.click();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   /** Refresh the sidebar; failures here must not break the chat. */
   const refreshThreads = useCallback(async () => {
     const client = clientRef.current;
@@ -481,6 +494,9 @@ export default function App() {
       await client.send(text, {
         effort: preferencesRef.current.effort,
         attachments: sending,
+        // Defaulting to on keeps the agent's reasoning visible unless the user
+        // asks for quiet.
+        summary: preferencesRef.current.showThinking === false ? "none" : "auto",
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -970,6 +986,10 @@ export default function App() {
                       models={models}
                       model={model}
                       effort={preferences.effort}
+                      showThinking={preferences.showThinking ?? true}
+                      onToggleThinking={(on) =>
+                        setPreferences({ ...preferences, showThinking: on })
+                      }
                       onPickModel={(next) => {
                         setModel(next);
                         modelRef.current = next;

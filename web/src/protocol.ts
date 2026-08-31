@@ -185,6 +185,31 @@ export interface Preferences {
   personality?: Personality;
   effort?: ReasoningEffort;
   approvalPolicy: ApprovalPolicy;
+  /**
+   * Ask the model to summarise its reasoning.
+   *
+   * Named for what it does. The reference calls this "Thinking", but the
+   * setting behind it only decides whether a *summary* is requested — the
+   * model thinks either way, and a toggle implying otherwise would be a lie
+   * about what turning it off saves.
+   */
+  showThinking?: boolean;
+}
+
+/** A connector as configured on this machine. */
+export interface ConnectorConfig {
+  name: string;
+  enabled: boolean;
+  transport: { kind: "stdio" | "http"; command?: string; args?: string[]; url?: string };
+}
+
+/** A connector offered by name, with how it is started. */
+export interface ConnectorOffer {
+  id: string;
+  name: string;
+  description: string;
+  transport: { kind: "stdio" | "http"; command?: string; args?: string[]; url?: string };
+  note?: string;
 }
 
 export type ConnectionStatus = "connecting" | "ready" | "closed" | "error";
@@ -471,7 +496,12 @@ export class OpenCliClient {
    */
   async send(
     text: string,
-    options: { effort?: ReasoningEffort; attachments?: Attachment[] } = {},
+    options: {
+      effort?: ReasoningEffort;
+      attachments?: Attachment[];
+      /** `auto` asks for a reasoning summary; `none` does not. */
+      summary?: "auto" | "none";
+    } = {},
   ): Promise<void> {
     if (!this.#threadId) throw new Error("no thread open");
     const attachments = options.attachments ?? [];
@@ -502,6 +532,7 @@ export class OpenCliClient {
       threadId: this.#threadId,
       input,
       ...(options.effort ? { effort: options.effort } : {}),
+      ...(options.summary ? { summary: options.summary } : {}),
     });
   }
 
@@ -761,6 +792,39 @@ export class OpenCliClient {
   async clearRuns(): Promise<number> {
     const result = (await this.request("dispatch/clear", {})) as { cleared?: number };
     return result.cleared ?? 0;
+  }
+
+  /** Read the connectors configured on this machine. */
+  async listConnectorConfigs(): Promise<ConnectorConfig[]> {
+    const result = (await this.request("connector/list", {})) as { data?: unknown[] };
+    return (result.data ?? []) as ConnectorConfig[];
+  }
+
+  /** Connectors offered by name, with how each is started. */
+  async connectorCatalog(): Promise<ConnectorOffer[]> {
+    const result = (await this.request("connector/catalog", {})) as { data?: unknown[] };
+    return (result.data ?? []) as ConnectorOffer[];
+  }
+
+  async addConnector(connector: {
+    name: string;
+    transport: ConnectorOffer["transport"];
+  }): Promise<ConnectorConfig> {
+    return (await this.request("connector/add", connector)) as ConnectorConfig;
+  }
+
+  /**
+   * Turn a connector on or off.
+   *
+   * Servers start with the session, so the change takes effect on the next
+   * chat rather than this one.
+   */
+  async setConnectorEnabled(name: string, enabled: boolean): Promise<void> {
+    await this.request("connector/setEnabled", { name, enabled });
+  }
+
+  async removeConnector(name: string): Promise<void> {
+    await this.request("connector/remove", { name });
   }
 
   /** Read the effective config after layering. */

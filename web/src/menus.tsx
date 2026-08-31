@@ -103,6 +103,34 @@ export function MenuSeparator() {
   return <div className="menu-sep" />;
 }
 
+/** A row that toggles something, with the state shown as a switch. */
+export function MenuToggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="menu-item toggle">
+      <span className="menu-label">
+        {label}
+        {hint ? <em>{hint}</em> : null}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span className="switch" aria-hidden="true" />
+    </label>
+  );
+}
+
 /** The composer's `+` menu: what can be brought into this message. */
 export function AttachMenu({
   projects,
@@ -132,7 +160,8 @@ export function AttachMenu({
     <>
       <MenuItem
         icon={<PaperclipIcon size={14} />}
-        label="Add photos"
+        label="Add files or photos"
+        shortcut="⌘U"
         onClick={onAddImages}
       />
       {canAddFile ? (
@@ -224,32 +253,46 @@ export function ModelMenu({
   models,
   model,
   effort,
+  showThinking,
   onPickModel,
   onPickEffort,
+  onToggleThinking,
 }: {
   models: ModelOption[];
   model: string;
   effort?: ReasoningEffort;
+  showThinking: boolean;
   onPickModel: (model: string) => void;
   onPickEffort: (effort: ReasoningEffort) => void;
+  onToggleThinking: (on: boolean) => void;
 }) {
   const chosen = models.find((option) => option.model === model);
   const allowed = EFFORTS.filter((option) => chosen?.reasoningEfforts.includes(option.value));
+
+  // A handful up front and the rest behind a submenu: a long flat list buries
+  // the one being used. The chosen model is always in the short list, so it is
+  // never hidden behind another click.
+  const SHORT = 4;
+  const ordered = chosen ? [chosen, ...models.filter((option) => option !== chosen)] : models;
+  const primary = ordered.slice(0, SHORT);
+  const rest = ordered.slice(SHORT);
+
+  const row = (option: ModelOption) => (
+    <MenuItem
+      key={option.id}
+      label={option.displayName}
+      hint={option.description}
+      checked={option.model === model}
+      onClick={() => onPickModel(option.model)}
+    />
+  );
 
   return (
     <>
       {models.length === 0 ? (
         <MenuItem label="No models configured" hint="Add them in config.toml" />
       ) : (
-        models.map((option) => (
-          <MenuItem
-            key={option.id}
-            label={option.displayName}
-            hint={option.description}
-            checked={option.model === model}
-            onClick={() => onPickModel(option.model)}
-          />
-        ))
+        primary.map(row)
       )}
 
       {allowed.length > 0 ? (
@@ -257,7 +300,7 @@ export function ModelMenu({
           <MenuSeparator />
           <MenuItem
             label="Effort"
-            hint={effort ? effort : undefined}
+            hint={effort}
             submenu={
               <>
                 <p className="menu-note">
@@ -272,9 +315,23 @@ export function ModelMenu({
                     onClick={() => onPickEffort(option.value)}
                   />
                 ))}
+                <MenuSeparator />
+                <MenuToggle
+                  label="Show thinking"
+                  hint="Ask for a summary of the model's reasoning"
+                  checked={showThinking}
+                  onChange={onToggleThinking}
+                />
               </>
             }
           />
+        </>
+      ) : null}
+
+      {rest.length > 0 ? (
+        <>
+          <MenuSeparator />
+          <MenuItem label="More models" submenu={<>{rest.map(row)}</>} />
         </>
       ) : null}
     </>

@@ -13,6 +13,7 @@ axum = { workspace = true, features = ["ws", "http1", "tokio", "json", "query"] 
 rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+toml = { workspace = true }
 tokio = { workspace = true, features = ["io-std", "io-util", "macros", "process", "rt-multi-thread", "sync"] }
 tracing = { workspace = true }
 
