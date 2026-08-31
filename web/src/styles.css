@@ -1203,6 +1203,10 @@ textarea:focus {
   bottom: calc(100% + 8px);
   z-index: 30;
   min-width: 220px;
+  max-width: min(360px, calc(100vw - 32px));
+  /* Deliberately not scrollable: a submenu is positioned outside these bounds
+     and `overflow` here would clip it. The list is kept short instead — the
+     rest of the models live behind "More models", which scrolls on its own. */
   padding: 6px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -1255,6 +1259,11 @@ textarea:focus {
   color: var(--text-faint);
   font-size: 12px;
   font-style: normal;
+}
+
+/* Only a raw enum value is title-cased; doing it to a description mangles
+   every word of it. */
+.menu-label em.value {
   text-transform: capitalize;
 }
 
@@ -1296,6 +1305,7 @@ textarea:focus {
   left: calc(100% + 6px);
   bottom: -6px;
   min-width: 210px;
+  max-width: min(300px, calc(100vw - 32px));
   max-height: 340px;
   overflow-y: auto;
   padding: 6px;
@@ -1303,6 +1313,12 @@ textarea:focus {
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+
+/* Opened on the other side, because there was no room on this one. */
+.submenu.flip {
+  left: auto;
+  right: calc(100% + 6px);
 }
 
 /* ── Model button ──────────────────────────────────────────────────── */

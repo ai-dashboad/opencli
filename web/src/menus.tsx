@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ConnectorSummary, ModelOption, Project, ReasoningEffort, SkillSummary } from "./protocol";
 import {
   CheckIcon,
@@ -75,22 +75,51 @@ export function MenuItem({
   onClick?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [flip, setFlip] = useState(false);
+  const [lift, setLift] = useState(0);
+  const panel = useRef<HTMLDivElement>(null);
+
+  // A submenu opens to the right, which runs off the screen when its parent is
+  // already near the edge. Measure once it is on screen and swap sides —
+  // guessing from the parent's alignment gets it wrong as soon as the window
+  // is resized.
+  useLayoutEffect(() => {
+    if (!open || !panel.current) return;
+    const rect = panel.current.getBoundingClientRect();
+    setFlip(rect.right > window.innerWidth - 8);
+    // A submenu is anchored to its row, so a row near the top of the screen
+    // pushes it off the top. Nudge it down by exactly the amount that escapes.
+    const escapes = 8 - rect.top;
+    setLift(escapes > 0 ? escapes : 0);
+  }, [open]);
 
   if (submenu) {
     return (
       <div
         className="menu-item has-submenu"
         onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        onMouseLeave={() => {
+          setOpen(false);
+          setFlip(false);
+          setLift(0);
+        }}
       >
         {icon ? <span className="menu-icon">{icon}</span> : null}
         <span className="menu-label">
           {label}
-          {hint ? <em>{hint}</em> : null}
+          {hint ? <em className="value">{hint}</em> : null}
         </span>
         {shortcut ? <kbd>{shortcut}</kbd> : null}
         <ChevronRightIcon size={13} />
-        {open ? <div className="submenu">{submenu}</div> : null}
+        {open ? (
+          <div
+            className={`submenu${flip ? " flip" : ""}`}
+            ref={panel}
+            style={lift ? { transform: `translateY(${lift}px)` } : undefined}
+          >
+            {submenu}
+          </div>
+        ) : null}
       </div>
     );
   }
