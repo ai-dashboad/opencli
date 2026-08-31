@@ -89,11 +89,16 @@ export default function App() {
   const [busy, setBusy] = useState(false);
 
   const clientRef = useRef<OpenCliClient | null>(null);
+  const modelRef = useRef<string>("");
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
   }, [items, approval]);
+
+  useEffect(() => {
+    modelRef.current = model;
+  }, [model]);
 
   /** Refresh the sidebar; failures here must not break the chat. */
   const refreshThreads = useCallback(async () => {
@@ -148,12 +153,20 @@ export default function App() {
         }
         await client.startThread({
           cwd: directory || ".",
+          // Read from the ref, not the `model` state: `connectTo` is created
+          // before the first model list arrives, so closing over the state
+          // would pin every thread to the empty initial value.
+          ...(modelRef.current ? { model: modelRef.current } : {}),
           instructions: [instructions, remembered].filter(Boolean).join("\n\n"),
         });
         setActiveThreadId(client.threadId);
         const available = await client.listModels();
         setModels(available);
-        setModel((current) => current || available[0]?.model || "");
+        setModel((current) => {
+          const next = current || available[0]?.model || "";
+          modelRef.current = next;
+          return next;
+        });
         void refreshThreads();
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -345,8 +358,11 @@ export default function App() {
           <select
             className="model"
             value={model}
-            onChange={(e) => setModel(e.target.value)}
-            title="Model for new chats"
+            onChange={(e) => {
+              setModel(e.target.value);
+              modelRef.current = e.target.value;
+            }}
+            title="Used by the next chat you start"
           >
             {models.length === 0 ? <option value="">no models configured</option> : null}
             {models.map((option) => (

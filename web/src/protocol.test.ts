@@ -99,6 +99,23 @@ describe("connecting", () => {
     expect(params.baseInstructions).toBeUndefined();
   });
 
+  it("should send the chosen model so the picker is not decorative", async () => {
+    const client = new OpenCliClient({});
+    await client.connect("ws://test/ws", { cwd: "/work", model: "qwen2.5:3b" });
+    const params = FakeSocket.last
+      .parsedSent()
+      .find((message) => message.method === "thread/start")!.params as Record<string, unknown>;
+    expect(params.model).toBe("qwen2.5:3b");
+  });
+
+  it("should omit the model when none is chosen, leaving the default", async () => {
+    const { socket } = await connected();
+    const params = socket
+      .parsedSent()
+      .find((message) => message.method === "thread/start")!.params as Record<string, unknown>;
+    expect(params).not.toHaveProperty("model");
+  });
+
   it("should omit instructions that are only whitespace", async () => {
     const client = new OpenCliClient({});
     await client.connect("ws://test/ws", { cwd: "/work", instructions: "   " });
