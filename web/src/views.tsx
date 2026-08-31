@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   ConnectorSummary,
   OpenCliClient,
+  Project,
   ScheduledTask,
   SkillSummary,
 } from "./protocol";
@@ -300,4 +301,137 @@ export function parseInterval(raw: string): number | null {
   const unit = match[2] || "m";
   const scale = { s: 1, m: 60, h: 3600, d: 86400 }[unit as "s" | "m" | "h" | "d"];
   return value * scale;
+}
+
+/**
+ * Projects: a saved directory plus standing instructions.
+ *
+ * Opening one starts a thread in that directory with those instructions
+ * already in context, which is the whole point — the alternative is retyping
+ * the same preamble at the start of every conversation.
+ */
+export function ProjectsView({
+  client,
+  onOpen,
+}: {
+  client: OpenCliClient;
+  onOpen: (project: Project) => void;
+}) {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Project | null>(null);
+  const [draft, setDraft] = useState({ name: "", cwd: "", instructions: "" });
+
+  const reload = useCallback(async () => {
+    try {
+      setProjects(await client.listProjects());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const save = useCallback(async () => {
+    try {
+      if (editing) {
+        await client.updateProject(editing.id, draft);
+      } else {
+        await client.createProject(draft);
+      }
+      setDraft({ name: "", cwd: "", instructions: "" });
+      setEditing(null);
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client, draft, editing, reload]);
+
+  const edit = useCallback((project: Project) => {
+    setEditing(project);
+    setDraft({
+      name: project.name,
+      cwd: project.cwd,
+      instructions: project.instructions,
+    });
+  }, []);
+
+  const canSave = draft.name.trim() !== "" && draft.cwd.trim() !== "";
+
+  return (
+    <section className="panel">
+      <h2>Projects</h2>
+      <p className="hint">
+        A directory and the context that always applies to it. Opening a project starts a chat
+        there with its instructions already loaded.
+      </p>
+      {error ? <p className="error">{error}</p> : null}
+
+      <div className="project-form">
+        <input
+          value={draft.name}
+          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          placeholder="Project name"
+        />
+        <input
+          value={draft.cwd}
+          onChange={(e) => setDraft({ ...draft, cwd: e.target.value })}
+          placeholder="/path/to/project"
+        />
+        <textarea
+          value={draft.instructions}
+          onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
+          placeholder="Standing instructions — how to build it, what not to touch (optional)"
+          rows={3}
+        />
+        <div className="actions">
+          <button onClick={() => void save()} disabled={!canSave}>
+            {editing ? "Save changes" : "Create project"}
+          </button>
+          {editing ? (
+            <button
+              className="secondary"
+              onClick={() => {
+                setEditing(null);
+                setDraft({ name: "", cwd: "", instructions: "" });
+              }}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <ul className="rows">
+        {projects.length === 0 ? <li className="muted">No projects yet.</li> : null}
+        {projects.map((project) => (
+          <li key={project.id}>
+            <strong>{project.name}</strong>
+            <span>{project.cwd}</span>
+            <span>
+              {project.threadIds.length} chat{project.threadIds.length === 1 ? "" : "s"}
+              {project.instructions ? " · has instructions" : ""}
+            </span>
+            <div className="actions">
+              <button onClick={() => onOpen(project)}>Open</button>
+              <button className="secondary" onClick={() => edit(project)}>
+                Edit
+              </button>
+              <button
+                className="secondary"
+                onClick={() => {
+                  void client.deleteProject(project.id).then(reload);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }

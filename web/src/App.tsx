@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Sidebar, { type View } from "./Sidebar";
-import { ConnectorsView, ScheduledView, SettingsView, SkillsView } from "./views";
+import {
+  ConnectorsView,
+  ProjectsView,
+  ScheduledView,
+  SettingsView,
+  SkillsView,
+} from "./views";
 import {
   OpenCliClient,
   type ApprovalRequest,
   type ConnectionStatus,
   type ModelOption,
+  type Project,
   type ThreadItem,
   type ThreadSummary,
 } from "./protocol";
@@ -70,6 +77,7 @@ export default function App() {
   const [models, setModels] = useState<ModelOption[]>([]);
   const [model, setModel] = useState<string>("");
 
+  const [project, setProject] = useState<Project | null>(null);
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -93,7 +101,7 @@ export default function App() {
   }, []);
 
   const connectTo = useCallback(
-    async (target: string, directory: string) => {
+    async (target: string, directory: string, instructions?: string) => {
       setError(null);
       const client = new OpenCliClient({
         onStatus: setStatus,
@@ -111,7 +119,7 @@ export default function App() {
       });
       clientRef.current = client;
       try {
-        await client.connect(target, { cwd: directory || "." });
+        await client.connect(target, { cwd: directory || ".", instructions });
         setActiveThreadId(client.threadId);
         const available = await client.listModels();
         setModels(available);
@@ -200,9 +208,31 @@ export default function App() {
     }
   }, []);
 
+  const openProject = useCallback(
+    async (target: Project) => {
+      setView("chat");
+      setItems([]);
+      setProject(target);
+      setCwd(target.cwd);
+      await connectTo(url, target.cwd, target.instructions);
+      const client = clientRef.current;
+      // Attach after connecting, so the project lists the thread that was
+      // actually opened. A failure here only costs the grouping.
+      if (client?.threadId) {
+        try {
+          await client.attachThread(target.id, client.threadId);
+        } catch {
+          // Not worth interrupting the chat that just opened successfully.
+        }
+      }
+    },
+    [connectTo, url],
+  );
+
   const newChat = useCallback(async () => {
     setView("chat");
     setItems([]);
+    setProject(null);
     await connectTo(url, cwd);
   }, [connectTo, url, cwd]);
 
@@ -272,6 +302,7 @@ export default function App() {
       <main className="chat">
         <header>
           <span className="badge">connected</span>
+          {project ? <span className="badge project">{project.name}</span> : null}
           <span className="cwd">{cwd || "."}</span>
           <select
             className="model"
@@ -288,7 +319,9 @@ export default function App() {
           </select>
         </header>
 
-        {view === "scheduled" && client ? (
+        {view === "projects" && client ? (
+          <ProjectsView client={client} onOpen={(target) => void openProject(target)} />
+        ) : view === "scheduled" && client ? (
           <ScheduledView client={client} cwd={cwd || "."} />
         ) : view === "skills" && client ? (
           <SkillsView client={client} cwd={cwd || "."} />

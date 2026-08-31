@@ -6,6 +6,7 @@
   --text: #e6e8ec;
   --muted: #9aa1ad;
   --accent: #6aa9ff;
+  --accent-soft: #1b2f4d;
   --danger: #ff7b72;
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
@@ -123,3 +124,20 @@ button.link {
 .task-form .interval { flex: 0 0 5rem; }
 .panel .rows .actions { display: flex; gap: 0.4rem; margin-top: 0.35rem; }
 .panel .rows .actions button { padding: 0.25rem 0.6rem; font-size: 0.78rem; }
+
+.badge.project {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.project-form textarea {
+  resize: vertical;
+  font: inherit;
+}

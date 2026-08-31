@@ -82,6 +82,16 @@ export interface ScheduledTask {
   enabled: boolean;
 }
 
+/** A workspace: a directory, standing instructions, and its threads. */
+export interface Project {
+  id: string;
+  name: string;
+  cwd: string;
+  instructions: string;
+  createdAt: number;
+  threadIds: string[];
+}
+
 /** A configured MCP server and whether it is usable. */
 export interface ConnectorSummary {
   name: string;
@@ -136,7 +146,10 @@ export class OpenCliClient {
   }
 
   /** Connect, complete the handshake, and open a thread. */
-  async connect(url: string, options: { cwd: string; model?: string }): Promise<void> {
+  async connect(
+    url: string,
+    options: { cwd: string; model?: string; instructions?: string },
+  ): Promise<void> {
     this.#events.onStatus?.("connecting");
     await this.#open(url);
 
@@ -148,6 +161,12 @@ export class OpenCliClient {
     const started = (await this.request("thread/start", {
       cwd: options.cwd,
       ...(options.model ? { model: options.model } : {}),
+      // `developerInstructions` appends a message to the context;
+      // `baseInstructions` would *replace* the whole system prompt and cost the
+      // agent its normal operating rules. A project adds context, so append.
+      ...(options.instructions?.trim()
+        ? { developerInstructions: options.instructions.trim() }
+        : {}),
       // Approvals are surfaced in the UI rather than auto-granted; the agent
       // runs on the machine hosting the gateway.
       approvalPolicy: "untrusted",
@@ -371,6 +390,36 @@ export class OpenCliClient {
 
   async setTaskEnabled(id: string, enabled: boolean): Promise<void> {
     await this.request("schedule/setEnabled", { id, enabled });
+  }
+
+  async listProjects(): Promise<Project[]> {
+    const result = (await this.request("project/list", {})) as { data?: unknown[] };
+    return (result.data ?? []) as Project[];
+  }
+
+  async createProject(project: {
+    name: string;
+    cwd: string;
+    instructions: string;
+  }): Promise<Project> {
+    return (await this.request("project/create", project)) as Project;
+  }
+
+  /** Save one or more fields; omitted fields keep their stored value. */
+  async updateProject(
+    id: string,
+    changes: { name?: string; cwd?: string; instructions?: string },
+  ): Promise<Project> {
+    return (await this.request("project/update", { id, ...changes })) as Project;
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    await this.request("project/delete", { id });
+  }
+
+  /** Record that a thread belongs to a project. Safe to call repeatedly. */
+  async attachThread(id: string, threadId: string): Promise<void> {
+    await this.request("project/attachThread", { id, threadId });
   }
 
   /** Read the effective config after layering. */

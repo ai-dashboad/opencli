@@ -239,11 +239,13 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             // line-delimited JSON protocol.
             _ => continue,
         };
-        // Scheduling is a gateway concern, not an agent one: tasks outlive any
-        // single thread and must keep running between conversations. Answer
-        // those methods here instead of relaying them to a server that has no
-        // notion of them.
-        if let Some(reply) = schedule::handle(&text, &state.opencli_home) {
+        // Scheduling and projects are gateway concerns, not agent ones: both
+        // outlive any single thread, and the app server is scoped to one
+        // conversation. Answer those methods here instead of relaying them to
+        // a server that has no notion of them.
+        let handled = schedule::handle(&text, &state.opencli_home)
+            .or_else(|| project::handle(&text, &state.opencli_home));
+        if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
             }
@@ -270,6 +272,7 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
 
 /// Minimal split shim so this file does not pull in `futures` just to halve a
 /// socket.
+mod project;
 mod schedule;
 
 mod futures_lite_split {
