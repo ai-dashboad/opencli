@@ -22,6 +22,7 @@ pub use crate::common::ResponseEvent;
 pub use crate::common::ResponseStream;
 pub use crate::common::ResponsesApiRequest;
 pub use crate::common::create_text_param_for_request;
+pub use crate::endpoint::anthropic::AnthropicClient;
 pub use crate::endpoint::chat::AggregateStreamExt;
 pub use crate::endpoint::chat::ChatClient;
 pub use crate::endpoint::compact::CompactClient;

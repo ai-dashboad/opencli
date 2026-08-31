@@ -56,6 +56,10 @@ pub enum WireApi {
     /// Regular Chat Completions compatible with `/v1/chat/completions`.
     #[default]
     Chat,
+
+    /// Anthropic's Messages API at `/v1/messages`, which is not
+    /// OpenAI-compatible and so cannot be served by either of the above.
+    Anthropic,
 }
 
 /// Serializable representation of a provider definition.
@@ -178,6 +182,7 @@ impl ModelProviderInfo {
             wire: match self.wire_api {
                 WireApi::Responses => ApiWireApi::Responses,
                 WireApi::Chat => ApiWireApi::Chat,
+                WireApi::Anthropic => ApiWireApi::Anthropic,
             },
             headers,
             retry,
@@ -189,6 +194,7 @@ impl ModelProviderInfo {
         let wire = match self.wire_api {
             WireApi::Responses => ApiWireApi::Responses,
             WireApi::Chat => ApiWireApi::Chat,
+            WireApi::Anthropic => ApiWireApi::Anthropic,
         };
 
         is_azure_responses_wire_base_url(wire, &self.name, self.base_url.as_deref())

@@ -6,6 +6,7 @@ use crate::api_bridge::auth_provider_from_auth;
 use crate::api_bridge::map_api_error;
 use crate::auth::UnauthorizedRecovery;
 use opencli_api::AggregateStreamExt;
+use opencli_api::AnthropicClient as ApiAnthropicClient;
 use opencli_api::ChatClient as ApiChatClient;
 use opencli_api::CompactClient as ApiCompactClient;
 use opencli_api::CompactionInput as ApiCompactionInput;
@@ -275,6 +276,7 @@ impl ModelClientSession {
                     self.stream_responses_api(prompt).await
                 }
             }
+            WireApi::Anthropic => self.stream_anthropic(prompt).await,
             WireApi::Chat => {
                 let api_stream = self.stream_chat_completions(prompt).await?;
 
@@ -533,6 +535,70 @@ impl ModelClientSession {
 
             match stream_result {
                 Ok(stream) => return Ok(stream),
+                Err(ApiError::Transport(TransportError::Http { status, .. }))
+                    if status == StatusCode::UNAUTHORIZED =>
+                {
+                    handle_unauthorized(status, &mut auth_recovery).await?;
+                    continue;
+                }
+                Err(err) => return Err(map_api_error(err)),
+            }
+        }
+    }
+
+    /// Streams a turn via Anthropic's Messages API.
+    ///
+    /// Structurally the same as the Chat Completions path — build a request,
+    /// hand it to a streaming client — but neither the request body nor the
+    /// event grammar is OpenAI-compatible, so both are translated in
+    /// `opencli-api`. Anthropic emits fully-formed events rather than raw
+    /// token deltas, so there is nothing to aggregate afterwards.
+    async fn stream_anthropic(&self, prompt: &Prompt) -> Result<ResponseStream> {
+        if prompt.output_schema.is_some() {
+            return Err(OpenCLIErr::UnsupportedOperation(
+                "output_schema is not supported for the Anthropic Messages API".to_string(),
+            ));
+        }
+
+        let auth_manager = self.state.auth_manager.clone();
+        let instructions = prompt.base_instructions.text.clone();
+        let tools_json = create_tools_json_for_chat_completions_api(&prompt.tools)?;
+        let api_prompt = build_api_prompt(prompt, instructions, tools_json);
+        // Anthropic requires `max_tokens`, and it caps *output*. `ModelInfo`
+        // only knows the total context window, which is a different and much
+        // larger number — sending it would exceed the model's output limit and
+        // be rejected. Leave it to the request builder's default.
+        let max_tokens = None;
+
+        let mut auth_recovery = auth_manager
+            .as_ref()
+            .map(super::auth::AuthManager::unauthorized_recovery);
+        loop {
+            let auth = match auth_manager.as_ref() {
+                Some(manager) => manager.auth().await,
+                None => None,
+            };
+            let api_provider = self
+                .state
+                .provider
+                .to_api_provider(auth.as_ref().map(OpenCLIAuth::internal_auth_mode))?;
+            let api_auth = auth_provider_from_auth(auth.clone(), &self.state.provider)?;
+            let transport = ReqwestTransport::new(build_reqwest_client());
+            let (request_telemetry, sse_telemetry) = self.build_streaming_telemetry();
+            let client = ApiAnthropicClient::new(transport, api_provider, api_auth)
+                .with_telemetry(Some(request_telemetry), Some(sse_telemetry));
+
+            let stream_result = client
+                .stream_prompt(&self.state.model_info.slug, &api_prompt, max_tokens)
+                .await;
+
+            match stream_result {
+                Ok(stream) => {
+                    return Ok(map_response_stream(
+                        stream,
+                        self.state.otel_manager.clone(),
+                    ));
+                }
                 Err(ApiError::Transport(TransportError::Http { status, .. }))
                     if status == StatusCode::UNAUTHORIZED =>
                 {

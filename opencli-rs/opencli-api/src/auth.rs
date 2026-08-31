@@ -1,3 +1,4 @@
+use crate::provider::WireApi;
 use opencli_client::Request;
 
 /// Provides bearer and account identity information for API requests.
@@ -12,7 +13,21 @@ pub trait AuthProvider: Send + Sync {
     }
 }
 
-pub(crate) fn add_auth_headers<A: AuthProvider>(auth: &A, mut req: Request) -> Request {
+pub(crate) fn add_auth_headers<A: AuthProvider>(
+    auth: &A,
+    mut req: Request,
+    wire: &WireApi,
+) -> Request {
+    // Anthropic does not accept a bearer token: the key goes in `x-api-key`,
+    // and sending `Authorization` instead is rejected as unauthenticated.
+    if let WireApi::Anthropic = wire {
+        if let Some(token) = auth.bearer_token()
+            && let Ok(header) = token.parse()
+        {
+            let _ = req.headers.insert("x-api-key", header);
+        }
+        return req;
+    }
     if let Some(token) = auth.bearer_token()
         && let Ok(header) = format!("Bearer {token}").parse()
     {

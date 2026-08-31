@@ -1,0 +1,9 @@
+# Anthropic — the Messages API, which is not OpenAI-compatible. OpenCLI speaks
+# it natively; see `wire_api = "anthropic"`.
+id = "anthropic"
+name = "Anthropic"
+base_url = "https://api.anthropic.com/v1"
+wire_api = "anthropic"
+env_key = "ANTHROPIC_API_KEY"
+docs = "https://console.anthropic.com/settings/keys"
+requires_key = true

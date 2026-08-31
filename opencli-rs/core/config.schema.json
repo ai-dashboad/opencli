@@ -1281,6 +1281,13 @@
             "chat"
           ],
           "type": "string"
+        },
+        {
+          "description": "Anthropic's Messages API at `/v1/messages`, which is not OpenAI-compatible and so cannot be served by either of the above.",
+          "enum": [
+            "anthropic"
+          ],
+          "type": "string"
         }
       ]
     }

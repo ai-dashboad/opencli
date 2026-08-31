@@ -75,7 +75,7 @@ impl<T: HttpTransport, A: AuthProvider> StreamingClient<T, A> {
             );
             req.body = Some(body.clone());
             req.compression = compression;
-            add_auth_headers(&self.auth, req)
+            add_auth_headers(&self.auth, req, &self.provider.wire)
         };
 
         let stream_response = run_with_request_telemetry(

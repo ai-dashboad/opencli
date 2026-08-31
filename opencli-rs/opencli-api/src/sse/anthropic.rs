@@ -17,6 +17,20 @@
 //! stops — accumulating is not an optimization here, it is required.
 
 use crate::common::ResponseEvent;
+use crate::common::ResponseStream;
+use crate::error::ApiError;
+use crate::telemetry::SseTelemetry;
+use eventsource_stream::Eventsource;
+use futures::Stream;
+use futures::StreamExt;
+use opencli_client::StreamResponse;
+use std::sync::Arc;
+use std::sync::OnceLock;
+use std::time::Duration;
+use tokio::sync::mpsc;
+use tokio::time::Instant;
+use tokio::time::timeout;
+use tracing::trace;
 use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::TokenUsage;
@@ -200,6 +214,105 @@ fn block_index(event: &Value) -> usize {
         .unwrap_or(0)
         .try_into()
         .unwrap_or(0)
+}
+
+pub(crate) fn spawn_anthropic_stream(
+    stream_response: StreamResponse,
+    idle_timeout: Duration,
+    telemetry: Option<Arc<dyn SseTelemetry>>,
+    _turn_state: Option<Arc<OnceLock<String>>>,
+) -> ResponseStream {
+    let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent, ApiError>>(1600);
+    tokio::spawn(async move {
+        process_anthropic_sse(stream_response.bytes, tx_event, idle_timeout, telemetry).await;
+    });
+    ResponseStream { rx_event }
+}
+
+/// Drive [`AnthropicStreamState`] over a live SSE body.
+///
+/// Anthropic names its events (`event: content_block_delta`) but repeats the
+/// name inside the JSON payload, so only the data is parsed — that keeps this
+/// identical to how the state machine is unit-tested.
+pub async fn process_anthropic_sse<S>(
+    stream: S,
+    tx_event: mpsc::Sender<Result<ResponseEvent, ApiError>>,
+    idle_timeout: Duration,
+    telemetry: Option<Arc<dyn SseTelemetry>>,
+) where
+    S: Stream<Item = Result<bytes::Bytes, opencli_client::TransportError>> + Unpin,
+{
+    let mut stream = stream.eventsource();
+    let mut state = AnthropicStreamState::new();
+    let mut completed_sent = false;
+
+    loop {
+        let start = Instant::now();
+        let response = timeout(idle_timeout, stream.next()).await;
+        if let Some(t) = telemetry.as_ref() {
+            t.on_sse_poll(&response, start.elapsed());
+        }
+        let sse = match response {
+            Ok(Some(Ok(sse))) => sse,
+            Ok(Some(Err(err))) => {
+                let _ = tx_event.send(Err(ApiError::Stream(err.to_string()))).await;
+                return;
+            }
+            // A stream that ends without `message_stop` — a dropped connection —
+            // must still complete the turn, or the agent waits forever.
+            Ok(None) => {
+                if !completed_sent {
+                    let _ = tx_event
+                        .send(Ok(ResponseEvent::Completed {
+                            response_id: String::new(),
+                            token_usage: None,
+                        }))
+                        .await;
+                }
+                return;
+            }
+            Err(_) => {
+                let _ = tx_event
+                    .send(Err(ApiError::Stream("idle timeout waiting for SSE".into())))
+                    .await;
+                return;
+            }
+        };
+
+        trace!("Anthropic SSE event: {}", sse.data);
+        let payload: Value = match serde_json::from_str(&sse.data) {
+            Ok(payload) => payload,
+            // Unparseable frames are skipped rather than fatal: a keep-alive or
+            // a future event type should not kill an otherwise healthy turn.
+            Err(_) => continue,
+        };
+
+        // An `error` event is terminal and carries the reason the turn failed;
+        // reporting it beats letting the stream end as if it had succeeded.
+        if payload.get("type").and_then(Value::as_str) == Some("error") {
+            let message = payload
+                .get("error")
+                .and_then(|error| error.get("message"))
+                .and_then(Value::as_str)
+                .unwrap_or("the provider reported an error");
+            let _ = tx_event
+                .send(Err(ApiError::Stream(message.to_string())))
+                .await;
+            return;
+        }
+
+        for event in state.handle(&payload) {
+            if matches!(event, ResponseEvent::Completed { .. }) {
+                completed_sent = true;
+            }
+            if tx_event.send(Ok(event)).await.is_err() {
+                return;
+            }
+        }
+        if completed_sent {
+            return;
+        }
+    }
 }
 
 #[cfg(test)]

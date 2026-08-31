@@ -14,6 +14,10 @@ pub enum WireApi {
     Responses,
     Chat,
     Compact,
+    /// Anthropic's Messages API, which is not OpenAI-compatible: a top-level
+    /// `system` field, a required `max_tokens`, `input_schema` tools, and
+    /// `x-api-key` auth.
+    Anthropic,
 }
 
 /// High-level retry configuration for a provider.
