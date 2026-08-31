@@ -24,7 +24,15 @@ import {
   type ThreadItem,
   type ThreadSummary,
 } from "./protocol";
-import { PlusIcon, ProjectIcon, SendIcon, StopIcon } from "./icons";
+import {
+  FolderIcon,
+  PanelIcon,
+  PlusIcon,
+  ProjectIcon,
+  SendIcon,
+  SidebarToggleIcon,
+  StopIcon,
+} from "./icons";
 import "./styles.css";
 
 /**
@@ -156,6 +164,12 @@ export default function App() {
   const [cwd, setCwd] = useState("");
   const [status, setStatus] = useState<ConnectionStatus | "idle">("idle");
   const [view, setView] = useState<View>("chat");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  // Where the user has been, so back and forward mean something. Kept as
+  // views rather than URLs: this app has no address bar to sync with.
+  const [history, setHistory] = useState<View[]>(["chat"]);
+  const [historyAt, setHistoryAt] = useState(0);
 
   const [items, setItems] = useState<ThreadItem[]>([]);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
@@ -185,6 +199,36 @@ export default function App() {
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
   }, [items, approval]);
+
+  /**
+   * Navigate, recording the step.
+   *
+   * Anything after the current position is dropped, which is what a browser
+   * does: once you go back and then somewhere new, the branch you left is no
+   * longer reachable and keeping it would make "forward" unpredictable.
+   */
+  const go = useCallback(
+    (next: View) => {
+      setView(next);
+      setHistory((prev) => {
+        const trimmed = prev.slice(0, historyAt + 1);
+        if (trimmed[trimmed.length - 1] === next) return trimmed;
+        setHistoryAt(trimmed.length);
+        return [...trimmed, next];
+      });
+    },
+    [historyAt],
+  );
+
+  const step = useCallback(
+    (delta: number) => {
+      const at = historyAt + delta;
+      if (at < 0 || at >= history.length) return;
+      setHistoryAt(at);
+      setView(history[at]);
+    },
+    [history, historyAt],
+  );
 
   useEffect(() => {
     modelRef.current = model;
@@ -361,7 +405,7 @@ export default function App() {
   const openThread = useCallback(async (id: string) => {
     const client = clientRef.current;
     if (!client) return;
-    setView("chat");
+    go("chat");
     setItems([]);
     setChanges([]);
     try {
@@ -374,7 +418,7 @@ export default function App() {
 
   const openProject = useCallback(
     async (target: Project) => {
-      setView("chat");
+      go("chat");
       setItems([]);
       setChanges([]);
       setProject(target);
@@ -395,7 +439,7 @@ export default function App() {
   );
 
   const newChat = useCallback(async () => {
-    setView("chat");
+    go("chat");
     setItems([]);
     setChanges([]);
     setProject(null);
@@ -468,7 +512,9 @@ export default function App() {
   const client = clientRef.current;
 
   return (
-    <div className="shell">
+    <div
+      className={`shell${sidebarOpen ? "" : " collapsed"}${detailsOpen ? " with-details" : ""}`}
+    >
       <Sidebar
         view={view}
         threads={threads}
@@ -476,10 +522,15 @@ export default function App() {
         tasks={taskList}
         activeThreadId={activeThreadId}
         activeProjectId={project?.id ?? null}
-        onNavigate={setView}
+        onNavigate={go}
         onNewChat={() => void newChat()}
         onOpenThread={(id) => void openThread(id)}
         onOpenProject={(target) => void openProject(target)}
+        onToggle={() => setSidebarOpen(false)}
+        onBack={() => step(-1)}
+        onForward={() => step(1)}
+        canBack={historyAt > 0}
+        canForward={historyAt < history.length - 1}
         onRenameThread={(id, name) => {
           void clientRef.current
             ?.renameThread(id, name)
@@ -495,7 +546,16 @@ export default function App() {
       />
 
       <main className="chat">
-        <header>
+        <header data-tauri-drag-region>
+          {sidebarOpen ? null : (
+            <button
+              className="icon-button sm"
+              title="Show sidebar"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <SidebarToggleIcon size={15} />
+            </button>
+          )}
           <span className="crumb">
             <ProjectIcon size={15} />
             {project ? (
@@ -510,27 +570,18 @@ export default function App() {
           <span className="spacer" />
 
           {changes.length > 0 ? (
-            <button className="chip" onClick={() => setView("artifacts")}>
+            <button className="chip" onClick={() => go("artifacts")}>
               {new Set(changes.map((change) => change.path)).size} changed
             </button>
           ) : null}
 
-          <select
-            className="model-select"
-            value={model}
-            onChange={(e) => {
-              setModel(e.target.value);
-              modelRef.current = e.target.value;
-            }}
-            title="Used by the next chat you start"
+          <button
+            className={`icon-button sm${detailsOpen ? " on" : ""}`}
+            title={detailsOpen ? "Hide details" : "Show details"}
+            onClick={() => setDetailsOpen(!detailsOpen)}
           >
-            {models.length === 0 ? <option value="">no models configured</option> : null}
-            {models.map((option) => (
-              <option key={option.id} value={option.model}>
-                {option.displayName}
-              </option>
-            ))}
-          </select>
+            <PanelIcon size={15} />
+          </button>
         </header>
 
         {view === "customize" ? (
@@ -724,10 +775,87 @@ export default function App() {
                 </button>
               </div>
             </form>
+
+            {/* The reference keeps the working directory and the model out of
+                the way down here, where they are visible without competing
+                with the message being written. */}
+            <div className="composer-foot">
+              <button
+                className="foot-button"
+                title="Change the working directory"
+                onClick={() => {
+                  if (isDesktop()) {
+                    void chooseDirectory(cwd).then((picked) => picked && setCwd(picked));
+                  } else {
+                    const picked = window.prompt("Working directory", cwd);
+                    if (picked?.trim()) setCwd(picked.trim());
+                  }
+                }}
+              >
+                <FolderIcon size={13} />
+                <span>{cwd || "."}</span>
+              </button>
+              <span className="grow" />
+              <select
+                className="foot-select"
+                value={model}
+                onChange={(e) => {
+                  setModel(e.target.value);
+                  modelRef.current = e.target.value;
+                }}
+                title="Used by the next chat you start"
+              >
+                {models.length === 0 ? <option value="">no model</option> : null}
+                {models.map((option) => (
+                  <option key={option.id} value={option.model}>
+                    {option.displayName}
+                  </option>
+                ))}
+              </select>
+              {preferences.effort ? (
+                <span className="foot-note">{preferences.effort}</span>
+              ) : null}
+            </div>
             </div>
           </>
         )}
       </main>
+
+      {detailsOpen ? (
+        <aside className="details">
+          <h3>This chat</h3>
+          <dl>
+            <dt>Directory</dt>
+            <dd>{cwd || "."}</dd>
+            <dt>Project</dt>
+            <dd>{project?.name ?? "None"}</dd>
+            <dt>Model</dt>
+            <dd>{model || "default"}</dd>
+            <dt>Approvals</dt>
+            <dd>{preferences.approvalPolicy}</dd>
+            <dt>Messages</dt>
+            <dd>{items.length}</dd>
+          </dl>
+
+          <h3>Files changed</h3>
+          {changes.length === 0 ? (
+            <p className="muted">Nothing written yet.</p>
+          ) : (
+            <ul className="details-files">
+              {[...new Set(changes.map((change) => change.path))].map((path) => (
+                <li key={path} title={path}>
+                  {path.split("/").pop()}
+                </li>
+              ))}
+            </ul>
+          )}
+          {changes.length > 0 ? (
+            <button className="link" onClick={() => go("artifacts")}>
+              Open Artifacts
+            </button>
+          ) : null}
+        </aside>
+      ) : null}
     </div>
   );
 }

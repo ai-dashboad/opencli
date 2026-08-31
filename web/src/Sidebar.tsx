@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import type { Project, ScheduledTask, ThreadSummary } from "./protocol";
 import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
   ArtifactIcon,
   ChevronIcon,
   ClockIcon,
@@ -11,6 +13,7 @@ import {
   ProjectIcon,
   SearchIcon,
   SettingsIcon,
+  SidebarToggleIcon,
   SkillIcon,
   SlidersIcon,
 } from "./icons";
@@ -39,6 +42,37 @@ interface SidebarProps {
   onOpenProject: (project: Project) => void;
   onRenameThread: (id: string, name: string) => void;
   onArchiveThread: (id: string) => void;
+  onToggle: () => void;
+  onBack: () => void;
+  onForward: () => void;
+  canBack: boolean;
+  canForward: boolean;
+}
+
+const SEEN_KEY = "opencli.scheduled.seen";
+
+/**
+ * Runs the user has already looked at, per task.
+ *
+ * Stored locally rather than on the server: "have I read this" belongs to the
+ * person at this machine, not to the task, and two windows disagreeing about
+ * it is harmless.
+ */
+function readSeen(): Record<string, number> {
+  try {
+    const raw = window.localStorage.getItem(SEEN_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSeen(seen: Record<string, number>): void {
+  try {
+    window.localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+  } catch {
+    // A full or disabled store only costs the unread badges.
+  }
 }
 
 /** One readable line for a chat row. */
@@ -95,9 +129,15 @@ export default function Sidebar({
   onOpenProject,
   onRenameThread,
   onArchiveThread,
+  onToggle,
+  onBack,
+  onForward,
+  canBack,
+  canForward,
 }: SidebarProps) {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [seen, setSeen] = useState<Record<string, number>>(readSeen);
 
   // Chats already shown under a project are not repeated in the flat list;
   // seeing the same conversation twice makes the tree look untrustworthy.
@@ -118,6 +158,31 @@ export default function Sidebar({
 
   return (
     <nav className="sidebar">
+      {/* The window's traffic lights float over the left of this strip, so it
+          is padded to clear them and made draggable to replace the title bar
+          it stands in for. */}
+      <div className="titlebar" data-tauri-drag-region>
+        <button className="icon-button sm" title="Hide sidebar" onClick={onToggle}>
+          <SidebarToggleIcon size={15} />
+        </button>
+        <button
+          className="icon-button sm"
+          title="Back"
+          onClick={onBack}
+          disabled={!canBack}
+        >
+          <ArrowLeftIcon size={15} />
+        </button>
+        <button
+          className="icon-button sm"
+          title="Forward"
+          onClick={onForward}
+          disabled={!canForward}
+        >
+          <ArrowRightIcon size={15} />
+        </button>
+      </div>
+
       <div className="sidebar-scroll">
         <button className="nav-row primary" onClick={onNewChat}>
           <PlusIcon />
@@ -139,14 +204,27 @@ export default function Sidebar({
         {active.length > 0 ? (
           <Section label="Scheduled">
             <ul className="tree">
-              {active.map((task) => (
-                <li key={task.id}>
-                  <button className="tree-row" onClick={() => onNavigate("scheduled")}>
-                    <i className="dot" />
-                    <span>{task.name}</span>
-                  </button>
-                </li>
-              ))}
+              {active.map((task) => {
+                const fresh = Math.max(0, task.runCount - (seen[task.id] ?? 0));
+                return (
+                  <li key={task.id}>
+                    <button
+                      className="tree-row"
+                      onClick={() => {
+                        // Opening the panel is what "seeing" a run means.
+                        const next = { ...seen, [task.id]: task.runCount };
+                        setSeen(next);
+                        writeSeen(next);
+                        onNavigate("scheduled");
+                      }}
+                    >
+                      <i className={`dot${fresh > 0 ? " on" : ""}`} />
+                      <span>{task.name}</span>
+                      {fresh > 0 ? <em className="pill">{fresh} new</em> : null}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </Section>
         ) : null}

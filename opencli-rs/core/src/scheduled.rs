@@ -34,6 +34,12 @@ pub struct ScheduledTask {
     /// Unix seconds of the last completed run; `None` until it first runs.
     #[serde(default)]
     pub last_run: Option<u64>,
+    /// How many times the task has run.
+    ///
+    /// A timestamp alone cannot answer "how many since I last looked", which
+    /// is what a count beside the task in a sidebar is claiming to say.
+    #[serde(default)]
+    pub run_count: u64,
     /// A paused task is kept but never becomes due.
     #[serde(default = "default_enabled")]
     pub enabled: bool,
@@ -112,6 +118,7 @@ pub fn create(
         interval_seconds,
         cwd,
         last_run: None,
+        run_count: 0,
         enabled: true,
     };
     let mut tasks = load(opencli_home);
@@ -148,6 +155,7 @@ pub fn mark_ran(opencli_home: &Path, id: &str) -> std::io::Result<()> {
     let mut tasks = load(opencli_home);
     if let Some(task) = tasks.iter_mut().find(|task| task.id == id) {
         task.last_run = Some(now_seconds());
+        task.run_count = task.run_count.saturating_add(1);
         save(opencli_home, &tasks)?;
     }
     Ok(())
@@ -173,6 +181,7 @@ mod tests {
             interval_seconds: interval,
             cwd: "/tmp".into(),
             last_run,
+            run_count: 0,
             enabled: true,
         }
     }

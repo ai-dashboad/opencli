@@ -97,6 +97,8 @@ export interface ScheduledTask {
   cwd: string;
   lastRun: number | null;
   nextRun: number | null;
+  /** How many times it has run, ever. */
+  runCount: number;
   enabled: boolean;
 }
 

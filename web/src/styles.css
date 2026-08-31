@@ -90,8 +90,6 @@ textarea:focus {
   min-height: 0;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--line-soft);
-  /* The traffic lights sit over the top-left corner of the window. */
-  padding-top: 34px;
 }
 
 .sidebar-scroll {
@@ -332,7 +330,8 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 20px;
+  height: 44px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--line-soft);
   color: var(--text-dim);
   font-size: 13px;
@@ -944,4 +943,178 @@ textarea:focus {
 
 .connect code {
   color: var(--code);
+}
+
+/* ── Title bar ─────────────────────────────────────────────────────── */
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 38px;
+  /* Leave room for the window's traffic lights, which float over this strip. */
+  padding: 0 8px 0 78px;
+}
+
+.shell.collapsed {
+  grid-template-columns: 1fr;
+}
+
+.shell.collapsed .sidebar {
+  display: none;
+}
+
+/* With no sidebar the header carries the window controls instead. */
+.shell.collapsed .chat > header {
+  padding-left: 78px;
+}
+
+.icon-button.sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.icon-button:disabled {
+  color: var(--line);
+  cursor: default;
+}
+
+.icon-button:disabled:hover {
+  background: none;
+}
+
+.icon-button.on {
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+/* ── Composer footer ───────────────────────────────────────────────── */
+
+.composer-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 780px;
+  margin: 6px auto 0;
+  padding: 0 4px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.composer-foot .grow {
+  flex: 1;
+}
+
+.foot-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 320px;
+  padding: 3px 6px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: inherit;
+  font-size: 12px;
+}
+
+.foot-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.foot-button:hover {
+  background: var(--surface-hover);
+  color: var(--text-dim);
+}
+
+.foot-select {
+  padding: 3px 4px;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 12px;
+}
+
+.foot-note {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface);
+  text-transform: capitalize;
+}
+
+/* ── Details panel ─────────────────────────────────────────────────── */
+
+/* A modifier class rather than `:has()`: this ships to a WebView as old as
+   macOS 10.15, where `:has()` silently matches nothing and the panel would
+   overflow the grid. */
+.shell.with-details {
+  grid-template-columns: 258px 1fr 268px;
+}
+
+.shell.collapsed.with-details {
+  grid-template-columns: 1fr 268px;
+}
+
+.details {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 46px 16px 16px;
+  background: var(--bg-sidebar);
+  border-left: 1px solid var(--line-soft);
+  font-size: 13px;
+}
+
+.details h3 {
+  margin: 0 0 8px;
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.details h3 + * {
+  margin-bottom: 22px;
+}
+
+.details dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 12px;
+  margin: 0;
+}
+
+.details dt {
+  color: var(--text-faint);
+}
+
+.details dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  direction: rtl;
+  text-align: left;
+}
+
+.details-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.details-files li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--code);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
 }

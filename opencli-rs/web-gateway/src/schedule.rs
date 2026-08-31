@@ -55,6 +55,7 @@ fn task_json(task: &scheduled::ScheduledTask) -> Value {
         "intervalSeconds": task.interval_seconds,
         "cwd": task.cwd,
         "lastRun": task.last_run,
+        "runCount": task.run_count,
         "nextRun": task.next_run(),
         "enabled": task.enabled,
     })
@@ -267,6 +268,25 @@ mod tests {
         let task = &listed["result"]["data"][0];
         assert_eq!(task["enabled"], false);
         assert!(task["nextRun"].is_null(), "a paused task has no next run");
+    }
+
+    #[test]
+    fn should_count_runs_so_a_client_can_show_what_is_new() {
+        // A timestamp cannot answer "how many since I last looked".
+        let dir = tempdir().expect("tempdir");
+        let created = call(
+            r#"{"method":"schedule/create","id":1,"params":
+                {"name":"x","prompt":"p","intervalSeconds":60}}"#,
+            dir.path(),
+        );
+        let id = created["result"]["id"].as_str().expect("id").to_string();
+        assert_eq!(created["result"]["runCount"], 0);
+
+        scheduled::mark_ran(dir.path(), &id).expect("mark");
+        scheduled::mark_ran(dir.path(), &id).expect("mark");
+
+        let listed = call(r#"{"method":"schedule/list","id":2}"#, dir.path());
+        assert_eq!(listed["result"]["data"][0]["runCount"], 2);
     }
 
     #[test]

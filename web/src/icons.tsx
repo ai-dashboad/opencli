@@ -183,3 +183,36 @@ export function PanelIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function SidebarToggleIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="2" y="3" width="12" height="10" rx="1.6" />
+      <path d="M6.2 3v10" />
+    </Svg>
+  );
+}
+
+export function ArrowLeftIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12.4 8H3.6M7 4.4 3.6 8 7 11.6" />
+    </Svg>
+  );
+}
+
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.6 8h8.8M9 4.4 12.4 8 9 11.6" />
+    </Svg>
+  );
+}
+
+export function FolderIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2 5.2c0-.7.5-1.2 1.2-1.2h2.6l1.3 1.6h5.7c.7 0 1.2.5 1.2 1.2v4.4c0 .7-.5 1.2-1.2 1.2H3.2c-.7 0-1.2-.5-1.2-1.2z" />
+    </Svg>
+  );
+}
