@@ -46,7 +46,16 @@ impl OllamaClient {
         Self::try_from_provider(provider).await
     }
 
-    #[cfg(test)]
+    /// Build a client for a host given by address, local or remote.
+    ///
+    /// Ollama's management API is plain HTTP, so a machine elsewhere on the
+    /// network can be asked to list, pull and delete models exactly as the one
+    /// under the desk can — which is what makes "download the model onto the
+    /// server" possible without a shell on it.
+    pub async fn try_from_base_url(base_url: &str) -> io::Result<Self> {
+        Self::try_from_provider_with_base_url(base_url).await
+    }
+
     async fn try_from_provider_with_base_url(base_url: &str) -> io::Result<Self> {
         let provider =
             opencli_core::create_oss_provider_with_base_url(base_url, opencli_core::WireApi::Chat);
@@ -54,7 +63,7 @@ impl OllamaClient {
     }
 
     /// Build a client from a provider definition and verify the server is reachable.
-    pub(crate) async fn try_from_provider(provider: &ModelProviderInfo) -> io::Result<Self> {
+    pub async fn try_from_provider(provider: &ModelProviderInfo) -> io::Result<Self> {
         #![expect(clippy::expect_used)]
         let base_url = provider
             .base_url

@@ -29,6 +29,7 @@ pub mod dispatch;
 pub mod memory;
 pub mod projects;
 pub mod providers;
+pub mod runtimes;
 pub mod scheduled;
 pub mod env;
 mod environment_context;
