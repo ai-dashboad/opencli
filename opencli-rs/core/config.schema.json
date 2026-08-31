@@ -1695,6 +1695,10 @@
       },
       "type": "object"
     },
+    "projects_root": {
+      "description": "Where new projects are created when no folder is chosen.\n\nDefaults to `Projects` under the home directory. Named rather than derived so that someone who keeps their work elsewhere says so once instead of correcting the path on every new project.",
+      "type": "string"
+    },
     "rate_limit_fallback_model": {
       "default": null,
       "description": "Model to offer switching to when nearing rate limits. Unset by default.",
