@@ -42,14 +42,18 @@ async fn app_server_default_analytics_disabled_without_flag() -> Result<()> {
 }
 
 #[tokio::test]
-async fn app_server_default_analytics_enabled_with_flag() -> Result<()> {
+async fn should_not_export_metrics_even_when_analytics_are_requested() -> Result<()> {
+    // This build never exports telemetry over the network, whatever the config
+    // or the caller asks for. The test used to assert the opposite, from before
+    // that was decided; a passing assertion that metrics *are* exported would
+    // mean the guarantee had been quietly lost.
     let opencli_home = TempDir::new()?;
     let mut config = ConfigBuilder::default()
         .opencli_home(opencli_home.path().to_path_buf())
         .build()
         .await?;
     set_metrics_exporter(&mut config);
-    config.analytics_enabled = None;
+    config.analytics_enabled = Some(true);
 
     let provider = opencli_core::otel_init::build_provider(
         &config,
@@ -59,8 +63,7 @@ async fn app_server_default_analytics_enabled_with_flag() -> Result<()> {
     )
     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
 
-    // With analytics unset in the config and the default flag is true, metrics are enabled.
     let has_metrics = provider.as_ref().and_then(|otel| otel.metrics()).is_some();
-    assert_eq!(has_metrics, true);
+    assert_eq!(has_metrics, false);
     Ok(())
 }

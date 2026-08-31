@@ -188,31 +188,37 @@ impl ModelsManager {
         config: &Config,
         refresh_strategy: RefreshStrategy,
     ) -> CoreResult<()> {
-        // The remote model catalog is an OpenAI-specific endpoint. Third-party
-        // gateways do not serve it, and querying it with their credentials only
-        // produces a spurious 401 on every startup, so keep to built-in presets.
-        if !config.features.enabled(Feature::RemoteModels)
-            || self.auth_manager.get_internal_auth_mode() == Some(AuthMode::ApiKey)
-            || !config.model_provider.is_openai()
-        {
+        if !config.features.enabled(Feature::RemoteModels) {
             return Ok(());
         }
 
+        // The remote catalog is an OpenAI-specific endpoint: third-party
+        // gateways do not serve it, and querying it with their credentials only
+        // produces a spurious 401 on every startup.
+        //
+        // That restriction is about the *network call*. The cache is a local
+        // file and costs nothing to read, so gating it too would deny everyone
+        // on another provider the model metadata they already have on disk.
+        let may_fetch = self.auth_manager.get_internal_auth_mode() != Some(AuthMode::ApiKey)
+            && config.model_provider.is_openai();
+
         match refresh_strategy {
             RefreshStrategy::Offline => {
-                // Only try to load from cache, never fetch
                 self.try_load_cache().await;
                 Ok(())
             }
             RefreshStrategy::OnlineIfUncached => {
-                // Try cache first, fall back to online if unavailable
-                if self.try_load_cache().await {
+                if self.try_load_cache().await || !may_fetch {
                     return Ok(());
                 }
                 self.fetch_and_update_models().await
             }
             RefreshStrategy::Online => {
-                // Always fetch from network
+                if !may_fetch {
+                    // Fall back to whatever is cached rather than doing nothing.
+                    self.try_load_cache().await;
+                    return Ok(());
+                }
                 self.fetch_and_update_models().await
             }
         }

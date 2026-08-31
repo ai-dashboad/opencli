@@ -4,6 +4,7 @@ use app_test_support::create_fake_rollout_with_text_elements;
 use app_test_support::create_mock_responses_server_repeating_assistant;
 use app_test_support::rollout_path;
 use app_test_support::to_response;
+use app_test_support::write_personality_models_cache;
 use chrono::Utc;
 use opencli_app_server_protocol::JSONRPCResponse;
 use opencli_app_server_protocol::RequestId;
@@ -381,6 +382,8 @@ async fn thread_resume_accepts_personality_override() -> Result<()> {
 
     let opencli_home = TempDir::new()?;
     create_config_toml(opencli_home.path(), &server.uri())?;
+    // Personality needs a model that declares an instructions template.
+    write_personality_models_cache(opencli_home.path())?;
 
     let mut mcp = McpProcess::new(opencli_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
@@ -466,7 +469,9 @@ sandbox_mode = "read-only"
 model_provider = "mock_provider"
 
 [features]
-remote_models = false
+# The models cache is only consulted when this is on, and the personality
+# template that the test asserts on lives in that cache.
+remote_models = true
 personality = true
 
 [model_providers.mock_provider]
