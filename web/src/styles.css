@@ -176,3 +176,25 @@ button.link {
   font-size: 11px;
   color: var(--muted);
 }
+
+.approval-changes {
+  max-height: 320px;
+  overflow: auto;
+  margin: 8px 0;
+}
+
+.approval-changes strong {
+  display: block;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.path-input {
+  display: flex;
+  gap: 8px;
+}
+
+.path-input input {
+  flex: 1;
+  min-width: 0;
+}

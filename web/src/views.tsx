@@ -362,9 +362,12 @@ export function parseInterval(raw: string): number | null {
 export function ProjectsView({
   client,
   onOpen,
+  onBrowse,
 }: {
   client: OpenCliClient;
   onOpen: (project: Project) => void;
+  /** Opens the platform folder chooser; absent in the browser build. */
+  onBrowse?: (start: string) => Promise<string | null>;
 }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -425,11 +428,26 @@ export function ProjectsView({
           onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           placeholder="Project name"
         />
-        <input
-          value={draft.cwd}
-          onChange={(e) => setDraft({ ...draft, cwd: e.target.value })}
-          placeholder="/path/to/project"
-        />
+        <span className="path-input">
+          <input
+            value={draft.cwd}
+            onChange={(e) => setDraft({ ...draft, cwd: e.target.value })}
+            placeholder="/path/to/project"
+          />
+          {onBrowse ? (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                void onBrowse(draft.cwd).then(
+                  (picked) => picked && setDraft((current) => ({ ...current, cwd: picked })),
+                );
+              }}
+            >
+              Browse…
+            </button>
+          ) : null}
+        </span>
         <textarea
           value={draft.instructions}
           onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
@@ -657,5 +675,31 @@ export function MemoryView({
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * The files a pending approval would write.
+ *
+ * Approving a write without seeing it is the one thing an approval dialog must
+ * not ask for, so the diff is shown inline rather than behind a disclosure.
+ */
+export function ApprovalChanges({ changes }: { changes: FileChange[] }) {
+  if (changes.length === 0) {
+    // The contents ride on an earlier notification; if that was missed, say so
+    // rather than implying the write is harmless.
+    return <p className="error">The contents of this change could not be read.</p>;
+  }
+  return (
+    <div className="approval-changes">
+      {changes.map((change) => (
+        <div key={change.path}>
+          <strong>
+            {change.kind} {change.path}
+          </strong>
+          <ChangeBody change={change} />
+        </div>
+      ))}
+    </div>
   );
 }

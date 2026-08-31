@@ -70,10 +70,56 @@ fn default_cwd() -> String {
         .unwrap_or_else(|| "/".to_string())
 }
 
+/// Ask the OS for a directory, returning `None` if the user cancelled.
+///
+/// Deliberately shells out to the platform's own chooser rather than taking a
+/// dialog dependency: adding one forces this crate's lock file to be
+/// re-resolved, and resolving it independently of the main workspace picks
+/// versions of shared transitive dependencies that do not compile together.
+///
+/// Unsupported platforms return `None`, which leaves the typed path in place
+/// rather than blocking the user.
+#[tauri::command]
+fn choose_directory(start: Option<String>) -> Result<Option<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        // `POSIX path of` yields a plain path; without it AppleScript returns
+        // an HFS-style alias with colons, which is not a usable cwd.
+        let script = match start.as_deref().filter(|path| !path.is_empty()) {
+            Some(path) => format!(
+                "POSIX path of (choose folder default location POSIX file \"{}\")",
+                path.replace('"', "")
+            ),
+            None => "POSIX path of (choose folder)".to_string(),
+        };
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output()
+            .map_err(|err| format!("could not open the folder chooser: {err}"))?;
+        if !output.status.success() {
+            // A cancelled dialog exits non-zero; that is not an error.
+            return Ok(None);
+        }
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Ok(if path.is_empty() { None } else { Some(path) });
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = start;
+        Ok(None)
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(GatewayUrl::default())
-        .invoke_handler(tauri::generate_handler![gateway_url, default_cwd])
+        .invoke_handler(tauri::generate_handler![
+            gateway_url,
+            default_cwd,
+            choose_directory
+        ])
         .setup(|app| {
             let handle = app.handle().clone();
             let server_bin = locate_opencli()?;

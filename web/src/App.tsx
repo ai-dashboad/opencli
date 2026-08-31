@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Sidebar, { type View } from "./Sidebar";
 import {
+  ApprovalChanges,
   ArtifactsView,
   ConnectorsView,
   MemoryView,
@@ -33,7 +34,7 @@ function gatewayUrlFromLocation(): string {
 }
 
 interface TauriBridge {
-  invoke(command: string): Promise<unknown>;
+  invoke(command: string, args?: Record<string, unknown>): Promise<unknown>;
 }
 
 function bridge(): TauriBridge | null {
@@ -55,6 +56,23 @@ async function fromHost(command: "gateway_url" | "default_cwd"): Promise<string 
   try {
     const value = await core.invoke(command);
     return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Open the platform's folder chooser, if the host offers one.
+ *
+ * Returns `null` in the browser build and when the user cancels — in both
+ * cases the caller should leave whatever path is already there.
+ */
+export async function chooseDirectory(start: string): Promise<string | null> {
+  const core = bridge();
+  if (!core) return null;
+  try {
+    const chosen = await core.invoke("choose_directory", { start });
+    return typeof chosen === "string" && chosen ? chosen : null;
   } catch {
     return null;
   }
@@ -317,11 +335,24 @@ export default function App() {
         </label>
         <label>
           Working directory
-          <input
-            value={cwd}
-            onChange={(e) => setCwd(e.target.value)}
-            placeholder="/path/to/project"
-          />
+          <span className="path-input">
+            <input
+              value={cwd}
+              onChange={(e) => setCwd(e.target.value)}
+              placeholder="/path/to/project"
+            />
+            {isDesktop() ? (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  void chooseDirectory(cwd).then((picked) => picked && setCwd(picked));
+                }}
+              >
+                Browse…
+              </button>
+            ) : null}
+          </span>
         </label>
         <button onClick={connect} disabled={status === "connecting"}>
           {status === "connecting" ? "Connecting…" : "Connect"}
@@ -378,7 +409,11 @@ export default function App() {
         ) : view === "memory" && client ? (
           <MemoryView client={client} project={project} />
         ) : view === "projects" && client ? (
-          <ProjectsView client={client} onOpen={(target) => void openProject(target)} />
+          <ProjectsView
+            client={client}
+            onOpen={(target) => void openProject(target)}
+            onBrowse={isDesktop() ? chooseDirectory : undefined}
+          />
         ) : view === "scheduled" && client ? (
           <ScheduledView client={client} cwd={cwd || "."} />
         ) : view === "skills" && client ? (
@@ -416,8 +451,17 @@ export default function App() {
 
             {approval ? (
               <div className="approval" role="dialog" aria-label="Approval required">
-                <p>The agent wants to run:</p>
-                <pre>{approval.command}</pre>
+                <p>
+                  {approval.kind === "fileChange"
+                    ? "The agent wants to write:"
+                    : "The agent wants to run:"}
+                </p>
+                {approval.kind === "fileChange" ? (
+                  <ApprovalChanges changes={approval.changes ?? []} />
+                ) : (
+                  <pre>{approval.command}</pre>
+                )}
+                {approval.reason ? <p className="muted">{approval.reason}</p> : null}
                 <div className="actions">
                   <button onClick={() => answerApproval("approved")}>Approve</button>
                   <button className="secondary" onClick={() => answerApproval("denied")}>

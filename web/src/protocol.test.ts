@@ -167,7 +167,55 @@ describe("approval requests", () => {
       },
     });
 
-    expect(seen).toEqual([{ id: 0, command: "touch /tmp/x", cwd: "/work" }]);
+    expect(seen).toEqual([
+      { id: 0, kind: "command", command: "touch /tmp/x", cwd: "/work", reason: undefined },
+    ]);
+  });
+
+  it("should show the files a write approval covers", async () => {
+    // The approval names the item but does not repeat its contents; those came
+    // on the earlier `item/started`. Without that lookup the user would be
+    // asked to approve writes they cannot see.
+    const seen: ApprovalRequest[] = [];
+    const { socket } = await connected({ onApprovalRequest: (r: ApprovalRequest) => seen.push(r) });
+
+    socket.emit({
+      method: "item/started",
+      params: {
+        item: {
+          id: "call_9",
+          type: "fileChange",
+          status: "inProgress",
+          changes: [{ path: "/work/a.txt", kind: { type: "update" }, diff: "@@\n-old\n+new" }],
+        },
+      },
+    });
+    socket.emit({
+      method: "item/fileChange/requestApproval",
+      id: 3,
+      params: { threadId: "thread-1", turnId: "0", itemId: "call_9", reason: "outside the workspace" },
+    });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0].kind).toBe("fileChange");
+    expect(seen[0].reason).toBe("outside the workspace");
+    expect(seen[0].changes).toEqual([
+      { path: "/work/a.txt", kind: "update", diff: "@@\n-old\n+new" },
+    ]);
+  });
+
+  it("should report empty changes rather than guessing when the start was missed", async () => {
+    // Showing nothing is honest; implying the write is harmless is not.
+    const seen: ApprovalRequest[] = [];
+    const { socket } = await connected({ onApprovalRequest: (r: ApprovalRequest) => seen.push(r) });
+
+    socket.emit({
+      method: "item/fileChange/requestApproval",
+      id: 4,
+      params: { itemId: "never-seen" },
+    });
+
+    expect(seen[0].changes).toEqual([]);
   });
 
   it("should answer with the decision values the server accepts", async () => {

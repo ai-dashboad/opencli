@@ -54,8 +54,15 @@ export interface ClientEvents {
 export interface ApprovalRequest {
   /** The request id to answer with. */
   id: RequestId;
-  command: string;
+  /** What is being asked for: running a command, or writing files. */
+  kind: "command" | "fileChange";
+  /** The command line, for a command approval. */
+  command?: string;
   cwd?: string;
+  /** Why the agent needs approval, when the server explains it. */
+  reason?: string;
+  /** The files about to be written, for a file-change approval. */
+  changes?: FileChange[];
 }
 
 /** A model offered by the configured providers. */
@@ -198,6 +205,13 @@ export class OpenCliClient {
   #pending = new Map<RequestId, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   #events: ClientEvents;
   #threadId: string | null = null;
+  /**
+   * File changes seen on `item/started`, keyed by item id.
+   *
+   * A file-change approval arrives moments later carrying only the id, so the
+   * contents have to be held from the start notification to describe it.
+   */
+  #pendingChanges = new Map<string, FileChange[]>();
 
   constructor(events: ClientEvents = {}) {
     this.#events = events;
@@ -296,12 +310,33 @@ export class OpenCliClient {
     if (typeof message.id === "number" && message.method) {
       if (/requestApproval$/i.test(message.method)) {
         const params = (message.params ?? {}) as Record<string, unknown>;
+        const reason = typeof params.reason === "string" ? params.reason : undefined;
+        const cwd = typeof params.cwd === "string" ? params.cwd : undefined;
+
+        if (message.method.includes("fileChange")) {
+          // A file-change approval names the item but does not repeat what is
+          // in it. The changes arrived earlier, on the `item/started` for the
+          // same id — without that lookup the user is asked to approve writes
+          // they cannot see.
+          const itemId = typeof params.itemId === "string" ? params.itemId : "";
+          this.#events.onApprovalRequest?.({
+            id: message.id,
+            kind: "fileChange",
+            changes: this.#pendingChanges.get(itemId) ?? [],
+            reason,
+            cwd,
+          });
+          return;
+        }
+
         this.#events.onApprovalRequest?.({
           id: message.id,
+          kind: "command",
           command:
             (typeof params.command === "string" ? params.command : textOf(params.command)) ||
             "(unknown command)",
-          cwd: typeof params.cwd === "string" ? params.cwd : undefined,
+          reason,
+          cwd,
         });
       }
       return;
@@ -317,13 +352,25 @@ export class OpenCliClient {
       this.#events.onTurnComplete?.();
       return;
     }
+    if (method === "item/started") {
+      // Not rendered — see below — but a file change's contents are only sent
+      // here, and an approval for it follows within moments.
+      const item = (payload.item ?? payload) as Record<string, unknown>;
+      const changes = changesOf(item);
+      if (changes.length > 0 && typeof item.id === "string") {
+        this.#pendingChanges.set(item.id, changes);
+      }
+      return;
+    }
     // Only `item/completed` is rendered. `item/started` carries the same item
     // moments earlier — for a user message with identical content, and for an
     // agent message with empty text *and a different id*, so it can be neither
     // deduplicated by id nor shown. Waiting for completion is what actually
     // yields one correct entry per item.
     if (method === "item/completed") {
-      const item = toThreadItem((payload.item ?? payload) as Record<string, unknown>);
+      const raw = (payload.item ?? payload) as Record<string, unknown>;
+      if (typeof raw.id === "string") this.#pendingChanges.delete(raw.id);
+      const item = toThreadItem(raw);
       if (item) this.#events.onItem?.(item);
       return;
     }
