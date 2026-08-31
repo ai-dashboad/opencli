@@ -1,0 +1,16 @@
+[package]
+name = "opencli-ssh"
+version = { workspace = true }
+edition = { workspace = true }
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+russh = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "rt-multi-thread"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

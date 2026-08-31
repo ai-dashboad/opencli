@@ -4,6 +4,7 @@ members = [
     "ansi-escape",
     "async-utils",
     "app-server",
+    "ssh",
     "web-gateway",
     "app-server-protocol",
     "app-server-test-client",
@@ -223,6 +224,7 @@ tiny_http = "0.12"
 tokio = "1"
 tokio-stream = "0.1.18"
 tokio-test = "0.4"
+russh = "0.54"
 tokio-tungstenite = { version = "0.28.0", features = ["proxy", "rustls-tls-native-roots"] }
 tokio-util = "0.7.18"
 toml = "0.9.5"
