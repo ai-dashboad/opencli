@@ -4,6 +4,7 @@ import {
   ApprovalChanges,
   ArtifactsView,
   ConnectorsView,
+  CustomizeView,
   MemoryView,
   ProjectsView,
   ScheduledView,
@@ -16,6 +17,7 @@ import {
   type ConnectionStatus,
   type FileChange,
   type ModelOption,
+  type Preferences,
   type Project,
   type ThreadItem,
   type ThreadSummary,
@@ -101,6 +103,7 @@ export default function App() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [changes, setChanges] = useState<FileChange[]>([]);
+  const [preferences, setPreferences] = useState<Preferences>({ approvalPolicy: "untrusted" });
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -108,6 +111,10 @@ export default function App() {
 
   const clientRef = useRef<OpenCliClient | null>(null);
   const modelRef = useRef<string>("");
+  // Same reason as the model: `connectTo` is created before the user has had a
+  // chance to change anything, so closing over the state would pin every
+  // thread to the initial preferences.
+  const preferencesRef = useRef<Preferences>(preferences);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -117,6 +124,10 @@ export default function App() {
   useEffect(() => {
     modelRef.current = model;
   }, [model]);
+
+  useEffect(() => {
+    preferencesRef.current = preferences;
+  }, [preferences]);
 
   /** Refresh the sidebar; failures here must not break the chat. */
   const refreshThreads = useCallback(async () => {
@@ -175,6 +186,7 @@ export default function App() {
           // before the first model list arrives, so closing over the state
           // would pin every thread to the empty initial value.
           ...(modelRef.current ? { model: modelRef.current } : {}),
+          preferences: preferencesRef.current,
           instructions: [instructions, remembered].filter(Boolean).join("\n\n"),
         });
         setActiveThreadId(client.threadId);
@@ -240,7 +252,7 @@ export default function App() {
     // The server echoes the user message back as a thread item, so do not add
     // it locally — doing so showed every prompt twice.
     try {
-      await client.send(text);
+      await client.send(text, preferencesRef.current.effort);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
@@ -374,6 +386,18 @@ export default function App() {
         onNavigate={setView}
         onNewChat={() => void newChat()}
         onOpenThread={(id) => void openThread(id)}
+        onRenameThread={(id, name) => {
+          void clientRef.current
+            ?.renameThread(id, name)
+            .then(refreshThreads)
+            .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+        }}
+        onArchiveThread={(id) => {
+          void clientRef.current
+            ?.archiveThread(id)
+            .then(refreshThreads)
+            .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+        }}
       />
 
       <main className="chat">
@@ -404,7 +428,13 @@ export default function App() {
           </select>
         </header>
 
-        {view === "artifacts" ? (
+        {view === "customize" ? (
+          <CustomizeView
+            preferences={preferences}
+            onChange={setPreferences}
+            efforts={models.find((option) => option.model === model)?.reasoningEfforts ?? []}
+          />
+        ) : view === "artifacts" ? (
           <ArtifactsView changes={changes} />
         ) : view === "memory" && client ? (
           <MemoryView client={client} project={project} />

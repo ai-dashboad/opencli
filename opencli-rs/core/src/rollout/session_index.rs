@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::io::Seek;
@@ -74,6 +75,35 @@ pub async fn find_thread_name_by_id(
         .await
         .map_err(std::io::Error::other)??;
     Ok(entry.map(|entry| entry.thread_name))
+}
+
+/// Read the current name of every named thread.
+///
+/// Listing threads needs a name per row, and looking each one up separately
+/// re-scans the whole index once per row. This reads it once; later entries
+/// overwrite earlier ones, which is how the append-only index records a
+/// rename.
+pub async fn load_thread_names(
+    opencli_home: &Path,
+) -> std::io::Result<HashMap<ThreadId, String>> {
+    let path = session_index_path(opencli_home);
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    tokio::task::spawn_blocking(move || {
+        let contents = std::fs::read_to_string(&path)?;
+        let mut names = HashMap::new();
+        for line in contents.lines() {
+            // A truncated or hand-edited line should cost that one name, not
+            // every name in the file.
+            if let Ok(entry) = serde_json::from_str::<SessionIndexEntry>(line) {
+                names.insert(entry.id, entry.thread_name);
+            }
+        }
+        Ok(names)
+    })
+    .await
+    .map_err(std::io::Error::other)?
 }
 
 /// Find the most recently updated thread id for a thread name, if any.
@@ -191,6 +221,50 @@ where
         return Ok(Some(entry));
     }
     Ok(None)
+}
+
+#[cfg(test)]
+mod name_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn should_return_no_names_when_nothing_was_ever_renamed() {
+        let dir = tempdir().expect("tempdir");
+        assert!(load_thread_names(dir.path()).await.expect("load").is_empty());
+    }
+
+    #[tokio::test]
+    async fn should_let_the_latest_entry_win_because_the_index_is_append_only() {
+        // A rename appends rather than rewrites, so an earlier name is still
+        // in the file and must not be the one that is shown.
+        let dir = tempdir().expect("tempdir");
+        let id = ThreadId::new();
+        append_thread_name(dir.path(), id, "first").await.expect("append");
+        append_thread_name(dir.path(), id, "second").await.expect("append");
+
+        let names = load_thread_names(dir.path()).await.expect("load");
+        assert_eq!(names.get(&id).map(String::as_str), Some("second"));
+    }
+
+    #[tokio::test]
+    async fn should_keep_the_other_names_when_one_line_is_unreadable() {
+        let dir = tempdir().expect("tempdir");
+        let id = ThreadId::new();
+        append_thread_name(dir.path(), id, "kept").await.expect("append");
+        tokio::fs::write(
+            session_index_path(dir.path()),
+            format!(
+                "{{ truncated\n{}",
+                std::fs::read_to_string(session_index_path(dir.path())).expect("read")
+            ),
+        )
+        .await
+        .expect("write");
+
+        let names = load_thread_names(dir.path()).await.expect("load");
+        assert_eq!(names.get(&id).map(String::as_str), Some("kept"));
+    }
 }
 
 #[cfg(test)]

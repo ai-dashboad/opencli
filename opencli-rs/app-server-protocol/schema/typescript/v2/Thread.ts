@@ -7,6 +7,12 @@ import type { Turn } from "./Turn";
 
 export type Thread = { id: string, 
 /**
+ * Name the user gave this thread, if any. Falls back to `preview` for
+ * display. Always sent, like `path`, so the generated type is nullable
+ * rather than both optional and nullable.
+ */
+name: string | null, 
+/**
  * Usually the first user message in the thread, if available.
  */
 preview: string, 

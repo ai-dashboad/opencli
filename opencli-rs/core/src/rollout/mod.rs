@@ -12,7 +12,7 @@ pub mod list;
 pub(crate) mod metadata;
 pub(crate) mod policy;
 pub mod recorder;
-pub(crate) mod session_index;
+pub mod session_index;
 pub(crate) mod truncation;
 
 pub use opencli_protocol::protocol::SessionMeta;

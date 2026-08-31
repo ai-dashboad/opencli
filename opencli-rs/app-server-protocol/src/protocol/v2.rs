@@ -1658,6 +1658,10 @@ impl From<CoreSkillErrorInfo> for SkillErrorInfo {
 #[ts(export_to = "v2/")]
 pub struct Thread {
     pub id: String,
+    /// Name the user gave this thread, if any. Falls back to `preview` for
+    /// display. Always sent, like `path`, so the generated type is nullable
+    /// rather than both optional and nullable.
+    pub name: Option<String>,
     /// Usually the first user message in the thread, if available.
     pub preview: String,
     /// Model provider used for this thread (for example, 'openai').

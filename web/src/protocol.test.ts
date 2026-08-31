@@ -54,6 +54,8 @@ class FakeSocket {
           ],
         },
       });
+    } else if (message.method === "thread/name/set" || message.method === "thread/archive") {
+      this.reply(message.id!, {});
     } else if (message.method === "memory/list") {
       this.reply(message.id!, {
         data: [{ id: "mem-1", text: "never touch vendor/", projectId: null, createdAt: 0 }],
@@ -455,5 +457,65 @@ describe("threads", () => {
     const { client } = await connected();
     await client.resumeThread("t-1");
     expect(client.threadId).toBe("t-1");
+  });
+});
+
+describe("preferences", () => {
+  it("should send the personality and approval policy on a new thread", async () => {
+    const client = new OpenCliClient({});
+    await client.connect("ws://test/ws", {
+      cwd: "/work",
+      preferences: { personality: "friendly", approvalPolicy: "on-failure" },
+    });
+
+    const params = FakeSocket.last
+      .parsedSent()
+      .find((message) => message.method === "thread/start")!.params as Record<string, unknown>;
+    expect(params.personality).toBe("friendly");
+    expect(params.approvalPolicy).toBe("on-failure");
+  });
+
+  it("should keep asking for approval when no policy was chosen", async () => {
+    // The default must be the cautious one: a missing preference should never
+    // silently mean "run anything".
+    const { socket } = await connected();
+    const params = socket
+      .parsedSent()
+      .find((message) => message.method === "thread/start")!.params as Record<string, unknown>;
+    expect(params.approvalPolicy).toBe("untrusted");
+  });
+
+  it("should send the effort with the message rather than the thread", async () => {
+    // Effort is a turn option, so changing it applies to the next message
+    // instead of needing a new chat.
+    const { client, socket } = await connected();
+    void client.send("hello", "high");
+    await settle();
+
+    const turn = socket.parsedSent().find((message) => message.method === "turn/start")!;
+    expect((turn.params as Record<string, unknown>).effort).toBe("high");
+  });
+
+  it("should omit the effort when none is chosen", async () => {
+    const { client, socket } = await connected();
+    void client.send("hello");
+    await settle();
+
+    const turn = socket.parsedSent().find((message) => message.method === "turn/start")!;
+    expect(turn.params).not.toHaveProperty("effort");
+  });
+
+  it("should rename and archive a chat by id", async () => {
+    const { client, socket } = await connected();
+    void client.renameThread("t-1", "Deploy notes");
+    void client.archiveThread("t-2");
+    await settle();
+
+    const sent = socket.parsedSent();
+    expect(sent.find((m) => m.method === "thread/name/set")!.params).toEqual({
+      threadId: "t-1",
+      name: "Deploy notes",
+    });
+    expect(sent.find((m) => m.method === "thread/archive")!.params).toEqual({ threadId: "t-2" });
   });
 });

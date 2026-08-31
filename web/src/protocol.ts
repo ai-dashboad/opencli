@@ -126,6 +126,28 @@ export interface ConnectorSummary {
   status: string;
 }
 
+/** How the agent should read: the two personalities the server accepts. */
+export type Personality = "friendly" | "pragmatic";
+
+/** How hard the model should think, when it supports being told. */
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+/**
+ * When the agent must ask before acting.
+ *
+ * `untrusted` asks for every command that is not known-safe. `on-request`
+ * leaves it to the model, which in practice almost never asks — so it reads as
+ * "never" to a user who picked it expecting to be consulted.
+ */
+export type ApprovalPolicy = "untrusted" | "on-failure" | "on-request" | "never";
+
+/** Per-thread preferences the user can change. */
+export interface Preferences {
+  personality?: Personality;
+  effort?: ReasoningEffort;
+  approvalPolicy: ApprovalPolicy;
+}
+
 export type ConnectionStatus = "connecting" | "ready" | "closed" | "error";
 
 /**
@@ -238,10 +260,18 @@ export class OpenCliClient {
   }
 
   /** Start a thread on an already-open session. */
-  async startThread(options: { cwd: string; model?: string; instructions?: string }): Promise<void> {
+  async startThread(options: {
+    cwd: string;
+    model?: string;
+    instructions?: string;
+    preferences?: Preferences;
+  }): Promise<void> {
     const started = (await this.request("thread/start", {
       cwd: options.cwd,
       ...(options.model ? { model: options.model } : {}),
+      ...(options.preferences?.personality
+        ? { personality: options.preferences.personality }
+        : {}),
       // `developerInstructions` appends a message to the context;
       // `baseInstructions` would *replace* the whole system prompt and cost the
       // agent its normal operating rules. Projects and memory add context, so
@@ -251,7 +281,7 @@ export class OpenCliClient {
         : {}),
       // Approvals are surfaced in the UI rather than auto-granted; the agent
       // runs on the machine hosting the gateway.
-      approvalPolicy: "untrusted",
+      approvalPolicy: options.preferences?.approvalPolicy ?? "untrusted",
       sandbox: "workspace-write",
     })) as { thread?: { id?: string }; threadId?: string };
 
@@ -263,7 +293,7 @@ export class OpenCliClient {
   /** Connect, complete the handshake, and open a thread. */
   async connect(
     url: string,
-    options: { cwd: string; model?: string; instructions?: string },
+    options: { cwd: string; model?: string; instructions?: string; preferences?: Preferences },
   ): Promise<void> {
     await this.openSession(url);
     await this.startThread(options);
@@ -393,12 +423,19 @@ export class OpenCliClient {
     this.#socket?.send(JSON.stringify({ method, ...(params ? { params } : {}) }));
   }
 
-  /** Send a user message and begin a turn. */
-  async send(text: string): Promise<void> {
+  /**
+   * Send a user message and begin a turn.
+   *
+   * Reasoning effort is a turn option rather than a thread one, so it is
+   * passed here — changing it takes effect on the next message rather than
+   * needing a new chat.
+   */
+  async send(text: string, effort?: ReasoningEffort): Promise<void> {
     if (!this.#threadId) throw new Error("no thread open");
     await this.request("turn/start", {
       threadId: this.#threadId,
       input: [{ type: "text", text }],
+      ...(effort ? { effort } : {}),
     });
   }
 
@@ -485,6 +522,22 @@ export class OpenCliClient {
         return item ? [item] : [];
       }),
     );
+  }
+
+  /** Give a chat a name, so the list is readable later. */
+  async renameThread(id: string, name: string): Promise<void> {
+    await this.request("thread/name/set", { threadId: id, name });
+  }
+
+  /**
+   * Archive a chat, removing it from the list.
+   *
+   * There is no delete: the transcript stays on disk, which is the honest
+   * behaviour for a local agent — a button that claimed to delete while
+   * leaving the file behind would be worse than one that says "archive".
+   */
+  async archiveThread(id: string): Promise<void> {
+    await this.request("thread/archive", { threadId: id });
   }
 
   async listSkills(cwd: string): Promise<SkillSummary[]> {

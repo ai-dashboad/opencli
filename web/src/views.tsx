@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
+  ApprovalPolicy,
   ConnectorSummary,
   FileChange,
   Memory,
   OpenCliClient,
+  Personality,
+  Preferences,
+  ReasoningEffort,
   Project,
   ScheduledTask,
   SkillSummary,
@@ -701,5 +705,130 @@ export function ApprovalChanges({ changes }: { changes: FileChange[] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+const PERSONALITIES: { value: Personality; label: string; hint: string }[] = [
+  { value: "pragmatic", label: "Pragmatic", hint: "Terse. Answers, not commentary." },
+  { value: "friendly", label: "Friendly", hint: "Warmer, more explanatory." },
+];
+
+const EFFORTS: { value: ReasoningEffort; label: string }[] = [
+  { value: "minimal", label: "Minimal" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "Highest" },
+];
+
+const POLICIES: { value: ApprovalPolicy; label: string; hint: string }[] = [
+  {
+    value: "untrusted",
+    label: "Ask before anything unfamiliar",
+    hint: "Every command that is not known-safe is shown to you first.",
+  },
+  {
+    value: "on-failure",
+    label: "Ask only after something fails",
+    hint: "Commands run unattended; you are asked when one needs to retry with more access.",
+  },
+  {
+    value: "never",
+    label: "Never ask",
+    hint: "The agent runs commands on this machine without stopping. Only for a directory you would let a script loose in.",
+  },
+];
+
+/**
+ * Customize: how the agent writes, how hard it thinks, and when it stops to
+ * ask.
+ *
+ * `on-request` is deliberately not offered. It leaves the decision to the
+ * model, which in practice almost never asks — so it reads as "never" to
+ * anyone who picks it expecting to be consulted, which is the wrong way for a
+ * security setting to be wrong.
+ */
+export function CustomizeView({
+  preferences,
+  onChange,
+  efforts,
+}: {
+  preferences: Preferences;
+  onChange: (next: Preferences) => void;
+  /** Efforts the chosen model accepts; empty when it takes none. */
+  efforts: string[];
+}) {
+  const available = EFFORTS.filter((effort) => efforts.includes(effort.value));
+
+  return (
+    <section className="panel">
+      <h2>Customize</h2>
+      <p className="hint">
+        Applies to chats you start from now on, except the effort, which applies to your next
+        message.
+      </p>
+
+      <h3>Tone</h3>
+      <div className="choices">
+        {PERSONALITIES.map((option) => (
+          <label key={option.value} className="choice">
+            <input
+              type="radio"
+              name="personality"
+              checked={preferences.personality === option.value}
+              onChange={() => onChange({ ...preferences, personality: option.value })}
+            />
+            <span>
+              <strong>{option.label}</strong>
+              <span className="hint">{option.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <h3>Thinking effort</h3>
+      {available.length === 0 ? (
+        <p className="muted">The selected model does not take an effort setting.</p>
+      ) : (
+        <div className="choices">
+          {available.map((option) => (
+            <label key={option.value} className="choice">
+              <input
+                type="radio"
+                name="effort"
+                checked={preferences.effort === option.value}
+                onChange={() => onChange({ ...preferences, effort: option.value })}
+              />
+              <span>
+                <strong>{option.label}</strong>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      <h3>When to ask permission</h3>
+      <div className="choices">
+        {POLICIES.map((option) => (
+          <label key={option.value} className="choice">
+            <input
+              type="radio"
+              name="policy"
+              checked={preferences.approvalPolicy === option.value}
+              onChange={() => onChange({ ...preferences, approvalPolicy: option.value })}
+            />
+            <span>
+              <strong>{option.label}</strong>
+              <span className="hint">{option.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {preferences.approvalPolicy === "never" ? (
+        <p className="error">
+          The agent will run commands on this machine without asking.
+        </p>
+      ) : null}
+    </section>
   );
 }

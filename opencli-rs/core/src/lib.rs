@@ -108,6 +108,7 @@ pub mod terminal;
 mod tools;
 pub mod turn_diff_tracker;
 pub use rollout::ARCHIVED_SESSIONS_SUBDIR;
+pub use rollout::session_index::load_thread_names;
 pub use rollout::INTERACTIVE_SESSION_SOURCES;
 pub use rollout::RolloutRecorder;
 pub use rollout::RolloutRecorderParams;

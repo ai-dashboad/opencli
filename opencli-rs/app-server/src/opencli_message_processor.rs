@@ -2112,7 +2112,8 @@ impl OpenCLIMessageProcessor {
             }
         };
 
-        let data = summaries.into_iter().map(summary_to_thread).collect();
+        let mut data: Vec<Thread> = summaries.into_iter().map(summary_to_thread).collect();
+        attach_thread_names(&self.config.opencli_home, &mut data).await;
         let response = ThreadListResponse { data, next_cursor };
         self.outgoing.send_response(request_id, response).await;
     }
@@ -5058,6 +5059,8 @@ fn build_ephemeral_thread(thread_id: ThreadId, config_snapshot: &ThreadConfigSna
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     Thread {
         id: thread_id.to_string(),
+        // An ephemeral thread is not in the index and cannot be renamed.
+        name: None,
         preview: String::new(),
         model_provider: config_snapshot.model_provider_id.clone(),
         created_at: now,
@@ -5068,6 +5071,30 @@ fn build_ephemeral_thread(thread_id: ThreadId, config_snapshot: &ThreadConfigSna
         source: config_snapshot.session_source.clone().into(),
         git_info: None,
         turns: Vec::new(),
+    }
+}
+
+/// Fill in user-given names for a page of threads.
+///
+/// Read once for the whole page: the index is append-only, so resolving each
+/// row separately would re-scan the entire file per row.
+pub(crate) async fn attach_thread_names(opencli_home: &Path, threads: &mut [Thread]) {
+    if threads.is_empty() {
+        return;
+    }
+    let names = match opencli_core::load_thread_names(opencli_home).await {
+        Ok(names) => names,
+        // A name is a nicety; failing to read the index must not empty the
+        // list of threads it was decorating.
+        Err(err) => {
+            tracing::warn!("could not read thread names: {err}");
+            return;
+        }
+    };
+    for thread in threads {
+        if let Ok(id) = ThreadId::from_string(&thread.id) {
+            thread.name = names.get(&id).cloned();
+        }
     }
 }
 
@@ -5095,6 +5122,9 @@ pub(crate) fn summary_to_thread(summary: ConversationSummary) -> Thread {
 
     Thread {
         id: conversation_id.to_string(),
+        // Filled in by `attach_thread_names` where a name is worth the lookup;
+        // most callers build a thread for a context that never displays one.
+        name: None,
         preview,
         model_provider,
         created_at: created_at.map(|dt| dt.timestamp()).unwrap_or(0),

@@ -1,6 +1,6 @@
 import type { ThreadSummary } from "./protocol";
 
-export type View = "chat" | "projects" | "artifacts" | "memory" | "scheduled" | "skills" | "connectors" | "settings";
+export type View = "chat" | "projects" | "artifacts" | "memory" | "customize" | "scheduled" | "skills" | "connectors" | "settings";
 
 interface SidebarProps {
   view: View;
@@ -9,6 +9,8 @@ interface SidebarProps {
   onNavigate: (view: View) => void;
   onNewChat: () => void;
   onOpenThread: (id: string) => void;
+  onRenameThread: (id: string, name: string) => void;
+  onArchiveThread: (id: string) => void;
 }
 
 /** Trim a preview to one readable line for the list. */
@@ -33,11 +35,14 @@ export default function Sidebar({
   onNavigate,
   onNewChat,
   onOpenThread,
+  onRenameThread,
+  onArchiveThread,
 }: SidebarProps) {
   const items: { id: View; label: string }[] = [
     { id: "projects", label: "Projects" },
     { id: "artifacts", label: "Artifacts" },
     { id: "memory", label: "Memory" },
+    { id: "customize", label: "Customize" },
     { id: "scheduled", label: "Scheduled" },
     { id: "skills", label: "Skills" },
     { id: "connectors", label: "Connectors" },
@@ -69,7 +74,7 @@ export default function Sidebar({
           <li className="empty">No saved chats yet</li>
         ) : (
           threads.map((thread) => (
-            <li key={thread.id}>
+            <li key={thread.id} className="thread-row">
               <button
                 className={thread.id === activeThreadId ? "active" : ""}
                 onClick={() => onOpenThread(thread.id)}
@@ -78,6 +83,25 @@ export default function Sidebar({
                 <span className="preview">{summarize(thread)}</span>
                 <span className="when">{ago(thread.updatedAt)}</span>
               </button>
+              <span className="thread-actions">
+                <button
+                  title="Rename"
+                  aria-label={`Rename ${summarize(thread)}`}
+                  onClick={() => {
+                    const name = window.prompt("Name this chat", thread.name ?? "");
+                    if (name?.trim()) onRenameThread(thread.id, name.trim());
+                  }}
+                >
+                  ✎
+                </button>
+                <button
+                  title="Archive"
+                  aria-label={`Archive ${summarize(thread)}`}
+                  onClick={() => onArchiveThread(thread.id)}
+                >
+                  ×
+                </button>
+              </span>
             </li>
           ))
         )}

@@ -198,3 +198,59 @@ button.link {
   flex: 1;
   min-width: 0;
 }
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.choice > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.choice .hint {
+  margin: 0;
+  font-size: 12px;
+}
+
+.thread-row {
+  display: flex;
+  align-items: center;
+}
+
+.thread-row > button {
+  flex: 1;
+  min-width: 0;
+}
+
+.thread-actions {
+  display: none;
+  gap: 2px;
+}
+
+.thread-row:hover .thread-actions {
+  display: flex;
+}
+
+.thread-actions button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 13px;
+}
+
+.thread-actions button:hover {
+  color: var(--text);
+}
