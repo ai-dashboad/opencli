@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Sidebar, { type View } from "./Sidebar";
 import {
+  ArtifactsView,
   ConnectorsView,
   ProjectsView,
   ScheduledView,
@@ -11,6 +12,7 @@ import {
   OpenCliClient,
   type ApprovalRequest,
   type ConnectionStatus,
+  type FileChange,
   type ModelOption,
   type Project,
   type ThreadItem,
@@ -62,6 +64,7 @@ const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   agent: "OpenCLI",
   command: "Command",
   reasoning: "Thinking",
+  fileChange: "Files",
   other: "",
 };
 
@@ -78,6 +81,7 @@ export default function App() {
   const [model, setModel] = useState<string>("");
 
   const [project, setProject] = useState<Project | null>(null);
+  const [changes, setChanges] = useState<FileChange[]>([]);
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -106,7 +110,12 @@ export default function App() {
       const client = new OpenCliClient({
         onStatus: setStatus,
         // The client only surfaces completed items, so each one is new.
-        onItem: (item) => setItems((prev) => [...prev, item]),
+        onItem: (item) => {
+          setItems((prev) => [...prev, item]);
+          if (item.changes?.length) {
+            setChanges((prev) => [...prev, ...item.changes!]);
+          }
+        },
         onTurnComplete: () => {
           setBusy(false);
           void refreshThreads();
@@ -200,6 +209,7 @@ export default function App() {
     if (!client) return;
     setView("chat");
     setItems([]);
+    setChanges([]);
     try {
       await client.resumeThread(id);
       setActiveThreadId(id);
@@ -212,6 +222,7 @@ export default function App() {
     async (target: Project) => {
       setView("chat");
       setItems([]);
+      setChanges([]);
       setProject(target);
       setCwd(target.cwd);
       await connectTo(url, target.cwd, target.instructions);
@@ -232,6 +243,7 @@ export default function App() {
   const newChat = useCallback(async () => {
     setView("chat");
     setItems([]);
+    setChanges([]);
     setProject(null);
     await connectTo(url, cwd);
   }, [connectTo, url, cwd]);
@@ -303,6 +315,11 @@ export default function App() {
         <header>
           <span className="badge">connected</span>
           {project ? <span className="badge project">{project.name}</span> : null}
+          {changes.length > 0 ? (
+            <button className="link" onClick={() => setView("artifacts")}>
+              {new Set(changes.map((change) => change.path)).size} file(s) changed
+            </button>
+          ) : null}
           <span className="cwd">{cwd || "."}</span>
           <select
             className="model"
@@ -319,7 +336,9 @@ export default function App() {
           </select>
         </header>
 
-        {view === "projects" && client ? (
+        {view === "artifacts" ? (
+          <ArtifactsView changes={changes} />
+        ) : view === "projects" && client ? (
           <ProjectsView client={client} onOpen={(target) => void openProject(target)} />
         ) : view === "scheduled" && client ? (
           <ScheduledView client={client} cwd={cwd || "."} />

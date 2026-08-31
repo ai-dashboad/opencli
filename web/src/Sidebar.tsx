@@ -1,6 +1,6 @@
 import type { ThreadSummary } from "./protocol";
 
-export type View = "chat" | "projects" | "scheduled" | "skills" | "connectors" | "settings";
+export type View = "chat" | "projects" | "artifacts" | "scheduled" | "skills" | "connectors" | "settings";
 
 interface SidebarProps {
   view: View;
@@ -36,6 +36,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const items: { id: View; label: string }[] = [
     { id: "projects", label: "Projects" },
+    { id: "artifacts", label: "Artifacts" },
     { id: "scheduled", label: "Scheduled" },
     { id: "skills", label: "Skills" },
     { id: "connectors", label: "Connectors" },

@@ -1,0 +1,253 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { OpenCliClient, type ApprovalRequest, type ThreadItem } from "./protocol";
+
+/**
+ * A stand-in for the browser's WebSocket that lets a test play the server.
+ *
+ * The payloads below are the shapes the app server really sends — captured from
+ * a live session and cross-checked against the Rust protocol types. Testing
+ * against invented shapes would only prove the client agrees with itself.
+ */
+class FakeSocket {
+  static last: FakeSocket;
+  sent: string[] = [];
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onclose: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+
+  constructor(public url: string) {
+    FakeSocket.last = this;
+    // Open on a later tick, as a real socket does.
+    queueMicrotask(() => this.onopen?.());
+  }
+
+  send(raw: string) {
+    this.sent.push(raw);
+    const message = JSON.parse(raw) as { id?: number; method?: string };
+    // Auto-answer the handshake so `connect()` can resolve.
+    if (message.method === "initialize") {
+      this.reply(message.id!, {});
+    } else if (message.method === "thread/start") {
+      this.reply(message.id!, { thread: { id: "thread-1" } });
+    }
+  }
+
+  close() {
+    this.onclose?.();
+  }
+
+  /** Push a server-to-client frame. */
+  emit(payload: unknown) {
+    this.onmessage?.({ data: JSON.stringify(payload) });
+  }
+
+  reply(id: number, result: unknown) {
+    queueMicrotask(() => this.emit({ id, result }));
+  }
+
+  /** The parsed frames the client sent, for asserting on requests. */
+  parsedSent(): Record<string, unknown>[] {
+    return this.sent.map((raw) => JSON.parse(raw) as Record<string, unknown>);
+  }
+}
+
+vi.stubGlobal("WebSocket", FakeSocket);
+
+async function connected(events = {}) {
+  const client = new OpenCliClient(events);
+  await client.connect("ws://test/ws", { cwd: "/work" });
+  return { client, socket: FakeSocket.last };
+}
+
+/** Let queued microtasks and promise callbacks run. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("connecting", () => {
+  beforeEach(() => {
+    FakeSocket.last = undefined as unknown as FakeSocket;
+  });
+
+  it("should take the thread id from the start response", async () => {
+    const { client } = await connected();
+    expect(client.threadId).toBe("thread-1");
+  });
+
+  it("should ask for per-command approval rather than letting the model decide", async () => {
+    // `on-request` leaves it to the model, which rarely asks — so a UI that
+    // shows an approval dialog would almost never show it.
+    const { socket } = await connected();
+    const start = socket
+      .parsedSent()
+      .find((message) => message.method === "thread/start")!;
+    expect((start.params as Record<string, unknown>).approvalPolicy).toBe("untrusted");
+  });
+
+  it("should send standing instructions as developer instructions", async () => {
+    // `baseInstructions` would replace the whole system prompt.
+    const client = new OpenCliClient({});
+    await client.connect("ws://test/ws", { cwd: "/work", instructions: "  be careful  " });
+    const params = FakeSocket.last
+      .parsedSent()
+      .find((message) => message.method === "thread/start")!.params as Record<string, unknown>;
+    expect(params.developerInstructions).toBe("be careful");
+    expect(params.baseInstructions).toBeUndefined();
+  });
+
+  it("should omit instructions that are only whitespace", async () => {
+    const client = new OpenCliClient({});
+    await client.connect("ws://test/ws", { cwd: "/work", instructions: "   " });
+    const params = FakeSocket.last
+      .parsedSent()
+      .find((message) => message.method === "thread/start")!.params as Record<string, unknown>;
+    expect(params).not.toHaveProperty("developerInstructions");
+  });
+});
+
+describe("approval requests", () => {
+  it("should surface a server-initiated approval request to the UI", async () => {
+    const seen: ApprovalRequest[] = [];
+    const { socket } = await connected({ onApprovalRequest: (r: ApprovalRequest) => seen.push(r) });
+
+    socket.emit({
+      method: "item/commandExecution/requestApproval",
+      id: 0,
+      params: {
+        threadId: "thread-1",
+        turnId: "0",
+        itemId: "call_1",
+        command: "touch /tmp/x",
+        cwd: "/work",
+      },
+    });
+
+    expect(seen).toEqual([{ id: 0, command: "touch /tmp/x", cwd: "/work" }]);
+  });
+
+  it("should answer with the decision values the server accepts", async () => {
+    // The server's enum is accept/decline. An unparseable decision is not
+    // reported as an error — the command simply never runs.
+    const { client, socket } = await connected();
+    client.respondToApproval(7, "approved");
+    client.respondToApproval(8, "denied");
+
+    const answers = socket.parsedSent().filter((message) => "result" in message);
+    expect(answers).toEqual([
+      { id: 7, result: { decision: "accept" } },
+      { id: 8, result: { decision: "decline" } },
+    ]);
+  });
+
+  it("should not mistake an approval request for a response to its own request", async () => {
+    // Both carry a numeric id; only the request also carries a method.
+    const { client, socket } = await connected();
+    const pending = client.listModels();
+    socket.emit({ method: "item/commandExecution/requestApproval", id: 1, params: {} });
+    socket.emit({ id: FakeSocket.last.parsedSent().at(-1)!.id, result: { data: [] } });
+    await expect(pending).resolves.toEqual([]);
+  });
+});
+
+describe("thread items", () => {
+  it("should render an agent message once, on completion", async () => {
+    // `item/started` carries the same message moments earlier with empty text
+    // and a *different* id, so it can be neither deduplicated nor shown.
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({
+      method: "item/started",
+      params: { item: { id: "a", type: "agentMessage", text: "" } },
+    });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { id: "b", type: "agentMessage", text: "done" } },
+    });
+
+    expect(items).toEqual([{ id: "b", kind: "agent", text: "done" }]);
+  });
+
+  it("should keep a file change, which carries no text of its own", async () => {
+    // Dropping items with no text would silently hide every file the agent
+    // wrote, since the payload is entirely in `changes`.
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          id: "c",
+          type: "fileChange",
+          status: "completed",
+          changes: [
+            { path: "/work/a.txt", kind: { type: "update" }, diff: "@@\n-old\n+new" },
+            { path: "/work/b.txt", kind: { type: "add" }, diff: "hello\n" },
+          ],
+        },
+      },
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].kind).toBe("fileChange");
+    expect(items[0].changes).toEqual([
+      { path: "/work/a.txt", kind: "update", diff: "@@\n-old\n+new" },
+      { path: "/work/b.txt", kind: "add", diff: "hello\n" },
+    ]);
+    expect(items[0].text).toBe("update /work/a.txt\nadd /work/b.txt");
+  });
+
+  it("should skip a change with no path rather than showing a blank row", async () => {
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          id: "d",
+          type: "fileChange",
+          changes: [{ kind: { type: "add" }, diff: "x" }, { path: "/work/ok", kind: { type: "add" }, diff: "y" }],
+        },
+      },
+    });
+
+    expect(items[0].changes).toEqual([{ path: "/work/ok", kind: "add", diff: "y" }]);
+  });
+
+  it("should carry the exit code of a failed command", async () => {
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: { item: { id: "e", type: "commandExecution", text: "false", exitCode: 1 } },
+    });
+
+    expect(items[0]).toMatchObject({ kind: "command", exitCode: 1 });
+  });
+
+  it("should ignore an unfamiliar item type instead of throwing", async () => {
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({ method: "item/completed", params: { item: { id: "f", type: "somethingNew" } } });
+    socket.emit({ method: "totally/unknown", params: {} });
+    socket.emit("not json" as unknown as object);
+
+    expect(items).toEqual([]);
+  });
+});
+
+describe("projects", () => {
+  it("should send only the fields being changed on update", async () => {
+    // The server leaves omitted fields alone; sending empty strings would
+    // silently clear the project's instructions.
+    const { client, socket } = await connected();
+    void client.updateProject("proj-1", { name: "Renamed" });
+    await settle();
+
+    const update = socket.parsedSent().find((message) => message.method === "project/update")!;
+    expect(update.params).toEqual({ id: "proj-1", name: "Renamed" });
+  });
+});

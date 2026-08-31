@@ -22,13 +22,24 @@ export interface RpcNotification {
 
 type Incoming = RpcResponse & Partial<RpcNotification>;
 
+/** One file the agent added, edited, or deleted. */
+export interface FileChange {
+  path: string;
+  /** `add`, `delete`, or `update`. */
+  kind: string;
+  /** Unified diff of what changed. */
+  diff: string;
+}
+
 /** A turn item as surfaced to the UI. */
 export interface ThreadItem {
   id: string;
-  kind: "user" | "agent" | "command" | "reasoning" | "other";
+  kind: "user" | "agent" | "command" | "reasoning" | "fileChange" | "other";
   text: string;
   /** Present for command items once the command has finished. */
   exitCode?: number;
+  /** Present for file-change items: what was written, and the diff. */
+  changes?: FileChange[];
 }
 
 export interface ClientEvents {
@@ -121,12 +132,34 @@ function textOf(value: unknown): string {
   return "";
 }
 
+/**
+ * Read the `changes` array of a file-change item.
+ *
+ * These items carry no text at all, so without this they are dropped by the
+ * emptiness check below and the UI never shows that a file was written.
+ */
+function changesOf(item: Record<string, unknown>): FileChange[] {
+  if (!Array.isArray(item.changes)) return [];
+  return item.changes.flatMap((raw) => {
+    const change = raw as Record<string, unknown>;
+    const path = typeof change.path === "string" ? change.path : "";
+    if (!path) return [];
+    // `kind` is a tagged union — `{ type: "add" }` — not a bare string.
+    const kind =
+      typeof change.kind === "string"
+        ? change.kind
+        : String((change.kind as Record<string, unknown> | undefined)?.type ?? "update");
+    return [{ path, kind, diff: typeof change.diff === "string" ? change.diff : "" }];
+  });
+}
+
 function classify(item: Record<string, unknown>): ThreadItem["kind"] {
   const type = String(item.type ?? item.itemType ?? "");
   if (type.includes("agentMessage") || type.includes("agent_message")) return "agent";
   if (type.includes("userMessage") || type.includes("user_message")) return "user";
   if (type.includes("command") || type.includes("exec")) return "command";
   if (type.includes("reasoning")) return "reasoning";
+  if (type.includes("fileChange") || type.includes("file_change")) return "fileChange";
   return "other";
 }
 
@@ -247,13 +280,16 @@ export class OpenCliClient {
     // yields one correct entry per item.
     if (method === "item/completed") {
       const item = (payload.item ?? payload) as Record<string, unknown>;
-      const text = textOf(item);
+      const changes = changesOf(item);
+      const text =
+        textOf(item) || changes.map((change) => `${change.kind} ${change.path}`).join("\n");
       if (!text) return;
       this.#events.onItem?.({
         id: String(item.id ?? crypto.randomUUID()),
         kind: classify(item),
         text,
         exitCode: typeof item.exitCode === "number" ? item.exitCode : undefined,
+        ...(changes.length > 0 ? { changes } : {}),
       });
       return;
     }

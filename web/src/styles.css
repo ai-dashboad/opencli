@@ -141,3 +141,19 @@ button.link {
   resize: vertical;
   font: inherit;
 }
+
+.diff {
+  margin-top: 8px;
+  padding: 8px 10px;
+  max-height: 340px;
+  overflow: auto;
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.diff .added { color: #7ee787; }
+.diff .removed { color: #ff9492; }
+.diff .hunk { color: var(--accent); }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
   ConnectorSummary,
+  FileChange,
   OpenCliClient,
   Project,
   ScheduledTask,
@@ -429,6 +430,85 @@ export function ProjectsView({
                 Delete
               </button>
             </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * Render what the agent wrote.
+ *
+ * Only an `update` carries a unified diff. For `add` and `delete` the server
+ * puts the whole file content in the same field, so colouring by `+`/`-`
+ * prefix there would mislabel ordinary code lines as insertions.
+ */
+function ChangeBody({ change }: { change: FileChange }) {
+  if (change.kind !== "update") {
+    return (
+      <pre className={`diff ${change.kind === "delete" ? "removed" : "added"}`}>{change.diff}</pre>
+    );
+  }
+  return (
+    <pre className="diff">
+      {change.diff.split("\n").map((line, index) => {
+        const cls = line.startsWith("+")
+          ? "added"
+          : line.startsWith("-")
+            ? "removed"
+            : line.startsWith("@@")
+              ? "hunk"
+              : "";
+        return (
+          <span key={index} className={cls}>
+            {line}
+            {"\n"}
+          </span>
+        );
+      })}
+    </pre>
+  );
+}
+
+/**
+ * Artifacts: every file the agent wrote this session.
+ *
+ * The transcript says a file was edited; it does not let you check what was
+ * written without leaving the app. Collected per session rather than stored,
+ * because the files themselves are already on disk — this is a review surface,
+ * not a second copy.
+ */
+export function ArtifactsView({ changes }: { changes: FileChange[] }) {
+  const [openPath, setOpenPath] = useState<string | null>(null);
+
+  // Latest write per path wins: a file edited three times is one artifact.
+  const latest = new Map<string, FileChange>();
+  for (const change of changes) latest.set(change.path, change);
+  const rows = [...latest.values()];
+
+  return (
+    <section className="panel">
+      <h2>Artifacts</h2>
+      <p className="hint">
+        Files the agent wrote in this session. The changes are already on disk — this is here so
+        you can check them without leaving.
+      </p>
+      <ul className="rows">
+        {rows.length === 0 ? <li className="muted">Nothing written yet.</li> : null}
+        {rows.map((change) => (
+          <li key={change.path}>
+            <strong>{change.path}</strong>
+            <span>{change.kind}</span>
+            <div className="actions">
+              <button
+                className="secondary"
+                onClick={() => setOpenPath(openPath === change.path ? null : change.path)}
+              >
+                {openPath === change.path ? "Hide" : change.kind === "update" ? "Show diff" : "Show file"}
+              </button>
+            </div>
+            {openPath === change.path ? <ChangeBody change={change} /> : null}
           </li>
         ))}
       </ul>
