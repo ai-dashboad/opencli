@@ -86,6 +86,9 @@ export interface ThreadSummary {
 export interface SkillSummary {
   name: string;
   description: string;
+  /** Where it lives; the server needs this to invoke it, not just the name. */
+  path: string;
+  enabled: boolean;
 }
 
 /** A recurring task, run by the gateway while it is up. */
@@ -138,7 +141,8 @@ export interface ConnectorSummary {
  */
 export type Attachment =
   | { kind: "image"; name: string; dataUrl: string }
-  | { kind: "file"; name: string; path: string };
+  | { kind: "file"; name: string; path: string }
+  | { kind: "skill"; name: string; path: string };
 
 /** How the agent should read: the two personalities the server accepts. */
 export type Personality = "friendly" | "pragmatic";
@@ -450,9 +454,16 @@ export class OpenCliClient {
   ): Promise<void> {
     if (!this.#threadId) throw new Error("no thread open");
     const attachments = options.attachments ?? [];
-    const input: Record<string, unknown>[] = attachments
-      .filter((attachment) => attachment.kind === "image")
-      .map((attachment) => ({ type: "image", url: attachment.dataUrl }));
+    const input: Record<string, unknown>[] = [];
+    for (const attachment of attachments) {
+      if (attachment.kind === "image") {
+        input.push({ type: "image", url: attachment.dataUrl });
+      } else if (attachment.kind === "skill") {
+        // A skill is invoked by name *and* path: the server resolves it from
+        // disk, so a name alone is not enough to find it.
+        input.push({ type: "skill", name: attachment.name, path: attachment.path });
+      }
+    }
 
     // Files are named in the text rather than sent as `mention` inputs: the
     // server resolves those against connectors and skills, so a file path it
@@ -584,6 +595,8 @@ export class OpenCliClient {
         return {
           name: String(entry.name ?? ""),
           description: String(entry.description ?? ""),
+          path: String(entry.path ?? ""),
+          enabled: entry.enabled !== false,
         };
       }),
     );

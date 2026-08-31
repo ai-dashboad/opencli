@@ -551,6 +551,21 @@ describe("attachments", () => {
     ]);
   });
 
+  it("should invoke a skill by name and path", async () => {
+    // The server resolves a skill from disk, so a name alone cannot find it.
+    const { client, socket } = await connected();
+    void client.send("use it", {
+      attachments: [{ kind: "skill", name: "design", path: "/skills/design" }],
+    });
+    await settle();
+
+    const turn = socket.parsedSent().find((message) => message.method === "turn/start")!;
+    expect((turn.params as Record<string, unknown>).input).toEqual([
+      { type: "skill", name: "design", path: "/skills/design" },
+      { type: "text", text: "use it" },
+    ]);
+  });
+
   it("should still send a plain message with no attachments", async () => {
     const { client, socket } = await connected();
     void client.send("just text");

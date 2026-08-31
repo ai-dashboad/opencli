@@ -111,6 +111,7 @@ export function AttachMenu({
   onAddImages,
   onAddFile,
   onAddToProject,
+  onUseSkill,
   onManageSkills,
   onManageConnectors,
   canAddFile,
@@ -121,6 +122,7 @@ export function AttachMenu({
   onAddImages: () => void;
   onAddFile: () => void;
   onAddToProject: (project: Project) => void;
+  onUseSkill: (skill: SkillSummary) => void;
   onManageSkills: () => void;
   onManageConnectors: () => void;
   /** Attaching a file needs a path, which only the desktop host can supply. */
@@ -164,9 +166,16 @@ export function AttachMenu({
             {skills.length === 0 ? (
               <MenuItem label="None available here" />
             ) : (
-              skills.slice(0, 10).map((skill) => (
-                <MenuItem key={skill.name} label={skill.name} />
-              ))
+              skills
+                .filter((skill) => skill.enabled)
+                .slice(0, 12)
+                .map((skill) => (
+                  <MenuItem
+                    key={skill.path || skill.name}
+                    label={skill.name}
+                    onClick={() => onUseSkill(skill)}
+                  />
+                ))
             )}
             <MenuSeparator />
             <MenuItem label="Manage skills" onClick={onManageSkills} />

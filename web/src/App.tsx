@@ -859,6 +859,13 @@ export default function App() {
                             .then(refreshThreads);
                         }
                       }}
+                      onUseSkill={(skill) => {
+                        setAttachMenu(false);
+                        setAttachments((prev) => [
+                          ...prev,
+                          { kind: "skill", name: skill.name, path: skill.path },
+                        ]);
+                      }}
                       onManageSkills={() => {
                         setAttachMenu(false);
                         go("skills");
