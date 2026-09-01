@@ -254,6 +254,29 @@ async fn models(params: &Value) -> Result<Value, String> {
 ///
 /// A model that cannot call tools is close to useless for this product, so the
 /// capability list is the point of this call, not a decoration.
+/// What a model can do, once looked up.
+///
+/// Held for the life of the gateway. `/api/show` took 2.5 seconds against a
+/// server across the internet, and the panel asks it once per model, so
+/// opening the list paid that again on every visit. A model's tag identifies
+/// its weights: its context length and tool support do not change underneath
+/// one. They can only change by the model being replaced, which happens
+/// through an install or a removal — both of which drop the entry.
+static CAPABILITIES: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, Value>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+fn capability_key(root: &str, model: &str) -> String {
+    format!("{root}\u{1}{model}")
+}
+
+/// Forget what was known about a model, because it is no longer the same one.
+fn forget_capabilities(root: &str, model: &str) {
+    if let Ok(mut cache) = CAPABILITIES.lock() {
+        cache.remove(&capability_key(root, model));
+    }
+}
+
 async fn show(params: &Value) -> Result<Value, String> {
     let root = required_url(params)?;
     let model = params
@@ -261,6 +284,13 @@ async fn show(params: &Value) -> Result<Value, String> {
         .and_then(Value::as_str)
         .filter(|model| !model.is_empty())
         .ok_or("model is required")?;
+
+    let key = capability_key(&root, model);
+    if let Ok(cache) = CAPABILITIES.lock() {
+        if let Some(known) = cache.get(&key) {
+            return Ok(known.clone());
+        }
+    }
 
     let response = client()
         .post(format!("{root}/api/show"))
@@ -299,13 +329,18 @@ async fn show(params: &Value) -> Result<Value, String> {
                 .and_then(|(_, value)| value.as_u64())
         });
 
-    Ok(json!({
+    let answer = json!({
         "model": model,
         "capabilities": capabilities,
         "supportsTools": capabilities.iter().any(|c| c == "tools"),
         "contextLength": context,
         "details": body.get("details").cloned().unwrap_or(json!({})),
-    }))
+    });
+
+    if let Ok(mut cache) = CAPABILITIES.lock() {
+        cache.insert(key, answer.clone());
+    }
+    Ok(answer)
 }
 
 /// Make an installed model selectable.
@@ -351,6 +386,9 @@ async fn delete(params: &Value, opencli_home: &std::path::Path) -> Result<Value,
     if !response.status().is_success() {
         return Err(format!("the runtime answered {}", response.status()));
     }
+
+    // What was known about it described weights that are no longer there.
+    forget_capabilities(&root, model);
 
     // Leaving the entry behind would keep offering a model that is gone.
     let unregistered = crate::register::unregister(opencli_home, &root, model)
@@ -447,6 +485,9 @@ pub async fn pull(raw: &str, out: Sender<String>) -> bool {
         .await;
 
     tokio::spawn(async move {
+        // A tag can be pulled again and resolve to different weights, so what
+        // was known about the old ones must not be reported for the new.
+        forget_capabilities(&root, &model);
         stream_pull(&root, &model, out).await;
     });
     true
@@ -588,6 +629,32 @@ mod tests {
     async fn call_in(raw: &str, home: &std::path::Path) -> Value {
         let reply = handle(raw, home).await.expect("runtime methods are handled locally");
         serde_json::from_str(&reply).expect("valid JSON reply")
+    }
+
+    #[test]
+    fn should_keep_one_machines_answer_apart_from_anothers() {
+        // The same tag on two machines is two different files.
+        assert_ne!(
+            capability_key("http://localhost:11434", "qwen2.5:3b"),
+            capability_key("https://elsewhere.example", "qwen2.5:3b")
+        );
+    }
+
+    #[test]
+    fn should_forget_what_it_knew_when_the_model_is_replaced() {
+        // A cached answer describes weights. Installing over a tag or removing
+        // it means the answer no longer describes anything that is there, and
+        // reporting the old context length would be a quiet lie.
+        let root = "http://cache-test.invalid";
+        let key = capability_key(root, "a-model:7b");
+        CAPABILITIES
+            .lock()
+            .expect("lock")
+            .insert(key.clone(), serde_json::json!({ "contextLength": 4096 }));
+
+        forget_capabilities(root, "a-model:7b");
+
+        assert!(!CAPABILITIES.lock().expect("lock").contains_key(&key));
     }
 
     #[tokio::test]

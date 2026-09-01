@@ -136,24 +136,35 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
   const [configured, setConfigured] = useState<ConnectorConfig[]>([]);
   const [offers, setOffers] = useState<ConnectorOffer[]>([]);
   const [status, setStatus] = useState<ConnectorSummary[]>([]);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ name: "", kind: "stdio", command: "", url: "" });
 
   const reload = useCallback(async () => {
     try {
-      const [rows, catalogued, live] = await Promise.all([
+      const [rows, catalogued] = await Promise.all([
         client.listConnectorConfigs(),
         client.connectorCatalog(),
-        client.listConnectors().catch(() => []),
       ]);
       setConfigured(rows);
       setOffers(catalogued);
-      setStatus(live);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+
+    // Live status is not awaited with the rest. Answering it means starting
+    // every configured MCP server and waiting for a handshake — measured at
+    // 2.2 seconds against one that fails to authenticate — while what is
+    // configured is read from a file in four milliseconds. Waiting for both
+    // made opening this panel cost the slower one every time.
+    setChecking(true);
+    void client
+      .listConnectors()
+      .then(setStatus)
+      .catch(() => setStatus([]))
+      .finally(() => setChecking(false));
   }, [client]);
 
   useEffect(() => {
@@ -219,6 +230,8 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                 <span>
                   {live.toolCount} tool{live.toolCount === 1 ? "" : "s"} · {live.status}
                 </span>
+              ) : checking ? (
+                <span className="muted-note">Starting it to see if it answers…</span>
               ) : null}
               <div className="actions">
                 <label className="scope">
@@ -1781,7 +1794,13 @@ export function ModelsView({
     setLoading(true);
     try {
       const [rows, here] = await Promise.all([
-        client.allInstalledModels(),
+        // Shown as they arrive: a machine on this computer answers in
+        // milliseconds while one across the internet takes seconds, and each
+        // model's capabilities cost a round trip of their own.
+        client.allInstalledModels((partial) => {
+          setInstalled(partial);
+          setLoading(false);
+        }),
         client.discoverRuntimes().catch(() => []),
       ]);
       setInstalled(rows);
@@ -2013,7 +2032,9 @@ export function ModelsView({
                       ? "Calls tools"
                       : "Does not call tools — of little use for agent work here"}
                   </span>
-                ) : null}
+                ) : (
+                  <span className="muted-note">Checking what it can do…</span>
+                )}
                 {said[key] ? (
                   <span className="done">{said[key]}</span>
                 ) : usable ? (

@@ -274,6 +274,29 @@ kinds of silence, none of them a broken handler.
   panel where it scrolls out of sight, and drop themselves immediately while
   the refresh runs behind.
 
+### Show what is known, then what is slow
+
+Measuring every panel found almost all of them answer from a local file in
+under three milliseconds. Only three were slow, and each for the same reason:
+one call that reaches over the network was awaited together with the fast ones,
+so opening the panel cost the slowest thing in it.
+
+| Panel | Was | Now | The slow part |
+| --- | --- | --- | --- |
+| Models | 4.7 s blank | first rows in 25 ms | `/api/show`, 2.5 s per model on a remote server |
+| Connectors | 2.2 s blank | rows at once | starting each MCP server to see if it answers |
+| Browse | network-bound | 1 ms | Hugging Face, now warmed at startup |
+
+The rule that came out of it: **a panel shows what it already knows, and fills
+in what costs a round trip.** A machine on this computer lists its models in
+milliseconds while one across the internet takes a second and a half; holding
+the first for the second is a choice, not a necessity.
+
+What a model can do is also cached for the life of the gateway. A tag
+identifies weights, so its context length and tool support cannot change
+underneath it — only by the model being replaced, which happens through an
+install or a removal, and both drop the entry.
+
 ### One slow answer must not delay the others
 
 The gateway read one message, awaited its handler, then read the next. Every

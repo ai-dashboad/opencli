@@ -1298,8 +1298,20 @@ export class OpenCliClient {
    * Asked of all machines at once rather than one at a time: models live
    * across several, and having to switch machines to see what you own is the
    * question this answers.
+   *
+   * `onUpdate` is called with everything known so far, each time more is
+   * known: when a machine names its models, and again as what each model can
+   * do arrives. Waiting for all of it turned a list that a local runtime
+   * answers in milliseconds into a five-second one, because a machine across
+   * the internet takes a second and a half to list and 2.5 seconds per model
+   * to describe.
+   *
+   * The promise still resolves only once every machine has listed, so a
+   * caller that just wants the answer can ignore the callback.
    */
-  async allInstalledModels(): Promise<ModelLocation[]> {
+  async allInstalledModels(
+    onUpdate?: (rows: ModelLocation[]) => void,
+  ): Promise<ModelLocation[]> {
     const [saved, here] = await Promise.all([
       this.listServers().catch(() => [] as ServerEntry[]),
       this.discoverRuntimes().catch(() => [] as DiscoveredRuntime[]),
@@ -1315,27 +1327,47 @@ export class OpenCliClient {
         })),
     ];
 
-    const perMachine = await Promise.all(
+    const found = new Map<string, ModelLocation>();
+    const sorted = () =>
+      [...found.values()].sort((a, b) => a.model.name.localeCompare(b.model.name));
+    const emit = () => onUpdate?.(sorted());
+
+    await Promise.all(
       machines.map(async (machine) => {
         // One unreachable machine must not empty the list; it simply
         // contributes nothing.
         const models = await this.runtimeModels(machine.baseUrl).catch(() => []);
-        const rows = await Promise.all(
-          models.map(async (model) => ({
+        for (const model of models) {
+          found.set(`${machine.baseUrl}:${model.name}`, {
             server: machine.label,
             baseUrl: machine.baseUrl,
             manageable: true,
             model,
-            capabilities: await this.modelCapabilities(machine.baseUrl, model.name).catch(
-              () => undefined,
-            ),
-          })),
+          });
+        }
+        // This machine's models appear now rather than when the slowest one
+        // answers: a runtime on this computer replies in milliseconds and one
+        // across the internet in a second and a half.
+        emit();
+
+        void Promise.all(
+          models.map(async (model) => {
+            const capabilities = await this.modelCapabilities(
+              machine.baseUrl,
+              model.name,
+            ).catch(() => undefined);
+            if (!capabilities) return;
+            const key = `${machine.baseUrl}:${model.name}`;
+            const row = found.get(key);
+            if (!row) return;
+            found.set(key, { ...row, capabilities });
+            emit();
+          }),
         );
-        return rows;
       }),
     );
 
-    return perMachine.flat().sort((a, b) => a.model.name.localeCompare(b.model.name));
+    return sorted();
   }
 
   /**

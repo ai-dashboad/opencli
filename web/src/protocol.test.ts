@@ -671,6 +671,68 @@ describe("every model, wherever it lives", () => {
     ]);
   });
 
+  it("should not hold the list while it asks what each model can do", async () => {
+    // Asking costs a round trip per model — 2.5 seconds each against a server
+    // across the internet. Waiting for all of them turned a one-second answer
+    // into a five-second one, so they arrive after the list.
+    FakeSocket.answer = (message) => {
+      switch (message.method) {
+        case "server/list":
+          return {
+            data: [{ id: "s1", name: "Box", baseUrl: "https://box.example", runtime: "ollama" }],
+          };
+        case "runtime/discover":
+          return { data: [] };
+        case "runtime/models":
+          return { data: [{ name: "qwen2.5:3b", size: 1 }] };
+        case "runtime/show":
+          return { supportsTools: true, contextLength: 32768 };
+        default:
+          return undefined;
+      }
+    };
+
+    const { client } = await connected();
+    const rows = await client.allInstalledModels();
+
+    // The list is complete; what each model can do is not waited for.
+    expect(rows).toHaveLength(1);
+    expect(rows[0].model.name).toBe("qwen2.5:3b");
+    expect(rows[0].capabilities).toBeUndefined();
+  });
+
+  it("should report what each model can do once it knows", async () => {
+    FakeSocket.answer = (message) => {
+      switch (message.method) {
+        case "server/list":
+          return {
+            data: [{ id: "s1", name: "Box", baseUrl: "https://box.example", runtime: "ollama" }],
+          };
+        case "runtime/discover":
+          return { data: [] };
+        case "runtime/models":
+          return { data: [{ name: "qwen2.5:3b", size: 1 }] };
+        case "runtime/show":
+          return { supportsTools: true, contextLength: 32768 };
+        default:
+          return undefined;
+      }
+    };
+
+    const updates: (number | null | undefined)[] = [];
+    const { client } = await connected();
+    await client.allInstalledModels((rows) =>
+      updates.push(rows[0]?.capabilities?.contextLength),
+    );
+    await settle();
+    await settle();
+
+    // Called once when the machine named its models, and again once what they
+    // can do was known.
+    expect(updates[0]).toBeUndefined();
+    expect(updates.at(-1)).toBe(32768);
+  });
+
   it("should still list the reachable machines when one is down", async () => {
     // A server that is off should cost its own models and nothing else.
     // Failing the whole call would empty a page that is mostly correct.
