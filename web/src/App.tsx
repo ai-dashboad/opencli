@@ -230,6 +230,8 @@ export default function App() {
   const [usage, setUsage] = useState<TokenUsage | null>(null);
   /** Seconds the current turn has been running, ticking while it does. */
   const [elapsed, setElapsed] = useState(0);
+  /** Characters written so far in this turn, for a live sense of progress. */
+  const [streamed, setStreamed] = useState(0);
   // Cowork sends work to the background instead of waiting on it inline.
   const [cowork, setCowork] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
@@ -421,10 +423,28 @@ export default function App() {
         onStatus: setStatus,
         // The client only surfaces completed items, so each one is new.
         onItem: (item) => {
-          setItems((prev) => [...prev, item]);
+          // A finished item replaces the partial one it was streamed as,
+          // rather than appearing beside it.
+          setItems((prev) => {
+            const at = prev.findIndex((other) => other.id === item.id);
+            if (at === -1) return [...prev, item];
+            const next = [...prev];
+            next[at] = item;
+            return next;
+          });
           if (item.changes?.length) {
             setChanges((prev) => [...prev, ...item.changes!]);
           }
+        },
+        onItemDelta: (item) => {
+          setStreamed(item.text.length);
+          setItems((prev) => {
+            const at = prev.findIndex((other) => other.id === item.id);
+            if (at === -1) return [...prev, item];
+            const next = [...prev];
+            next[at] = { ...next[at], text: item.text };
+            return next;
+          });
         },
         onTurnComplete: () => {
           setBusy(false);
@@ -478,6 +498,7 @@ export default function App() {
     if (!busy) return;
     const startedAt = Date.now();
     setElapsed(0);
+    setStreamed(0);
     const timer = setInterval(() => setElapsed(Math.round((Date.now() - startedAt) / 1000)), 1000);
     return () => clearInterval(timer);
   }, [busy]);
@@ -1004,7 +1025,9 @@ export default function App() {
                 ))}
                 {busy ? (
                   <p className="working">
-                    Working… {formatElapsed(elapsed)}{" "}
+                    Working… {formatElapsed(elapsed)}
+                    {streamed > 0 ? ` · ~${Math.round(streamed / 4)} tokens written` : ""}
+                    {usage && usage.total > 0 ? ` · ${usage.total.toLocaleString()} so far in this chat` : ""}{" "}
                     <button className="link" onClick={() => void interrupt()}>
                       stop
                     </button>

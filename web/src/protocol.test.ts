@@ -630,6 +630,69 @@ describe("starting another chat", () => {
 });
 
 
+describe("a reply being written", () => {
+  it("should show text as it arrives rather than only when it is finished", async () => {
+    // Without this a reply appears in one lump at the end. On a local model
+    // that is minutes of a spinner with nothing to show, which cannot be told
+    // apart from a hang.
+    const seen: string[] = [];
+    const { socket } = await connected({
+      onItemDelta: (item: ThreadItem) => seen.push(item.text),
+    });
+
+    socket.emit({
+      method: "item/agentMessage/delta",
+      params: { itemId: "i-1", delta: "Quick" },
+    });
+    socket.emit({
+      method: "item/agentMessage/delta",
+      params: { itemId: "i-1", delta: "sort " },
+    });
+    socket.emit({
+      method: "item/agentMessage/delta",
+      params: { itemId: "i-1", delta: "divides." },
+    });
+
+    // Each one carries everything written so far, so the caller can replace
+    // rather than having to accumulate.
+    expect(seen).toEqual(["Quick", "Quicksort ", "Quicksort divides."]);
+  });
+
+  it("should keep two replies apart while both are being written", async () => {
+    const seen: Record<string, string> = {};
+    const { client, socket } = await connected({
+      onItemDelta: (item: ThreadItem) => {
+        seen[item.id] = item.text;
+      },
+    });
+
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "a", delta: "one" } });
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "b", delta: "two" } });
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "a", delta: " more" } });
+
+    expect(seen).toEqual({ a: "one more", b: "two" });
+    void client;
+  });
+
+  it("should start afresh when an item is written twice in a session", async () => {
+    // The buffer has to be forgotten when the finished item arrives, or a
+    // second reply would be appended to the first.
+    const seen: string[] = [];
+    const { socket } = await connected({
+      onItemDelta: (item: ThreadItem) => seen.push(item.text),
+    });
+
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "i-1", delta: "first" } });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { type: "agentMessage", id: "i-1", text: "first" } },
+    });
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "i-1", delta: "second" } });
+
+    expect(seen).toEqual(["first", "second"]);
+  });
+});
+
 describe("every model, wherever it lives", () => {
   beforeEach(() => {
     FakeSocket.answer = null;

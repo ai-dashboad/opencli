@@ -44,6 +44,8 @@ export interface ThreadItem {
 
 export interface ClientEvents {
   onItem?: (item: ThreadItem) => void;
+  /** A message being written, sent again each time it grows. */
+  onItemDelta?: (item: ThreadItem) => void;
   onTurnComplete?: () => void;
   onError?: (message: string) => void;
   /** The agent is asking permission to run something. */
@@ -521,6 +523,8 @@ export class OpenCliClient {
    * A file-change approval arrives moments later carrying only the id, so the
    * contents have to be held from the start notification to describe it.
    */
+  /** Text accumulated for messages still being written, keyed by item id. */
+  #streaming = new Map<string, string>();
   #pendingChanges = new Map<string, FileChange[]>();
 
   constructor(events: ClientEvents = {}) {
@@ -688,9 +692,29 @@ export class OpenCliClient {
     // agent message with empty text *and a different id*, so it can be neither
     // deduplicated by id nor shown. Waiting for completion is what actually
     // yields one correct entry per item.
+    /*
+     * Text as it is written, rather than only when it is finished.
+     *
+     * Without this a reply appears in one lump at the end. On a fast model
+     * that reads as a pause; on a local one it is minutes of a spinner with
+     * nothing to show for it, which is indistinguishable from a hang.
+     */
+    if (method === "item/agentMessage/delta") {
+      const itemId = payload.itemId as string | undefined;
+      const delta = payload.delta as string | undefined;
+      if (itemId && delta) {
+        const grown = (this.#streaming.get(itemId) ?? "") + delta;
+        this.#streaming.set(itemId, grown);
+        this.#events.onItemDelta?.({ id: itemId, kind: "agent", text: grown });
+      }
+      return;
+    }
     if (method === "item/completed") {
       const raw = (payload.item ?? payload) as Record<string, unknown>;
-      if (typeof raw.id === "string") this.#pendingChanges.delete(raw.id);
+      if (typeof raw.id === "string") {
+        this.#pendingChanges.delete(raw.id);
+        this.#streaming.delete(raw.id);
+      }
       const item = toThreadItem(raw);
       if (item) this.#events.onItem?.(item);
       return;
