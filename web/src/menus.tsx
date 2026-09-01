@@ -32,11 +32,20 @@ export function Popover({
   open,
   onClose,
   align = "left",
+  wide = false,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   align?: "left" | "right";
+  /**
+   * For a menu whose rows carry a sentence each.
+   *
+   * At the usual width a title wrapped onto two lines and its description onto
+   * four, so three choices of similar length became three blocks of different
+   * heights and nothing could be compared at a glance.
+   */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -61,7 +70,7 @@ export function Popover({
 
   if (!open) return null;
   return (
-    <div className={`popover ${align}`} ref={ref} role="menu">
+    <div className={`popover ${align}${wide ? " wide" : ""}`} ref={ref} role="menu">
       {children}
     </div>
   );
@@ -379,14 +388,14 @@ export const APPROVAL_MODES: {
     value: "on-failure",
     short: "Auto",
     label: "Run unattended",
-    hint: "Commands run without asking; you are only stopped when one fails and needs more access.",
+    hint: "Commands run without asking. You are stopped only when one needs more access.",
     icon: () => <BoltIcon size={16} />,
   },
   {
     value: "never",
     short: "Never ask",
     label: "Never stop to ask",
-    hint: "Nothing is shown before it runs. Only for a directory you would let a script loose in.",
+    hint: "Nothing is shown before it runs. For a directory you would let a script loose in.",
     icon: () => <FastForwardIcon size={16} />,
   },
 ];
@@ -400,7 +409,10 @@ export function ApprovalMenu({
 }) {
   return (
     <>
-      <p className="menu-note">Takes effect on your next message, in this chat and after it.</p>
+      <div className="menu-head">
+        <span>Modes</span>
+        <em>Applies from your next message</em>
+      </div>
       {APPROVAL_MODES.map((mode) => (
         <MenuItem
           key={mode.value}

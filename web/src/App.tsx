@@ -1265,7 +1265,7 @@ export default function App() {
                     </span>
                     <ChevronIcon size={13} />
                   </button>
-                  <Popover open={modeMenu} onClose={() => setModeMenu(false)} align="right">
+                  <Popover open={modeMenu} onClose={() => setModeMenu(false)} align="right" wide>
                     <ApprovalMenu
                       policy={preferences.approvalPolicy ?? "untrusted"}
                       onPick={(next) => {

@@ -1329,6 +1329,39 @@ textarea:focus {
   box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
 }
 
+/*
+ * Wide enough that a title fits on one line.
+ *
+ * At the usual 360px "Ask before anything unfamiliar" wrapped onto two lines
+ * and its description onto four, so three choices of similar length became
+ * three blocks of visibly different heights — the shape of the list stopped
+ * carrying any meaning, which is what a list of three is read by.
+ */
+.popover.wide {
+  min-width: 380px;
+  max-width: min(520px, calc(100vw - 32px));
+}
+
+/* A heading, so the menu says what it is rather than opening on its rows. */
+.menu-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 10px 10px;
+}
+
+.menu-head span {
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.menu-head em {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: normal;
+}
+
 .popover.left {
   left: 0;
 }
@@ -1414,15 +1447,22 @@ textarea:focus {
   color: var(--text);
 }
 
-/* Rows carrying a description are taller, so the tick sits with the title
-   rather than floating against the middle of the sentence. */
+/*
+ * A row carrying a sentence is a block, not a line.
+ *
+ * The icon and the tick are centred against the whole of it: pinned to the
+ * first line they sat against a wrapped title and read as belonging to it
+ * rather than to the choice.
+ */
 .menu-item.tall {
-  align-items: flex-start;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px;
 }
 
-.menu-item.tall > svg:last-child,
 .menu-item.tall .menu-icon {
-  margin-top: 1px;
+  width: 20px;
+  justify-content: center;
 }
 
 .menu-item kbd {
