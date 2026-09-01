@@ -688,6 +688,15 @@
               },
               "type": "array"
             },
+            "durationMs": {
+              "default": null,
+              "description": "How long the model spent on it, when that can be worked out. Nothing records it directly; for a reopened conversation it is the gap between this record and the one before it.",
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
             "id": {
               "type": "string"
             },
@@ -736,6 +745,13 @@
             "cwd": {
               "description": "The command's working directory.",
               "type": "string"
+            },
+            "description": {
+              "description": "What the command is for, in the model's own words, when it wrote any. Often absent, so a front end showing it must be able to fall back to `command_actions` or to the command itself.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "durationMs": {
               "description": "The duration of the command execution in milliseconds.",

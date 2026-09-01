@@ -720,6 +720,36 @@ describe("an item the server gives no id for", () => {
     expect(seen[0].id).toBe(seen[1].id);
   });
 
+  it("should land a repeat on the id it first appeared under", async () => {
+    // The real sequence: a thought streams under a real id, completes with no
+    // id, and is then sent again. The first copy landed under the streamed id
+    // and the repeat under the derived one — two rows for one thought.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({
+      onItemDelta: () => {},
+      onItem: (item: ThreadItem) => seen.push(item),
+    });
+
+    const finished = {
+      type: "reasoning",
+      id: "",
+      summary: [],
+      content: ["The user is asking for a one-sentence explanation."],
+    };
+
+    socket.emit({
+      method: "item/reasoning/textDelta",
+      params: { itemId: "streamed-id", delta: "The user" },
+    });
+    socket.emit({ method: "item/completed", params: { item: finished } });
+    socket.emit({ method: "item/completed", params: { item: finished } });
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0].id).toBe("streamed-id");
+    // The repeat lands on the same row rather than beside it.
+    expect(seen[1].id).toBe("streamed-id");
+  });
+
   it("should keep two different thoughts apart", async () => {
     const seen: ThreadItem[] = [];
     const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });

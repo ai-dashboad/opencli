@@ -152,6 +152,9 @@
             "null"
           ]
         },
+        "message": {
+          "type": "string"
+        },
         "opencliErrorInfo": {
           "anyOf": [
             {
@@ -161,9 +164,6 @@
               "type": "null"
             }
           ]
-        },
-        "message": {
-          "type": "string"
         }
       },
       "required": [

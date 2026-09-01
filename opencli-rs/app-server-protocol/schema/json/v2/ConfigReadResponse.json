@@ -321,7 +321,7 @@
         {
           "description": "Path to a .opencli/ folder within a project. There could be multiple of these between `cwd` and the project/repo root.",
           "properties": {
-            "dotOpenCLIFolder": {
+            "dotOpencliFolder": {
               "$ref": "#/definitions/AbsolutePathBuf"
             },
             "type": {
@@ -333,7 +333,7 @@
             }
           },
           "required": [
-            "dotOpenCLIFolder",
+            "dotOpencliFolder",
             "type"
           ],
           "title": "ProjectConfigLayerSource",

@@ -1856,148 +1856,6 @@
       ],
       "title": "ClientRequest"
     },
-    "OpenCLIErrorInfo": {
-      "description": "OpenCLI errors that we expose to clients.",
-      "oneOf": [
-        {
-          "enum": [
-            "context_window_exceeded",
-            "usage_limit_exceeded",
-            "internal_server_error",
-            "unauthorized",
-            "bad_request",
-            "sandbox_error",
-            "thread_rollback_failed",
-            "other"
-          ],
-          "type": "string"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "model_cap": {
-              "properties": {
-                "model": {
-                  "type": "string"
-                },
-                "reset_after_seconds": {
-                  "format": "uint64",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "required": [
-                "model"
-              ],
-              "type": "object"
-            }
-          },
-          "required": [
-            "model_cap"
-          ],
-          "title": "ModelCapOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "http_connection_failed": {
-              "properties": {
-                "http_status_code": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "http_connection_failed"
-          ],
-          "title": "HttpConnectionFailedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "Failed to connect to the response SSE stream.",
-          "properties": {
-            "response_stream_connection_failed": {
-              "properties": {
-                "http_status_code": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "response_stream_connection_failed"
-          ],
-          "title": "ResponseStreamConnectionFailedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "The response SSE stream disconnected in the middle of a turnbefore completion.",
-          "properties": {
-            "response_stream_disconnected": {
-              "properties": {
-                "http_status_code": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "response_stream_disconnected"
-          ],
-          "title": "ResponseStreamDisconnectedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "Reached the retry limit for responses.",
-          "properties": {
-            "response_too_many_failed_attempts": {
-              "properties": {
-                "http_status_code": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "response_too_many_failed_attempts"
-          ],
-          "title": "ResponseTooManyFailedAttemptsOpenCLIErrorInfo",
-          "type": "object"
-        }
-      ]
-    },
     "CommandExecutionApprovalDecision": {
       "oneOf": [
         {
@@ -2451,6 +2309,9 @@
         {
           "description": "Error while executing a submission",
           "properties": {
+            "message": {
+              "type": "string"
+            },
             "opencli_error_info": {
               "anyOf": [
                 {
@@ -2461,9 +2322,6 @@
                 }
               ],
               "default": null
-            },
-            "message": {
-              "type": "string"
             },
             "type": {
               "enum": [
@@ -3170,6 +3028,13 @@
               "description": "The command's working directory if not the default cwd for the agent.",
               "type": "string"
             },
+            "description": {
+              "description": "What the command is for, in the model's own words, when it wrote any.\n\nOften absent: a smaller model routinely skips a field it is not required to fill, so a reader of this must be able to do without it.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "interaction_input": {
               "description": "Raw input sent to a unified exec session (if this is an interaction event).",
               "type": [
@@ -3730,6 +3595,9 @@
                 "null"
               ]
             },
+            "message": {
+              "type": "string"
+            },
             "opencli_error_info": {
               "anyOf": [
                 {
@@ -3740,9 +3608,6 @@
                 }
               ],
               "default": null
-            },
-            "message": {
-              "type": "string"
             },
             "type": {
               "enum": [
@@ -6137,6 +6002,148 @@
       ],
       "title": "NewConversationResponse",
       "type": "object"
+    },
+    "OpenCLIErrorInfo": {
+      "description": "OpenCLI errors that we expose to clients.",
+      "oneOf": [
+        {
+          "enum": [
+            "context_window_exceeded",
+            "usage_limit_exceeded",
+            "internal_server_error",
+            "unauthorized",
+            "bad_request",
+            "sandbox_error",
+            "thread_rollback_failed",
+            "other"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "model_cap": {
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "reset_after_seconds": {
+                  "format": "uint64",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "model"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "model_cap"
+          ],
+          "title": "ModelCapOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "http_connection_failed": {
+              "properties": {
+                "http_status_code": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "http_connection_failed"
+          ],
+          "title": "HttpConnectionFailedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Failed to connect to the response SSE stream.",
+          "properties": {
+            "response_stream_connection_failed": {
+              "properties": {
+                "http_status_code": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "response_stream_connection_failed"
+          ],
+          "title": "ResponseStreamConnectionFailedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The response SSE stream disconnected in the middle of a turnbefore completion.",
+          "properties": {
+            "response_stream_disconnected": {
+              "properties": {
+                "http_status_code": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "response_stream_disconnected"
+          ],
+          "title": "ResponseStreamDisconnectedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Reached the retry limit for responses.",
+          "properties": {
+            "response_too_many_failed_attempts": {
+              "properties": {
+                "http_status_code": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "response_too_many_failed_attempts"
+          ],
+          "title": "ResponseTooManyFailedAttemptsOpenCLIErrorInfo",
+          "type": "object"
+        }
+      ]
     },
     "ParsedCommand": {
       "oneOf": [
@@ -10205,148 +10212,6 @@
         ],
         "type": "string"
       },
-      "OpenCLIErrorInfo": {
-        "description": "This translation layer make sure that we expose opencli error code in camel case.\n\nWhen an upstream HTTP status is available (for example, from the Responses API or a provider), it is forwarded in `httpStatusCode` on the relevant `opencliErrorInfo` variant.",
-        "oneOf": [
-          {
-            "enum": [
-              "contextWindowExceeded",
-              "usageLimitExceeded",
-              "internalServerError",
-              "unauthorized",
-              "badRequest",
-              "threadRollbackFailed",
-              "sandboxError",
-              "other"
-            ],
-            "type": "string"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "modelCap": {
-                "properties": {
-                  "model": {
-                    "type": "string"
-                  },
-                  "reset_after_seconds": {
-                    "format": "uint64",
-                    "minimum": 0.0,
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  }
-                },
-                "required": [
-                  "model"
-                ],
-                "type": "object"
-              }
-            },
-            "required": [
-              "modelCap"
-            ],
-            "title": "ModelCapOpenCLIErrorInfo",
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "httpConnectionFailed": {
-                "properties": {
-                  "httpStatusCode": {
-                    "format": "uint16",
-                    "minimum": 0.0,
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "httpConnectionFailed"
-            ],
-            "title": "HttpConnectionFailedOpenCLIErrorInfo",
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "description": "Failed to connect to the response SSE stream.",
-            "properties": {
-              "responseStreamConnectionFailed": {
-                "properties": {
-                  "httpStatusCode": {
-                    "format": "uint16",
-                    "minimum": 0.0,
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "responseStreamConnectionFailed"
-            ],
-            "title": "ResponseStreamConnectionFailedOpenCLIErrorInfo",
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "description": "The response SSE stream disconnected in the middle of a turn before completion.",
-            "properties": {
-              "responseStreamDisconnected": {
-                "properties": {
-                  "httpStatusCode": {
-                    "format": "uint16",
-                    "minimum": 0.0,
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "responseStreamDisconnected"
-            ],
-            "title": "ResponseStreamDisconnectedOpenCLIErrorInfo",
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "description": "Reached the retry limit for responses.",
-            "properties": {
-              "responseTooManyFailedAttempts": {
-                "properties": {
-                  "httpStatusCode": {
-                    "format": "uint16",
-                    "minimum": 0.0,
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "responseTooManyFailedAttempts"
-            ],
-            "title": "ResponseTooManyFailedAttemptsOpenCLIErrorInfo",
-            "type": "object"
-          }
-        ]
-      },
       "CollabAgentState": {
         "properties": {
           "message": {
@@ -11028,7 +10893,7 @@
           {
             "description": "Path to a .opencli/ folder within a project. There could be multiple of these between `cwd` and the project/repo root.",
             "properties": {
-              "dotOpenCLIFolder": {
+              "dotOpencliFolder": {
                 "$ref": "#/definitions/v2/AbsolutePathBuf"
               },
               "type": {
@@ -11040,7 +10905,7 @@
               }
             },
             "required": [
-              "dotOpenCLIFolder",
+              "dotOpencliFolder",
               "type"
             ],
             "title": "ProjectConfigLayerSource",
@@ -12401,6 +12266,148 @@
           "enabled"
         ],
         "type": "string"
+      },
+      "OpenCLIErrorInfo": {
+        "description": "This translation layer make sure that we expose opencli error code in camel case.\n\nWhen an upstream HTTP status is available (for example, from the Responses API or a provider), it is forwarded in `httpStatusCode` on the relevant `opencliErrorInfo` variant.",
+        "oneOf": [
+          {
+            "enum": [
+              "contextWindowExceeded",
+              "usageLimitExceeded",
+              "internalServerError",
+              "unauthorized",
+              "badRequest",
+              "threadRollbackFailed",
+              "sandboxError",
+              "other"
+            ],
+            "type": "string"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "modelCap": {
+                "properties": {
+                  "model": {
+                    "type": "string"
+                  },
+                  "reset_after_seconds": {
+                    "format": "uint64",
+                    "minimum": 0.0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "model"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "modelCap"
+            ],
+            "title": "ModelCapOpenCLIErrorInfo",
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "httpConnectionFailed": {
+                "properties": {
+                  "httpStatusCode": {
+                    "format": "uint16",
+                    "minimum": 0.0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "httpConnectionFailed"
+            ],
+            "title": "HttpConnectionFailedOpenCLIErrorInfo",
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Failed to connect to the response SSE stream.",
+            "properties": {
+              "responseStreamConnectionFailed": {
+                "properties": {
+                  "httpStatusCode": {
+                    "format": "uint16",
+                    "minimum": 0.0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "responseStreamConnectionFailed"
+            ],
+            "title": "ResponseStreamConnectionFailedOpenCLIErrorInfo",
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "The response SSE stream disconnected in the middle of a turn before completion.",
+            "properties": {
+              "responseStreamDisconnected": {
+                "properties": {
+                  "httpStatusCode": {
+                    "format": "uint16",
+                    "minimum": 0.0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "responseStreamDisconnected"
+            ],
+            "title": "ResponseStreamDisconnectedOpenCLIErrorInfo",
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Reached the retry limit for responses.",
+            "properties": {
+              "responseTooManyFailedAttempts": {
+                "properties": {
+                  "httpStatusCode": {
+                    "format": "uint16",
+                    "minimum": 0.0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "responseTooManyFailedAttempts"
+            ],
+            "title": "ResponseTooManyFailedAttemptsOpenCLIErrorInfo",
+            "type": "object"
+          }
+        ]
       },
       "OverriddenMetadata": {
         "properties": {
@@ -14216,6 +14223,13 @@
             "description": "Model provider used for this thread (for example, 'openai').",
             "type": "string"
           },
+          "name": {
+            "description": "Name the user gave this thread, if any. Falls back to `preview` for display. Always sent, like `path`, so the generated type is nullable rather than both optional and nullable.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "path": {
             "description": "[UNSTABLE] Path to the thread on disk.",
             "type": [
@@ -14234,6 +14248,17 @@
               }
             ],
             "description": "Origin of the thread (CLI, VSCode, opencli exec, opencli app-server, etc.)."
+          },
+          "tokenUsage": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/ThreadTokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the conversation has cost, as it was last recorded.\n\nReopened without this, a chat that had spent a hundred thousand tokens reported nothing at all — the figure is in the rollout and was simply not read back."
           },
           "turns": {
             "description": "Only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read` (when `includeTurns` is true) responses. For all other responses and notifications returning a Thread, the turns field will be an empty list.",
@@ -14491,6 +14516,15 @@
                 },
                 "type": "array"
               },
+              "durationMs": {
+                "default": null,
+                "description": "How long the model spent on it, when that can be worked out. Nothing records it directly; for a reopened conversation it is the gap between this record and the one before it.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "id": {
                 "type": "string"
               },
@@ -14539,6 +14573,13 @@
               "cwd": {
                 "description": "The command's working directory.",
                 "type": "string"
+              },
+              "description": {
+                "description": "What the command is for, in the model's own words, when it wrote any. Often absent, so a front end showing it must be able to fall back to `command_actions` or to the command itself.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "durationMs": {
                 "description": "The duration of the command execution in milliseconds.",
@@ -15755,6 +15796,9 @@
               "null"
             ]
           },
+          "message": {
+            "type": "string"
+          },
           "opencliErrorInfo": {
             "anyOf": [
               {
@@ -15764,9 +15808,6 @@
                 "type": "null"
               }
             ]
-          },
-          "message": {
-            "type": "string"
           }
         },
         "required": [

@@ -16,6 +16,7 @@ use crate::protocol::v2::McpToolCallResult;
 use crate::protocol::v2::McpToolCallStatus;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::RolloutItem;
+use opencli_protocol::protocol::RolloutLine;
 
 /// Shown where a conversation was compacted.
 ///
@@ -136,8 +137,8 @@ pub fn build_turns_from_event_msgs(events: &[EventMsg]) -> Vec<Turn> {
 ///
 /// The last figure recorded wins: each is the running total at that moment,
 /// so the newest is the total for the whole conversation.
-pub fn token_usage_from_rollout(items: &[RolloutItem]) -> Option<ThreadTokenUsage> {
-    items.iter().rev().find_map(|item| match item {
+pub fn token_usage_from_rollout(lines: &[RolloutLine]) -> Option<ThreadTokenUsage> {
+    lines.iter().rev().find_map(|line| match &line.item {
         RolloutItem::EventMsg(EventMsg::TokenCount(event)) => {
             event.info.clone().map(ThreadTokenUsage::from)
         }
@@ -145,16 +146,37 @@ pub fn token_usage_from_rollout(items: &[RolloutItem]) -> Option<ThreadTokenUsag
     })
 }
 
-pub fn build_turns_from_rollout(items: &[RolloutItem]) -> Vec<Turn> {
+pub fn build_turns_from_rollout(lines: &[RolloutLine]) -> Vec<Turn> {
     let mut builder = ThreadHistoryBuilder::new();
-    for item in items {
-        match item {
+    let mut previous: Option<&str> = None;
+
+    for line in lines {
+        match &line.item {
             RolloutItem::EventMsg(event) => builder.handle_event(event),
-            RolloutItem::ResponseItem(response) => builder.handle_response_item(response),
+            RolloutItem::ResponseItem(response) => {
+                // How long a thought took is not recorded anywhere, but when it
+                // finished is: a reasoning record is written on completion, so
+                // the gap back to whatever preceded it is the time the model
+                // spent producing it. Approximate — it includes the request's
+                // own latency — and the only measurement there is.
+                builder.thought_took = matches!(response, ResponseItem::Reasoning { .. })
+                    .then(|| gap_ms(previous, &line.timestamp))
+                    .flatten();
+                builder.handle_response_item(response);
+            }
             _ => {}
         }
+        previous = Some(&line.timestamp);
     }
     builder.finish()
+}
+
+/// Milliseconds between two recorded moments, when both can be read.
+fn gap_ms(from: Option<&str>, to: &str) -> Option<i64> {
+    let from = chrono::DateTime::parse_from_rfc3339(from?).ok()?;
+    let to = chrono::DateTime::parse_from_rfc3339(to).ok()?;
+    let gap = (to - from).num_milliseconds();
+    (gap >= 0).then_some(gap)
 }
 
 struct ThreadHistoryBuilder {
@@ -164,6 +186,8 @@ struct ThreadHistoryBuilder {
     next_item_index: i64,
     /// Calls whose output has not been seen yet, oldest first.
     open_calls: Vec<String>,
+    /// How long the reasoning item being read took, when it can be worked out.
+    thought_took: Option<i64>,
 }
 
 impl ThreadHistoryBuilder {
@@ -174,6 +198,7 @@ impl ThreadHistoryBuilder {
             next_turn_index: 1,
             next_item_index: 1,
             open_calls: Vec::new(),
+            thought_took: None,
         }
     }
 
@@ -241,6 +266,8 @@ impl ThreadHistoryBuilder {
             id,
             summary: vec![payload.text.clone()],
             content: Vec::new(),
+            // A live thought is timed by the client, which sees it start.
+            duration_ms: None,
         });
     }
 
@@ -261,6 +288,7 @@ impl ThreadHistoryBuilder {
             id,
             summary: Vec::new(),
             content: vec![payload.text.clone()],
+            duration_ms: None,
         });
     }
 
@@ -300,10 +328,12 @@ impl ThreadHistoryBuilder {
                 let text = reasoning_text(summary, content.as_deref());
                 if !text.is_empty() {
                     let id = self.next_item_id();
+                    let took = self.thought_took.take();
                     self.ensure_turn().items.push(ThreadItem::Reasoning {
                         id,
                         summary: Vec::new(),
                         content: vec![text],
+                        duration_ms: took,
                     });
                 }
             }
@@ -559,6 +589,21 @@ impl From<PendingTurn> for Turn {
 #[cfg(test)]
 mod tests {
 
+    /// Records, as a rollout file holds them: an item and when it was written.
+    ///
+    /// A second apart, because the gap between two records is what a restored
+    /// thought's duration is measured from.
+    fn recorded(items: Vec<RolloutItem>) -> Vec<RolloutLine> {
+        items
+            .into_iter()
+            .enumerate()
+            .map(|(at, item)| RolloutLine {
+                timestamp: format!("2026-09-01T09:28:{:02}.000Z", at),
+                item,
+            })
+            .collect()
+    }
+
     #[test]
     fn should_show_the_commands_a_reopened_conversation_ran() {
         // These are recorded as ResponseItems, not events. A reader that kept
@@ -590,7 +635,7 @@ mod tests {
             }),
         ];
 
-        let turns = build_turns_from_rollout(&items);
+        let turns = build_turns_from_rollout(&recorded(items.clone()));
         let found = turns
             .iter()
             .flat_map(|turn| turn.items.iter())
@@ -623,7 +668,7 @@ mod tests {
             encrypted_content: None,
         })];
 
-        let turns = build_turns_from_rollout(&items);
+        let turns = build_turns_from_rollout(&recorded(items.clone()));
         let thought = turns
             .iter()
             .flat_map(|turn| turn.items.iter())
@@ -645,7 +690,7 @@ mod tests {
             call_id: "call-1".to_string(),
         })];
 
-        let turns = build_turns_from_rollout(&items);
+        let turns = build_turns_from_rollout(&recorded(items.clone()));
         let output = turns
             .iter()
             .flat_map(|turn| turn.items.iter())
@@ -656,6 +701,74 @@ mod tests {
                 _ => None,
             });
         assert_eq!(output, Some(None));
+    }
+
+    #[test]
+    fn should_say_how_long_a_reopened_thought_took() {
+        // Nothing records a thought's duration, so a reopened conversation
+        // showed no time against thinking at all. The record's own timestamp,
+        // against the one before it, is how long the model was busy.
+        use opencli_protocol::models::ReasoningItemContent;
+
+        let lines = vec![
+            RolloutLine {
+                timestamp: "2026-09-01T09:28:38.500Z".to_string(),
+                item: RolloutItem::EventMsg(EventMsg::UserMessage(UserMessageEvent {
+                    message: "hello".to_string(),
+                    images: None,
+                    local_images: Vec::new(),
+                    text_elements: Vec::new(),
+                })),
+            },
+            RolloutLine {
+                timestamp: "2026-09-01T09:28:45.900Z".to_string(),
+                item: RolloutItem::ResponseItem(ResponseItem::Reasoning {
+                    id: String::new(),
+                    summary: Vec::new(),
+                    content: Some(vec![ReasoningItemContent::ReasoningText {
+                        text: "Thinking it over.".to_string(),
+                    }]),
+                    encrypted_content: None,
+                }),
+            },
+        ];
+
+        let took = build_turns_from_rollout(&lines)
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::Reasoning { duration_ms, .. } => Some(*duration_ms),
+                _ => None,
+            });
+        assert_eq!(took, Some(Some(7_400)));
+    }
+
+    #[test]
+    fn should_leave_a_thought_untimed_when_nothing_came_before_it() {
+        // The first record in a file has no gap to measure, and a made-up
+        // duration reads as fact. Better to say nothing.
+        use opencli_protocol::models::ReasoningItemContent;
+
+        let lines = vec![RolloutLine {
+            timestamp: "2026-09-01T09:28:38.500Z".to_string(),
+            item: RolloutItem::ResponseItem(ResponseItem::Reasoning {
+                id: String::new(),
+                summary: Vec::new(),
+                content: Some(vec![ReasoningItemContent::ReasoningText {
+                    text: "First thing.".to_string(),
+                }]),
+                encrypted_content: None,
+            }),
+        }];
+
+        let took = build_turns_from_rollout(&lines)
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::Reasoning { duration_ms, .. } => Some(*duration_ms),
+                _ => None,
+            });
+        assert_eq!(took, Some(None));
     }
 
     #[test]
@@ -678,7 +791,7 @@ mod tests {
             encrypted_content: None,
         })];
 
-        let thought = build_turns_from_rollout(&items)
+        let thought = build_turns_from_rollout(&recorded(items.clone()))
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {
@@ -707,7 +820,7 @@ mod tests {
             encrypted_content: None,
         })];
 
-        let thought = build_turns_from_rollout(&items)
+        let thought = build_turns_from_rollout(&recorded(items.clone()))
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {
@@ -742,12 +855,12 @@ mod tests {
             })
         };
 
-        let turns = build_turns_from_rollout(&[
+        let turns = build_turns_from_rollout(&recorded(vec![
             call("a", "ls"),
             output("a", "first"),
             call("b", "pwd"),
             output("b", "second"),
-        ]);
+        ]));
 
         let paired: Vec<(String, Option<String>)> = turns
             .iter()
@@ -792,14 +905,14 @@ mod tests {
         // simply went missing, and a reader assumes the transcript was lost.
         use opencli_protocol::protocol::ContextCompactedEvent;
 
-        let turns = build_turns_from_rollout(&[
+        let turns = build_turns_from_rollout(&recorded(vec![
             RolloutItem::EventMsg(EventMsg::AgentMessage(
                 opencli_protocol::protocol::AgentMessageEvent {
                     message: "before".to_string(),
                 },
             )),
             RolloutItem::EventMsg(EventMsg::ContextCompacted(ContextCompactedEvent)),
-        ]);
+        ]));
 
         let said: Vec<String> = turns
             .iter()
@@ -848,11 +961,11 @@ mod tests {
         };
 
         // Each figure is the running total at that moment, so the last wins.
-        let found = token_usage_from_rollout(&[usage(500), usage(101_420)]).expect("a total");
+        let found = token_usage_from_rollout(&recorded(vec![usage(500), usage(101_420)])).expect("a total");
         assert_eq!(found.total.total_tokens, 101_420);
         assert_eq!(found.model_context_window, Some(32768));
 
-        assert!(token_usage_from_rollout(&[]).is_none());
+        assert!(token_usage_from_rollout(&recorded(vec![])).is_none());
     }
 
     #[test]
@@ -861,7 +974,7 @@ mod tests {
         // code and the timing sit in the output's metadata and were dropped.
         use opencli_protocol::models::FunctionCallOutputPayload;
 
-        let turns = build_turns_from_rollout(&[
+        let turns = build_turns_from_rollout(&recorded(vec![
             RolloutItem::ResponseItem(ResponseItem::FunctionCall {
                 id: None,
                 name: "run".to_string(),
@@ -877,7 +990,7 @@ mod tests {
                     success: Some(false),
                 },
             }),
-        ]);
+        ]));
 
         let found = turns
             .iter()
@@ -904,7 +1017,7 @@ mod tests {
         // with nothing under them.
         use opencli_protocol::models::FunctionCallOutputPayload;
 
-        let turns = build_turns_from_rollout(&[
+        let turns = build_turns_from_rollout(&recorded(vec![
             RolloutItem::ResponseItem(ResponseItem::FunctionCall {
                 id: None,
                 name: "open_file".to_string(),
@@ -919,7 +1032,7 @@ mod tests {
                     success: Some(true),
                 },
             }),
-        ]);
+        ]));
 
         let answered = turns
             .iter()
@@ -946,7 +1059,7 @@ mod tests {
                 call_id: "call-1".to_string(),
             })];
 
-            let found = build_turns_from_rollout(&items)
+            let found = build_turns_from_rollout(&recorded(items.clone()))
                 .iter()
                 .flat_map(|turn| turn.items.iter())
                 .find_map(|item| match item {
@@ -967,7 +1080,7 @@ mod tests {
             call_id: "call-1".to_string(),
         })];
 
-        let tool = build_turns_from_rollout(&items)
+        let tool = build_turns_from_rollout(&recorded(items.clone()))
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {
@@ -989,7 +1102,7 @@ mod tests {
             call_id: "call-1".to_string(),
         })];
 
-        let tool = build_turns_from_rollout(&items)
+        let tool = build_turns_from_rollout(&recorded(items.clone()))
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {
@@ -1072,6 +1185,7 @@ mod tests {
                 id: "item-3".into(),
                 summary: vec!["thinking".into()],
                 content: vec!["full reasoning".into()],
+                duration_ms: None,
             }
         );
 
@@ -1131,6 +1245,7 @@ mod tests {
                 id: "item-2".into(),
                 summary: vec!["first summary".into()],
                 content: vec!["first content".into()],
+                duration_ms: None,
             }
         );
         assert_eq!(
@@ -1139,6 +1254,7 @@ mod tests {
                 id: "item-4".into(),
                 summary: vec!["second summary".into()],
                 content: Vec::new(),
+                duration_ms: None,
             }
         );
     }

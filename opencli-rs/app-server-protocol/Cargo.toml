@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+chrono = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 opencli-protocol = { workspace = true }
 opencli-utils-absolute-path = { workspace = true }

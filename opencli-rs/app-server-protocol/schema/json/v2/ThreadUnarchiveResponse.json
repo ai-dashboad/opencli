@@ -99,148 +99,6 @@
       ],
       "type": "object"
     },
-    "OpenCLIErrorInfo": {
-      "description": "This translation layer make sure that we expose opencli error code in camel case.\n\nWhen an upstream HTTP status is available (for example, from the Responses API or a provider), it is forwarded in `httpStatusCode` on the relevant `opencliErrorInfo` variant.",
-      "oneOf": [
-        {
-          "enum": [
-            "contextWindowExceeded",
-            "usageLimitExceeded",
-            "internalServerError",
-            "unauthorized",
-            "badRequest",
-            "threadRollbackFailed",
-            "sandboxError",
-            "other"
-          ],
-          "type": "string"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "modelCap": {
-              "properties": {
-                "model": {
-                  "type": "string"
-                },
-                "reset_after_seconds": {
-                  "format": "uint64",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "required": [
-                "model"
-              ],
-              "type": "object"
-            }
-          },
-          "required": [
-            "modelCap"
-          ],
-          "title": "ModelCapOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "httpConnectionFailed": {
-              "properties": {
-                "httpStatusCode": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "httpConnectionFailed"
-          ],
-          "title": "HttpConnectionFailedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "Failed to connect to the response SSE stream.",
-          "properties": {
-            "responseStreamConnectionFailed": {
-              "properties": {
-                "httpStatusCode": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "responseStreamConnectionFailed"
-          ],
-          "title": "ResponseStreamConnectionFailedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "The response SSE stream disconnected in the middle of a turn before completion.",
-          "properties": {
-            "responseStreamDisconnected": {
-              "properties": {
-                "httpStatusCode": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "responseStreamDisconnected"
-          ],
-          "title": "ResponseStreamDisconnectedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "Reached the retry limit for responses.",
-          "properties": {
-            "responseTooManyFailedAttempts": {
-              "properties": {
-                "httpStatusCode": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "responseTooManyFailedAttempts"
-          ],
-          "title": "ResponseTooManyFailedAttemptsOpenCLIErrorInfo",
-          "type": "object"
-        }
-      ]
-    },
     "CollabAgentState": {
       "properties": {
         "message": {
@@ -566,6 +424,148 @@
       ],
       "type": "string"
     },
+    "OpenCLIErrorInfo": {
+      "description": "This translation layer make sure that we expose opencli error code in camel case.\n\nWhen an upstream HTTP status is available (for example, from the Responses API or a provider), it is forwarded in `httpStatusCode` on the relevant `opencliErrorInfo` variant.",
+      "oneOf": [
+        {
+          "enum": [
+            "contextWindowExceeded",
+            "usageLimitExceeded",
+            "internalServerError",
+            "unauthorized",
+            "badRequest",
+            "threadRollbackFailed",
+            "sandboxError",
+            "other"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "modelCap": {
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "reset_after_seconds": {
+                  "format": "uint64",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "model"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "modelCap"
+          ],
+          "title": "ModelCapOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "httpConnectionFailed": {
+              "properties": {
+                "httpStatusCode": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "httpConnectionFailed"
+          ],
+          "title": "HttpConnectionFailedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Failed to connect to the response SSE stream.",
+          "properties": {
+            "responseStreamConnectionFailed": {
+              "properties": {
+                "httpStatusCode": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "responseStreamConnectionFailed"
+          ],
+          "title": "ResponseStreamConnectionFailedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The response SSE stream disconnected in the middle of a turn before completion.",
+          "properties": {
+            "responseStreamDisconnected": {
+              "properties": {
+                "httpStatusCode": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "responseStreamDisconnected"
+          ],
+          "title": "ResponseStreamDisconnectedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Reached the retry limit for responses.",
+          "properties": {
+            "responseTooManyFailedAttempts": {
+              "properties": {
+                "httpStatusCode": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "responseTooManyFailedAttempts"
+          ],
+          "title": "ResponseTooManyFailedAttemptsOpenCLIErrorInfo",
+          "type": "object"
+        }
+      ]
+    },
     "PatchApplyStatus": {
       "enum": [
         "inProgress",
@@ -876,6 +876,13 @@
           "description": "Model provider used for this thread (for example, 'openai').",
           "type": "string"
         },
+        "name": {
+          "description": "Name the user gave this thread, if any. Falls back to `preview` for display. Always sent, like `path`, so the generated type is nullable rather than both optional and nullable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "path": {
           "description": "[UNSTABLE] Path to the thread on disk.",
           "type": [
@@ -894,6 +901,17 @@
             }
           ],
           "description": "Origin of the thread (CLI, VSCode, opencli exec, opencli app-server, etc.)."
+        },
+        "tokenUsage": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ThreadTokenUsage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What the conversation has cost, as it was last recorded.\n\nReopened without this, a chat that had spent a hundred thousand tokens reported nothing at all — the figure is in the rollout and was simply not read back."
         },
         "turns": {
           "description": "Only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read` (when `includeTurns` is true) responses. For all other responses and notifications returning a Thread, the turns field will be an empty list.",
@@ -1011,6 +1029,15 @@
               },
               "type": "array"
             },
+            "durationMs": {
+              "default": null,
+              "description": "How long the model spent on it, when that can be worked out. Nothing records it directly; for a reopened conversation it is the gap between this record and the one before it.",
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
             "id": {
               "type": "string"
             },
@@ -1059,6 +1086,13 @@
             "cwd": {
               "description": "The command's working directory.",
               "type": "string"
+            },
+            "description": {
+              "description": "What the command is for, in the model's own words, when it wrote any. Often absent, so a front end showing it must be able to fall back to `command_actions` or to the command itself.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "durationMs": {
               "description": "The duration of the command execution in milliseconds.",
@@ -1396,6 +1430,60 @@
         }
       ]
     },
+    "ThreadTokenUsage": {
+      "properties": {
+        "last": {
+          "$ref": "#/definitions/TokenUsageBreakdown"
+        },
+        "modelContextWindow": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "total": {
+          "$ref": "#/definitions/TokenUsageBreakdown"
+        }
+      },
+      "required": [
+        "last",
+        "total"
+      ],
+      "type": "object"
+    },
+    "TokenUsageBreakdown": {
+      "properties": {
+        "cachedInputTokens": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "inputTokens": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "outputTokens": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "reasoningOutputTokens": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "totalTokens": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cachedInputTokens",
+        "inputTokens",
+        "outputTokens",
+        "reasoningOutputTokens",
+        "totalTokens"
+      ],
+      "type": "object"
+    },
     "Turn": {
       "properties": {
         "error": {
@@ -1439,6 +1527,9 @@
             "null"
           ]
         },
+        "message": {
+          "type": "string"
+        },
         "opencliErrorInfo": {
           "anyOf": [
             {
@@ -1448,9 +1539,6 @@
               "type": "null"
             }
           ]
-        },
-        "message": {
-          "type": "string"
         }
       },
       "required": [

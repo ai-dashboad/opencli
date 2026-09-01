@@ -3,7 +3,7 @@ use crate::opencli_message_processor::PendingInterrupts;
 use crate::opencli_message_processor::PendingRollbacks;
 use crate::opencli_message_processor::TurnSummary;
 use crate::opencli_message_processor::TurnSummaryStore;
-use crate::opencli_message_processor::read_rollout_items;
+use crate::opencli_message_processor::read_rollout_lines;
 use crate::opencli_message_processor::read_summary_from_rollout;
 use crate::opencli_message_processor::summary_to_thread;
 use crate::error_code::INTERNAL_ERROR_CODE;
@@ -1081,9 +1081,9 @@ pub(crate) async fn apply_bespoke_event_handling(
                 {
                     Ok(summary) => {
                         let mut thread = summary_to_thread(summary);
-                        match read_rollout_items(rollout_path.as_path()).await {
-                            Ok(items) => {
-                                thread.turns = build_turns_from_rollout(&items);
+                        match read_rollout_lines(rollout_path.as_path()).await {
+                            Ok(lines) => {
+                                thread.turns = build_turns_from_rollout(&lines);
                                 ThreadRollbackResponse { thread }
                             }
                             Err(err) => {

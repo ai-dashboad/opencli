@@ -196,6 +196,7 @@ use opencli_protocol::protocol::McpAuthStatus as CoreMcpAuthStatus;
 use opencli_protocol::protocol::McpServerRefreshConfig;
 use opencli_protocol::protocol::RateLimitSnapshot as CoreRateLimitSnapshot;
 use opencli_protocol::protocol::RolloutItem;
+use opencli_protocol::protocol::RolloutLine;
 use opencli_protocol::protocol::SessionMetaLine;
 use opencli_protocol::protocol::USER_MESSAGE_BEGIN;
 use opencli_protocol::user_input::UserInput as CoreInputItem;
@@ -2245,10 +2246,10 @@ impl OpenCLIMessageProcessor {
         };
 
         if include_turns && let Some(rollout_path) = rollout_path.as_ref() {
-            match read_rollout_items(rollout_path).await {
-                Ok(items) => {
-                    thread.turns = build_turns_from_rollout(&items);
-                    thread.token_usage = token_usage_from_rollout(&items);
+            match read_rollout_lines(rollout_path).await {
+                Ok(lines) => {
+                    thread.turns = build_turns_from_rollout(&lines);
+                    thread.token_usage = token_usage_from_rollout(&lines);
                 }
                 Err(err) => {
                     self.send_internal_error(
@@ -4965,17 +4966,25 @@ pub(crate) async fn read_summary_from_rollout(
     })
 }
 
-/// Everything a rollout recorded, not only its events.
+/// Everything a rollout recorded, not only its events, and when.
 ///
 /// This kept `EventMsg` alone, which is why a reopened conversation showed the
 /// messages and nothing else: the commands the agent ran and what it thought
 /// are recorded as `ResponseItem`s, and every one of them was discarded here.
-pub(crate) async fn read_rollout_items(path: &Path) -> std::io::Result<Vec<RolloutItem>> {
-    Ok(match RolloutRecorder::get_rollout_history(path).await? {
-        InitialHistory::New => Vec::new(),
-        InitialHistory::Forked(items) => items,
-        InitialHistory::Resumed(resumed) => resumed.history,
-    })
+///
+/// The file is read line by line rather than through
+/// `RolloutRecorder::get_rollout_history`, which returns the items without
+/// their timestamps — and the timestamps are the only record of how long a
+/// thought took, since nothing else stores that.
+///
+/// A line that will not parse is skipped rather than failing the read: one bad
+/// record should cost that record, not the conversation.
+pub(crate) async fn read_rollout_lines(path: &Path) -> std::io::Result<Vec<RolloutLine>> {
+    let text = tokio::fs::read_to_string(path).await?;
+    Ok(text
+        .lines()
+        .filter_map(|line| serde_json::from_str::<RolloutLine>(line).ok())
+        .collect())
 }
 
 fn extract_conversation_summary(

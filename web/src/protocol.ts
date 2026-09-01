@@ -729,6 +729,14 @@ export class OpenCliClient {
   #streaming = new Map<string, { kind: ThreadItem["kind"]; text: string }>();
   /** When each piece of thinking began, so its length can be reported. */
   #thoughtSince = new Map<string, number>();
+  /**
+   * Which id a piece of content is already shown under.
+   *
+   * An item the server gives no id for is keyed by its content, and the same
+   * content is sent more than once — but the first copy may have landed under
+   * the id it streamed under. Without this the repeat is appended beside it.
+   */
+  #shownAs = new Map<string, string>();
   /** The thread the agent has actually been given, if any. */
   #loadedThreadId: string | null = null;
   #pendingChanges = new Map<string, FileChange[]>();
@@ -985,10 +993,25 @@ export class OpenCliClient {
        * It is handed back under the id already on screen, which is matched by
        * kind: only one message of a kind is ever being written at a time.
        */
+      /*
+       * An item with no id of its own is identified by its content, and the
+       * same content arriving twice must land on the id already on screen —
+       * which may be neither: a thought first appears under the id it streamed
+       * under, and its repeat has only the derived one. Remembering which id a
+       * piece of content was shown under is what ties the three together.
+       */
+      const shownAs = this.#shownAs.get(item.id);
+      if (shownAs) {
+        this.#streaming.delete(item.id);
+        this.#events.onItem?.(this.#timed({ ...item, id: shownAs }, item.id));
+        return;
+      }
+
       if (!this.#streaming.has(item.id)) {
         for (const [openId, open] of this.#streaming) {
           if (open.kind === item.kind) {
             this.#streaming.delete(openId);
+            this.#shownAs.set(item.id, openId);
             this.#events.onItem?.(this.#timed({ ...item, id: openId }, item.id));
             return;
           }
@@ -996,6 +1019,7 @@ export class OpenCliClient {
       }
 
       this.#streaming.delete(item.id);
+      this.#shownAs.set(item.id, item.id);
       this.#events.onItem?.(this.#timed(item, item.id));
       return;
     }
@@ -1186,6 +1210,9 @@ export class OpenCliClient {
    */
   async resumeThread(id: string): Promise<ThreadItem[]> {
     this.#threadId = id;
+    this.#streaming.clear();
+    this.#shownAs.clear();
+    this.#thoughtSince.clear();
 
     /*
      * Opening a chat reads it; it does not load it into the agent.

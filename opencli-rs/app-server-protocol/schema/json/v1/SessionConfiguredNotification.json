@@ -248,148 +248,6 @@
       ],
       "type": "object"
     },
-    "OpenCLIErrorInfo": {
-      "description": "OpenCLI errors that we expose to clients.",
-      "oneOf": [
-        {
-          "enum": [
-            "context_window_exceeded",
-            "usage_limit_exceeded",
-            "internal_server_error",
-            "unauthorized",
-            "bad_request",
-            "sandbox_error",
-            "thread_rollback_failed",
-            "other"
-          ],
-          "type": "string"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "model_cap": {
-              "properties": {
-                "model": {
-                  "type": "string"
-                },
-                "reset_after_seconds": {
-                  "format": "uint64",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "required": [
-                "model"
-              ],
-              "type": "object"
-            }
-          },
-          "required": [
-            "model_cap"
-          ],
-          "title": "ModelCapOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "properties": {
-            "http_connection_failed": {
-              "properties": {
-                "http_status_code": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "http_connection_failed"
-          ],
-          "title": "HttpConnectionFailedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "Failed to connect to the response SSE stream.",
-          "properties": {
-            "response_stream_connection_failed": {
-              "properties": {
-                "http_status_code": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "response_stream_connection_failed"
-          ],
-          "title": "ResponseStreamConnectionFailedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "The response SSE stream disconnected in the middle of a turnbefore completion.",
-          "properties": {
-            "response_stream_disconnected": {
-              "properties": {
-                "http_status_code": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "response_stream_disconnected"
-          ],
-          "title": "ResponseStreamDisconnectedOpenCLIErrorInfo",
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "Reached the retry limit for responses.",
-          "properties": {
-            "response_too_many_failed_attempts": {
-              "properties": {
-                "http_status_code": {
-                  "format": "uint16",
-                  "minimum": 0.0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "response_too_many_failed_attempts"
-          ],
-          "title": "ResponseTooManyFailedAttemptsOpenCLIErrorInfo",
-          "type": "object"
-        }
-      ]
-    },
     "ContentBlock": {
       "anyOf": [
         {
@@ -586,6 +444,9 @@
         {
           "description": "Error while executing a submission",
           "properties": {
+            "message": {
+              "type": "string"
+            },
             "opencli_error_info": {
               "anyOf": [
                 {
@@ -596,9 +457,6 @@
                 }
               ],
               "default": null
-            },
-            "message": {
-              "type": "string"
             },
             "type": {
               "enum": [
@@ -1305,6 +1163,13 @@
               "description": "The command's working directory if not the default cwd for the agent.",
               "type": "string"
             },
+            "description": {
+              "description": "What the command is for, in the model's own words, when it wrote any.\n\nOften absent: a smaller model routinely skips a field it is not required to fill, so a reader of this must be able to do without it.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "interaction_input": {
               "description": "Raw input sent to a unified exec session (if this is an interaction event).",
               "type": [
@@ -1865,6 +1730,9 @@
                 "null"
               ]
             },
+            "message": {
+              "type": "string"
+            },
             "opencli_error_info": {
               "anyOf": [
                 {
@@ -1875,9 +1743,6 @@
                 }
               ],
               "default": null
-            },
-            "message": {
-              "type": "string"
             },
             "type": {
               "enum": [
@@ -3294,6 +3159,148 @@
         "enabled"
       ],
       "type": "string"
+    },
+    "OpenCLIErrorInfo": {
+      "description": "OpenCLI errors that we expose to clients.",
+      "oneOf": [
+        {
+          "enum": [
+            "context_window_exceeded",
+            "usage_limit_exceeded",
+            "internal_server_error",
+            "unauthorized",
+            "bad_request",
+            "sandbox_error",
+            "thread_rollback_failed",
+            "other"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "model_cap": {
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "reset_after_seconds": {
+                  "format": "uint64",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "model"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "model_cap"
+          ],
+          "title": "ModelCapOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "http_connection_failed": {
+              "properties": {
+                "http_status_code": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "http_connection_failed"
+          ],
+          "title": "HttpConnectionFailedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Failed to connect to the response SSE stream.",
+          "properties": {
+            "response_stream_connection_failed": {
+              "properties": {
+                "http_status_code": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "response_stream_connection_failed"
+          ],
+          "title": "ResponseStreamConnectionFailedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The response SSE stream disconnected in the middle of a turnbefore completion.",
+          "properties": {
+            "response_stream_disconnected": {
+              "properties": {
+                "http_status_code": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "response_stream_disconnected"
+          ],
+          "title": "ResponseStreamDisconnectedOpenCLIErrorInfo",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Reached the retry limit for responses.",
+          "properties": {
+            "response_too_many_failed_attempts": {
+              "properties": {
+                "http_status_code": {
+                  "format": "uint16",
+                  "minimum": 0.0,
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "response_too_many_failed_attempts"
+          ],
+          "title": "ResponseTooManyFailedAttemptsOpenCLIErrorInfo",
+          "type": "object"
+        }
+      ]
     },
     "ParsedCommand": {
       "oneOf": [

@@ -26,6 +26,13 @@ command: Array<string>,
  */
 cwd: string, parsed_cmd: Array<ParsedCommand>, 
 /**
+ * What the command is for, in the model's own words, when it wrote any.
+ *
+ * Often absent: a smaller model routinely skips a field it is not
+ * required to fill, so a reader of this must be able to do without it.
+ */
+description?: string, 
+/**
  * Where the command originated. Defaults to Agent for backward compatibility.
  */
 source: ExecCommandSource, 

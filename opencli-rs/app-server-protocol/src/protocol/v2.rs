@@ -2067,6 +2067,12 @@ pub enum ThreadItem {
         summary: Vec<String>,
         #[serde(default)]
         content: Vec<String>,
+        /// How long the model spent on it, when that can be worked out.
+        /// Nothing records it directly; for a reopened conversation it is the
+        /// gap between this record and the one before it.
+        #[serde(default)]
+        #[ts(type = "number | null")]
+        duration_ms: Option<i64>,
     },
     #[serde(rename_all = "camelCase")]
     #[ts(rename_all = "camelCase")]
@@ -2216,6 +2222,7 @@ impl From<CoreTurnItem> for ThreadItem {
                 text: plan.text,
             },
             CoreTurnItem::Reasoning(reasoning) => ThreadItem::Reasoning {
+                duration_ms: None,
                 id: reasoning.id,
                 summary: reasoning.summary_text,
                 content: reasoning.raw_content,
@@ -2987,6 +2994,7 @@ mod tests {
                 id: "reasoning-1".to_string(),
                 summary: vec!["line one".to_string(), "line two".to_string()],
                 content: vec![],
+                duration_ms: None,
             }
         );
 

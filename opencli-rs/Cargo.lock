@@ -4552,6 +4552,7 @@ name = "opencli-app-server-protocol"
 version = "0.94.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "mcp-types",
  "opencli-protocol",

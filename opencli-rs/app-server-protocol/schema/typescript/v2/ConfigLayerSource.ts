@@ -13,4 +13,4 @@ file: AbsolutePathBuf, } | { "type": "user",
  * This is the path to the user's config.toml file, though it is not
  * guaranteed to exist.
  */
-file: AbsolutePathBuf, } | { "type": "project", dotOpenCLIFolder: AbsolutePathBuf, } | { "type": "sessionFlags" } | { "type": "legacyManagedConfigTomlFromFile", file: AbsolutePathBuf, } | { "type": "legacyManagedConfigTomlFromMdm" };
+file: AbsolutePathBuf, } | { "type": "project", dotOpencliFolder: AbsolutePathBuf, } | { "type": "sessionFlags" } | { "type": "legacyManagedConfigTomlFromFile", file: AbsolutePathBuf, } | { "type": "legacyManagedConfigTomlFromMdm" };

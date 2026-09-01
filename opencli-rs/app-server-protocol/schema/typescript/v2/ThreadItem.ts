@@ -15,7 +15,13 @@ import type { McpToolCallStatus } from "./McpToolCallStatus";
 import type { PatchApplyStatus } from "./PatchApplyStatus";
 import type { UserInput } from "./UserInput";
 
-export type ThreadItem = { "type": "userMessage", id: string, content: Array<UserInput>, } | { "type": "agentMessage", id: string, text: string, } | { "type": "plan", id: string, text: string, } | { "type": "reasoning", id: string, summary: Array<string>, content: Array<string>, } | { "type": "commandExecution", id: string, 
+export type ThreadItem = { "type": "userMessage", id: string, content: Array<UserInput>, } | { "type": "agentMessage", id: string, text: string, } | { "type": "plan", id: string, text: string, } | { "type": "reasoning", id: string, summary: Array<string>, content: Array<string>, 
+/**
+ * How long the model spent on it, when that can be worked out.
+ * Nothing records it directly; for a reopened conversation it is the
+ * gap between this record and the one before it.
+ */
+durationMs: number | null, } | { "type": "commandExecution", id: string, 
 /**
  * The command to be executed.
  */
@@ -34,6 +40,12 @@ processId: string | null, status: CommandExecutionStatus,
  * be composed of many commands piped together.
  */
 commandActions: Array<CommandAction>, 
+/**
+ * What the command is for, in the model's own words, when it wrote
+ * any. Often absent, so a front end showing it must be able to fall
+ * back to `command_actions` or to the command itself.
+ */
+description?: string, 
 /**
  * The command's output, aggregated from stdout and stderr.
  */
