@@ -15,6 +15,22 @@ use crate::protocol::v2::McpToolCallStatus;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::RolloutItem;
 
+/// Take what a command printed out of the envelope it was stored in.
+///
+/// A recorded output is `{"output": "...", "metadata": {...}}`, and showing
+/// that verbatim buries a directory listing inside a JSON string complete with
+/// its escaped newlines. Anything that is not that shape is passed through
+/// unchanged, since a tool that returns plain text is returning plain text.
+fn unwrap_output(raw: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(raw)
+        .ok()
+        .as_ref()
+        .and_then(|value| value.get("output"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| raw.to_string())
+}
+
 /// Flatten a recorded reasoning item into the text a reader sees.
 fn reasoning_text(
     summary: &[opencli_protocol::models::ReasoningItemReasoningSummary],
@@ -226,14 +242,16 @@ impl ThreadHistoryBuilder {
 
     /// Turn a recorded tool call into the item a reader sees.
     ///
-    /// The shell's arguments are a JSON string holding the command; anything
-    /// else is a tool call named by the tool. A call that cannot be read is
-    /// skipped rather than shown as an empty row.
+    /// Whether it is a command is decided by its **shape**, not its name. This
+    /// build calls the shell `run`, `local_shell` or `run_command` depending on
+    /// configuration, and a list of names written from memory got two of the
+    /// three wrong — every command in an old conversation was then filed as an
+    /// unknown tool and shown without the command in it. Arguments carrying a
+    /// `command` is the thing that actually makes it one.
     fn handle_function_call(&mut self, name: &str, arguments: &str, call_id: &str) {
         let parsed: Option<serde_json::Value> = serde_json::from_str(arguments).ok();
 
-        let is_shell = name == "shell" || name == "local_shell" || name == "shell_command";
-        if is_shell {
+        {
             let command = parsed
                 .as_ref()
                 .and_then(|value| value.get("command"))
@@ -246,30 +264,29 @@ impl ThreadHistoryBuilder {
                     other => other.as_str().unwrap_or_default().to_string(),
                 })
                 .unwrap_or_default();
-            if command.is_empty() {
+            if !command.is_empty() {
+                let description = parsed
+                    .as_ref()
+                    .and_then(|value| value.get("description"))
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string);
+
+                self.open_calls.push(call_id.to_string());
+                let id = self.next_item_id();
+                self.ensure_turn().items.push(ThreadItem::CommandExecution {
+                    id,
+                    command,
+                    cwd: std::path::PathBuf::new(),
+                    process_id: None,
+                    status: CommandExecutionStatus::Completed,
+                    command_actions: Vec::new(),
+                    description,
+                    aggregated_output: None,
+                    exit_code: None,
+                    duration_ms: None,
+                });
                 return;
             }
-            let description = parsed
-                .as_ref()
-                .and_then(|value| value.get("description"))
-                .and_then(serde_json::Value::as_str)
-                .map(str::to_string);
-
-            self.open_calls.push(call_id.to_string());
-            let id = self.next_item_id();
-            self.ensure_turn().items.push(ThreadItem::CommandExecution {
-                id,
-                command,
-                cwd: std::path::PathBuf::new(),
-                process_id: None,
-                status: CommandExecutionStatus::Completed,
-                command_actions: Vec::new(),
-                description,
-                aggregated_output: None,
-                exit_code: None,
-                duration_ms: None,
-            });
-            return;
         }
 
         self.open_calls.push(call_id.to_string());
@@ -290,7 +307,8 @@ impl ThreadHistoryBuilder {
     ///
     /// Matched by position rather than by id, because the recorded item does
     /// not carry the id the reader gave it. Calls and their outputs are
-    /// recorded in order, so the oldest unanswered call is the right one.
+    /// recorded in order, so the **oldest** unanswered call is the right one —
+    /// searching from the newest end gave every command the next one's output.
     fn attach_output(&mut self, call_id: &str, output: &str) {
         let Some(at) = self.open_calls.iter().position(|open| open == call_id) else {
             return;
@@ -300,13 +318,13 @@ impl ThreadHistoryBuilder {
         let Some(turn) = self.current_turn.as_mut() else {
             return;
         };
-        for item in turn.items.iter_mut().rev() {
+        for item in turn.items.iter_mut() {
             if let ThreadItem::CommandExecution {
                 aggregated_output, ..
             } = item
                 && aggregated_output.is_none()
             {
-                *aggregated_output = Some(output.to_string());
+                *aggregated_output = Some(unwrap_output(output));
                 return;
             }
         }
@@ -525,15 +543,137 @@ mod tests {
     }
 
     #[test]
-    fn should_skip_a_call_whose_arguments_cannot_be_read() {
-        // A row with no command in it says nothing; better none at all.
+    fn should_give_each_command_its_own_output() {
+        // Searching from the newest end gave every command the *next* one's
+        // output, which is worse than none: it reads as fact.
+        use opencli_protocol::models::FunctionCallOutputPayload;
+
+        let call = |id: &str, cmd: &str| {
+            RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+                id: None,
+                name: "run".to_string(),
+                arguments: format!(r#"{{"command":["bash","-lc","{cmd}"]}}"#),
+                call_id: id.to_string(),
+            })
+        };
+        let output = |id: &str, text: &str| {
+            RolloutItem::ResponseItem(ResponseItem::FunctionCallOutput {
+                call_id: id.to_string(),
+                output: FunctionCallOutputPayload {
+                    content: format!(r#"{{"output":"{text}"}}"#),
+                    content_items: None,
+                    success: Some(true),
+                },
+            })
+        };
+
+        let turns = build_turns_from_rollout(&[
+            call("a", "ls"),
+            output("a", "first"),
+            call("b", "pwd"),
+            output("b", "second"),
+        ]);
+
+        let paired: Vec<(String, Option<String>)> = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .filter_map(|item| match item {
+                ThreadItem::CommandExecution {
+                    command,
+                    aggregated_output,
+                    ..
+                } => Some((command.clone(), aggregated_output.clone())),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(
+            paired,
+            vec![
+                ("bash -lc ls".to_string(), Some("first".to_string())),
+                ("bash -lc pwd".to_string(), Some("second".to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    fn should_show_what_a_command_printed_not_the_envelope_around_it() {
+        // Stored as `{"output": "...", "metadata": {...}}`. Shown verbatim, a
+        // directory listing arrives inside a JSON string, escapes and all.
+        assert_eq!(
+            unwrap_output(r#"{"output":"total 8\ndrwxr-xr-x","metadata":{"exit_code":0}}"#),
+            "total 8\ndrwxr-xr-x"
+        );
+        // A tool that returns plain text is returning plain text.
+        assert_eq!(unwrap_output("just text"), "just text");
+        assert_eq!(unwrap_output(r#"{"other":"shape"}"#), r#"{"other":"shape"}"#);
+    }
+
+    #[test]
+    fn should_recognise_a_command_whatever_the_shell_tool_is_called() {
+        // This build names it `run`, `local_shell` or `run_command` depending
+        // on configuration. A list of names written from memory got two of the
+        // three wrong, and every command in an old conversation was then filed
+        // as an unknown tool with no command in it.
+        for name in ["run", "local_shell", "run_command", "shell", "something_new"] {
+            let items = vec![RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+                id: None,
+                name: name.to_string(),
+                arguments: r#"{"command":["bash","-lc","ls"],"workdir":"/"}"#.to_string(),
+                call_id: "call-1".to_string(),
+            })];
+
+            let found = build_turns_from_rollout(&items)
+                .iter()
+                .flat_map(|turn| turn.items.iter())
+                .find_map(|item| match item {
+                    ThreadItem::CommandExecution { command, .. } => Some(command.clone()),
+                    _ => None,
+                });
+            assert_eq!(found.as_deref(), Some("bash -lc ls"), "tool named `{name}`");
+        }
+    }
+
+    #[test]
+    fn should_still_file_a_real_tool_call_as_one() {
+        // Deciding by shape must not swallow tool calls that are not commands.
         let items = vec![RolloutItem::ResponseItem(ResponseItem::FunctionCall {
             id: None,
-            name: "shell".to_string(),
+            name: "get_design_context".to_string(),
+            arguments: r#"{"node":"12:34"}"#.to_string(),
+            call_id: "call-1".to_string(),
+        })];
+
+        let tool = build_turns_from_rollout(&items)
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::McpToolCall { tool, .. } => Some(tool.clone()),
+                _ => None,
+            });
+        assert_eq!(tool.as_deref(), Some("get_design_context"));
+    }
+
+    #[test]
+    fn should_still_report_a_call_whose_arguments_cannot_be_read() {
+        // Deciding by shape means an unreadable call cannot be identified as a
+        // command — but something did run, and saying so by name beats
+        // pretending the conversation never touched a tool.
+        let items = vec![RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+            id: None,
+            name: "run".to_string(),
             arguments: "not json".to_string(),
             call_id: "call-1".to_string(),
         })];
-        assert!(build_turns_from_rollout(&items).is_empty());
+
+        let tool = build_turns_from_rollout(&items)
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::McpToolCall { tool, .. } => Some(tool.clone()),
+                _ => None,
+            });
+        assert_eq!(tool.as_deref(), Some("run"));
     }
     use super::*;
     use opencli_protocol::protocol::AgentMessageEvent;

@@ -214,6 +214,20 @@ function formatElapsed(seconds: number): string {
   return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
 }
 
+/**
+ * How long something took, from milliseconds.
+ *
+ * Rounding to whole seconds made every command that finished in under half a
+ * second read "0s", which is most of them — a figure that looked broken while
+ * being technically true. Below a second it says milliseconds, and just above
+ * it keeps one decimal, because 1.4s and 1.9s are different answers.
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
+  return formatElapsed(Math.round(ms / 1000));
+}
+
 export default function App() {
   const [url, setUrl] = useState(gatewayUrlFromLocation);
   const [cwd, setCwd] = useState("");
@@ -263,7 +277,14 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [busy, setBusy] = useState(false);
+  /**
+   * The chat a turn is running in, or null when nothing is running.
+   *
+   * A single flag leaked across chats: a turn started in one and then switched
+   * away from left every other conversation claiming to be working, because
+   * there is one agent and the flag did not say which chat it belonged to.
+   */
+  const [runningIn, setRunningIn] = useState<string | null>(null);
 
   const clientRef = useRef<OpenCliClient | null>(null);
   const modelRef = useRef<string>("");
@@ -463,12 +484,12 @@ export default function App() {
           });
         },
         onTurnComplete: () => {
-          setBusy(false);
+          setRunningIn(null);
           void refreshThreads();
         },
         onError: (message) => {
           setError(message);
-          setBusy(false);
+          setRunningIn(null);
         },
         onApprovalRequest: setApproval,
         onTokenUsage: setUsage,
@@ -510,14 +531,18 @@ export default function App() {
    * only "Working…" cannot be told apart from one that has hung. The number
    * is what makes waiting bearable and a stall obvious.
    */
+  // Only the conversation a turn belongs to is working; the clock, though,
+  // follows the turn, so switching away and back does not restart it.
+  const busy = runningIn !== null && runningIn === activeThreadId;
+
   useEffect(() => {
-    if (!busy) return;
+    if (!runningIn) return;
     const startedAt = Date.now();
     setElapsed(0);
     setStreamed(0);
     const timer = setInterval(() => setElapsed(Math.round((Date.now() - startedAt) / 1000)), 1000);
     return () => clearInterval(timer);
-  }, [busy]);
+  }, [runningIn]);
 
   /*
    * What is happening, rather than that something is.
@@ -611,7 +636,7 @@ export default function App() {
       return;
     }
 
-    setBusy(true);
+    setRunningIn(clientRef.current?.threadId ?? null);
     // The server echoes the user message back as a thread item, so do not add
     // it locally — doing so showed every prompt twice.
     try {
@@ -631,7 +656,7 @@ export default function App() {
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-      setBusy(false);
+      setRunningIn(null);
     }
   }, [attachments, cowork, cwd, draft, refreshThreads]);
 
@@ -641,7 +666,7 @@ export default function App() {
     } catch {
       // The turn may have finished between render and click.
     }
-    setBusy(false);
+    setRunningIn(null);
   }, []);
 
   const openThread = useCallback(async (id: string) => {
@@ -1058,7 +1083,7 @@ export default function App() {
                       >
                         <strong>
                           {item.durationMs !== undefined
-                            ? `Thought for ${formatElapsed(Math.round(item.durationMs / 1000))}`
+                            ? `Thought for ${formatDuration(item.durationMs)}`
                             : "Thinking"}
                         </strong>
                         <em>{openThoughts[item.id] ? "hide" : "show"}</em>
@@ -1068,7 +1093,7 @@ export default function App() {
                         <strong>{item.tool ?? KIND_LABEL[item.kind]}</strong>
                         {item.summary ? <span className="what">{item.summary}</span> : null}
                         {item.durationMs !== undefined ? (
-                          <em>{formatElapsed(Math.round(item.durationMs / 1000))}</em>
+                          <em>{formatDuration(item.durationMs)}</em>
                         ) : null}
                       </span>
                     ) : null}
@@ -1093,8 +1118,14 @@ export default function App() {
                 {busy ? (
                   <p className="working">
                     {doing} {formatElapsed(elapsed)}
-                    {streamed > 0 ? ` · ~${Math.round(streamed / 4)} tokens written` : ""}
-                    {usage && usage.total > 0 ? ` · ${usage.total.toLocaleString()} so far in this chat` : ""}{" "}
+                    {streamed > 0 ? ` · ~${Math.round(streamed / 4)} written` : ""}
+                    {/*
+                      * The conversation's total is deliberately not shown here.
+                      * A streaming provider reports usage once, when the turn
+                      * ends, so the figure cannot move while one is running —
+                      * and a number that sits still for fourteen minutes under
+                      * the words "so far" reads as a counter that has broken.
+                      */}{" "}
                     <button className="link" onClick={() => void interrupt()}>
                       stop
                     </button>

@@ -568,8 +568,11 @@ function toThreadItem(item: Record<string, unknown>): ThreadItem | null {
   const type = String(item.type ?? item.itemType ?? "");
   const command = typeof item.command === "string" ? item.command : "";
   const isTool = type.includes("mcpToolCall") || type.includes("mcp_tool_call");
+  // An empty server is not a name; joining it produced a leading " · ".
   const tool = isTool
-    ? [item.server, item.tool].filter((part) => typeof part === "string").join(" · ")
+    ? [item.server, item.tool]
+        .filter((part): part is string => typeof part === "string" && part.length > 0)
+        .join(" · ") || undefined
     : undefined;
 
   const text =
