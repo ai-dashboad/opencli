@@ -682,11 +682,33 @@ textarea:focus {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 28px 20px;
+  padding: 28px 32px;
   display: grid;
-  grid-template-columns: minmax(0, 780px);
-  justify-content: center;
+  /*
+   * Left-aligned, and allowed to grow with the window.
+   *
+   * Centring left a wide gap on both sides of a settings list, which reads as
+   * the content having drifted loose rather than as a deliberate margin. A
+   * chat is centred because a paragraph has a comfortable line length; a list
+   * of rows has no such limit, so it starts where the sidebar ends and takes
+   * the room it is given, up to a width past which a row of two short words
+   * would just be stretched.
+   */
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
+}
+
+/*
+ * The children are capped, not the track.
+ *
+ * A track with a fixed maximum does not shrink to a narrower container, so
+ * `minmax(0, 1040px)` overflowed the panel's own right padding and the cards
+ * ran off the edge of the window. A full-width track with capped children
+ * left-aligns and still leaves the padding intact.
+ */
+.panel > * {
+  min-width: 0;
+  max-width: 1040px;
 }
 
 .panel h2 {
