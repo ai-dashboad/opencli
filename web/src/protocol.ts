@@ -518,6 +518,31 @@ function classify(item: Record<string, unknown>): ThreadItem["kind"] {
 }
 
 /**
+ * A stable identity for an item, since the server does not always give one.
+ *
+ * Reasoning arrives with `id: ""` — the field is not serialised for this wire
+ * and no provider fills it — so every thought in a conversation shared the
+ * same empty id, and nothing could be matched to anything. Worse, the same
+ * thought is sent twice: `started`, `completed`, `started`, `completed`, the
+ * second pair carrying the finished text from the outset. Appending what
+ * arrives showed every thought twice.
+ *
+ * Deriving the id from the content makes the repeat *be* the same item, so it
+ * replaces rather than accumulating. Two genuinely identical consecutive
+ * thoughts collapse into one, which is the right answer for them too.
+ */
+function identify(item: Record<string, unknown>, kind: ThreadItem["kind"], text: string): string {
+  const given = typeof item.id === "string" ? item.id.trim() : "";
+  if (given) return given;
+
+  let hash = 5381;
+  for (let at = 0; at < text.length; at += 1) {
+    hash = ((hash << 5) + hash + text.charCodeAt(at)) | 0;
+  }
+  return `${kind}:${(hash >>> 0).toString(36)}`;
+}
+
+/**
  * The agent's own tools, named for a reader rather than for the agent.
  *
  * `open_file` is what the model calls it. A row headed `open_file` with
@@ -668,13 +693,14 @@ function toThreadItem(item: Record<string, unknown>): ThreadItem | null {
     (typeof item.aggregatedOutput === "string" ? item.aggregatedOutput : "") ||
     (isTool ? textOf(item.result) : "") ||
     undefined;
+  const kind = classify(item);
   return {
     summary,
     output,
     durationMs: typeof item.durationMs === "number" ? item.durationMs : undefined,
     tool,
-    id: String(item.id ?? crypto.randomUUID()),
-    kind: classify(item),
+    id: identify(item, kind, text),
+    kind,
     text,
     exitCode: typeof item.exitCode === "number" ? item.exitCode : undefined,
     ...(changes.length > 0 ? { changes } : {}),

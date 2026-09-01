@@ -622,6 +622,20 @@ that never changed and never said how long it had taken.
 
 ---
 
+## An item's id is not stable, and sometimes is not there
+
+Reasoning arrives with `id: ""`. The field is not serialised on this wire and
+no provider fills it, so every thought in a conversation carried the same
+empty id and nothing could be matched to anything. The same thought is also
+sent **twice** — `started`, `completed`, `started`, `completed`, the second
+pair carrying the finished text from the outset — so appending what arrived
+showed every thought twice.
+
+An item the server gives no id for is identified by its content. The repeat
+then *is* the same item and replaces rather than accumulating, and two
+genuinely identical consecutive thoughts collapse into one, which is the right
+answer for them too.
+
 ## An item's id is not stable across its life
 
 A reply streams under one id and completes under another: `item/started` says

@@ -1190,8 +1190,18 @@ export default function App() {
                         } · `
                       : ""}
                     {usage.total.toLocaleString()} in this chat
+                    {/*
+                      * The window is stated, not compared against.
+                      *
+                      * The total is everything this conversation has spent,
+                      * across however many compactions; the window is what
+                      * fits in one request. Dividing one by the other produced
+                      * "616% of the 94K context", which is not a fact about
+                      * anything — a conversation cannot be six times its own
+                      * context, and the number read as an error.
+                      */}
                     {usage.contextWindow
-                      ? ` · ${Math.round((100 * usage.total) / usage.contextWindow)}% of the ${Math.round(usage.contextWindow / 1024)}K context`
+                      ? ` · ${Math.round(usage.contextWindow / 1024)}K context`
                       : ""}
                   </p>
                 ) : null}

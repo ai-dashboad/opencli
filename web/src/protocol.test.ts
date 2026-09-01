@@ -698,6 +698,43 @@ describe("when the agent stops to ask", () => {
   });
 });
 
+describe("an item the server gives no id for", () => {
+  it("should treat the same thought sent twice as one", async () => {
+    // Reasoning arrives with `id: ""` and is sent twice — started, completed,
+    // started, completed — the second pair carrying the finished text from the
+    // outset. Appending what arrived showed every thought twice.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    const thought = {
+      type: "reasoning",
+      id: "",
+      summary: [],
+      content: ["The user is asking for a one-sentence explanation."],
+    };
+    socket.emit({ method: "item/completed", params: { item: thought } });
+    socket.emit({ method: "item/completed", params: { item: thought } });
+
+    expect(seen).toHaveLength(2);
+    // Same identity, so the caller replaces rather than accumulating.
+    expect(seen[0].id).toBe(seen[1].id);
+  });
+
+  it("should keep two different thoughts apart", async () => {
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    for (const text of ["first thought", "second thought"]) {
+      socket.emit({
+        method: "item/completed",
+        params: { item: { type: "reasoning", id: "", summary: [], content: [text] } },
+      });
+    }
+
+    expect(seen[0].id).not.toBe(seen[1].id);
+  });
+});
+
 describe("how long a thought took", () => {
   it("should report it even when nothing streamed before it finished", async () => {
     // Timing from the first delta lost every thought that finished before one
