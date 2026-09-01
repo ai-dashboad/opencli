@@ -5,3 +5,4 @@ size_gb = 0.4
 needs_gb = 1.0
 tools = true
 context = 32768
+purpose = "small"

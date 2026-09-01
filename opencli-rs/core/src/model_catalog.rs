@@ -46,10 +46,35 @@ pub struct CatalogModel {
     pub tools: bool,
     #[serde(default)]
     pub context: u32,
+    /// What the model is for, which is how someone chooses one.
+    ///
+    /// Grouped by purpose rather than by who published it: a person picking a
+    /// model is deciding what they want to do, not which company they prefer.
+    #[serde(default = "default_purpose")]
+    pub purpose: String,
     /// Set on entries the user added, so the UI can offer to edit those and
     /// not the bundled ones.
     #[serde(default, skip_deserializing)]
     pub user_defined: bool,
+}
+
+fn default_purpose() -> String {
+    "general".to_string()
+}
+
+/// The purposes entries are grouped under, in the order they are shown.
+///
+/// A fixed list rather than whatever appears in the files: an entry with a
+/// misspelt purpose would otherwise create a group of one, silently.
+pub const PURPOSES: &[(&str, &str)] = &[
+    ("coding", "Coding"),
+    ("general", "General purpose"),
+    ("small", "Small and fast"),
+];
+
+/// Whether a purpose is one this build groups by.
+pub fn is_known_purpose(purpose: &str) -> bool {
+    PURPOSES.iter().any(|(id, _)| *id == purpose)
 }
 
 /// A user's catalogue file.
@@ -163,6 +188,7 @@ mod tests {
             needs_gb: needs,
             tools: true,
             context: 32768,
+            purpose: "general".into(),
             user_defined: false,
         }
     }
@@ -189,6 +215,30 @@ mod tests {
                 entry.note.to_lowercase().contains("tool"),
                 "`{}` must say so in its note",
                 entry.tag
+            );
+        }
+    }
+
+    #[test]
+    fn should_group_every_bundled_entry_under_a_known_purpose() {
+        // A misspelt purpose would otherwise make a group of one, silently.
+        for entry in bundled() {
+            assert!(
+                is_known_purpose(&entry.purpose),
+                "`{}` has purpose `{}`, which is not one of the groups",
+                entry.tag,
+                entry.purpose
+            );
+        }
+    }
+
+    #[test]
+    fn should_have_something_to_offer_in_every_group() {
+        // An empty heading is worse than no heading.
+        for (id, label) in PURPOSES {
+            assert!(
+                bundled().iter().any(|entry| entry.purpose == *id),
+                "nothing is offered under `{label}`"
             );
         }
     }

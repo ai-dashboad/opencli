@@ -34,6 +34,7 @@ pub async fn handle(raw: &str, opencli_home: &std::path::Path) -> Option<String>
         "hub/upsert" => upsert(opencli_home, &params),
         "hub/remove" => remove(opencli_home, &params),
         "hub/search" => search(&params).await,
+        "hub/variants" => variants(&params).await,
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -55,6 +56,7 @@ fn entry_json(entry: &opencli_core::model_catalog::CatalogModel) -> Value {
         "needsGb": entry.needs_gb,
         "tools": entry.tools,
         "context": entry.context,
+        "purpose": entry.purpose,
         // The UI offers to edit only what the user owns; a bundled entry is
         // replaced by adding one with the same tag, not edited in place.
         "userDefined": entry.user_defined,
@@ -117,6 +119,14 @@ fn upsert(opencli_home: &std::path::Path, params: &Value) -> Result<Value, Strin
         needs_gb: params.get("needsGb").and_then(Value::as_f64).unwrap_or(0.0) as f32,
         tools: params.get("tools").and_then(Value::as_bool).unwrap_or(false),
         context: params.get("context").and_then(Value::as_u64).unwrap_or(0) as u32,
+        // An unrecognised purpose would make a group of one, so anything the
+        // build does not group by falls into the general one.
+        purpose: params
+            .get("purpose")
+            .and_then(Value::as_str)
+            .filter(|purpose| opencli_core::model_catalog::is_known_purpose(purpose))
+            .unwrap_or("general")
+            .to_string(),
         user_defined: true,
     };
 
@@ -215,6 +225,151 @@ async fn search_hugging_face(query: &str) -> Result<Value, String> {
         .unwrap_or_default();
 
     Ok(json!({ "data": data }))
+}
+
+/// What each quantisation means, in words rather than letters.
+///
+/// `Q4_K_M` tells a person nothing. Offering the choice without saying what it
+/// costs is offering a decision nobody can make.
+fn describe_quant(quant: &str) -> &'static str {
+    match quant {
+        "Q2_K" => "Smallest. Noticeably worse; only worth it when memory is very tight.",
+        "Q3_K_S" | "Q3_K_M" | "Q3_K_L" => "Small, with some loss of quality.",
+        "Q4_0" | "Q4_1" | "Q4_K_S" => "Small and fast.",
+        "Q4_K_M" => "The usual balance of size and quality.",
+        "Q5_K_S" | "Q5_K_M" => "Better quality, around 15% larger than Q4.",
+        "Q6_K" => "Close to the original, around a third larger than Q4.",
+        "Q8_0" => "Near-lossless, about twice the size of Q4.",
+        "FP16" | "BF16" => "The original weights. Largest, and rarely worth it locally.",
+        _ => "",
+    }
+}
+
+/// How good a quantisation is, for choosing the best one that fits.
+///
+/// Not simply "largest is best". Unquantised weights are twice the size of
+/// `Q8_0` for a difference nobody can detect locally, so they rank *below* it:
+/// recommending 15 GB where 8 would do wastes memory that the context window
+/// needs more.
+fn quality_rank(quant: &str) -> u8 {
+    match quant {
+        "Q8_0" => 9,
+        // Deliberately below Q8: bigger, and no better in practice.
+        "FP16" | "BF16" => 8,
+        "Q6_K" => 7,
+        "Q5_K_M" => 6,
+        "Q5_K_S" => 5,
+        "Q4_K_M" => 4,
+        "Q4_K_S" | "Q4_0" | "Q4_1" => 3,
+        "Q3_K_L" | "Q3_K_M" | "Q3_K_S" => 2,
+        "Q2_K" => 1,
+        _ => 0,
+    }
+}
+
+/// The quantisations a Hugging Face repository offers, with real sizes.
+///
+/// Listing them turns "type `:Q4_K_M` yourself and hope" into a choice with
+/// numbers attached — and lets a sensible default be picked from the memory
+/// actually available.
+async fn variants(params: &Value) -> Result<Value, String> {
+    let repo = params
+        .get("repo")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|repo| !repo.is_empty())
+        .ok_or("repo is required")?;
+    // Accept either form, so a tag from elsewhere in the UI can be passed back.
+    let repo = repo
+        .trim_start_matches("hf.co/")
+        .split(':')
+        .next()
+        .unwrap_or(repo);
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|err| err.to_string())?;
+    let response = client
+        .get(format!("https://huggingface.co/api/models/{repo}"))
+        .query(&[("blobs", "true")])
+        .send()
+        .await
+        .map_err(|err| format!("could not reach Hugging Face: {err}"))?;
+    if !response.status().is_success() {
+        return Err(format!("Hugging Face answered {}", response.status()));
+    }
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|_| "Hugging Face's reply was not readable".to_string())?;
+
+    let mut seen: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
+    for sibling in body
+        .get("siblings")
+        .and_then(Value::as_array)
+        .unwrap_or(&Vec::new())
+    {
+        let Some(name) = sibling.get("rfilename").and_then(Value::as_str) else {
+            continue;
+        };
+        if !name.ends_with(".gguf") {
+            continue;
+        }
+        // A split file is one part of a set; its size is not the model's, and
+        // reporting a shard as a choice would understate it several times over.
+        if name.contains("-of-") {
+            continue;
+        }
+        let Some(quant) = name
+            .rsplit_once('-')
+            .map(|(_, tail)| tail.trim_end_matches(".gguf").to_ascii_uppercase())
+        else {
+            continue;
+        };
+        if quality_rank(&quant) == 0 {
+            continue;
+        }
+        let size = sibling.get("size").and_then(Value::as_u64).unwrap_or(0);
+        seen.insert(quant, size);
+    }
+
+    let memory = params.get("memoryGb").and_then(Value::as_f64);
+    let mut data: Vec<Value> = seen
+        .iter()
+        .map(|(quant, size)| {
+            let gb = *size as f64 / 1e9;
+            json!({
+                "quant": quant,
+                "tag": format!("hf.co/{repo}:{quant}"),
+                "sizeGb": gb,
+                "note": describe_quant(quant),
+                // Weights are not the only thing resident; a model needs
+                // headroom above its own size to run comfortably.
+                "fits": memory.map(|memory| gb * 1.25 <= memory),
+            })
+        })
+        .collect();
+    data.sort_by_key(|entry| quality_rank(entry["quant"].as_str().unwrap_or("")));
+
+    // The best that fits, or the smallest when nothing does — chosen rather
+    // than asked for, because "which quantisation" is not a question most
+    // people can answer.
+    let recommended = data
+        .iter()
+        .filter(|entry| entry["fits"].as_bool().unwrap_or(true))
+        .next_back()
+        .or_else(|| data.first())
+        .and_then(|entry| entry["tag"].as_str())
+        .map(str::to_string);
+
+    if data.is_empty() {
+        return Err(format!(
+            "`{repo}` has no GGUF files this build recognises, so there is nothing to install"
+        ));
+    }
+
+    Ok(json!({ "data": data, "recommended": recommended }))
 }
 
 /// ModelScope has no public search API that does not need an account, so the
@@ -382,6 +537,50 @@ mod tests {
         )
         .await;
         assert_eq!(removed["result"]["removed"], true);
+    }
+
+    #[tokio::test]
+    async fn should_group_every_offer_under_a_purpose() {
+        // Grouping by purpose is how someone picks; an entry with none would
+        // fall out of every group and be invisible.
+        let listed = call(r#"{"method":"hub/catalog","id":1}"#).await;
+        for row in listed["result"]["data"].as_array().expect("data") {
+            let purpose = row["purpose"].as_str().unwrap_or("");
+            assert!(
+                opencli_core::model_catalog::is_known_purpose(purpose),
+                "{row} has purpose `{purpose}`"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn should_explain_what_each_quantisation_costs() {
+        // `Q4_K_M` tells a person nothing; a choice without a consequence
+        // attached is one nobody can make.
+        for quant in ["Q2_K", "Q4_K_M", "Q6_K", "Q8_0"] {
+            assert!(!describe_quant(quant).is_empty(), "{quant} needs a description");
+        }
+    }
+
+    #[test]
+    fn should_rank_quantisations_so_the_best_that_fits_can_be_chosen() {
+        assert!(quality_rank("Q8_0") > quality_rank("Q4_K_M"));
+        assert!(quality_rank("Q4_K_M") > quality_rank("Q2_K"));
+        // Unquantised weights rank below Q8: twice the size for a difference
+        // nobody can detect locally, and the memory is better spent on context.
+        assert!(
+            quality_rank("Q8_0") > quality_rank("FP16"),
+            "a big machine should not be steered to the raw weights"
+        );
+        // Anything unrecognised ranks zero and is left out rather than offered
+        // as though its quality were known.
+        assert_eq!(quality_rank("Q9_MYSTERY"), 0);
+    }
+
+    #[tokio::test]
+    async fn should_require_a_repository_to_list_variants_of() {
+        let reply = call(r#"{"method":"hub/variants","id":1,"params":{}}"#).await;
+        assert!(reply["error"].is_object());
     }
 
     #[tokio::test]

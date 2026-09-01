@@ -5,3 +5,4 @@ size_gb = 9.0
 needs_gb = 12.0
 tools = true
 context = 32768
+purpose = "coding"

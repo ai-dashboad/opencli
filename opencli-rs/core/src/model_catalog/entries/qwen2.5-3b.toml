@@ -1,0 +1,8 @@
+tag = "qwen2.5:3b"
+name = "Qwen2.5 3B"
+note = "Small enough for a laptop, and still calls tools."
+size_gb = 1.9
+needs_gb = 4.0
+tools = true
+context = 32768
+purpose = "small"

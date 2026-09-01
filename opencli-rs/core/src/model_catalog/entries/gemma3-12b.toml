@@ -5,3 +5,4 @@ size_gb = 8.1
 needs_gb = 11.0
 tools = false
 context = 131072
+purpose = "general"
