@@ -1365,21 +1365,64 @@ textarea:focus {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
+.menu-label strong {
+  font-weight: 450;
+}
+
+/*
+ * A description wraps; a value does not.
+ *
+ * These were one rule, clipped to a single line with an ellipsis. That is
+ * right for an enum shown beside its label — "high" — and wrong for the
+ * sentence explaining what a choice does, which is the whole reason the
+ * sentence is there. Cut off mid-word it explained nothing.
+ */
 .menu-label em {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text-faint);
   font-size: 12px;
   font-style: normal;
+  line-height: 1.45;
+}
+
+.menu-label em.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Only a raw enum value is title-cased; doing it to a description mangles
    every word of it. */
 .menu-label em.value {
   text-transform: capitalize;
+}
+
+/*
+ * The chosen row, marked by more than a tick at the far right.
+ *
+ * Hover already paints a full-width background, so with only a tick to go by
+ * the row under the pointer read as the selected one and the selected one read
+ * as nothing at all.
+ */
+.menu-item.chosen {
+  background: var(--surface-active);
+}
+
+.menu-item.chosen .menu-label strong {
+  color: var(--text);
+}
+
+/* Rows carrying a description are taller, so the tick sits with the title
+   rather than floating against the middle of the sentence. */
+.menu-item.tall {
+  align-items: flex-start;
+}
+
+.menu-item.tall > svg:last-child,
+.menu-item.tall .menu-icon {
+  margin-top: 1px;
 }
 
 .menu-item kbd {

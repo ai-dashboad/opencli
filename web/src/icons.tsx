@@ -248,6 +248,50 @@ export function OpenCliMark({ size = 30 }: IconProps) {
   );
 }
 
+/** Stop and ask: a raised hand. */
+export function HandIcon(props: IconProps) {
+  return (
+    <svg
+      width={props.size ?? 16}
+      height={props.size ?? 16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M8 13V5a1.5 1.5 0 0 1 3 0v6" />
+      <path d="M11 11V4a1.5 1.5 0 0 1 3 0v7" />
+      <path d="M14 11V6a1.5 1.5 0 0 1 3 0v7" />
+      <path d="M17 9a1.5 1.5 0 0 1 3 0v5a7 7 0 0 1-7 7h-1a7 7 0 0 1-7-7v-1a1.5 1.5 0 0 1 3 0" />
+    </svg>
+  );
+}
+
+/** Never ask: forward, without stopping. */
+export function FastForwardIcon(props: IconProps) {
+  return (
+    <svg
+      width={props.size ?? 16}
+      height={props.size ?? 16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M3 5l8 7-8 7V5Z" />
+      <path d="M13 5l8 7-8 7V5Z" />
+    </svg>
+  );
+}
+
 /** How much the agent may do without stopping to ask. */
 export function BoltIcon(props: IconProps) {
   return (

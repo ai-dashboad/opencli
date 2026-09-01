@@ -8,11 +8,14 @@ import type {
   SkillSummary,
 } from "./protocol";
 import {
+  BoltIcon,
   CheckIcon,
   ChevronRightIcon,
   CloseIcon,
   ConnectorIcon,
+  FastForwardIcon,
   GitHubIcon,
+  HandIcon,
   PaperclipIcon,
   PlugIcon,
   ProjectIcon,
@@ -87,6 +90,11 @@ export function MenuItem({
   const [lift, setLift] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
 
+  // A hint that is a sentence is a description and wraps; one that is a bare
+  // value sits on the same line and is clipped if it must be. Told apart by
+  // whether it reads as prose, because the caller should not have to say.
+  const describes = !!hint && (hint.includes(" ") || hint.length > 16);
+
   // A submenu opens to the right, which runs off the screen when its parent is
   // already near the edge. Measure once it is on screen and swap sides —
   // guessing from the parent's alignment gets it wrong as soon as the window
@@ -133,11 +141,16 @@ export function MenuItem({
   }
 
   return (
-    <button className="menu-item" role="menuitem" onClick={onClick}>
+    <button
+      className={`menu-item${checked ? " chosen" : ""}${describes ? " tall" : ""}`}
+      role="menuitemradio"
+      aria-checked={checked ?? false}
+      onClick={onClick}
+    >
       {icon ? <span className="menu-icon">{icon}</span> : null}
       <span className="menu-label">
-        {label}
-        {hint ? <em>{hint}</em> : null}
+        {describes ? <strong>{label}</strong> : label}
+        {hint ? <em className={describes ? undefined : "value"}>{hint}</em> : null}
       </span>
       {shortcut ? <kbd>{shortcut}</kbd> : null}
       {checked ? <CheckIcon size={13} /> : null}
@@ -353,24 +366,28 @@ export const APPROVAL_MODES: {
   short: string;
   label: string;
   hint: string;
+  icon: () => React.ReactNode;
 }[] = [
   {
     value: "untrusted",
     short: "Ask first",
     label: "Ask before anything unfamiliar",
     hint: "Every command that is not known-safe is shown to you first.",
+    icon: () => <HandIcon size={16} />,
   },
   {
     value: "on-failure",
     short: "Auto",
     label: "Run unattended",
     hint: "Commands run without asking; you are only stopped when one fails and needs more access.",
+    icon: () => <BoltIcon size={16} />,
   },
   {
     value: "never",
     short: "Never ask",
     label: "Never stop to ask",
     hint: "Nothing is shown before it runs. Only for a directory you would let a script loose in.",
+    icon: () => <FastForwardIcon size={16} />,
   },
 ];
 
@@ -387,6 +404,7 @@ export function ApprovalMenu({
       {APPROVAL_MODES.map((mode) => (
         <MenuItem
           key={mode.value}
+          icon={mode.icon()}
           label={mode.label}
           hint={mode.hint}
           checked={policy === mode.value}
