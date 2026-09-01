@@ -48,6 +48,7 @@ import {
   OpenCliMark,
 } from "./icons";
 import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./menus";
+import { Markdown } from "./markdown";
 import { shouldSend } from "./composer";
 import "./styles.css";
 
@@ -1038,7 +1039,17 @@ export default function App() {
                         ) : null}
                       </span>
                     ) : null}
-                    <pre>{item.text}</pre>
+                    {/*
+                      * The agent's prose is Markdown; a command is not. What
+                      * ran and what it printed are shown exactly as they are,
+                      * because a shell line with an asterisk in it means the
+                      * asterisk.
+                      */}
+                    {item.kind === "agent" || item.kind === "reasoning" ? (
+                      <Markdown text={item.text} />
+                    ) : (
+                      <pre>{item.text}</pre>
+                    )}
                     {item.output ? <pre className="output">{item.output}</pre> : null}
                     {item.exitCode !== undefined && item.exitCode !== 0 ? (
                       <span className="exit">exit {item.exitCode}</span>

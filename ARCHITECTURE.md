@@ -475,6 +475,29 @@ of item.
 
 ---
 
+## Markdown, rendered without a renderer
+
+Agent replies are Markdown and were shown verbatim, so a summary arrived as
+its own asterisks and backticks. `web/src/markdown.tsx` renders the part of
+it an agent actually writes: emphasis, code spans, fenced blocks, lists,
+headings and links.
+
+**It produces React elements, never HTML strings.** That is the whole safety
+argument — nothing in it can turn a model's output into markup, so there is
+no injection to sanitise against and no sanitiser to get wrong. The one place
+a value reaches an attribute is a link's `href`, which is why only `http` and
+`https` survive it; anything else is shown as the words the model wrote.
+
+Deliberately partial, and deliberately no dependency: this package has two,
+React and React DOM. Tables, block quotes, images and nested lists are shown
+as the text they are, because a table rendered wrongly is harder to read than
+one not rendered at all.
+
+Commands keep their `<pre>`. A shell line with an asterisk in it means the
+asterisk.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

@@ -2274,3 +2274,82 @@ textarea:focus {
   color: var(--text-faint);
   font-style: normal;
 }
+
+/* ── Rendered Markdown in a reply ──────────────────────────────────── */
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose > :last-child {
+  margin-bottom: 0;
+}
+
+.prose p {
+  margin: 0 0 12px;
+  /* Single line breaks are kept: an agent writes a line per point without a
+     blank line between them, and joining those loses the shape it wrote. */
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+.prose h3,
+.prose h4,
+.prose h5 {
+  margin: 18px 0 8px;
+  font-weight: 550;
+}
+
+.prose h3 {
+  font-size: 15px;
+}
+
+.prose h4,
+.prose h5 {
+  font-size: 14px;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+  line-height: 1.65;
+}
+
+.prose li {
+  margin-bottom: 4px;
+}
+
+.prose code {
+  /* Tight: 5px pushed a following comma visibly away from the word it
+     belongs to, which reads as a typo rather than as a chip. */
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: var(--bg-sidebar);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  color: var(--code);
+}
+
+.prose pre.code-block {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+}
+
+/* Inside a block the background is already there; a second one on every line
+   would read as a highlight. */
+.prose pre.code-block code {
+  padding: 0;
+  background: none;
+  font-size: 12.5px;
+}
+
+.prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
