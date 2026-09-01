@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FolderIcon, FolderPlusIcon, PinIcon, SearchIcon } from "./icons";
 import { Dialog } from "./menus";
-import { shouldDismiss, shouldSend } from "./composer";
+import { shouldDismiss } from "./composer";
 import type {
   ApprovalPolicy,
   ConnectorConfig,
@@ -1750,18 +1750,20 @@ export function ModelsView({
   const [tab, setTab] = useState<"installed" | "browse">("installed");
   const [installed, setInstalled] = useState<ModelLocation[]>([]);
   const [library, setLibrary] = useState<Offer[]>([]);
-  const [found, setFound] = useState<Offer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsReload, setNeedsReload] = useState(false);
   const [managing, setManaging] = useState(false);
   const [discovered, setDiscovered] = useState<DiscoveredRuntime[]>([]);
 
-  const [source, setSource] = useState<"ollama" | "huggingface" | "modelscope">("ollama");
   const [query, setQuery] = useState("");
-  const [hint, setHint] = useState<string | null>(null);
+  const [popular, setPopular] = useState<Offer[]>([]);
+  const [popularTotal, setPopularTotal] = useState(0);
+  const [popularStale, setPopularStale] = useState(false);
+  const [found, setFound] = useState<Offer[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [installing, setInstalling] = useState<Offer | null>(null);
+  const [targets, setTargets] = useState<InstallTarget[]>([]);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -1773,6 +1775,11 @@ export function ModelsView({
       setInstalled(rows);
       setDiscovered(here);
       setError(null);
+      // Gathered while the user browses rather than when Install is pressed,
+      // so the dialog opens on data already in hand instead of on a round trip
+      // to every machine. Refreshed here too, so "already installed there"
+      // stays true after an install or a removal.
+      void client.installTargets().then(setTargets).catch(() => setTargets([]));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -1783,7 +1790,49 @@ export function ModelsView({
   useEffect(() => {
     void reload();
     void client.modelCatalog().then(setLibrary).catch(() => setLibrary([]));
+    // Fetched when the panel mounts, not when Browse is opened: it comes from
+    // a cache the gateway warms at startup, so by the time anyone switches
+    // tabs there is a list waiting rather than a spinner.
+    void client
+      .popularModels({ limit: 20 })
+      .then((result) => {
+        setPopular(result.models);
+        setPopularTotal(result.total);
+        setPopularStale(result.stale);
+      })
+      .catch(() => setPopular([]));
   }, [client, reload]);
+
+  const showMore = useCallback(() => {
+    void client
+      .popularModels({ offset: popular.length, limit: 20 })
+      .then((result) => setPopular((prev) => [...prev, ...result.models]))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+  }, [client, popular.length]);
+
+  // Typing narrows what is already on screen, and reaches Hugging Face for
+  // what is not. It refines a populated page rather than being the way in:
+  // needing a name to see anything is what made the panel useless to someone
+  // who does not know one.
+  useEffect(() => {
+    const term = query.trim();
+    if (!term || term.includes("/") || term.includes(":")) {
+      setFound(null);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(() => {
+      void client
+        .searchModels(term, "huggingface")
+        .then((result) => setFound(result.results))
+        .catch(() => setFound([]))
+        .finally(() => setSearching(false));
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      setSearching(false);
+    };
+  }, [client, query]);
 
   // A finished download is registered where it landed, then the list refreshed.
   const finished = Object.values(pulls)
@@ -1813,25 +1862,18 @@ export function ModelsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
 
-  const runSearch = useCallback(() => {
-    if (source === "ollama") {
-      void client.modelCatalog({ query }).then(setLibrary);
-      return;
-    }
-    if (!query.trim()) return;
-    setSearching(true);
-    void client
-      .searchModels(query.trim(), source)
-      .then((result) => {
-        setFound(result.results);
-        setHint(result.hint ?? null);
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setSearching(false));
-  }, [client, query, source]);
-
   const inFlight = Object.values(pulls).filter((pull) => !pull.done && !pull.error);
-  const offers = source === "ollama" ? library : found;
+
+  const term = query.trim().toLowerCase();
+  // The curated entries are filtered here rather than re-fetched: twelve rows
+  // already in hand need no round trip to narrow.
+  const shortlist = term
+    ? library.filter(
+        (offer) =>
+          offer.name.toLowerCase().includes(term) || offer.tag.toLowerCase().includes(term),
+      )
+    : library;
+  const fromHub = found ?? popular;
 
   // Which machines hold each model, rather than a yes or no: "already on GPU
   // Box" is what someone deciding needs, and it is also what makes clear that
@@ -1979,54 +2021,27 @@ export function ModelsView({
         </>
       ) : (
         <>
-          <div className="tabs">
-            {(["ollama", "huggingface", "modelscope"] as const).map((option) => (
-              <button
-                key={option}
-                className={source === option ? "on" : ""}
-                onClick={() => {
-                  setSource(option);
-                  setFound([]);
-                  setHint(null);
-                }}
-              >
-                {option === "ollama"
-                  ? "Recommended"
-                  : option === "huggingface"
-                    ? "Hugging Face"
-                    : "ModelScope"}
-              </button>
-            ))}
-          </div>
-
           <div className="task-form">
             <input
               value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (source === "ollama") {
-                  void client.modelCatalog({ query: e.target.value }).then(setLibrary);
-                }
-              }}
+              onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (shouldSend({ ...e, isComposing: e.nativeEvent.isComposing })) runSearch();
+                if (shouldDismiss({ ...e, isComposing: e.nativeEvent.isComposing })) setQuery("");
               }}
-              placeholder={
-                source === "ollama"
-                  ? "Filter, or paste a tag like mistral:7b"
-                  : "Search by name, then press Enter"
-              }
+              placeholder="Narrow the list, or paste a tag like hf.co/owner/repo"
             />
-            {source !== "ollama" ? (
-              <button disabled={!query.trim() || searching} onClick={runSearch}>
-                {searching ? "Searching…" : "Search"}
+            {query ? (
+              <button className="secondary" onClick={() => setQuery("")}>
+                Clear
               </button>
             ) : null}
           </div>
+          <p className="hint">
+            Anything installable can also be pasted straight in — an Ollama tag, an{" "}
+            <code>hf.co/owner/repo</code>, or a <code>modelscope.cn/owner/repo</code>.
+          </p>
 
-          {hint ? <p className="hint">{hint}</p> : null}
-
-          {typedTag && !offers.some((offer) => offer.tag === typedTag) ? (
+          {typedTag ? (
             <ul className="rows">
               <li>
                 <strong>{typedTag}</strong>
@@ -2044,33 +2059,53 @@ export function ModelsView({
             </ul>
           ) : null}
 
-          {source === "ollama" ? (
-            <PurposeGroups
-              offers={offers}
-              whereInstalled={whereInstalled}
-              onInstall={setInstalling}
-            />
-          ) : (
-            <ul className="rows">
-              {offers.length === 0 ? (
-                <li className="muted">Nothing found yet — search above.</li>
-              ) : null}
-              {offers.map((offer) => (
-                <OfferRow
-                  key={offer.tag}
-                  offer={offer}
-                  where={whereInstalled.get(offer.tag) ?? []}
-                  onInstall={() => setInstalling(offer)}
-                />
-              ))}
-            </ul>
-          )}
+          {shortlist.length > 0 ? (
+            <>
+              <h3>Recommended · {shortlist.length}</h3>
+              <PurposeGroups
+                offers={shortlist}
+                whereInstalled={whereInstalled}
+                onInstall={setInstalling}
+              />
+            </>
+          ) : null}
+
+          <h3>
+            {found ? "On Hugging Face" : "Popular on Hugging Face"}
+            {searching ? " · searching…" : fromHub.length > 0 ? ` · ${fromHub.length}` : ""}
+          </h3>
+          {!found && popularStale ? (
+            <p className="hint">These rankings are from an earlier session, and are refreshing.</p>
+          ) : null}
+          <ul className="rows">
+            {fromHub.length === 0 && !searching ? (
+              <li className="muted">
+                {found
+                  ? "Nothing on Hugging Face matched that."
+                  : "The list of popular models could not be fetched. Anything above still installs."}
+              </li>
+            ) : null}
+            {fromHub.map((offer) => (
+              <OfferRow
+                key={offer.tag}
+                offer={offer}
+                where={whereInstalled.get(offer.tag) ?? []}
+                onInstall={() => setInstalling(offer)}
+              />
+            ))}
+          </ul>
+          {!found && popular.length > 0 && popular.length < popularTotal ? (
+            <button className="secondary" onClick={showMore}>
+              Show more
+            </button>
+          ) : null}
         </>
       )}
 
       <InstallDialog
         client={client}
         offer={installing}
+        targets={targets}
         onClose={() => setInstalling(null)}
         onInstall={(baseUrl, tag) => {
           onPull(baseUrl, tag);
@@ -2188,56 +2223,63 @@ function PurposeGroups({
 function InstallDialog({
   client,
   offer,
+  targets,
   onClose,
   onInstall,
 }: {
   client: OpenCliClient;
   offer: Offer | null;
+  /** Loaded by the panel while browsing, so this opens without a round trip. */
+  targets: InstallTarget[];
   onClose: () => void;
   onInstall: (baseUrl: string, tag: string) => void;
 }) {
-  const [targets, setTargets] = useState<InstallTarget[]>([]);
   const [chosen, setChosen] = useState<string>("");
+  /** Memory per machine, filled in as each is looked at. */
+  const [memory, setMemory] = useState<Record<string, number | null>>({});
+  const [reading, setReading] = useState(false);
   const [variants, setVariants] = useState<ModelVariant[]>([]);
   const [variant, setVariant] = useState<string>("");
   const [showVariants, setShowVariants] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const needsVariant = offer?.source === "huggingface" && offer.needsQuant;
 
   useEffect(() => {
     if (!offer) return;
-    setLoading(true);
     setError(null);
     setShowVariants(false);
-    void client
-      .installTargets()
-      .then((rows) => {
-        setTargets(rows);
-        // Prefer somewhere it can actually go, and somewhere it is not already.
-        const usable = rows.find(
-          (row) => row.reachable && !row.installed.includes(offer.tag),
-        );
-        setChosen(usable?.baseUrl ?? rows.find((row) => row.reachable)?.baseUrl ?? "");
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, [client, offer]);
+    // Prefer somewhere it can actually go, and somewhere it is not already.
+    const usable = targets.find((row) => row.reachable && !row.installed.includes(offer.tag));
+    setChosen(usable?.baseUrl ?? targets.find((row) => row.reachable)?.baseUrl ?? "");
+  }, [offer, targets]);
 
-  // The recommendation follows the machine, so it is fetched again when the
-  // machine changes rather than chosen once.
+  // Memory is read for the chosen machine only, and after the dialog is
+  // already usable. Reading every machine up front is what made opening it
+  // wait on an SSH round trip per server.
   useEffect(() => {
-    if (!offer || !needsVariant || !chosen) return;
-    const memory = targets.find((row) => row.baseUrl === chosen)?.memoryGb ?? undefined;
+    if (!chosen || chosen in memory) return;
+    setReading(true);
     void client
-      .modelVariants(offer.tag, memory ?? undefined)
+      .machineMemoryGb(chosen)
+      .then((gb) => setMemory((prev) => ({ ...prev, [chosen]: gb })))
+      .catch(() => setMemory((prev) => ({ ...prev, [chosen]: null })))
+      .finally(() => setReading(false));
+  }, [client, chosen, memory]);
+
+  // The recommendation follows the machine, so it is worked out again whenever
+  // the machine or its memory changes rather than chosen once.
+  const chosenMemory = memory[chosen] ?? null;
+  useEffect(() => {
+    if (!offer || !needsVariant || !chosen || reading) return;
+    void client
+      .modelVariants(offer.tag, chosenMemory ?? undefined)
       .then((result) => {
         setVariants(result.variants);
         setVariant(result.recommended ?? result.variants[0]?.tag ?? "");
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
-  }, [client, offer, needsVariant, chosen, targets]);
+  }, [client, offer, needsVariant, chosen, chosenMemory, reading]);
 
   if (!offer) return null;
 
@@ -2245,13 +2287,14 @@ function InstallDialog({
   const tag = needsVariant ? variant : offer.tag;
   const already = target?.installed.includes(tag) ?? false;
   const chosenVariant = variants.find((row) => row.tag === variant);
+  const known = chosen in memory;
   const fits =
-    target?.memoryGb == null
+    chosenMemory == null
       ? null
       : needsVariant
         ? (chosenVariant?.fits ?? null)
         : offer.needsGb
-          ? offer.needsGb <= target.memoryGb
+          ? offer.needsGb <= chosenMemory
           : null;
 
   return (
@@ -2266,7 +2309,7 @@ function InstallDialog({
           </button>
           <button
             className="filled"
-            disabled={!chosen || !tag || already || loading}
+            disabled={!chosen || !tag || already}
             onClick={() => onInstall(chosen, tag)}
           >
             {already ? "Already there" : "Install"}
@@ -2275,11 +2318,10 @@ function InstallDialog({
       }
     >
       {error ? <p className="error">{error}</p> : null}
-      {loading ? <p className="muted">Looking at your machines…</p> : null}
 
       <label className="field">
         Which machine?
-        {targets.length === 0 && !loading ? (
+        {targets.length === 0 ? (
           <span className="field-note">
             No machine found. Open Machines… to add one, or install Ollama on this computer.
           </span>
@@ -2289,7 +2331,7 @@ function InstallDialog({
             <option key={row.baseUrl} value={row.baseUrl} disabled={!row.reachable}>
               {row.label}
               {row.reachable ? "" : " — not answering"}
-              {row.memoryGb ? ` · ${row.memoryGb} GB` : ""}
+              {memory[row.baseUrl] ? ` · ${memory[row.baseUrl]} GB` : ""}
             </option>
           ))}
         </select>
@@ -2299,7 +2341,10 @@ function InstallDialog({
             load.
           </span>
         ) : null}
-        {target && target.memoryGb == null ? (
+        {reading ? (
+          <span className="field-note">Checking how much memory it has…</span>
+        ) : null}
+        {target && known && chosenMemory == null ? (
           <span className="field-note">
             How much memory that machine has cannot be read from here, so whether it fits is not
             known. Adding an SSH alias in Machines… would let it be checked.

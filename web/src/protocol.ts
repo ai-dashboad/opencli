@@ -1235,6 +1235,30 @@ export class OpenCliClient {
     await this.request("hub/remove", { tag });
   }
 
+  /**
+   * The most-downloaded models, for browsing without knowing a name.
+   *
+   * Served from a cache the gateway warms at startup, so this returns at once
+   * even on a slow link. `stale` says the figures are old and being refreshed,
+   * which is shown rather than hidden.
+   */
+  async popularModels(
+    options: { offset?: number; limit?: number } = {},
+  ): Promise<{ models: Offer[]; total: number; stale: boolean; fetchedAt: number }> {
+    const result = (await this.request("hub/popular", options)) as {
+      data?: unknown[];
+      total?: number;
+      stale?: boolean;
+      fetchedAt?: number;
+    };
+    return {
+      models: (result.data ?? []) as Offer[],
+      total: result.total ?? 0,
+      stale: result.stale ?? false,
+      fetchedAt: result.fetchedAt ?? 0,
+    };
+  }
+
   /** Search a hub for installable models. */
   async searchModels(
     query: string,
@@ -1294,11 +1318,13 @@ export class OpenCliClient {
   }
 
   /**
-   * Machines a model could be installed to, with what is known about each.
+   * Machines a model could be installed to.
    *
-   * Gathered when the install dialog opens rather than kept fresh: it is a
-   * decision made at that moment, and a stale memory figure would be worse
-   * than one read on the spot.
+   * Deliberately does not read memory. Doing so meant an SSH round trip per
+   * machine before the dialog could show anything, which took six seconds
+   * against one remote server — six seconds of a dialog that says "looking at
+   * your machines" and offers nothing. Memory is read by `machineMemoryGb`
+   * for the machine actually chosen, which is the only one it matters for.
    */
   async installTargets(): Promise<InstallTarget[]> {
     const [saved, here] = await Promise.all([
@@ -1324,26 +1350,33 @@ export class OpenCliClient {
           this.runtimeModels(machine.baseUrl).catch(() => []),
         ]);
 
-        // Memory is only knowable where a shell can read it, which needs a
-        // saved server with an alias. Guessing it would be worse than leaving
-        // the fit unstated.
-        let memoryGb: number | null = null;
-        if (machine.id) {
-          const report = await this.diagnoseServer(machine.id).catch(() => null);
-          const gpu = report?.shell?.gpu ?? "";
-          const match = /(\d+)\s*MiB/.exec(gpu);
-          if (match) memoryGb = Math.round(Number(match[1]) / 1024);
-        }
-
         return {
           label: machine.label,
           baseUrl: machine.baseUrl,
           reachable: probe.reachable,
-          memoryGb,
+          // Read separately, and only for the machine chosen.
+          memoryGb: null,
           installed: installed.map((model) => model.name),
         };
       }),
     );
+  }
+
+  /**
+   * How much memory a machine has for models, or null when it cannot be read.
+   *
+   * Only knowable where a shell can reach it, which needs a saved server with
+   * an SSH alias. Guessing would be worse than leaving the fit unstated: the
+   * figure decides which quantisation gets recommended.
+   */
+  async machineMemoryGb(baseUrl: string): Promise<number | null> {
+    const saved = await this.listServers().catch(() => [] as ServerEntry[]);
+    const server = saved.find((entry) => entry.baseUrl === baseUrl);
+    if (!server?.sshAlias) return null;
+
+    const report = await this.diagnoseServer(server.id).catch(() => null);
+    const match = /(\d+)\s*MiB/.exec(report?.shell?.gpu ?? "");
+    return match ? Math.round(Number(match[1]) / 1024) : null;
   }
 
   /** The quantisations a Hugging Face repository offers, with real sizes. */

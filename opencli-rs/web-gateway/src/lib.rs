@@ -148,7 +148,11 @@ pub async fn serve_with_listener(
     ));
     // The same reasoning applies to background runs: one worker per gateway,
     // or every open window would start the same queued task.
-    tokio::spawn(dispatch::run_worker(opencli_home, server_bin));
+    tokio::spawn(dispatch::run_worker(opencli_home.clone(), server_bin));
+    // Warm the list of popular models now rather than when the panel opens.
+    // Browsing is how someone finds a model whose name they do not know, and
+    // putting that behind a network call is what made the panel open empty.
+    tokio::spawn(hub::warm_popular_cache(opencli_home));
 
     let app = Router::new()
         .route("/healthz", get(|| async { "ok" }))

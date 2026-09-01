@@ -14,10 +14,24 @@
 //! Whether a model calls tools is the fact that matters most here: one that
 //! cannot is close to useless for agent work, and a marketplace that hid that
 //! would be selling disappointment.
+//!
+//! # Browsing without knowing a name
+//!
+//! Hugging Face was originally reachable only by searching it, which asks the
+//! user to already know what a model is called. Most do not — that is the
+//! whole reason they are looking. So the popular list is fetched with no query
+//! at all, cached to disk, and warmed in the background when the gateway
+//! starts, so opening the panel shows a browsable list rather than an empty
+//! search box.
 
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
 use serde_json::json;
+use std::path::Path;
 use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 /// Answer a `hub/*` request.
 pub async fn handle(raw: &str, opencli_home: &std::path::Path) -> Option<String> {
@@ -34,6 +48,7 @@ pub async fn handle(raw: &str, opencli_home: &std::path::Path) -> Option<String>
         "hub/upsert" => upsert(opencli_home, &params),
         "hub/remove" => remove(opencli_home, &params),
         "hub/search" => search(&params).await,
+        "hub/popular" => popular(opencli_home, &params).await,
         "hub/variants" => variants(&params).await,
         _ => Err(format!("unknown method `{method}`")),
     };
@@ -171,6 +186,192 @@ async fn search(params: &Value) -> Result<Value, String> {
     }
 }
 
+/// Where the popular list is kept between runs.
+const POPULAR_FILE: &str = "hub-popular.json";
+
+/// How many to keep, which is also how far "show more" reaches.
+///
+/// Fetched in one go and sliced locally rather than paged over the network:
+/// "show more" is then instant, and one request per session is kinder to a
+/// public API than one per page.
+const POPULAR_DEPTH: usize = 100;
+
+/// How long a cached list is served without refetching.
+///
+/// Download rankings move over days, not minutes. The stale copy is shown
+/// either way — this only decides when a refresh is started behind it.
+const POPULAR_TTL: Duration = Duration::from_secs(6 * 60 * 60);
+
+/// The popular list as it sits on disk.
+#[derive(Serialize, Deserialize)]
+struct PopularCache {
+    fetched_at: u64,
+    models: Vec<Value>,
+}
+
+fn popular_path(opencli_home: &Path) -> std::path::PathBuf {
+    opencli_home.join(POPULAR_FILE)
+}
+
+fn now_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|since| since.as_secs())
+        .unwrap_or(0)
+}
+
+/// The cached list, or none when it is missing or unreadable.
+///
+/// A corrupt cache costs a refetch, never the panel.
+fn read_popular(opencli_home: &Path) -> Option<PopularCache> {
+    let text = std::fs::read_to_string(popular_path(opencli_home)).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+fn write_popular(opencli_home: &Path, cache: &PopularCache) {
+    let _ = std::fs::create_dir_all(opencli_home);
+    if let Ok(text) = serde_json::to_string(cache) {
+        let _ = std::fs::write(popular_path(opencli_home), text);
+    }
+}
+
+/// Turn one Hugging Face model record into an offer.
+///
+/// Shared with search so both lists describe a model the same way, and so
+/// neither can quietly start claiming something the other does not.
+fn hugging_face_offer(model: &Value) -> Option<Value> {
+    let id = model.get("id").and_then(Value::as_str)?;
+    Some(json!({
+        "source": "huggingface",
+        // The runtime resolves this form directly. A quantisation has to be
+        // chosen, which the install dialog asks for.
+        "tag": format!("hf.co/{id}"),
+        "name": id,
+        "downloads": model.get("downloads"),
+        "likes": model.get("likes"),
+        // Nothing here says whether it calls tools; only the runtime knows,
+        // once installed. Claiming otherwise would be guessing at the one fact
+        // that decides whether it is usable.
+        "tools": Value::Null,
+        "needsQuant": true,
+    }))
+}
+
+/// Ask Hugging Face for the most-downloaded models, with no search term.
+///
+/// `pipeline_tag` is not a matter of taste — it removes models that cannot
+/// hold a conversation at all. The top of the unfiltered list contains
+/// embedding and speech-recognition models, which no amount of quantisation
+/// makes usable here. Nothing else is filtered: what is popular is shown as
+/// it is, in the order Hugging Face reports.
+async fn fetch_popular(depth: usize) -> Result<Vec<Value>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|err| err.to_string())?;
+
+    let response = client
+        .get("https://huggingface.co/api/models")
+        .query(&[
+            ("filter", "gguf"),
+            ("pipeline_tag", "text-generation"),
+            ("sort", "downloads"),
+            ("direction", "-1"),
+            ("limit", &depth.to_string()),
+        ])
+        .send()
+        .await
+        .map_err(|err| format!("could not reach Hugging Face: {err}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Hugging Face answered {}", response.status()));
+    }
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|_| "Hugging Face's reply was not readable".to_string())?;
+
+    Ok(body
+        .as_array()
+        .map(|models| models.iter().filter_map(hugging_face_offer).collect())
+        .unwrap_or_default())
+}
+
+/// Fetch the popular list into the cache when it is missing or old.
+///
+/// Spawned once when the gateway starts, so the first time the panel is
+/// opened there is already something to show. Failure is silent on purpose:
+/// no list is a panel with a curated library and a note, not an error on
+/// startup for something nobody asked for yet.
+pub async fn warm_popular_cache(opencli_home: std::path::PathBuf) {
+    let age = read_popular(&opencli_home)
+        .map(|cache| now_seconds().saturating_sub(cache.fetched_at))
+        .unwrap_or(u64::MAX);
+    if age < POPULAR_TTL.as_secs() {
+        return;
+    }
+    if let Ok(models) = fetch_popular(POPULAR_DEPTH).await {
+        write_popular(
+            &opencli_home,
+            &PopularCache {
+                fetched_at: now_seconds(),
+                models,
+            },
+        );
+    }
+}
+
+/// The most-downloaded models, for browsing without a search term.
+///
+/// A cached list is served straight away and marked `stale` when it is old,
+/// rather than made to wait for a refresh. Waiting would put an empty panel
+/// behind a network call, which is the thing this whole method exists to
+/// avoid. Only a completely absent cache fetches inline.
+async fn popular(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let offset = params
+        .get("offset")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        .min(POPULAR_DEPTH as u64) as usize;
+    let limit = params
+        .get("limit")
+        .and_then(Value::as_u64)
+        .unwrap_or(20)
+        .clamp(1, POPULAR_DEPTH as u64) as usize;
+
+    let cache = match read_popular(opencli_home) {
+        Some(cache) if !cache.models.is_empty() => cache,
+        _ => {
+            let models = fetch_popular(POPULAR_DEPTH).await?;
+            let cache = PopularCache {
+                fetched_at: now_seconds(),
+                models,
+            };
+            write_popular(opencli_home, &cache);
+            cache
+        }
+    };
+
+    let age = now_seconds().saturating_sub(cache.fetched_at);
+    let total = cache.models.len();
+    let page: Vec<Value> = cache
+        .models
+        .iter()
+        .skip(offset)
+        .take(limit)
+        .cloned()
+        .collect();
+
+    Ok(json!({
+        "data": page,
+        "total": total,
+        "fetchedAt": cache.fetched_at,
+        // Shown either way; this only tells the panel whether to say it is
+        // being refreshed, so a figure from last week never passes as current.
+        "stale": age >= POPULAR_TTL.as_secs(),
+    }))
+}
+
 async fn search_hugging_face(query: &str) -> Result<Value, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
@@ -182,6 +383,9 @@ async fn search_hugging_face(query: &str) -> Result<Value, String> {
         .query(&[
             ("search", query),
             ("filter", "gguf"),
+            // Same reasoning as the popular list: a search for "qwen" should
+            // not return embedding models that cannot hold a conversation.
+            ("pipeline_tag", "text-generation"),
             ("sort", "downloads"),
             ("direction", "-1"),
             ("limit", "25"),
@@ -200,31 +404,35 @@ async fn search_hugging_face(query: &str) -> Result<Value, String> {
 
     let data: Vec<Value> = body
         .as_array()
-        .map(|models| {
-            models
-                .iter()
-                .filter_map(|model| {
-                    let id = model.get("id").and_then(Value::as_str)?;
-                    Some(json!({
-                        "source": "huggingface",
-                        // The runtime resolves this form directly. A quantisation
-                        // has to be chosen, which the panel asks for.
-                        "tag": format!("hf.co/{id}"),
-                        "name": id,
-                        "downloads": model.get("downloads"),
-                        "likes": model.get("likes"),
-                        // Nothing here says whether it calls tools; only the
-                        // runtime knows, once installed. Claiming otherwise
-                        // would be guessing at the one fact that matters.
-                        "tools": Value::Null,
-                        "needsQuant": true,
-                    }))
-                })
-                .collect()
-        })
+        .map(|models| models.iter().filter_map(hugging_face_offer).collect())
         .unwrap_or_default();
 
     Ok(json!({ "data": data }))
+}
+
+/// Companion files that sit beside a model in a GGUF repository.
+///
+/// A repository holds more than the weights. `mmproj-…` is the vision
+/// projector for a multimodal model — a real `.gguf`, carrying a quantisation
+/// in its name, and around a fortieth the size of the model it belongs to.
+/// Treating one as a choice offered a 0.9 GB "BF16" beside a 71 GB one, so it
+/// looked like the best version that fits and was recommended. Installing it
+/// downloads something that cannot answer a prompt at all.
+const COMPANION_PREFIXES: &[&str] = &["mmproj", "mmproj-model", "proj"];
+
+/// Whether a `.gguf` file in a repository is the model itself.
+fn is_model_file(rfilename: &str) -> bool {
+    let base = rfilename.rsplit('/').next().unwrap_or(rfilename);
+    let lower = base.to_ascii_lowercase();
+
+    // A split file is one part of a set; its size is not the model's, and
+    // reporting a shard as a choice would understate it several times over.
+    if lower.contains("-of-") {
+        return false;
+    }
+    !COMPANION_PREFIXES
+        .iter()
+        .any(|prefix| lower.starts_with(&format!("{prefix}-")) || lower == format!("{prefix}.gguf"))
 }
 
 /// The quantisation to suggest when nothing is known about the machine.
@@ -322,9 +530,7 @@ async fn variants(params: &Value) -> Result<Value, String> {
         if !name.ends_with(".gguf") {
             continue;
         }
-        // A split file is one part of a set; its size is not the model's, and
-        // reporting a shard as a choice would understate it several times over.
-        if name.contains("-of-") {
+        if !is_model_file(name) {
             continue;
         }
         let Some(quant) = name
@@ -667,6 +873,145 @@ mod tests {
     fn should_suggest_nothing_when_there_are_no_versions() {
         assert_eq!(recommend(&[], true), None);
         assert_eq!(recommend(&[], false), None);
+    }
+
+    /// Seed the cache without touching the network.
+    fn seed_popular(home: &std::path::Path, count: usize, fetched_at: u64) {
+        let models = (0..count)
+            .map(|index| {
+                json!({
+                    "source": "huggingface",
+                    "tag": format!("hf.co/owner/model-{index}-GGUF"),
+                    "name": format!("owner/model-{index}-GGUF"),
+                    "downloads": 1_000_000 - index as u64,
+                    "tools": Value::Null,
+                    "needsQuant": true,
+                })
+            })
+            .collect();
+        write_popular(home, &PopularCache { fetched_at, models });
+    }
+
+    #[tokio::test]
+    async fn should_offer_models_to_browse_without_being_given_a_search_term() {
+        // The point of the whole method: someone looking for a model does not
+        // know its name, so an empty query must still return a list.
+        let dir = tempdir().expect("tempdir");
+        seed_popular(dir.path(), 100, now_seconds());
+
+        let reply = call_in(r#"{"method":"hub/popular","id":1,"params":{}}"#, dir.path()).await;
+        let data = reply["result"]["data"].as_array().expect("a list");
+        assert_eq!(data.len(), 20, "a first page worth");
+        assert_eq!(reply["result"]["total"], 100);
+    }
+
+    #[tokio::test]
+    async fn should_hand_out_later_pages_from_the_same_fetch() {
+        // "Show more" slices what was already fetched, so it is instant and
+        // costs the public API nothing.
+        let dir = tempdir().expect("tempdir");
+        seed_popular(dir.path(), 100, now_seconds());
+
+        let first = call_in(
+            r#"{"method":"hub/popular","id":1,"params":{"limit":5,"offset":0}}"#,
+            dir.path(),
+        )
+        .await;
+        let second = call_in(
+            r#"{"method":"hub/popular","id":1,"params":{"limit":5,"offset":5}}"#,
+            dir.path(),
+        )
+        .await;
+
+        assert_eq!(first["result"]["data"][0]["tag"], "hf.co/owner/model-0-GGUF");
+        assert_eq!(second["result"]["data"][0]["tag"], "hf.co/owner/model-5-GGUF");
+    }
+
+    #[tokio::test]
+    async fn should_serve_an_old_list_rather_than_wait_for_a_fresh_one() {
+        // Waiting would put an empty panel behind a network call, which is the
+        // thing this method exists to avoid. It is shown, and marked.
+        let dir = tempdir().expect("tempdir");
+        let long_ago = now_seconds() - POPULAR_TTL.as_secs() - 1;
+        seed_popular(dir.path(), 30, long_ago);
+
+        let reply = call_in(r#"{"method":"hub/popular","id":1,"params":{}}"#, dir.path()).await;
+        assert!(!reply["result"]["data"].as_array().expect("a list").is_empty());
+        assert_eq!(reply["result"]["stale"], true, "and it must say so");
+        assert_eq!(reply["result"]["fetchedAt"], long_ago);
+    }
+
+    #[tokio::test]
+    async fn should_not_call_a_fresh_list_stale() {
+        let dir = tempdir().expect("tempdir");
+        seed_popular(dir.path(), 30, now_seconds());
+        let reply = call_in(r#"{"method":"hub/popular","id":1,"params":{}}"#, dir.path()).await;
+        assert_eq!(reply["result"]["stale"], false);
+    }
+
+    #[tokio::test]
+    async fn should_ignore_a_corrupt_cache_rather_than_fail() {
+        // A broken cache should cost a refetch, never the panel. Proven by the
+        // request getting as far as the network instead of returning the junk.
+        let dir = tempdir().expect("tempdir");
+        std::fs::write(popular_path(dir.path()), "not json at all").expect("write");
+        assert!(read_popular(dir.path()).is_none());
+    }
+
+    #[test]
+    fn should_leave_a_warm_cache_alone() {
+        // The startup warm must not refetch on every launch; only a missing or
+        // old list is worth a request.
+        let dir = tempdir().expect("tempdir");
+        seed_popular(dir.path(), 10, now_seconds());
+        let before = std::fs::read_to_string(popular_path(dir.path())).expect("read");
+
+        tokio::runtime::Runtime::new()
+            .expect("runtime")
+            .block_on(warm_popular_cache(dir.path().to_path_buf()));
+
+        let after = std::fs::read_to_string(popular_path(dir.path())).expect("read");
+        assert_eq!(before, after, "a fresh cache was refetched");
+    }
+
+    #[test]
+    fn should_describe_a_hugging_face_model_the_same_way_wherever_it_came_from() {
+        // Browsing and searching return the same rows; letting them drift is
+        // how one of them starts claiming something the other does not.
+        let record = json!({ "id": "owner/Thing-GGUF", "downloads": 42, "likes": 7 });
+        let offer = hugging_face_offer(&record).expect("an offer");
+        assert_eq!(offer["tag"], "hf.co/owner/Thing-GGUF");
+        assert_eq!(offer["downloads"], 42);
+        assert_eq!(offer["needsQuant"], true);
+        // Only the runtime knows, once installed.
+        assert!(offer["tools"].is_null());
+    }
+
+    #[test]
+    fn should_not_offer_a_projector_as_a_version_of_the_model() {
+        // The real file list of ornith-ai/Ornith-1.5-35B-A3B-GGUF. The
+        // projector is a genuine .gguf carrying "BF16" in its name at a
+        // fortieth of the size, so it read as the best version that fits on a
+        // 32 GB machine and was recommended. Installing it downloads something
+        // that cannot answer a prompt.
+        assert!(!is_model_file("mmproj-Ornith-1.5-35B-BF16.gguf"));
+        assert!(is_model_file("Ornith-1.5-35B-BF16.gguf"));
+        assert!(is_model_file("Ornith-1.5-35B-Q4_K_M.gguf"));
+    }
+
+    #[test]
+    fn should_skip_one_part_of_a_split_model() {
+        // A shard's size is a fraction of the model's; offering it as a choice
+        // would understate what is being downloaded several times over.
+        assert!(!is_model_file("Big-Model-Q8_0-00001-of-00003.gguf"));
+        assert!(is_model_file("Big-Model-Q8_0.gguf"));
+    }
+
+    #[test]
+    fn should_look_at_the_file_name_not_the_folder_it_sits_in() {
+        // Quantisations are often kept in a directory of their own.
+        assert!(is_model_file("Q4_K_M/Model-Q4_K_M.gguf"));
+        assert!(!is_model_file("Q4_K_M/mmproj-Model-F16.gguf"));
     }
 
     #[tokio::test]

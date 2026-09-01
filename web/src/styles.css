@@ -667,17 +667,26 @@ textarea:focus {
 
 /* ── Panels ────────────────────────────────────────────────────────── */
 
+/*
+ * One centred column, whatever the child is.
+ *
+ * A grid track rather than `margin: auto`, which failed silently in two ways:
+ * any rule later in this file setting the `margin` shorthand (`.rows` does)
+ * wiped the auto margins at equal specificity, and an inline-level child
+ * (`.tabs` was `inline-flex`) cannot be centred by auto margins at all. Both
+ * left content hugging the left edge while the heading above stayed centred.
+ * Placement now comes from the track, which a child's own margins cannot
+ * override.
+ */
 .panel {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding: 28px 20px;
-}
-
-.panel > * {
-  max-width: 780px;
-  margin-left: auto;
-  margin-right: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 780px);
+  justify-content: center;
+  align-content: start;
 }
 
 .panel h2 {
@@ -1551,7 +1560,9 @@ textarea:focus {
 }
 
 .tabs {
+  /* Sized to its buttons, and left-aligned within the column, not stretched. */
   display: inline-flex;
+  justify-self: start;
   gap: 2px;
   margin-bottom: 20px;
   padding: 2px;

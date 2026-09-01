@@ -216,6 +216,31 @@ quantisation depends on the memory of the machine picked, so changing the
 machine changes what is recommended. Splitting them across two steps would ask
 the second question before its answer could be known.
 
+### Browsing, not searching
+
+Hugging Face was reachable only by typing a name into a search box. That asks
+someone to already know what a model is called, which is the thing they came to
+find out. The panel opened empty and stayed empty until they guessed.
+
+So the popular list is fetched **with no query at all** — most downloaded first
+— cached to disk, and warmed by a background task when the gateway starts. The
+panel opens on a browsable list of a hundred models; typing narrows it rather
+than being the way in. Nothing is filtered by taste: everything Hugging Face
+reports as popular is shown, in its order. The one filter is `pipeline_tag`,
+which removes embedding and speech models — not a judgement about quality, but
+about whether a thing can hold a conversation at all.
+
+The cache is served even when old, marked as refreshing rather than withheld.
+Waiting on a network call would reintroduce the empty panel this exists to
+prevent.
+
+The same reasoning applies to the install dialog. It first read every machine's
+memory over SSH before rendering, which took six seconds against one remote
+server — six seconds of a dialog that said "looking at your machines" and
+offered nothing. The machine list is now gathered by the panel while the user
+browses, and memory is read for the one machine chosen, after the dialog is
+already usable.
+
 Two consequences that read as small and are not:
 
 - **Already having a model does not disable installing it.** Having it on one
@@ -251,6 +276,13 @@ The habits that catch these:
 3. **Make the constraint data.** "Only Ollama can be driven remotely" is a
    table with a test, not a condition at a call site, so it cannot quietly
    become untrue.
+4. **A file being the right shape does not make it the right file.** A GGUF
+   repository holds companions beside the weights: `mmproj-…` is a vision
+   projector, a real `.gguf`, carrying a quantisation in its name at a
+   fortieth of the model's size. Read as a choice it looked like the best
+   version that fits, and was recommended — an Install button that downloads
+   something which cannot answer a prompt. Found only by listing what a real
+   repository actually contains.
 
 ---
 
@@ -270,6 +302,10 @@ Stated plainly rather than discovered later:
   body and headers are accepted — the strongest check available without one.
 - **A config change reaches a chat when the chat starts.** Registering a model
   or toggling a connector applies to the next conversation, and the UI says so.
+- **Not every Hugging Face repository can be installed.** Some hold GGUF files
+  under names this build cannot read a quantisation from. The install dialog
+  says so and refuses rather than offering a version that does not exist;
+  roughly one row in eight of the popular list is affected.
 - **Speech input is not implemented.** WKWebView has no Web Speech API, and a
   transcription backend is a dependency not yet chosen. No microphone button is
   shown rather than one that does nothing.

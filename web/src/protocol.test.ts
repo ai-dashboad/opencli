@@ -746,7 +746,7 @@ describe("choosing where to install", () => {
     FakeSocket.answer = null;
   });
 
-  it("should report what is already on each machine, and whether it answers", async () => {
+  it("should list machines without waiting to read their memory", async () => {
     FakeSocket.answer = (message) => {
       const baseUrl = message.params?.baseUrl;
       switch (message.method) {
@@ -772,18 +772,75 @@ describe("choosing where to install", () => {
       }
     };
 
-    const { client } = await connected();
+    const { client, socket } = await connected();
     const targets = await client.installTargets();
 
     const gpu = targets.find((target) => target.label === "GPU Box")!;
     expect(gpu.reachable).toBe(true);
     expect(gpu.installed).toContain("qwen2.5-coder:7b");
-    // Read from nvidia-smi rather than assumed, so "will it fit" is a fact.
-    expect(gpu.memoryGb).toBe(32);
 
     const off = targets.find((target) => target.label === "Off")!;
     expect(off.reachable).toBe(false);
     expect(off.installed).toEqual([]);
+
+    // Diagnosing is an SSH round trip per machine. Doing it here meant the
+    // install dialog showed nothing for six seconds against one remote server.
+    expect(socket.parsedSent().some((sent) => sent.method === "server/diagnose")).toBe(false);
+  });
+
+  it("should read memory for one machine, from nvidia-smi", async () => {
+    FakeSocket.answer = (message) => {
+      switch (message.method) {
+        case "server/list":
+          return {
+            data: [
+              {
+                id: "s1",
+                name: "GPU Box",
+                baseUrl: "https://gpu.example",
+                runtime: "ollama",
+                sshAlias: "gpubox",
+              },
+            ],
+          };
+        case "server/diagnose":
+          return {
+            http: { reachable: true },
+            shell: { gpu: "NVIDIA RTX 5090, 32607 MiB" },
+            findings: [],
+          };
+        default:
+          return undefined;
+      }
+    };
+
+    const { client } = await connected();
+    expect(await client.machineMemoryGb("https://gpu.example")).toBe(32);
+  });
+
+  it("should not claim a memory figure for a machine it cannot log in to", async () => {
+    // Without an SSH alias there is no shell to ask. Guessing would be worse
+    // than saying nothing: the figure decides which version gets recommended.
+    FakeSocket.answer = (message) => {
+      if (message.method === "server/list") {
+        return {
+          data: [
+            {
+              id: "s1",
+              name: "Just a URL",
+              baseUrl: "https://plain.example",
+              runtime: "ollama",
+              sshAlias: null,
+            },
+          ],
+        };
+      }
+      return undefined;
+    };
+
+    const { client, socket } = await connected();
+    expect(await client.machineMemoryGb("https://plain.example")).toBeNull();
+    expect(socket.parsedSent().some((sent) => sent.method === "server/diagnose")).toBe(false);
   });
 
   it("should leave the fit unstated when memory cannot be read", async () => {
