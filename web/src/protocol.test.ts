@@ -698,6 +698,56 @@ describe("when the agent stops to ask", () => {
   });
 });
 
+describe("how long a thought took", () => {
+  it("should report it even when nothing streamed before it finished", async () => {
+    // Timing from the first delta lost every thought that finished before one
+    // arrived, and those showed a bare "Thinking" that never said how long it
+    // had taken — the one thing the row exists to say.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/started",
+      params: { item: { type: "reasoning", id: "r-1", summary: [], content: [] } },
+    });
+    await settle();
+    socket.emit({
+      method: "item/completed",
+      params: { item: { type: "reasoning", id: "r-1", summary: [], content: ["hmm"] } },
+    });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0].durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should time it across the id it streamed under", async () => {
+    // The timer starts against the id `item/started` used; the finished item
+    // may arrive under another.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({
+      onItemDelta: () => {},
+      onItem: (item: ThreadItem) => seen.push(item),
+    });
+
+    socket.emit({
+      method: "item/started",
+      params: { item: { type: "reasoning", id: "streamed", summary: [], content: [] } },
+    });
+    socket.emit({
+      method: "item/reasoning/textDelta",
+      params: { itemId: "streamed", delta: "hmm" },
+    });
+    await settle();
+    socket.emit({
+      method: "item/completed",
+      params: { item: { type: "reasoning", id: "finished", summary: [], content: ["hmm"] } },
+    });
+
+    expect(seen[0].id).toBe("streamed");
+    expect(seen[0].durationMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
 describe("a reply that finishes under a different id", () => {
   it("should replace what was streamed, not appear beside it", async () => {
     // The server streams under one id and completes under another —
@@ -790,13 +840,38 @@ describe("the agent's own tools", () => {
       },
     });
 
-    expect(seen[0].tool).toBe("figma · get_design_context");
-    // An unknown tool shows its arguments rather than its name a second time.
+    // Where it went is kept; what it did is put into words rather than left
+    // as an identifier.
+    expect(seen[0].tool).toBe("figma · Get design context");
+    // And its arguments are shown rather than its name a second time.
     expect(seen[0].text).toBe("node: 12:34");
   });
 });
 
 describe("what the agent did, not only what it said about it", () => {
+  it("should write an unfamiliar tool's name as words", async () => {
+    // `list_resources` is jargon in front of someone watching. These are the
+    // tool's own words, only readable — nothing is invented.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "mcpToolCall",
+          id: "t-3",
+          server: "opencli",
+          tool: "list_resources",
+          status: "completed",
+          arguments: {},
+        },
+      },
+    });
+
+    expect(seen[0].tool).toBe("opencli · List resources");
+  });
+
   it("should show a command and what it printed", async () => {
     // A command carries no `text` at all: the command line is in `command`
     // and its output in `aggregatedOutput`. Looking only for `text` judged
@@ -916,7 +991,8 @@ describe("what the agent did, not only what it said about it", () => {
     });
 
     expect(seen[0].kind).toBe("command");
-    expect(seen[0].tool).toBe("figma · get_design_context");
+    // The server says where it went; the tool is put into words.
+    expect(seen[0].tool).toBe("figma · Get design context");
     expect(seen[0].output).toBe("a frame");
   });
 

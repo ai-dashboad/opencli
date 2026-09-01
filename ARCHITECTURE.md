@@ -636,12 +636,21 @@ replace the thought beside it.
 
 ### A tool's name is for the model, not the reader
 
+Three tiers, because they are three different situations:
+
+| | Shown as |
+| --- | --- |
+| The agent's own tools | A reader's name and the thing it acted on — "Read a file", the path |
+| An MCP server's tool | `server · What it does` — where it went is kept, the name is put into words |
+| Anything unfamiliar | Its own words, made readable: `list_resources` → "List resources" |
+
+The last tier invents nothing. Leaving an identifier on screen puts jargon in
+front of someone watching; writing a curated name for a tool this build has
+never seen would be a guess. Reformatting the tool's own words is neither.
+
+
 `open_file` is what the agent calls it. A row headed `open_file` with
-`open_file` underneath says nothing, twice. The agent's own tools have reader's
-names and show what they acted on — the file, the query — while an MCP
-server's tool keeps `server · tool`, which is how its own documentation names
-it. A tool this build has never heard of keeps its name and shows its
-arguments, because inventing a friendly name for it would be guessing.
+`open_file` underneath says nothing, twice.
 
 ---
 

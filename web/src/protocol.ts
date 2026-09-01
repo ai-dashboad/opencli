@@ -557,12 +557,28 @@ function describeTool(
     };
   }
 
-  // An unknown tool keeps its name; its arguments are shown as they are,
-  // which is more use than the name twice.
+  /*
+   * A tool nobody here has heard of is written as words rather than as an
+   * identifier: `list_resources` becomes "List resources".
+   *
+   * This invents no meaning — they are the tool's own words, only readable.
+   * Leaving them as an identifier put jargon in front of someone watching,
+   * and a curated name for a tool this build has never seen would be a guess.
+   */
   const pairs = Object.entries(record)
     .filter(([, value]) => typeof value === "string" || typeof value === "number")
     .map(([key, value]) => `${key}: ${value}`);
-  return { label: name, detail: pairs.join("  ") || name };
+  return { label: asWords(name), detail: pairs.join("  ") || asWords(name) };
+}
+
+/** `list_resources` → `List resources`, and `getDesignContext` likewise. */
+function asWords(name: string): string {
+  const spaced = name
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
+    .trim()
+    .toLowerCase();
+  return spaced ? spaced[0].toUpperCase() + spaced.slice(1) : name;
 }
 
 /**
@@ -627,9 +643,12 @@ function toThreadItem(item: Record<string, unknown>): ThreadItem | null {
   // An MCP server's tool is named by its server; one of the agent's own is
   // named for what it does. An empty server is not a name, and joining it
   // produced a leading " · ".
+  // The server is kept so it is clear where the call went, but the tool is
+  // named for the reader either way: `opencli · list_resources` says where and
+  // says nothing about what.
   const tool = described
     ? server
-      ? `${server} · ${toolName}`
+      ? `${server} · ${described.label}`
       : described.label
     : undefined;
 
@@ -682,6 +701,8 @@ export class OpenCliClient {
    * to what is on screen is done by kind.
    */
   #streaming = new Map<string, { kind: ThreadItem["kind"]; text: string }>();
+  /** When each piece of thinking began, so its length can be reported. */
+  #thoughtSince = new Map<string, number>();
   /** The thread the agent has actually been given, if any. */
   #loadedThreadId: string | null = null;
   #pendingChanges = new Map<string, FileChange[]>();
@@ -837,6 +858,21 @@ export class OpenCliClient {
     this.#handleNotification(message.method ?? "", message.params);
   }
 
+  /**
+   * Attach how long a thought took, measured here because nothing sends it.
+   *
+   * `startedUnder` is the id the server used, which is not always the id the
+   * item is shown under — a message streams under one and completes under
+   * another, and the timer was started against the first.
+   */
+  #timed(item: ThreadItem, startedUnder: string): ThreadItem {
+    if (item.kind !== "reasoning" || item.durationMs !== undefined) return item;
+    const began = this.#thoughtSince.get(startedUnder) ?? this.#thoughtSince.get(item.id);
+    this.#thoughtSince.delete(startedUnder);
+    this.#thoughtSince.delete(item.id);
+    return began ? { ...item, durationMs: Date.now() - began } : item;
+  }
+
   #handleNotification(method: string, params: unknown): void {
     const payload = (params ?? {}) as Record<string, unknown>;
 
@@ -864,6 +900,17 @@ export class OpenCliClient {
       const changes = changesOf(item);
       if (changes.length > 0 && typeof item.id === "string") {
         this.#pendingChanges.set(item.id, changes);
+      }
+      /*
+       * Thinking is timed from here, not from its first delta.
+       *
+       * The server sends no duration for reasoning, so it is measured. Timing
+       * from the first delta lost every thought that finished before one
+       * arrived — and those showed a bare "Thinking" that never said how long
+       * it had taken, which is the one thing the row exists to say.
+       */
+      if (classify(item) === "reasoning" && typeof item.id === "string") {
+        this.#thoughtSince.set(item.id, Date.now());
       }
       return;
     }
@@ -916,14 +963,14 @@ export class OpenCliClient {
         for (const [openId, open] of this.#streaming) {
           if (open.kind === item.kind) {
             this.#streaming.delete(openId);
-            this.#events.onItem?.({ ...item, id: openId });
+            this.#events.onItem?.(this.#timed({ ...item, id: openId }, item.id));
             return;
           }
         }
       }
 
       this.#streaming.delete(item.id);
-      this.#events.onItem?.(item);
+      this.#events.onItem?.(this.#timed(item, item.id));
       return;
     }
     if (method === "runtime/pull/progress") {
