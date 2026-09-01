@@ -1765,7 +1765,14 @@ export function ModelsView({
   const [library, setLibrary] = useState<Offer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [needsReload, setNeedsReload] = useState(false);
+  /**
+   * What changed in the configuration, and so what a new chat would pick up.
+   *
+   * The agent reads its settings once, when a chat opens. Adding a model and
+   * removing one both leave an open chat out of date, and removal is the worse
+   * of the two: the picker keeps offering something that is no longer there.
+   */
+  const [configNote, setConfigNote] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
   const [discovered, setDiscovered] = useState<DiscoveredRuntime[]>([]);
 
@@ -1900,7 +1907,11 @@ export function ModelsView({
           // chosen by editing config.toml.
         }
       }
-      if (registered > 0) setNeedsReload(true);
+      if (registered > 0) {
+        setConfigNote(
+          "Installed and added to your configuration. Start a new chat to use it — the agent reads its settings when a chat opens.",
+        );
+      }
       // Back to what you now own, which is where a finished install belongs.
       setTab("installed");
       await reload();
@@ -1957,12 +1968,7 @@ export function ModelsView({
       </div>
 
       {error ? <p className="error">{error}</p> : null}
-      {needsReload ? (
-        <p className="notice">
-          Added to your configuration. Start a new chat to use it — the agent reads its settings
-          when a chat opens.
-        </p>
-      ) : null}
+      {configNote ? <p className="notice">{configNote}</p> : null}
 
       {inFlight.length > 0 ? (
         <ul className="rows">
@@ -2055,7 +2061,11 @@ export function ModelsView({
                         .registerModel(row.baseUrl, row.model.name)
                         .then((result) => {
                           setError(null);
-                          if (result.added) setNeedsReload(true);
+                          if (result.added) {
+                            setConfigNote(
+                              "Added to your configuration. Start a new chat to use it — the agent reads its settings when a chat opens.",
+                            );
+                          }
                           // Said here rather than only at the top of the panel:
                           // with several models on screen the notice up there
                           // is off-screen, so the click looked ignored.
@@ -2101,6 +2111,9 @@ export function ModelsView({
                                 other.baseUrl !== row.baseUrl ||
                                 other.model.name !== row.model.name,
                             ),
+                          );
+                          setConfigNote(
+                            "Removed. A chat that is already open will keep offering it until you start a new one — the agent reads its settings when a chat opens.",
                           );
                           void reload();
                         })
