@@ -334,9 +334,17 @@ no display size is ever named. 420px was measured against the longest thing a
 card holds — a tag like `huihui-qwen3.8-27b:latest` above a line of size,
 memory and context — which at 360px filled the card edge to edge.
 
-The chat keeps its centred 780px: `.thread` and `.composer` share it so the
-messages and the box beneath them line up, and a paragraph wants that measure
-anyway.
+The chat was left at a centred 780px on the same reasoning, and that was only
+half right. A conversation is not one kind of content either: prose wants a
+measure, but a shell command or a diff wrapped at ninety characters is worse
+than one that is not. So the column grows to `min(1180px, 100%)` for the sake
+of the code in it, and the prose inside keeps its own 78ch. 1180px is where a
+monospace line stops gaining — about a hundred and forty characters at 12.5px,
+past the width of anything the agent prints.
+
+The transcript, the composer, the approval box and the footer all read the
+same `--chat-width`. They are stacked, so a few pixels of difference between
+them reads as misalignment.
 
 ---
 
