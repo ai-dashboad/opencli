@@ -31,6 +31,7 @@ pub async fn handle(raw: &str, opencli_home: &std::path::Path) -> Option<String>
     let result = match method {
         "runtime/list" => Ok(list()),
         "runtime/probe" => probe(&params).await,
+        "runtime/discover" => Ok(discover().await),
         "runtime/models" => models(&params).await,
         "runtime/show" => show(&params).await,
         "runtime/delete" => delete(&params, opencli_home).await,
@@ -143,6 +144,70 @@ async fn probe(params: &Value) -> Result<Value, String> {
         "version": version,
         "isLocal": runtimes::is_local(&root),
     }))
+}
+
+/// Look for runtimes on this machine.
+///
+/// Probed in parallel: four ports one after another is four timeouts on a
+/// machine with none, which is long enough to look broken.
+///
+/// A port that answers but is not a runtime is reported as such rather than
+/// skipped — port 8000 in particular is often something else entirely, and
+/// silence there reads as "nothing found" when the truth is "something else is
+/// using it".
+async fn discover() -> Value {
+    let candidates: Vec<(&str, &str, u16)> = runtimes::RUNTIMES
+        .iter()
+        .map(|runtime| (runtime.id, runtime.name, runtime.default_port))
+        .collect();
+
+    let checks = candidates.into_iter().map(|(id, name, port)| async move {
+        let base = format!("http://localhost:{port}");
+        // Short: this runs on every visit to the panel, and a runtime on this
+        // machine answers immediately or not at all.
+        let client = match reqwest::Client::builder()
+            .timeout(Duration::from_millis(1200))
+            .build()
+        {
+            Ok(client) => client,
+            Err(_) => return None,
+        };
+
+        // Ollama says its version here; the others only speak the OpenAI
+        // surface, so both are tried before deciding nothing is there.
+        if let Ok(response) = client.get(format!("{base}/api/version")).send().await
+            && response.status().is_success()
+            && let Ok(body) = response.json::<Value>().await
+            && let Some(version) = body.get("version").and_then(Value::as_str)
+        {
+            return Some(json!({
+                "runtime": id,
+                "name": name,
+                "baseUrl": base,
+                "version": version,
+                "manageable": true,
+            }));
+        }
+
+        match client.get(format!("{base}/v1/models")).send().await {
+            Ok(response) if response.status().is_success() => Some(json!({
+                "runtime": id,
+                "name": name,
+                "baseUrl": base,
+                "version": Value::Null,
+                // It serves models but cannot be told to fetch them.
+                "manageable": false,
+            })),
+            _ => None,
+        }
+    });
+
+    let found: Vec<Value> = futures::future::join_all(checks)
+        .await
+        .into_iter()
+        .flatten()
+        .collect();
+    json!({ "data": found })
 }
 
 /// Models installed on a runtime.
@@ -539,6 +604,23 @@ mod tests {
             let parsed: Value = serde_json::from_str(&reply).expect("valid JSON");
             assert!(parsed["error"].is_object(), "{params} should be refused");
         }
+    }
+
+    #[tokio::test]
+    async fn should_find_nothing_quickly_when_no_runtime_is_local() {
+        // This runs on every visit to the panel; four timeouts in sequence
+        // would be long enough to look broken.
+        let started = std::time::Instant::now();
+        let reply = handle(r#"{"method":"runtime/discover","id":1}"#, std::path::Path::new("/tmp"))
+            .await
+            .expect("handled");
+        let parsed: Value = serde_json::from_str(&reply).expect("valid JSON");
+        assert!(parsed["result"]["data"].is_array());
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(4),
+            "took {:?}; the probes must run together",
+            started.elapsed()
+        );
     }
 
     #[tokio::test]

@@ -22,6 +22,7 @@ import type {
   PullProgress,
   Run,
   Diagnosis,
+  DiscoveredRuntime,
   Offer,
   RuntimeInfo,
   RuntimeProbe,
@@ -1712,28 +1713,36 @@ function modelSize(bytes: number): string {
  * and left unstated where only the runtime can say — guessing at the one fact
  * that decides usefulness would be worse than admitting ignorance.
  */
+/**
+ * Models: what is installed where, and what can be added.
+ *
+ * One panel rather than two. A machine, a runtime on it, models on that
+ * runtime, and a model usable in chat are a chain — each step is meaningless
+ * without the one before. Presenting machines and models as sibling entries
+ * hid that, and let a server be chosen in two places that did not agree.
+ *
+ * The empty states carry the order: nothing found points at looking on this
+ * machine, an unreachable machine shows what is wrong inline, no models puts
+ * the library right there, and an installed model offers itself to chats.
+ */
 export function ModelsView({
   client,
   pulls,
   onPull,
-  initialBaseUrl,
 }: {
   client: OpenCliClient;
   /** Downloads in flight, keyed by model. */
   pulls: Record<string, PullProgress>;
   onPull: (baseUrl: string, model: string) => void;
-  /** Opened from a server's row, so that server is the one shown. */
-  initialBaseUrl?: string;
 }) {
-  const [runtimes, setRuntimes] = useState<RuntimeInfo[]>([]);
   const [servers, setServers] = useState<ServerEntry[]>([]);
-  const [baseUrl, setBaseUrl] = useState(initialBaseUrl ?? "http://localhost:11434");
+  const [discovered, setDiscovered] = useState<DiscoveredRuntime[]>([]);
+  const [runtimes, setRuntimes] = useState<RuntimeInfo[]>([]);
+  const [baseUrl, setBaseUrl] = useState("");
   const [probe, setProbe] = useState<RuntimeProbe | null>(null);
   const [models, setModels] = useState<InstalledModel[]>([]);
   const [caps, setCaps] = useState<Record<string, ModelCapabilities>>({});
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [custom, setCustom] = useState("");
   const [needsReload, setNeedsReload] = useState(false);
 
   const [source, setSource] = useState<"ollama" | "huggingface" | "modelscope">("ollama");
@@ -1742,6 +1751,9 @@ export function ModelsView({
   const [hint, setHint] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [custom, setCustom] = useState("");
+
+  const [managing, setManaging] = useState(false);
   const [editing, setEditing] = useState<Offer | null>(null);
   const [entry, setEntry] = useState({
     tag: "",
@@ -1753,14 +1765,38 @@ export function ModelsView({
     tools: true,
   });
 
-  useEffect(() => {
-    void client.listRuntimes().then(setRuntimes).catch(() => setRuntimes([]));
-    void client.listServers().then(setServers).catch(() => setServers([]));
-    void client.modelCatalog().then(setLibrary).catch(() => setLibrary([]));
+  /** Everything selectable: saved machines first, then anything found here. */
+  const choices = [
+    ...servers.map((server) => ({ label: server.name, baseUrl: server.baseUrl, saved: true })),
+    ...discovered
+      .filter((runtime) => !servers.some((server) => server.baseUrl === runtime.baseUrl))
+      .map((runtime) => ({
+        label: `${runtime.name} on this machine`,
+        baseUrl: runtime.baseUrl,
+        saved: false,
+      })),
+  ];
+
+  const loadMachines = useCallback(async () => {
+    const [saved, here, kinds] = await Promise.all([
+      client.listServers().catch(() => []),
+      client.discoverRuntimes().catch(() => []),
+      client.listRuntimes().catch(() => []),
+    ]);
+    setServers(saved);
+    setDiscovered(here);
+    setRuntimes(kinds);
+    // Choose something without being asked: the commonest case is one machine.
+    setBaseUrl((current) => current || saved[0]?.baseUrl || here[0]?.baseUrl || "");
   }, [client]);
 
+  useEffect(() => {
+    void loadMachines();
+    void client.modelCatalog().then(setLibrary).catch(() => setLibrary([]));
+  }, [client, loadMachines]);
+
   const connect = useCallback(async () => {
-    setBusy(true);
+    if (!baseUrl) return;
     setError(null);
     try {
       const where = await client.probeRuntime(baseUrl);
@@ -1771,24 +1807,22 @@ export function ModelsView({
       }
       const installed = await client.runtimeModels(baseUrl);
       setModels(installed);
-      // Whether a model calls tools decides whether it is usable here, so it
-      // is read up front rather than hidden behind another click.
-      const found: Record<string, ModelCapabilities> = {};
+      // Whether a model calls tools decides whether it is usable here, so it is
+      // read up front rather than hidden behind another click.
+      const details: Record<string, ModelCapabilities> = {};
       await Promise.all(
         installed.map(async (model) => {
           try {
-            found[model.name] = await client.modelCapabilities(baseUrl, model.name);
+            details[model.name] = await client.modelCapabilities(baseUrl, model.name);
           } catch {
             // A model whose details cannot be read is still listed.
           }
         }),
       );
-      setCaps(found);
+      setCaps(details);
     } catch (err) {
       setProbe(null);
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
     }
   }, [baseUrl, client]);
 
@@ -1803,7 +1837,7 @@ export function ModelsView({
     .map((pull) => pull.model)
     .join(",");
   useEffect(() => {
-    if (!finished) return;
+    if (!finished || !baseUrl) return;
     void (async () => {
       let registered = 0;
       for (const model of finished.split(",")) {
@@ -1838,48 +1872,54 @@ export function ModelsView({
       .finally(() => setSearching(false));
   }, [client, query, source]);
 
-  const others = runtimes.filter((runtime) => !runtime.canDownloadRemotely);
   const installedNames = new Set(models.map((model) => model.name));
   const inFlight = Object.values(pulls).filter((pull) => !pull.done && !pull.error);
   const offers = (source === "ollama" ? library : found).filter(
     (offer) => !installedNames.has(offer.tag),
   );
+  const unmanageable = runtimes.filter((runtime) => !runtime.canDownloadRemotely);
 
   return (
     <section className="panel">
       <div className="panel-head">
         <h2 className="display">Models</h2>
-      </div>
-      <p className="hint">
-        Install and remove models on a runtime — this machine's, or a server elsewhere.
-      </p>
-
-      <div className="task-form">
-        {servers.length > 0 ? (
+        <span className="grow" />
+        {choices.length > 0 ? (
           <select
-            value={servers.some((server) => server.baseUrl === baseUrl) ? baseUrl : ""}
-            onChange={(e) => e.target.value && setBaseUrl(e.target.value)}
+            className="sort"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
           >
-            <option value="">Another address…</option>
-            {servers.map((server) => (
-              <option key={server.id} value={server.baseUrl}>
-                {server.name}
+            {choices.map((choice) => (
+              <option key={choice.baseUrl} value={choice.baseUrl}>
+                {choice.label}
               </option>
             ))}
           </select>
         ) : null}
-        <input
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (shouldSend({ ...e, isComposing: e.nativeEvent.isComposing })) void connect();
-          }}
-          placeholder="http://localhost:11434 or https://your-server"
-        />
-        <button onClick={() => void connect()} disabled={busy}>
-          {busy ? "Checking…" : "Connect"}
+        <button className="secondary" onClick={() => setManaging(true)}>
+          Machines…
         </button>
       </div>
+
+      {choices.length === 0 ? (
+        <>
+          <p className="hint">
+            Nothing found on this machine and no server saved yet. A runtime is what actually
+            holds and serves a model; OpenCLI talks to one over HTTP.
+          </p>
+          <div className="task-form">
+            <button onClick={() => void loadMachines()}>Look again on this machine</button>
+            <button className="secondary" onClick={() => setManaging(true)}>
+              Add a server elsewhere
+            </button>
+          </div>
+          <p className="hint">
+            To run models here, install Ollama from{" "}
+            <code>https://ollama.com</code> and it will be found automatically.
+          </p>
+        </>
+      ) : null}
 
       {error ? <p className="error">{error}</p> : null}
       {needsReload ? (
@@ -1889,14 +1929,19 @@ export function ModelsView({
         </p>
       ) : null}
 
-      {probe ? (
+      {baseUrl && probe ? (
         probe.reachable ? (
           <p className="hint">
             Ollama {probe.version} · {probe.isLocal ? "this machine" : "a server elsewhere"} ·{" "}
             {models.length} model{models.length === 1 ? "" : "s"}
           </p>
         ) : (
-          <p className="error">{probe.detail ?? "Nothing answered at that address."}</p>
+          <>
+            <p className="error">{probe.detail ?? "Nothing answered at that address."}</p>
+            <p className="hint">
+              Open Machines… and use Check to see whether the runtime is installed and running.
+            </p>
+          </>
         )
       ) : null}
 
@@ -1943,7 +1988,9 @@ export function ModelsView({
         <>
           <h3>Installed</h3>
           <ul className="rows">
-            {models.length === 0 ? <li className="muted">None installed there.</li> : null}
+            {models.length === 0 ? (
+              <li className="muted">None yet — pick one below and it will be installed there.</li>
+            ) : null}
             {models.map((model) => {
               const capability = caps[model.name];
               return (
@@ -2060,7 +2107,7 @@ export function ModelsView({
                 </span>
                 {offer.tools === false ? (
                   <span className="warn">
-                    Does not call tools — cannot drive the agent's own work
+                    Does not call tools — cannot drive the agent&apos;s own work
                   </span>
                 ) : null}
                 {offer.tools === null ? (
@@ -2138,102 +2185,6 @@ export function ModelsView({
             </button>
           ) : null}
 
-          <Dialog
-            open={editing !== null}
-            title={editing?.userDefined ? "Edit entry" : editing?.tag ? "Override entry" : "Add to the catalogue"}
-            onClose={() => setEditing(null)}
-            footer={
-              <>
-                <button className="secondary" onClick={() => setEditing(null)}>
-                  Cancel
-                </button>
-                <button
-                  className="filled"
-                  disabled={!entry.tag.trim() || !entry.note.trim()}
-                  onClick={() => {
-                    void client
-                      .saveCatalogEntry({
-                        tag: entry.tag.trim(),
-                        name: entry.name.trim() || entry.tag.trim(),
-                        note: entry.note.trim(),
-                        sizeGb: Number(entry.sizeGb) || undefined,
-                        needsGb: Number(entry.needsGb) || undefined,
-                        context: Number(entry.context) || undefined,
-                        tools: entry.tools,
-                      })
-                      .then(() => client.modelCatalog({ query }))
-                      .then((rows) => {
-                        setLibrary(rows);
-                        setEditing(null);
-                      })
-                      .catch((err: unknown) =>
-                        setError(err instanceof Error ? err.message : String(err)),
-                      );
-                  }}
-                >
-                  Save
-                </button>
-              </>
-            }
-          >
-            {editing && !editing.userDefined && editing.tag ? (
-              <p className="hint">
-                This entry ships with the app. Saving keeps your version instead; removing it
-                brings the original back.
-              </p>
-            ) : null}
-            <label className="field">
-              Tag to install
-              <input
-                value={entry.tag}
-                onChange={(e) => setEntry({ ...entry, tag: e.target.value })}
-                placeholder="qwen2.5-coder:7b, or hf.co/owner/repo:Q4_K_M"
-              />
-            </label>
-            <label className="field">
-              Name
-              <input
-                value={entry.name}
-                onChange={(e) => setEntry({ ...entry, name: e.target.value })}
-                placeholder="Shown in the list"
-              />
-            </label>
-            <label className="field">
-              What is it for?
-              <textarea
-                value={entry.note}
-                onChange={(e) => setEntry({ ...entry, note: e.target.value })}
-                rows={2}
-                placeholder="One sentence someone choosing can act on"
-              />
-            </label>
-            <div className="task-form">
-              <input
-                value={entry.sizeGb}
-                onChange={(e) => setEntry({ ...entry, sizeGb: e.target.value })}
-                placeholder="Download GB"
-              />
-              <input
-                value={entry.needsGb}
-                onChange={(e) => setEntry({ ...entry, needsGb: e.target.value })}
-                placeholder="Memory GB"
-              />
-              <input
-                value={entry.context}
-                onChange={(e) => setEntry({ ...entry, context: e.target.value })}
-                placeholder="Context"
-              />
-            </div>
-            <label className="scope">
-              <input
-                type="checkbox"
-                checked={entry.tools}
-                onChange={(e) => setEntry({ ...entry, tools: e.target.checked })}
-              />
-              Calls tools — without this it cannot drive the agent's own work
-            </label>
-          </Dialog>
-
           <div className="task-form">
             <input
               value={custom}
@@ -2253,34 +2204,166 @@ export function ModelsView({
         </>
       ) : null}
 
-      <h3>Other runtimes</h3>
-      <ul className="rows">
-        {others.map((runtime) => (
-          <li key={runtime.id}>
-            <strong>{runtime.name}</strong>
-            <span>{runtime.remoteNote}</span>
-          </li>
-        ))}
-      </ul>
+      {unmanageable.length > 0 && probe?.reachable ? (
+        <>
+          <h3>Other runtimes</h3>
+          <ul className="rows">
+            {unmanageable.map((runtime) => (
+              <li key={runtime.id}>
+                <strong>{runtime.name}</strong>
+                <span>{runtime.remoteNote}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      <MachinesDialog
+        client={client}
+        open={managing}
+        discovered={discovered}
+        onClose={() => {
+          setManaging(false);
+          void loadMachines();
+        }}
+        onChoose={(url) => {
+          setBaseUrl(url);
+          setManaging(false);
+        }}
+      />
+
+      <Dialog
+        open={editing !== null}
+        title={
+          editing?.userDefined
+            ? "Edit entry"
+            : editing?.tag
+              ? "Override entry"
+              : "Add to the catalogue"
+        }
+        onClose={() => setEditing(null)}
+        footer={
+          <>
+            <button className="secondary" onClick={() => setEditing(null)}>
+              Cancel
+            </button>
+            <button
+              className="filled"
+              disabled={!entry.tag.trim() || !entry.note.trim()}
+              onClick={() => {
+                void client
+                  .saveCatalogEntry({
+                    tag: entry.tag.trim(),
+                    name: entry.name.trim() || entry.tag.trim(),
+                    note: entry.note.trim(),
+                    sizeGb: Number(entry.sizeGb) || undefined,
+                    needsGb: Number(entry.needsGb) || undefined,
+                    context: Number(entry.context) || undefined,
+                    tools: entry.tools,
+                  })
+                  .then(() => client.modelCatalog({ query }))
+                  .then((rows) => {
+                    setLibrary(rows);
+                    setEditing(null);
+                  })
+                  .catch((err: unknown) =>
+                    setError(err instanceof Error ? err.message : String(err)),
+                  );
+              }}
+            >
+              Save
+            </button>
+          </>
+        }
+      >
+        {editing && !editing.userDefined && editing.tag ? (
+          <p className="hint">
+            This entry ships with the app. Saving keeps your version instead; removing it brings
+            the original back.
+          </p>
+        ) : null}
+        <label className="field">
+          Tag to install
+          <input
+            value={entry.tag}
+            onChange={(e) => setEntry({ ...entry, tag: e.target.value })}
+            placeholder="qwen2.5-coder:7b, or hf.co/owner/repo:Q4_K_M"
+          />
+        </label>
+        <label className="field">
+          Name
+          <input
+            value={entry.name}
+            onChange={(e) => setEntry({ ...entry, name: e.target.value })}
+            placeholder="Shown in the list"
+          />
+        </label>
+        <label className="field">
+          What is it for?
+          <textarea
+            value={entry.note}
+            onChange={(e) => setEntry({ ...entry, note: e.target.value })}
+            rows={2}
+            placeholder="One sentence someone choosing can act on"
+          />
+        </label>
+        <div className="task-form">
+          <input
+            value={entry.sizeGb}
+            onChange={(e) => setEntry({ ...entry, sizeGb: e.target.value })}
+            placeholder="Download GB"
+          />
+          <input
+            value={entry.needsGb}
+            onChange={(e) => setEntry({ ...entry, needsGb: e.target.value })}
+            placeholder="Memory GB"
+          />
+          <input
+            value={entry.context}
+            onChange={(e) => setEntry({ ...entry, context: e.target.value })}
+            placeholder="Context"
+          />
+        </div>
+        <label className="scope">
+          <input
+            type="checkbox"
+            checked={entry.tools}
+            onChange={(e) => setEntry({ ...entry, tools: e.target.checked })}
+          />
+          Calls tools — without this it cannot drive the agent&apos;s own work
+        </label>
+      </Dialog>
     </section>
   );
 }
 
-
-export function ServersView({
+/**
+ * The machines that serve models: saved ones, and whatever is on this machine.
+ *
+ * A dialog rather than a page. Adding a machine happens once and then rarely;
+ * a permanent entry beside Models would suggest they are separate things when
+ * one contains the other.
+ */
+function MachinesDialog({
   client,
-  onManageModels,
+  open,
+  discovered,
+  onClose,
+  onChoose,
 }: {
   client: OpenCliClient;
-  onManageModels: (server: ServerEntry) => void;
+  open: boolean;
+  discovered: DiscoveredRuntime[];
+  onClose: () => void;
+  onChoose: (baseUrl: string) => void;
 }) {
   const [servers, setServers] = useState<ServerEntry[]>([]);
   const [aliases, setAliases] = useState<SshAlias[]>([]);
+  const [reports, setReports] = useState<Record<string, Diagnosis>>({});
+  const [checking, setChecking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ name: "", baseUrl: "", sshAlias: "" });
-  const [reports, setReports] = useState<Record<string, Diagnosis>>({});
-  const [checking, setChecking] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -2294,123 +2377,54 @@ export function ServersView({
   }, [client]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    if (open) void reload();
+  }, [open, reload]);
 
-  const add = useCallback(async () => {
-    try {
-      await client.addServer({
-        name: draft.name.trim(),
-        baseUrl: draft.baseUrl.trim(),
-        ...(draft.sshAlias ? { sshAlias: draft.sshAlias } : {}),
-      });
-      setAdding(false);
-      setDraft({ name: "", baseUrl: "", sshAlias: "" });
-      await reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [client, draft, reload]);
-
-  const diagnose = useCallback(
-    async (server: ServerEntry) => {
-      setChecking(server.id);
-      try {
-        const report = await client.diagnoseServer(server.id);
-        setReports((prev) => ({ ...prev, [server.id]: report }));
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setChecking(null);
-      }
-    },
-    [client],
+  const unsaved = discovered.filter(
+    (runtime) => !servers.some((server) => server.baseUrl === runtime.baseUrl),
   );
 
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2 className="display">Servers</h2>
-        <span className="grow" />
-        <button className="filled" onClick={() => setAdding(true)}>
-          Add server
-        </button>
-      </div>
-      <p className="hint">
-        Machines that serve models. An SSH alias is optional: without one, models can be installed
-        and removed, but the runtime itself cannot be inspected or repaired.
-      </p>
-
+    <Dialog open={open} title="Machines" onClose={onClose}>
       {error ? <p className="error">{error}</p> : null}
 
-      <Dialog
-        open={adding}
-        title="Add a server"
-        onClose={() => setAdding(false)}
-        footer={
-          <>
-            <button className="secondary" onClick={() => setAdding(false)}>
-              Cancel
-            </button>
-            <button
-              className="filled"
-              onClick={() => void add()}
-              disabled={!draft.name.trim() || !draft.baseUrl.trim()}
-            >
-              Add server
-            </button>
-          </>
-        }
-      >
-        <label className="field">
-          What do you call it?
-          <input
-            value={draft.name}
-            autoFocus
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            placeholder="GPU Box"
-          />
-        </label>
-
-        <label className="field">
-          Where does the runtime answer?
-          <input
-            value={draft.baseUrl}
-            onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
-            placeholder="https://llm.example.com or http://192.168.1.20:11434"
-          />
-          <span className="field-note">
-            Ollama's own address, not the `/v1` one — both work, the `/v1` is added where needed.
-          </span>
-        </label>
-
-        <label className="field">
-          Can it also be reached by SSH? (optional)
-          <select
-            value={draft.sshAlias}
-            onChange={(e) => setDraft({ ...draft, sshAlias: e.target.value })}
-          >
-            <option value="">No — manage models only</option>
-            {aliases.map((host) => (
-              <option key={host.alias} value={host.alias}>
-                {host.alias} — {host.user ? `${host.user}@` : ""}
-                {host.hostname}:{host.port}
-              </option>
+      {unsaved.length > 0 ? (
+        <>
+          <h3>Found on this machine</h3>
+          <ul className="rows">
+            {unsaved.map((runtime) => (
+              <li key={runtime.baseUrl}>
+                <strong>{runtime.name}</strong>
+                <span>
+                  {runtime.baseUrl}
+                  {runtime.version ? ` · ${runtime.version}` : ""}
+                  {runtime.manageable ? "" : " · serves models but cannot install them"}
+                </span>
+                <div className="actions">
+                  <button onClick={() => onChoose(runtime.baseUrl)}>Use</button>
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      void client
+                        .addServer({ name: `${runtime.name} (this machine)`, baseUrl: runtime.baseUrl })
+                        .then(reload)
+                        .catch((err: unknown) =>
+                          setError(err instanceof Error ? err.message : String(err)),
+                        );
+                    }}
+                  >
+                    Save it
+                  </button>
+                </div>
+              </li>
             ))}
-          </select>
-          <span className="field-note">
-            {aliases.length === 0
-              ? "No hosts found in ~/.ssh/config. Add one there and it will appear here."
-              : "Read from your own ~/.ssh/config. No key or password is stored here."}
-          </span>
-        </label>
-      </Dialog>
+          </ul>
+        </>
+      ) : null}
 
+      <h3>Saved</h3>
       <ul className="rows">
-        {servers.length === 0 ? (
-          <li className="muted">No servers yet. Add one to manage its models from here.</li>
-        ) : null}
+        {servers.length === 0 ? <li className="muted">None saved.</li> : null}
         {servers.map((server) => {
           const report = reports[server.id];
           return (
@@ -2430,7 +2444,7 @@ export function ServersView({
                       <dt>Runtime</dt>
                       <dd>
                         {report.http.reachable
-                          ? `answering, version ${report.http.version}`
+                          ? `answering, ${report.http.version}`
                           : "not answering"}
                       </dd>
                       <dt>Service</dt>
@@ -2459,11 +2473,20 @@ export function ServersView({
               ) : null}
 
               <div className="actions">
-                <button onClick={() => onManageModels(server)}>Models</button>
+                <button onClick={() => onChoose(server.baseUrl)}>Use</button>
                 <button
                   className="secondary"
                   disabled={checking === server.id}
-                  onClick={() => void diagnose(server)}
+                  onClick={() => {
+                    setChecking(server.id);
+                    void client
+                      .diagnoseServer(server.id)
+                      .then((found) => setReports((prev) => ({ ...prev, [server.id]: found })))
+                      .catch((err: unknown) =>
+                        setError(err instanceof Error ? err.message : String(err)),
+                      )
+                      .finally(() => setChecking(null));
+                  }}
                 >
                   {checking === server.id ? "Checking…" : "Check"}
                 </button>
@@ -2480,6 +2503,78 @@ export function ServersView({
           );
         })}
       </ul>
-    </section>
+
+      {adding ? (
+        <div className="project-form">
+          <label className="field">
+            What do you call it?
+            <input
+              value={draft.name}
+              autoFocus
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              placeholder="GPU Box"
+            />
+          </label>
+          <label className="field">
+            Where does the runtime answer?
+            <input
+              value={draft.baseUrl}
+              onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
+              placeholder="https://llm.example.com or http://192.168.1.20:11434"
+            />
+          </label>
+          <label className="field">
+            Can it also be reached by SSH? (optional)
+            <select
+              value={draft.sshAlias}
+              onChange={(e) => setDraft({ ...draft, sshAlias: e.target.value })}
+            >
+              <option value="">No — manage models only</option>
+              {aliases.map((host) => (
+                <option key={host.alias} value={host.alias}>
+                  {host.alias} — {host.user ? `${host.user}@` : ""}
+                  {host.hostname}:{host.port}
+                </option>
+              ))}
+            </select>
+            <span className="field-note">
+              {aliases.length === 0
+                ? "No hosts in ~/.ssh/config. Add one there and it will appear here."
+                : "Read from your own ~/.ssh/config. No key or password is stored."}
+            </span>
+          </label>
+          <div className="actions">
+            <button
+              disabled={!draft.name.trim() || !draft.baseUrl.trim()}
+              onClick={() => {
+                void client
+                  .addServer({
+                    name: draft.name.trim(),
+                    baseUrl: draft.baseUrl.trim(),
+                    ...(draft.sshAlias ? { sshAlias: draft.sshAlias } : {}),
+                  })
+                  .then(() => {
+                    setAdding(false);
+                    setDraft({ name: "", baseUrl: "", sshAlias: "" });
+                    return reload();
+                  })
+                  .catch((err: unknown) =>
+                    setError(err instanceof Error ? err.message : String(err)),
+                  );
+              }}
+            >
+              Add
+            </button>
+            <button className="secondary" onClick={() => setAdding(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button className="secondary" onClick={() => setAdding(true)}>
+          Add a server elsewhere…
+        </button>
+      )}
+    </Dialog>
   );
 }

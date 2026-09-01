@@ -239,6 +239,16 @@ export interface SshAlias {
   unsupported: string[];
 }
 
+/** A runtime found on this machine. */
+export interface DiscoveredRuntime {
+  runtime: string;
+  name: string;
+  baseUrl: string;
+  version: string | null;
+  /** Whether models can be installed through it, or only served. */
+  manageable: boolean;
+}
+
 /** What a close look at a server found. */
 export interface Diagnosis {
   http: { reachable: boolean; version?: string; status?: number };
@@ -1059,6 +1069,17 @@ export class OpenCliClient {
   async listRuntimes(): Promise<RuntimeInfo[]> {
     const result = (await this.request("runtime/list", {})) as { data?: unknown[] };
     return (result.data ?? []) as RuntimeInfo[];
+  }
+
+  /**
+   * Look for runtimes on this machine.
+   *
+   * Probed together rather than one after another: four timeouts in sequence
+   * on a machine with none is long enough to look broken.
+   */
+  async discoverRuntimes(): Promise<DiscoveredRuntime[]> {
+    const result = (await this.request("runtime/discover", {})) as { data?: unknown[] };
+    return (result.data ?? []) as DiscoveredRuntime[];
   }
 
   /** Ask an address what is there. */
