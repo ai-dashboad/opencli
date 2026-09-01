@@ -205,7 +205,15 @@ describe("approval requests", () => {
     });
 
     expect(seen).toEqual([
-      { id: 0, kind: "command", command: "touch /tmp/x", cwd: "/work", reason: undefined },
+      {
+        id: 0,
+        // Named, so it is only offered in the chat that raised it.
+        threadId: "thread-1",
+        kind: "command",
+        command: "touch /tmp/x",
+        cwd: "/work",
+        reason: undefined,
+      },
     ]);
   });
 
@@ -276,6 +284,34 @@ describe("approval requests", () => {
     socket.emit({ method: "item/commandExecution/requestApproval", id: 1, params: {} });
     socket.emit({ id: FakeSocket.last.parsedSent().at(-1)!.id, result: { data: [] } });
     await expect(pending).resolves.toEqual([]);
+  });
+});
+
+describe("an approval belongs to one conversation", () => {
+  it("should say which chat is asking", async () => {
+    // One agent serves every chat. Without this an approval raised in one is
+    // shown in whichever happens to be on screen, and approved by someone who
+    // cannot see what led to it.
+    let asked: ApprovalRequest | null = null;
+    const { socket } = await connected({
+      onApprovalRequest: (request: ApprovalRequest) => (asked = request),
+    });
+
+    socket.emit({
+      id: 99,
+      method: "commandExecution/requestApproval",
+      params: {
+        threadId: "t-other",
+        turnId: "1",
+        itemId: "i-1",
+        command: "rm -rf /tmp/x",
+        cwd: "/work",
+      },
+    });
+
+    expect(asked).not.toBeNull();
+    expect(asked!.threadId).toBe("t-other");
+    expect(asked!.command).toBe("rm -rf /tmp/x");
   });
 });
 

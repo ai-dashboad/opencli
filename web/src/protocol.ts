@@ -81,6 +81,8 @@ export interface ClientEvents {
 export interface ApprovalRequest {
   /** The request id to answer with. */
   id: RequestId;
+  /** The conversation that raised it, so it is only shown there. */
+  threadId?: string;
   /** What is being asked for: running a command, or writing files. */
   kind: "command" | "fileChange";
   /** The command line, for a command approval. */
@@ -734,6 +736,10 @@ export class OpenCliClient {
         const params = (message.params ?? {}) as Record<string, unknown>;
         const reason = typeof params.reason === "string" ? params.reason : undefined;
         const cwd = typeof params.cwd === "string" ? params.cwd : undefined;
+        // Which conversation is asking. One agent serves them all, so without
+        // this an approval raised in one chat is shown in whichever chat
+        // happens to be on screen — and approved without its context.
+        const threadId = typeof params.threadId === "string" ? params.threadId : undefined;
 
         if (message.method.includes("fileChange")) {
           // A file-change approval names the item but does not repeat what is
@@ -743,6 +749,7 @@ export class OpenCliClient {
           const itemId = typeof params.itemId === "string" ? params.itemId : "";
           this.#events.onApprovalRequest?.({
             id: message.id,
+            threadId,
             kind: "fileChange",
             changes: this.#pendingChanges.get(itemId) ?? [],
             reason,
@@ -753,6 +760,7 @@ export class OpenCliClient {
 
         this.#events.onApprovalRequest?.({
           id: message.id,
+          threadId,
           kind: "command",
           command:
             (typeof params.command === "string" ? params.command : textOf(params.command)) ||

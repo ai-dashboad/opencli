@@ -546,6 +546,27 @@ the cost buys something. Moving between chats went from 1.1–2.6 seconds to
 
 ---
 
+## One agent, many conversations
+
+There is a single agent behind every chat, so any state the interface keeps
+without naming the conversation it belongs to follows the reader into the next
+one. Found by starting a turn in one chat and switching to another, which then
+also claimed to be working.
+
+| State | What leaked |
+| --- | --- |
+| The working flag | Every other chat said it was running |
+| An approval request | A command from elsewhere, offered without its context |
+| Token totals | Another conversation's figures |
+| Errors, drafts, attachments | Followed the reader across |
+
+The flag and the approval now carry the thread that owns them and are shown
+only there; the rest is dropped when a chat is left. The approval is the one
+that matters: approving a command you cannot see the reason for is the whole
+thing approvals exist to prevent.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

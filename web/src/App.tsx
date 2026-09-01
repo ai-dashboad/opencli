@@ -426,13 +426,31 @@ export default function App() {
    * Falls back to connecting only when there is nothing to reuse, which is the
    * first run and after a dropped socket.
    */
+  /**
+   * Drop everything that belonged to the conversation being left.
+   *
+   * There is one agent and one screen, so anything not cleared here follows
+   * the reader into the next chat: a half-typed message, an error, a token
+   * total from somewhere else. The approval box is worse than untidy — it
+   * would offer a command from another conversation to someone who cannot see
+   * what led to it, which is why it also carries the thread that raised it.
+   */
+  const forgetThisChat = useCallback(() => {
+    setItems([]);
+    setChanges([]);
+    setUsage(null);
+    setApproval(null);
+    setError(null);
+    setDraft("");
+    setAttachments([]);
+    setOpenThoughts({});
+  }, []);
+
   const startFreshThread = useCallback(
     async (directory: string, instructions?: string, projectId: string | null = null) => {
       const client = clientRef.current;
       if (!client) return null;
-      setError(null);
-      setItems([]);
-      setChanges([]);
+      forgetThisChat();
       try {
         await openThreadOn(client, directory, instructions, projectId);
         void refreshThreads();
@@ -673,8 +691,7 @@ export default function App() {
     const client = clientRef.current;
     if (!client) return;
     go("chat");
-    setItems([]);
-    setChanges([]);
+    forgetThisChat();
     try {
       setItems(await client.resumeThread(id));
       setActiveThreadId(id);
@@ -1144,7 +1161,7 @@ export default function App() {
               </div>
             </div>
 
-            {approval ? (
+            {approval && (!approval.threadId || approval.threadId === activeThreadId) ? (
               <div className="approval" role="dialog" aria-label="Approval required">
                 <p>
                   {approval.kind === "fileChange"
