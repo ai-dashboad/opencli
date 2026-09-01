@@ -10,6 +10,33 @@ use opencli_protocol::protocol::ItemCompletedEvent;
 use opencli_protocol::protocol::ThreadRolledBackEvent;
 use opencli_protocol::protocol::TurnAbortedEvent;
 use opencli_protocol::protocol::UserMessageEvent;
+use crate::protocol::v2::CommandExecutionStatus;
+use crate::protocol::v2::McpToolCallStatus;
+use opencli_protocol::models::ResponseItem;
+use opencli_protocol::protocol::RolloutItem;
+
+/// Flatten a recorded reasoning item into the text a reader sees.
+fn reasoning_text(
+    summary: &[opencli_protocol::models::ReasoningItemReasoningSummary],
+    content: Option<&[opencli_protocol::models::ReasoningItemContent]>,
+) -> String {
+    let mut parts: Vec<&str> = summary
+        .iter()
+        .map(|entry| match entry {
+            opencli_protocol::models::ReasoningItemReasoningSummary::SummaryText { text } => {
+                text.as_str()
+            }
+        })
+        .collect();
+    if let Some(content) = content {
+        parts.extend(content.iter().map(|entry| match entry {
+            opencli_protocol::models::ReasoningItemContent::ReasoningText { text }
+            | opencli_protocol::models::ReasoningItemContent::Text { text } => text.as_str(),
+        }));
+    }
+    parts.retain(|part| !part.trim().is_empty());
+    parts.join("\n\n")
+}
 
 /// Convert persisted [`EventMsg`] entries into a sequence of [`Turn`] values.
 ///
@@ -24,11 +51,33 @@ pub fn build_turns_from_event_msgs(events: &[EventMsg]) -> Vec<Turn> {
     builder.finish()
 }
 
+/// Convert a whole rollout — events *and* response items — into turns.
+///
+/// A reopened conversation showed only the messages, never the commands the
+/// agent ran or what it thought, because those are not persisted as events at
+/// all. They are `ResponseItem`s, and a reader that kept only `EventMsg`
+/// discarded every one of them: across the sessions this was found on, 1,302
+/// calls, 1,300 outputs and 422 pieces of reasoning, all present on disk and
+/// none of them reaching the screen.
+pub fn build_turns_from_rollout(items: &[RolloutItem]) -> Vec<Turn> {
+    let mut builder = ThreadHistoryBuilder::new();
+    for item in items {
+        match item {
+            RolloutItem::EventMsg(event) => builder.handle_event(event),
+            RolloutItem::ResponseItem(response) => builder.handle_response_item(response),
+            _ => {}
+        }
+    }
+    builder.finish()
+}
+
 struct ThreadHistoryBuilder {
     turns: Vec<Turn>,
     current_turn: Option<PendingTurn>,
     next_turn_index: i64,
     next_item_index: i64,
+    /// Calls whose output has not been seen yet, oldest first.
+    open_calls: Vec<String>,
 }
 
 impl ThreadHistoryBuilder {
@@ -38,6 +87,7 @@ impl ThreadHistoryBuilder {
             current_turn: None,
             next_turn_index: 1,
             next_item_index: 1,
+            open_calls: Vec::new(),
         }
     }
 
@@ -137,6 +187,128 @@ impl ThreadHistoryBuilder {
                 id,
                 text: plan.text.clone(),
             });
+        }
+    }
+
+    /// A recorded response item: what the agent called, what came back, and
+    /// what it was thinking.
+    ///
+    /// Only the shapes a reader can do something with. A call whose output has
+    /// not been seen yet is shown as still running, which is what it was when
+    /// the conversation ended if it ended there.
+    fn handle_response_item(&mut self, item: &ResponseItem) {
+        match item {
+            ResponseItem::FunctionCall {
+                name,
+                arguments,
+                call_id,
+                ..
+            } => self.handle_function_call(name, arguments, call_id),
+            ResponseItem::FunctionCallOutput { call_id, output } => {
+                self.attach_output(call_id, &output.content);
+            }
+            ResponseItem::Reasoning {
+                summary, content, ..
+            } => {
+                let text = reasoning_text(summary, content.as_deref());
+                if !text.is_empty() {
+                    let id = self.next_item_id();
+                    self.ensure_turn().items.push(ThreadItem::Reasoning {
+                        id,
+                        summary: Vec::new(),
+                        content: vec![text],
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Turn a recorded tool call into the item a reader sees.
+    ///
+    /// The shell's arguments are a JSON string holding the command; anything
+    /// else is a tool call named by the tool. A call that cannot be read is
+    /// skipped rather than shown as an empty row.
+    fn handle_function_call(&mut self, name: &str, arguments: &str, call_id: &str) {
+        let parsed: Option<serde_json::Value> = serde_json::from_str(arguments).ok();
+
+        let is_shell = name == "shell" || name == "local_shell" || name == "shell_command";
+        if is_shell {
+            let command = parsed
+                .as_ref()
+                .and_then(|value| value.get("command"))
+                .map(|value| match value {
+                    serde_json::Value::Array(parts) => parts
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    other => other.as_str().unwrap_or_default().to_string(),
+                })
+                .unwrap_or_default();
+            if command.is_empty() {
+                return;
+            }
+            let description = parsed
+                .as_ref()
+                .and_then(|value| value.get("description"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string);
+
+            self.open_calls.push(call_id.to_string());
+            let id = self.next_item_id();
+            self.ensure_turn().items.push(ThreadItem::CommandExecution {
+                id,
+                command,
+                cwd: std::path::PathBuf::new(),
+                process_id: None,
+                status: CommandExecutionStatus::Completed,
+                command_actions: Vec::new(),
+                description,
+                aggregated_output: None,
+                exit_code: None,
+                duration_ms: None,
+            });
+            return;
+        }
+
+        self.open_calls.push(call_id.to_string());
+        let id = self.next_item_id();
+        self.ensure_turn().items.push(ThreadItem::McpToolCall {
+            id,
+            server: String::new(),
+            tool: name.to_string(),
+            status: McpToolCallStatus::Completed,
+            arguments: parsed.unwrap_or(serde_json::Value::Null),
+            result: None,
+            error: None,
+            duration_ms: None,
+        });
+    }
+
+    /// Put a tool's output on the call it belongs to.
+    ///
+    /// Matched by position rather than by id, because the recorded item does
+    /// not carry the id the reader gave it. Calls and their outputs are
+    /// recorded in order, so the oldest unanswered call is the right one.
+    fn attach_output(&mut self, call_id: &str, output: &str) {
+        let Some(at) = self.open_calls.iter().position(|open| open == call_id) else {
+            return;
+        };
+        self.open_calls.remove(at);
+
+        let Some(turn) = self.current_turn.as_mut() else {
+            return;
+        };
+        for item in turn.items.iter_mut().rev() {
+            if let ThreadItem::CommandExecution {
+                aggregated_output, ..
+            } = item
+                && aggregated_output.is_none()
+            {
+                *aggregated_output = Some(output.to_string());
+                return;
+            }
         }
     }
 
@@ -252,6 +424,117 @@ impl From<PendingTurn> for Turn {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn should_show_the_commands_a_reopened_conversation_ran() {
+        // These are recorded as ResponseItems, not events. A reader that kept
+        // only events discarded every one of them, so reopening a chat showed
+        // the messages and nothing the agent had actually done.
+        use opencli_protocol::models::FunctionCallOutputPayload;
+
+        let items = vec![
+            RolloutItem::EventMsg(EventMsg::UserMessage(UserMessageEvent {
+                message: "run the tests".to_string(),
+                images: None,
+                local_images: Vec::new(),
+                text_elements: Vec::new(),
+            })),
+            RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+                id: None,
+                name: "shell".to_string(),
+                arguments: r#"{"command":["bash","-lc","cargo test"],"description":"Run the tests"}"#
+                    .to_string(),
+                call_id: "call-1".to_string(),
+            }),
+            RolloutItem::ResponseItem(ResponseItem::FunctionCallOutput {
+                call_id: "call-1".to_string(),
+                output: FunctionCallOutputPayload {
+                    content: "test result: ok. 1022 passed".to_string(),
+                    content_items: None,
+                    success: Some(true),
+                },
+            }),
+        ];
+
+        let turns = build_turns_from_rollout(&items);
+        let found = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::CommandExecution {
+                    command,
+                    description,
+                    aggregated_output,
+                    ..
+                } => Some((command.clone(), description.clone(), aggregated_output.clone())),
+                _ => None,
+            })
+            .expect("the command is in the history");
+
+        assert_eq!(found.0, "bash -lc cargo test");
+        assert_eq!(found.1.as_deref(), Some("Run the tests"));
+        assert_eq!(found.2.as_deref(), Some("test result: ok. 1022 passed"));
+    }
+
+    #[test]
+    fn should_show_what_it_was_thinking() {
+        use opencli_protocol::models::ReasoningItemContent;
+
+        let items = vec![RolloutItem::ResponseItem(ResponseItem::Reasoning {
+            id: String::new(),
+            summary: Vec::new(),
+            content: Some(vec![ReasoningItemContent::ReasoningText {
+                text: "The uptime is the evidence.".to_string(),
+            }]),
+            encrypted_content: None,
+        })];
+
+        let turns = build_turns_from_rollout(&items);
+        let thought = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::Reasoning { content, .. } => Some(content.join("")),
+                _ => None,
+            });
+        assert_eq!(thought.as_deref(), Some("The uptime is the evidence."));
+    }
+
+    #[test]
+    fn should_leave_a_call_that_never_answered_without_output() {
+        // A conversation that ended mid-command is a real thing on disk; it
+        // must not borrow the next command's output.
+        let items = vec![RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+            id: None,
+            name: "shell".to_string(),
+            arguments: r#"{"command":["sleep","600"]}"#.to_string(),
+            call_id: "call-1".to_string(),
+        })];
+
+        let turns = build_turns_from_rollout(&items);
+        let output = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::CommandExecution {
+                    aggregated_output, ..
+                } => Some(aggregated_output.clone()),
+                _ => None,
+            });
+        assert_eq!(output, Some(None));
+    }
+
+    #[test]
+    fn should_skip_a_call_whose_arguments_cannot_be_read() {
+        // A row with no command in it says nothing; better none at all.
+        let items = vec![RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+            id: None,
+            name: "shell".to_string(),
+            arguments: "not json".to_string(),
+            call_id: "call-1".to_string(),
+        })];
+        assert!(build_turns_from_rollout(&items).is_empty());
+    }
     use super::*;
     use opencli_protocol::protocol::AgentMessageEvent;
     use opencli_protocol::protocol::AgentReasoningEvent;

@@ -615,6 +615,8 @@ export class OpenCliClient {
    */
   /** Text accumulated for messages still being written, keyed by item id. */
   #streaming = new Map<string, string>();
+  /** The thread the agent has actually been given, if any. */
+  #loadedThreadId: string | null = null;
   #pendingChanges = new Map<string, FileChange[]>();
 
   constructor(events: ClientEvents = {}) {
@@ -648,6 +650,7 @@ export class OpenCliClient {
     instructions?: string;
     preferences?: Preferences;
   }): Promise<void> {
+    // A thread this client starts is already the agent's; nothing to load.
     const started = (await this.request("thread/start", {
       cwd: options.cwd,
       ...(options.model ? { model: options.model } : {}),
@@ -671,6 +674,7 @@ export class OpenCliClient {
     })) as { thread?: { id?: string }; threadId?: string };
 
     this.#threadId = started.thread?.id ?? started.threadId ?? null;
+    this.#loadedThreadId = this.#threadId;
     if (!this.#threadId) throw new Error("server did not return a thread id");
     this.#events.onStatus?.("ready");
   }
@@ -892,6 +896,11 @@ export class OpenCliClient {
     } = {},
   ): Promise<void> {
     if (!this.#threadId) throw new Error("no thread open");
+    // The first message to a chat that was only read is what loads it.
+    if (this.#loadedThreadId !== this.#threadId) {
+      await this.request("thread/resume", { threadId: this.#threadId });
+      this.#loadedThreadId = this.#threadId;
+    }
     const attachments = options.attachments ?? [];
     const input: Record<string, unknown>[] = [];
     for (const attachment of attachments) {
@@ -998,9 +1007,21 @@ export class OpenCliClient {
    * `thread/read`, whose stored items use the same shapes as the live stream.
    */
   async resumeThread(id: string): Promise<ThreadItem[]> {
-    await this.request("thread/resume", { threadId: id });
     this.#threadId = id;
 
+    /*
+     * Opening a chat reads it; it does not load it into the agent.
+     *
+     * Reading takes about fifty milliseconds. Resuming loads the thread and
+     * starts its MCP servers, which measured 2.3 seconds against one that
+     * fails to authenticate — and the app server answers these in the order
+     * they arrive, so sending both at once only queues the fast one behind the
+     * slow one.
+     *
+     * Most chats are opened to be read. The cost is paid by `send`, on the
+     * first message to a chat that has not been loaded yet, which is the point
+     * at which it buys something.
+     */
     const result = (await this.request("thread/read", {
       threadId: id,
       includeTurns: true,

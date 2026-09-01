@@ -3,7 +3,7 @@ use crate::opencli_message_processor::PendingInterrupts;
 use crate::opencli_message_processor::PendingRollbacks;
 use crate::opencli_message_processor::TurnSummary;
 use crate::opencli_message_processor::TurnSummaryStore;
-use crate::opencli_message_processor::read_event_msgs_from_rollout;
+use crate::opencli_message_processor::read_rollout_items;
 use crate::opencli_message_processor::read_summary_from_rollout;
 use crate::opencli_message_processor::summary_to_thread;
 use crate::error_code::INTERNAL_ERROR_CODE;
@@ -69,7 +69,7 @@ use opencli_app_server_protocol::TurnInterruptResponse;
 use opencli_app_server_protocol::TurnPlanStep;
 use opencli_app_server_protocol::TurnPlanUpdatedNotification;
 use opencli_app_server_protocol::TurnStatus;
-use opencli_app_server_protocol::build_turns_from_event_msgs;
+use opencli_app_server_protocol::build_turns_from_rollout;
 use opencli_core::OpenCLIThread;
 use opencli_core::parse_command::shlex_join;
 use opencli_core::protocol::ApplyPatchApprovalRequestEvent;
@@ -1081,9 +1081,9 @@ pub(crate) async fn apply_bespoke_event_handling(
                 {
                     Ok(summary) => {
                         let mut thread = summary_to_thread(summary);
-                        match read_event_msgs_from_rollout(rollout_path.as_path()).await {
-                            Ok(events) => {
-                                thread.turns = build_turns_from_event_msgs(&events);
+                        match read_rollout_items(rollout_path.as_path()).await {
+                            Ok(items) => {
+                                thread.turns = build_turns_from_rollout(&items);
                                 ThreadRollbackResponse { thread }
                             }
                             Err(err) => {

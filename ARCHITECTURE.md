@@ -522,6 +522,30 @@ being had, or an answer is being written.
 
 ---
 
+## Reopening a conversation
+
+Two faults, both found by moving between chats.
+
+**Most of the history was never read.** `thread/read` kept only
+`RolloutItem::EventMsg` from a rollout, and the commands an agent ran and what
+it thought are not events — they are `ResponseItem`s. Across the sessions on
+one machine that discarded 1,302 calls, 1,300 outputs and 422 pieces of
+reasoning, all present on disk and none of them reaching the screen. One
+conversation went from 19 items to 199 once they were read.
+
+**Opening a chat loaded it into the agent.** `thread/resume` starts the
+thread's MCP servers — 2.3 seconds against one that fails to authenticate —
+while reading it takes fifty milliseconds. Sending both at once does not help:
+the app server answers in the order they arrive, so the fast one queues behind
+the slow one.
+
+Most chats are opened to be read. Opening now reads; the first message to a
+chat that has not been loaded is what loads it, which is the point at which
+the cost buys something. Moving between chats went from 1.1–2.6 seconds to
+22–38 milliseconds.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

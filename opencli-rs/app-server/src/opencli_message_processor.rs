@@ -130,6 +130,7 @@ use opencli_app_server_protocol::UserInfoResponse;
 use opencli_app_server_protocol::UserInput as V2UserInput;
 use opencli_app_server_protocol::UserSavedConfig;
 use opencli_app_server_protocol::build_turns_from_event_msgs;
+use opencli_app_server_protocol::build_turns_from_rollout;
 use opencli_backend_client::Client as BackendClient;
 use opencli_chatgpt::connectors;
 use opencli_core::AuthManager;
@@ -2243,9 +2244,9 @@ impl OpenCLIMessageProcessor {
         };
 
         if include_turns && let Some(rollout_path) = rollout_path.as_ref() {
-            match read_event_msgs_from_rollout(rollout_path).await {
-                Ok(events) => {
-                    thread.turns = build_turns_from_event_msgs(&events);
+            match read_rollout_items(rollout_path).await {
+                Ok(items) => {
+                    thread.turns = build_turns_from_rollout(&items);
                 }
                 Err(err) => {
                     self.send_internal_error(
@@ -4962,22 +4963,17 @@ pub(crate) async fn read_summary_from_rollout(
     })
 }
 
-pub(crate) async fn read_event_msgs_from_rollout(
-    path: &Path,
-) -> std::io::Result<Vec<opencli_protocol::protocol::EventMsg>> {
-    let items = match RolloutRecorder::get_rollout_history(path).await? {
+/// Everything a rollout recorded, not only its events.
+///
+/// This kept `EventMsg` alone, which is why a reopened conversation showed the
+/// messages and nothing else: the commands the agent ran and what it thought
+/// are recorded as `ResponseItem`s, and every one of them was discarded here.
+pub(crate) async fn read_rollout_items(path: &Path) -> std::io::Result<Vec<RolloutItem>> {
+    Ok(match RolloutRecorder::get_rollout_history(path).await? {
         InitialHistory::New => Vec::new(),
         InitialHistory::Forked(items) => items,
         InitialHistory::Resumed(resumed) => resumed.history,
-    };
-
-    Ok(items
-        .into_iter()
-        .filter_map(|item| match item {
-            RolloutItem::EventMsg(event) => Some(event),
-            _ => None,
-        })
-        .collect())
+    })
 }
 
 fn extract_conversation_summary(
