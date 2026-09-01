@@ -81,6 +81,7 @@ opencli-cli = { path = "cli"}
 opencli-client = { path = "opencli-client" }
 opencli-common = { path = "common" }
 opencli-core = { path = "core" }
+opencli-ssh = { path = "ssh" }
 opencli-exec = { path = "exec" }
 opencli-execpolicy = { path = "execpolicy" }
 opencli-feedback = { path = "feedback" }

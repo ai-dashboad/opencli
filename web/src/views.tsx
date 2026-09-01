@@ -1731,6 +1731,10 @@ export function ModelsView({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [custom, setCustom] = useState("");
+  // The agent reads config.toml when its process starts, so a model registered
+  // now is on disk and not yet in the picker. Saying so beats letting the user
+  // wonder why nothing changed.
+  const [needsReload, setNeedsReload] = useState(false);
 
   useEffect(() => {
     void client.listRuntimes().then(setRuntimes).catch(() => setRuntimes([]));
@@ -1776,10 +1780,28 @@ export function ModelsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refresh once a download finishes, so the new model appears without asking.
-  const finished = Object.values(pulls).filter((pull) => pull.done).length;
+  // When a download finishes, register it and refresh. Registering here rather
+  // than in the shell keeps it next to the address it was installed on.
+  const finished = Object.values(pulls)
+    .filter((pull) => pull.done)
+    .map((pull) => pull.model)
+    .join(",");
   useEffect(() => {
-    if (finished > 0) void connect();
+    if (!finished) return;
+    void (async () => {
+      let registered = 0;
+      for (const model of finished.split(",")) {
+        try {
+          const result = await client.registerModel(baseUrl, model);
+          if (result.added) registered += 1;
+        } catch {
+          // The model is installed either way; failing to register it only
+          // means it must be chosen by editing config.toml.
+        }
+      }
+      if (registered > 0) setNeedsReload(true);
+      await connect();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
 
@@ -1813,6 +1835,13 @@ export function ModelsView({
       </div>
 
       {error ? <p className="error">{error}</p> : null}
+
+      {needsReload ? (
+        <p className="notice">
+          Added to your configuration. Start a new chat to use it — the agent reads its settings
+          when a chat opens.
+        </p>
+      ) : null}
 
       {probe ? (
         probe.reachable ? (
@@ -1894,6 +1923,23 @@ export function ModelsView({
                     </span>
                   ) : null}
                   <div className="actions">
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        void client
+                          .registerModel(baseUrl, model.name)
+                          .then((result) => {
+                            setError(null);
+                            if (result.added) setNeedsReload(true);
+                          })
+                          .catch((err: unknown) =>
+                            setError(err instanceof Error ? err.message : String(err)),
+                          );
+                      }}
+                      title="Add it to the model picker"
+                    >
+                      Use in chats
+                    </button>
                     <button
                       className="secondary"
                       onClick={() => {

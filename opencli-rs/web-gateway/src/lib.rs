@@ -267,7 +267,13 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
         if runtime::pull(&text, out_tx_for_local.clone()).await {
             continue;
         }
-        if let Some(reply) = runtime::handle(&text).await {
+        if let Some(reply) = server::handle(&text, &state.opencli_home).await {
+            if out_tx_for_local.send(reply).await.is_err() {
+                break;
+            }
+            continue;
+        }
+        if let Some(reply) = runtime::handle(&text, &state.opencli_home).await {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
             }
@@ -298,7 +304,9 @@ mod connector;
 mod dispatch;
 mod memory;
 mod plugin;
+mod register;
 mod runtime;
+mod server;
 mod project;
 mod schedule;
 

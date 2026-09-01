@@ -5526,6 +5526,7 @@ dependencies = [
  "axum",
  "futures",
  "opencli-core",
+ "opencli-ssh",
  "rand 0.9.2",
  "reqwest",
  "serde",
@@ -5534,6 +5535,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "toml 0.9.5",
+ "toml_edit 0.24.0+spec-1.1.0",
  "tracing",
 ]
 

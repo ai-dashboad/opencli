@@ -1936,3 +1936,12 @@ textarea:focus {
 .rows .warn {
   color: var(--danger);
 }
+
+.notice {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 13px;
+}

@@ -1031,6 +1031,29 @@ export class OpenCliClient {
     await this.request("runtime/delete", { baseUrl, model });
   }
 
+  /**
+   * Make an installed model selectable in the picker.
+   *
+   * Installing puts a file on a machine; choosing it needs a provider and a
+   * `[[models]]` entry as well. Without this a one-click install is one click
+   * and then a text editor.
+   */
+  async registerModel(baseUrl: string, model: string): Promise<{ added: boolean }> {
+    return (await this.request("runtime/register", { baseUrl, model })) as { added: boolean };
+  }
+
+  /**
+   * Reload the session so a configuration change takes effect.
+   *
+   * The agent reads `config.toml` when its process starts, so a model
+   * registered a moment ago is on disk but not in the picker. Reconnecting is
+   * what makes it appear.
+   */
+  async reload(url: string, options: { cwd: string; model?: string }): Promise<void> {
+    this.close();
+    await this.connect(url, options);
+  }
+
   /** Read the effective config after layering. */
   async readConfig(): Promise<Record<string, unknown>> {
     const result = (await this.request("config/read", {})) as Record<string, unknown>;

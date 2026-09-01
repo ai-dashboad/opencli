@@ -19,7 +19,7 @@ use tokio::sync::mpsc::Sender;
 ///
 /// Returns `None` for anything else, including `runtime/pull`, which is
 /// handled separately because it reports as it goes.
-pub async fn handle(raw: &str) -> Option<String> {
+pub async fn handle(raw: &str, opencli_home: &std::path::Path) -> Option<String> {
     let message: Value = serde_json::from_str(raw).ok()?;
     let method = message.get("method")?.as_str()?;
     if !method.starts_with("runtime/") || method == "runtime/pull" {
@@ -33,7 +33,8 @@ pub async fn handle(raw: &str) -> Option<String> {
         "runtime/probe" => probe(&params).await,
         "runtime/models" => models(&params).await,
         "runtime/show" => show(&params).await,
-        "runtime/delete" => delete(&params).await,
+        "runtime/delete" => delete(&params, opencli_home).await,
+        "runtime/register" => register_model(&params, opencli_home).await,
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -241,7 +242,29 @@ async fn show(params: &Value) -> Result<Value, String> {
     }))
 }
 
-async fn delete(params: &Value) -> Result<Value, String> {
+/// Make an installed model selectable.
+///
+/// Installing puts a file on a machine; being able to choose it needs a
+/// provider and a `[[models]]` entry too. Doing it here means a one-click
+/// install is actually one click, rather than one click and a text editor.
+async fn register_model(params: &Value, opencli_home: &std::path::Path) -> Result<Value, String> {
+    let root = required_url(params)?;
+    let model = params
+        .get("model")
+        .and_then(Value::as_str)
+        .filter(|model| !model.is_empty())
+        .ok_or("model is required")?;
+
+    // Read the window from the runtime rather than guessing: a wrong one
+    // truncates conversations or overflows the model.
+    let context = match show(params).await {
+        Ok(details) => details.get("contextLength").and_then(Value::as_i64),
+        Err(_) => None,
+    };
+    crate::register::register(opencli_home, &root, model, None, context)
+}
+
+async fn delete(params: &Value, opencli_home: &std::path::Path) -> Result<Value, String> {
     let root = required_url(params)?;
     let model = params
         .get("model")
@@ -262,7 +285,12 @@ async fn delete(params: &Value) -> Result<Value, String> {
     if !response.status().is_success() {
         return Err(format!("the runtime answered {}", response.status()));
     }
-    Ok(json!({ "removed": model }))
+
+    // Leaving the entry behind would keep offering a model that is gone.
+    let unregistered = crate::register::unregister(opencli_home, &root, model)
+        .map(|result| result["removed"].as_bool().unwrap_or(false))
+        .unwrap_or(false);
+    Ok(json!({ "removed": model, "unregistered": unregistered }))
 }
 
 /// Install a model, reporting as it goes.
@@ -451,15 +479,16 @@ mod tests {
 
     #[tokio::test]
     async fn should_pass_non_runtime_methods_through_to_the_agent() {
-        assert!(handle(r#"{"method":"turn/start","id":1}"#).await.is_none());
-        assert!(handle("not json").await.is_none());
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert!(handle(r#"{"method":"turn/start","id":1}"#, dir.path()).await.is_none());
+        assert!(handle("not json", dir.path()).await.is_none());
     }
 
     #[tokio::test]
     async fn should_leave_pull_to_the_streaming_path() {
         // Answering it here would hold the reply for the whole download.
         assert!(
-            handle(r#"{"method":"runtime/pull","id":1,"params":{}}"#)
+            handle(r#"{"method":"runtime/pull","id":1,"params":{}}"#, std::path::Path::new("/tmp"))
                 .await
                 .is_none()
         );
@@ -467,7 +496,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_describe_every_runtime_and_whether_it_can_be_driven_remotely() {
-        let reply = handle(r#"{"method":"runtime/list","id":1}"#)
+        let reply = handle(r#"{"method":"runtime/list","id":1}"#, std::path::Path::new("/tmp"))
             .await
             .expect("handled");
         let parsed: Value = serde_json::from_str(&reply).expect("valid JSON");
@@ -501,9 +530,10 @@ mod tests {
     #[tokio::test]
     async fn should_refuse_an_address_that_is_not_a_url() {
         for params in [r#"{}"#, r#"{"baseUrl":"gpu-box:11434"}"#, r#"{"baseUrl":""}"#] {
-            let reply = handle(&format!(
-                r#"{{"method":"runtime/models","id":1,"params":{params}}}"#
-            ))
+            let reply = handle(
+                &format!(r#"{{"method":"runtime/models","id":1,"params":{params}}}"#),
+                std::path::Path::new("/tmp"),
+            )
             .await
             .expect("handled");
             let parsed: Value = serde_json::from_str(&reply).expect("valid JSON");
@@ -516,6 +546,7 @@ mod tests {
         // Port 1 is reserved and nothing listens there.
         let reply = handle(
             r#"{"method":"runtime/probe","id":1,"params":{"baseUrl":"http://127.0.0.1:1"}}"#,
+            std::path::Path::new("/tmp"),
         )
         .await
         .expect("handled");
