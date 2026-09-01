@@ -533,6 +533,20 @@ one machine that discarded 1,302 calls, 1,300 outputs and 422 pieces of
 reasoning, all present on disk and none of them reaching the screen. One
 conversation went from 19 items to 199 once they were read.
 
+What was still being dropped after that, found by counting what a rollout
+holds against what came back rather than by checking the total looked large
+enough:
+
+| Data | Where it sits | Was |
+| --- | --- | --- |
+| Exit code | `output.metadata.exit_code` | Dropped — a failed command reopened as a successful one |
+| Duration | `output.metadata.duration_seconds` | Dropped |
+| A non-command tool's answer | the same `function_call_output` | Dropped — output was attached only to commands |
+| Thinking | `content`, in the fragments it streamed as | Joined with blank lines, one word per line |
+
+On one conversation that is 59 timings, 59 exit codes — two of them failures
+— and five tool answers, all present on disk the whole time.
+
 **Opening a chat loaded it into the agent.** `thread/resume` starts the
 thread's MCP servers — 2.3 seconds against one that fails to authenticate —
 while reading it takes fifty milliseconds. Sending both at once does not help:

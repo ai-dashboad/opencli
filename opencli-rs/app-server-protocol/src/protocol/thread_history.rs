@@ -11,24 +11,56 @@ use opencli_protocol::protocol::ThreadRolledBackEvent;
 use opencli_protocol::protocol::TurnAbortedEvent;
 use opencli_protocol::protocol::UserMessageEvent;
 use crate::protocol::v2::CommandExecutionStatus;
+use crate::protocol::v2::McpToolCallResult;
 use crate::protocol::v2::McpToolCallStatus;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::RolloutItem;
 
-/// Take what a command printed out of the envelope it was stored in.
+/// What a recorded tool output carries, once opened.
+struct RecordedOutput {
+    text: String,
+    exit_code: Option<i32>,
+    duration_ms: Option<i64>,
+}
+
+/// Take a command's result out of the envelope it was stored in.
 ///
-/// A recorded output is `{"output": "...", "metadata": {...}}`, and showing
-/// that verbatim buries a directory listing inside a JSON string complete with
-/// its escaped newlines. Anything that is not that shape is passed through
-/// unchanged, since a tool that returns plain text is returning plain text.
-fn unwrap_output(raw: &str) -> String {
-    serde_json::from_str::<serde_json::Value>(raw)
-        .ok()
-        .as_ref()
-        .and_then(|value| value.get("output"))
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_string)
-        .unwrap_or_else(|| raw.to_string())
+/// A recorded output is `{"output": "...", "metadata": {"exit_code": 0,
+/// "duration_seconds": 0.2}}`. Showing it verbatim buries a directory listing
+/// inside a JSON string complete with its escaped newlines — and reading only
+/// the text threw away the two facts that say how the command went, so a
+/// failure reopened as something indistinguishable from a success.
+///
+/// Anything that is not that shape is passed through unchanged, since a tool
+/// returning plain text is returning plain text.
+fn unwrap_output(raw: &str) -> RecordedOutput {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return RecordedOutput {
+            text: raw.to_string(),
+            exit_code: None,
+            duration_ms: None,
+        };
+    };
+    let Some(text) = value.get("output").and_then(serde_json::Value::as_str) else {
+        return RecordedOutput {
+            text: raw.to_string(),
+            exit_code: None,
+            duration_ms: None,
+        };
+    };
+
+    let metadata = value.get("metadata");
+    RecordedOutput {
+        text: text.to_string(),
+        exit_code: metadata
+            .and_then(|m| m.get("exit_code"))
+            .and_then(serde_json::Value::as_i64)
+            .and_then(|code| i32::try_from(code).ok()),
+        duration_ms: metadata
+            .and_then(|m| m.get("duration_seconds"))
+            .and_then(serde_json::Value::as_f64)
+            .map(|seconds| (seconds * 1000.0).round() as i64),
+    }
 }
 
 /// Flatten a recorded reasoning item into the text a reader sees.
@@ -334,14 +366,45 @@ impl ThreadHistoryBuilder {
         let Some(turn) = self.current_turn.as_mut() else {
             return;
         };
+        let opened = unwrap_output(output);
+
         for item in turn.items.iter_mut() {
-            if let ThreadItem::CommandExecution {
-                aggregated_output, ..
-            } = item
-                && aggregated_output.is_none()
-            {
-                *aggregated_output = Some(unwrap_output(output));
-                return;
+            match item {
+                ThreadItem::CommandExecution {
+                    aggregated_output,
+                    exit_code,
+                    duration_ms,
+                    status,
+                    ..
+                } if aggregated_output.is_none() => {
+                    // A failure reopened as a success until these were read.
+                    *status = if opened.exit_code.unwrap_or(0) == 0 {
+                        CommandExecutionStatus::Completed
+                    } else {
+                        CommandExecutionStatus::Failed
+                    };
+                    *exit_code = opened.exit_code;
+                    *duration_ms = opened.duration_ms;
+                    *aggregated_output = Some(opened.text);
+                    return;
+                }
+                // A tool that is not a command has an answer too. Attaching it
+                // only to commands left `open_file` and the rest with nothing
+                // under them.
+                ThreadItem::McpToolCall { result, .. } if result.is_none() => {
+                    *result = Some(McpToolCallResult {
+                        content: vec![mcp_types::ContentBlock::TextContent(
+                            mcp_types::TextContent {
+                                r#type: "text".to_string(),
+                                text: opened.text,
+                                annotations: None,
+                            },
+                        )],
+                        structured_content: None,
+                    });
+                    return;
+                }
+                _ => {}
             }
         }
     }
@@ -675,13 +738,92 @@ mod tests {
     fn should_show_what_a_command_printed_not_the_envelope_around_it() {
         // Stored as `{"output": "...", "metadata": {...}}`. Shown verbatim, a
         // directory listing arrives inside a JSON string, escapes and all.
-        assert_eq!(
-            unwrap_output(r#"{"output":"total 8\ndrwxr-xr-x","metadata":{"exit_code":0}}"#),
-            "total 8\ndrwxr-xr-x"
-        );
+        let opened =
+            unwrap_output(r#"{"output":"total 8\ndrwxr-xr-x","metadata":{"exit_code":0,"duration_seconds":0.2}}"#);
+        assert_eq!(opened.text, "total 8\ndrwxr-xr-x");
+        assert_eq!(opened.exit_code, Some(0));
+        assert_eq!(opened.duration_ms, Some(200));
+
         // A tool that returns plain text is returning plain text.
-        assert_eq!(unwrap_output("just text"), "just text");
-        assert_eq!(unwrap_output(r#"{"other":"shape"}"#), r#"{"other":"shape"}"#);
+        assert_eq!(unwrap_output("just text").text, "just text");
+        assert_eq!(unwrap_output(r#"{"other":"shape"}"#).text, r#"{"other":"shape"}"#);
+    }
+
+    #[test]
+    fn should_remember_that_a_command_failed() {
+        // Reopened, a failure was indistinguishable from a success: the exit
+        // code and the timing sit in the output's metadata and were dropped.
+        use opencli_protocol::models::FunctionCallOutputPayload;
+
+        let turns = build_turns_from_rollout(&[
+            RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+                id: None,
+                name: "run".to_string(),
+                arguments: r#"{"command":["bash","-lc","exit 2"]}"#.to_string(),
+                call_id: "call-1".to_string(),
+            }),
+            RolloutItem::ResponseItem(ResponseItem::FunctionCallOutput {
+                call_id: "call-1".to_string(),
+                output: FunctionCallOutputPayload {
+                    content: r#"{"output":"boom","metadata":{"exit_code":2,"duration_seconds":1.5}}"#
+                        .to_string(),
+                    content_items: None,
+                    success: Some(false),
+                },
+            }),
+        ]);
+
+        let found = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::CommandExecution {
+                    status,
+                    exit_code,
+                    duration_ms,
+                    ..
+                } => Some((status.clone(), *exit_code, *duration_ms)),
+                _ => None,
+            })
+            .expect("the command is there");
+
+        assert_eq!(found.0, CommandExecutionStatus::Failed);
+        assert_eq!(found.1, Some(2));
+        assert_eq!(found.2, Some(1500));
+    }
+
+    #[test]
+    fn should_keep_the_answer_a_tool_that_is_not_a_command_gave() {
+        // Attaching output only to commands left `open_file` and the rest
+        // with nothing under them.
+        use opencli_protocol::models::FunctionCallOutputPayload;
+
+        let turns = build_turns_from_rollout(&[
+            RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+                id: None,
+                name: "open_file".to_string(),
+                arguments: r#"{"path":"src/main.rs"}"#.to_string(),
+                call_id: "call-1".to_string(),
+            }),
+            RolloutItem::ResponseItem(ResponseItem::FunctionCallOutput {
+                call_id: "call-1".to_string(),
+                output: FunctionCallOutputPayload {
+                    content: r#"{"output":"fn main() {}"}"#.to_string(),
+                    content_items: None,
+                    success: Some(true),
+                },
+            }),
+        ]);
+
+        let answered = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::McpToolCall { result, .. } => result.clone(),
+                _ => None,
+            })
+            .expect("the tool's answer is kept");
+        assert_eq!(answered.content.len(), 1);
     }
 
     #[test]
