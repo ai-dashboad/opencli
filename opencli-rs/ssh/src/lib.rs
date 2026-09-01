@@ -14,5 +14,6 @@
 //! user already keeps them, and a passphrase or password is asked for when
 //! needed and kept only for the life of the connection.
 
+pub mod client;
 pub mod config;
 pub mod hosts;
