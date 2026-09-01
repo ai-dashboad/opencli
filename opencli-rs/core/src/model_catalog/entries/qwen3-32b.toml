@@ -1,0 +1,7 @@
+tag = "qwen3:32b"
+name = "Qwen3 32B"
+note = "General purpose at the larger size."
+size_gb = 20.0
+needs_gb = 24.0
+tools = true
+context = 40960

@@ -1,0 +1,7 @@
+tag = "gemma3:12b"
+name = "Gemma 3 12B"
+note = "Good at prose and reading images. Does not call tools, so it cannot drive the agent's own work."
+size_gb = 8.1
+needs_gb = 11.0
+tools = false
+context = 131072

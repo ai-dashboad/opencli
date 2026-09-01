@@ -1,0 +1,7 @@
+tag = "devstral:24b"
+name = "Devstral 24B"
+note = "Built for agent work across a codebase rather than single answers."
+size_gb = 14.0
+needs_gb = 18.0
+tools = true
+context = 131072

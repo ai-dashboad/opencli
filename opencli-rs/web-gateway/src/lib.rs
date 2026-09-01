@@ -273,6 +273,12 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             }
             continue;
         }
+        if let Some(reply) = hub::handle(&text, &state.opencli_home).await {
+            if out_tx_for_local.send(reply).await.is_err() {
+                break;
+            }
+            continue;
+        }
         if let Some(reply) = runtime::handle(&text, &state.opencli_home).await {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -302,6 +308,7 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
 /// socket.
 mod connector;
 mod dispatch;
+mod hub;
 mod memory;
 mod plugin;
 mod register;

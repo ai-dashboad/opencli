@@ -1,0 +1,7 @@
+tag = "llama3.1:8b"
+name = "Llama 3.1 8B"
+note = "General purpose, calls tools, widely tested."
+size_gb = 4.9
+needs_gb = 8.0
+tools = true
+context = 131072

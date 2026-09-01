@@ -10,6 +10,7 @@ import {
   ModelsView,
   ProjectDetailView,
   ProjectsView,
+  ServersView,
   ScheduledView,
   SettingsView,
   PluginsView,
@@ -217,6 +218,8 @@ export default function App() {
   // Cowork sends work to the background instead of waiting on it inline.
   const [cowork, setCowork] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
+  // Set when Models is opened from a server's row, so it shows that one.
+  const [modelsFor, setModelsFor] = useState<string | undefined>();
   // The project whose page is being read, which is not necessarily the one the
   // current chat belongs to.
   const [viewing, setViewing] = useState<Project | null>(null);
@@ -878,6 +881,7 @@ export default function App() {
         ) : view === "models" && client ? (
           <ModelsView
             client={client}
+            initialBaseUrl={modelsFor}
             pulls={pulls}
             onPull={(target, model) => {
               // Show the row immediately; the first progress event may be
@@ -892,6 +896,14 @@ export default function App() {
                   },
                 })),
               );
+            }}
+          />
+        ) : view === "servers" && client ? (
+          <ServersView
+            client={client}
+            onManageModels={(server) => {
+              setModelsFor(server.baseUrl);
+              go("models");
             }}
           />
         ) : view === "plugins" && client ? (

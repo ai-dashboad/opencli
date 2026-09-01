@@ -1,0 +1,7 @@
+tag = "mistral-small:24b"
+name = "Mistral Small 24B"
+note = "Strong general model that calls tools."
+size_gb = 14.0
+needs_gb = 18.0
+tools = true
+context = 32768

@@ -1,0 +1,7 @@
+tag = "qwen2.5:0.5b"
+name = "Qwen2.5 0.5B"
+note = "Tiny. Useful for checking a setup works, not for real work."
+size_gb = 0.4
+needs_gb = 1.0
+tools = true
+context = 32768

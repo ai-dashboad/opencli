@@ -27,6 +27,7 @@ mod context_manager;
 pub mod custom_prompts;
 pub mod dispatch;
 pub mod memory;
+pub mod model_catalog;
 pub mod projects;
 pub mod providers;
 pub mod runtimes;

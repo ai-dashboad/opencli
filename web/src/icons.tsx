@@ -320,3 +320,13 @@ export function ChipIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function ServerIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="2" y="2.8" width="12" height="4.4" rx="1.1" />
+      <rect x="2" y="8.8" width="12" height="4.4" rx="1.1" />
+      <path d="M4.6 5h.01M4.6 11h.01" />
+    </Svg>
+  );
+}

@@ -16,6 +16,7 @@ import {
   PlusIcon,
   ProjectIcon,
   SearchIcon,
+  ServerIcon,
   SettingsIcon,
   SidebarToggleIcon,
   SkillIcon,
@@ -34,6 +35,7 @@ export type View =
   | "connectors"
   | "plugins"
   | "models"
+  | "servers"
   | "project"
   | "settings";
 
@@ -103,6 +105,7 @@ const SECONDARY: { id: View; label: string; icon: React.ReactNode }[] = [
   { id: "connectors", label: "Connectors", icon: <ConnectorIcon /> },
   { id: "plugins", label: "Plugins", icon: <PlugIcon /> },
   { id: "models", label: "Models", icon: <ChipIcon /> },
+  { id: "servers", label: "Servers", icon: <ServerIcon /> },
   { id: "settings", label: "Settings", icon: <SettingsIcon /> },
 ];
 

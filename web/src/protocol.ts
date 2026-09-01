@@ -218,6 +218,65 @@ export interface Preferences {
   research?: boolean;
 }
 
+/** A machine that serves models. */
+export interface ServerEntry {
+  id: string;
+  name: string;
+  baseUrl: string;
+  runtime: string;
+  /** An alias from ~/.ssh/config, when this machine can also be reached by shell. */
+  sshAlias: string | null;
+  createdAt: number;
+}
+
+/** A host the user's own ssh config already names. */
+export interface SshAlias {
+  alias: string;
+  hostname: string;
+  port: number;
+  user: string | null;
+  /** Directives this client does not act on, so they can be reported. */
+  unsupported: string[];
+}
+
+/** What a close look at a server found. */
+export interface Diagnosis {
+  http: { reachable: boolean; version?: string; status?: number };
+  shell: {
+    os: string;
+    binary: string;
+    service: string;
+    enabled: string;
+    restarts: number;
+    listeningLocally: boolean;
+    modelsOnDisk: string;
+    diskFree: string;
+    gpu: string;
+    canSudo: boolean;
+    user: string;
+  } | null;
+  findings: string[];
+}
+
+/** A model on offer, from a library or a hub search. */
+export interface Offer {
+  source: "ollama" | "huggingface";
+  /** What to pull. Whatever the source, this goes to the runtime unchanged. */
+  tag: string;
+  name: string;
+  note?: string;
+  sizeGb?: number;
+  needsGb?: number;
+  /** Null when only the runtime can say, which is true of hub results. */
+  tools: boolean | null;
+  context?: number;
+  downloads?: number;
+  fits?: boolean;
+  needsQuant?: boolean;
+  /** Entries the user added, which are the ones they may edit or remove. */
+  userDefined?: boolean;
+}
+
 /** A local inference runtime and what it can be asked to do. */
 export interface RuntimeInfo {
   id: string;
@@ -1052,6 +1111,81 @@ export class OpenCliClient {
   async reload(url: string, options: { cwd: string; model?: string }): Promise<void> {
     this.close();
     await this.connect(url, options);
+  }
+
+  async listServers(): Promise<ServerEntry[]> {
+    const result = (await this.request("server/list", {})) as { data?: unknown[] };
+    return (result.data ?? []) as ServerEntry[];
+  }
+
+  /** Hosts the user's own `~/.ssh/config` already names. */
+  async sshAliases(): Promise<SshAlias[]> {
+    const result = (await this.request("server/aliases", {})) as { data?: unknown[] };
+    return (result.data ?? []) as SshAlias[];
+  }
+
+  async addServer(server: {
+    name: string;
+    baseUrl: string;
+    runtime?: string;
+    sshAlias?: string;
+  }): Promise<ServerEntry> {
+    return (await this.request("server/add", server)) as ServerEntry;
+  }
+
+  async removeServer(id: string): Promise<void> {
+    await this.request("server/remove", { id });
+  }
+
+  /**
+   * Look at a server closely enough to say what is wrong.
+   *
+   * HTTP alone cannot tell a runtime that is down from a network that is out,
+   * nor see a service that has been restarting in a loop. With a shell it can.
+   */
+  async diagnoseServer(id: string): Promise<Diagnosis> {
+    return (await this.request("server/diagnose", { id })) as Diagnosis;
+  }
+
+  /** Models from the curated library, optionally filtered and fit-checked. */
+  async modelCatalog(options: { query?: string; memoryGb?: number } = {}): Promise<Offer[]> {
+    const result = (await this.request("hub/catalog", options)) as { data?: unknown[] };
+    return (result.data ?? []) as Offer[];
+  }
+
+  /**
+   * Add or replace one of your own catalogue entries.
+   *
+   * A bundled entry is replaced by adding one with the same tag rather than
+   * edited in place, so a build's own catalogue stays whole and a bad edit is
+   * undone by removing the override.
+   */
+  async saveCatalogEntry(entry: {
+    tag: string;
+    name?: string;
+    note: string;
+    sizeGb?: number;
+    needsGb?: number;
+    tools?: boolean;
+    context?: number;
+  }): Promise<void> {
+    await this.request("hub/upsert", entry);
+  }
+
+  async removeCatalogEntry(tag: string): Promise<void> {
+    await this.request("hub/remove", { tag });
+  }
+
+  /** Search a hub for installable models. */
+  async searchModels(
+    query: string,
+    source: "huggingface" | "modelscope" = "huggingface",
+  ): Promise<{ results: Offer[]; hint?: string }> {
+    const result = (await this.request("hub/search", { query, source })) as {
+      data?: unknown[];
+      hint?: string;
+    };
+    return { results: (result.data ?? []) as Offer[], hint: result.hint };
   }
 
   /** Read the effective config after layering. */

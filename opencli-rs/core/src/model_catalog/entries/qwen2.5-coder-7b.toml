@@ -1,0 +1,7 @@
+tag = "qwen2.5-coder:7b"
+name = "Qwen2.5 Coder 7B"
+note = "Coding, and reliable at calling tools. A good first choice on most machines."
+size_gb = 4.7
+needs_gb = 8.0
+tools = true
+context = 32768
