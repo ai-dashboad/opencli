@@ -803,6 +803,8 @@ export class OpenCliClient {
       /** `auto` asks for a reasoning summary; `none` does not. */
       summary?: "auto" | "none";
       model?: string;
+      /** When the agent should stop and ask. Applies from this turn on. */
+      approvalPolicy?: ApprovalPolicy;
     } = {},
   ): Promise<void> {
     if (!this.#threadId) throw new Error("no thread open");
@@ -836,6 +838,10 @@ export class OpenCliClient {
       ...(options.effort ? { effort: options.effort } : {}),
       ...(options.summary ? { summary: options.summary } : {}),
       ...(options.model ? { model: options.model } : {}),
+      // Sent every turn for the same reason the model is: fixed at
+      // `thread/start`, changing it mid-conversation would do nothing, and a
+      // control that does nothing is worse than no control.
+      ...(options.approvalPolicy ? { approvalPolicy: options.approvalPolicy } : {}),
     });
   }
 

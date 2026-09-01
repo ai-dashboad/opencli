@@ -158,8 +158,17 @@ nobody answers, so the UI says where it works.
 
 ## Approvals
 
-Every non-safe command is surfaced before it runs. Three things learned the
+Every non-safe command is surfaced before it runs. Four things learned the
 hard way:
+
+- **The policy is a turn option, not a thread one.** Sent only at
+  `thread/start`, changing it mid-conversation did nothing — the worst way for
+  a security control to be wrong, because it looks as though it took. It is now
+  sent on every turn, and offered beside the model picker: a run of commands is
+  exactly when someone decides they have seen enough of them, and walking to
+  another panel then starting a new chat is long enough that they approve
+  twenty more instead.
+
 
 - **The decision values are `accept` and `decline`.** An unparseable decision
   is not reported as an error — the command simply never runs. Sending

@@ -44,9 +44,10 @@ import {
   SendIcon,
   SidebarToggleIcon,
   StopIcon,
+  BoltIcon,
   OpenCliMark,
 } from "./icons";
-import { AttachMenu, ModelMenu, Popover } from "./menus";
+import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./menus";
 import { shouldSend } from "./composer";
 import "./styles.css";
 
@@ -239,6 +240,7 @@ export default function App() {
   // current chat belongs to.
   const [viewing, setViewing] = useState<Project | null>(null);
   const [modelMenu, setModelMenu] = useState(false);
+  const [modeMenu, setModeMenu] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [model, setModel] = useState<string>("");
@@ -594,6 +596,9 @@ export default function App() {
         // Read from the ref for the same reason the thread does: this callback
         // outlives the render that created it.
         ...(modelRef.current ? { model: modelRef.current } : {}),
+        ...(preferencesRef.current.approvalPolicy
+          ? { approvalPolicy: preferencesRef.current.approvalPolicy }
+          : {}),
         // Defaulting to on keeps the agent's reasoning visible unless the user
         // asks for quiet.
         summary: preferencesRef.current.showThinking === false ? "none" : "auto",
@@ -1244,6 +1249,32 @@ export default function App() {
                 </span>
 
                 <span className="grow" />
+
+                <span className="menu-anchor">
+                  <button
+                    type="button"
+                    className={`model-button${modeMenu ? " on" : ""}`}
+                    onClick={() => setModeMenu(!modeMenu)}
+                    title="When the agent stops to ask"
+                  >
+                    <BoltIcon size={13} />
+                    <span>
+                      {APPROVAL_MODES.find(
+                        (mode) => mode.value === (preferences.approvalPolicy ?? "untrusted"),
+                      )?.short ?? "Ask first"}
+                    </span>
+                    <ChevronIcon size={13} />
+                  </button>
+                  <Popover open={modeMenu} onClose={() => setModeMenu(false)} align="right">
+                    <ApprovalMenu
+                      policy={preferences.approvalPolicy ?? "untrusted"}
+                      onPick={(next) => {
+                        setPreferences({ ...preferences, approvalPolicy: next });
+                        setModeMenu(false);
+                      }}
+                    />
+                  </Popover>
+                </span>
 
                 <span className="menu-anchor">
                   <button

@@ -248,6 +248,26 @@ export function OpenCliMark({ size = 30 }: IconProps) {
   );
 }
 
+/** How much the agent may do without stopping to ask. */
+export function BoltIcon(props: IconProps) {
+  return (
+    <svg
+      width={props.size ?? 16}
+      height={props.size ?? 16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" />
+    </svg>
+  );
+}
+
 export function PaperclipIcon(props: IconProps) {
   return (
     <Svg {...props}>

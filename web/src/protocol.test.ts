@@ -630,6 +630,38 @@ describe("starting another chat", () => {
 });
 
 
+describe("when the agent stops to ask", () => {
+  beforeEach(() => {
+    // A turn is begun, not awaited to completion, so it only needs an ack.
+    FakeSocket.answer = (message) => (message.method === "turn/start" ? {} : undefined);
+  });
+
+  it("should carry the mode on every turn, not just the first", async () => {
+    // Sent only at thread/start, changing it mid-conversation did nothing —
+    // which is the worst way for a security control to be wrong, because it
+    // looks as though it took.
+    const { client, socket } = await connected();
+    await client.startThread({ cwd: "/work" });
+    await client.send("go", { approvalPolicy: "on-failure" });
+    await settle();
+
+    const turn = socket.parsedSent().find((sent) => sent.method === "turn/start")!;
+    expect((turn.params as Record<string, unknown>).approvalPolicy).toBe("on-failure");
+  });
+
+  it("should say nothing about approvals when none was chosen", async () => {
+    // Omitting the field leaves the server on whatever the thread began with,
+    // rather than this quietly asserting a default of its own.
+    const { client, socket } = await connected();
+    await client.startThread({ cwd: "/work" });
+    await client.send("go");
+    await settle();
+
+    const turn = socket.parsedSent().find((sent) => sent.method === "turn/start")!;
+    expect(turn.params).not.toHaveProperty("approvalPolicy");
+  });
+});
+
 describe("a reply being written", () => {
   it("should show text as it arrives rather than only when it is finished", async () => {
     // Without this a reply appears in one lump at the end. On a local model

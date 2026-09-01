@@ -639,7 +639,14 @@ textarea:focus {
 
 /* ── Approval ──────────────────────────────────────────────────────── */
 
+/*
+ * The approval box sits beside the transcript rather than inside it, so it
+ * inherits none of that padding and ran edge to edge against both sides of
+ * the window. The width is inset explicitly rather than by a margin, so it
+ * stays centred if the conversation width is ever capped again.
+ */
 .approval {
+  width: calc(100% - 40px);
   max-width: var(--chat-width);
   margin: 0 auto 12px;
   padding: 14px 16px;

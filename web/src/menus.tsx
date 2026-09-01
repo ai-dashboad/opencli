@@ -1,5 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ConnectorSummary, ModelOption, Project, ReasoningEffort, SkillSummary } from "./protocol";
+import type {
+  ApprovalPolicy,
+  ConnectorSummary,
+  ModelOption,
+  Project,
+  ReasoningEffort,
+  SkillSummary,
+} from "./protocol";
 import {
   CheckIcon,
   ChevronRightIcon,
@@ -329,6 +336,67 @@ const EFFORTS: { value: ReasoningEffort; label: string; note?: string }[] = [
  * Only efforts the chosen model accepts are offered — offering one it ignores
  * would be a control that silently does nothing.
  */
+/**
+ * When the agent stops to ask, as a choice made where the work happens.
+ *
+ * The same setting exists in Customize, but a run of commands is exactly when
+ * someone decides they have seen enough of them — and walking to another panel
+ * to say so, then starting a new chat for it to take effect, is long enough
+ * that they approve twenty more instead.
+ *
+ * `on-request` is not offered here for the same reason it is not offered
+ * there: it leaves the decision to the model, which in practice almost never
+ * asks, so it reads as "never" to anyone who chose it expecting to be asked.
+ */
+export const APPROVAL_MODES: {
+  value: ApprovalPolicy;
+  short: string;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "untrusted",
+    short: "Ask first",
+    label: "Ask before anything unfamiliar",
+    hint: "Every command that is not known-safe is shown to you first.",
+  },
+  {
+    value: "on-failure",
+    short: "Auto",
+    label: "Run unattended",
+    hint: "Commands run without asking; you are only stopped when one fails and needs more access.",
+  },
+  {
+    value: "never",
+    short: "Never ask",
+    label: "Never stop to ask",
+    hint: "Nothing is shown before it runs. Only for a directory you would let a script loose in.",
+  },
+];
+
+export function ApprovalMenu({
+  policy,
+  onPick,
+}: {
+  policy: ApprovalPolicy;
+  onPick: (policy: ApprovalPolicy) => void;
+}) {
+  return (
+    <>
+      <p className="menu-note">Takes effect on your next message, in this chat and after it.</p>
+      {APPROVAL_MODES.map((mode) => (
+        <MenuItem
+          key={mode.value}
+          label={mode.label}
+          hint={mode.hint}
+          checked={policy === mode.value}
+          onClick={() => onPick(mode.value)}
+        />
+      ))}
+    </>
+  );
+}
+
 export function ModelMenu({
   models,
   model,
