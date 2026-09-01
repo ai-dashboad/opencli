@@ -43,7 +43,7 @@ import {
   SendIcon,
   SidebarToggleIcon,
   StopIcon,
-  SunburstIcon,
+  OpenCliMark,
 } from "./icons";
 import { AttachMenu, ModelMenu, Popover } from "./menus";
 import { shouldSend } from "./composer";
@@ -916,7 +916,7 @@ export default function App() {
                 {items.length === 0 ? (
                   <div className="landing">
                     <h1>
-                      <SunburstIcon size={30} />
+                      <OpenCliMark size={30} />
                       <span>Ready when you are</span>
                     </h1>
                     {runs.length > 0 ? (

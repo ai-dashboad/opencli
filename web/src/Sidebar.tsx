@@ -10,8 +10,8 @@ import {
   ClockIcon,
   ConnectorIcon,
   MemoryIcon,
+  OpenCliMark,
   ChipIcon,
-  PaletteIcon,
   PlugIcon,
   PlusIcon,
   ProjectIcon,
@@ -372,7 +372,7 @@ export default function Sidebar({
         ))}
         <div className="account">
           <span className="avatar">
-            <PaletteIcon size={14} />
+            <OpenCliMark size={13} />
           </span>
           <span className="who">OpenCLI</span>
           <ChevronIcon size={14} />

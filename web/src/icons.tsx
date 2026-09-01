@@ -218,30 +218,32 @@ export function FolderIcon(props: IconProps) {
 }
 
 /** The mark shown on the landing screen: a many-armed asterisk. */
-export function SunburstIcon({ size = 34 }: IconProps) {
-  const arms = Array.from({ length: 12 }, (_, index) => {
-    const angle = (index * Math.PI) / 6;
-    return {
-      x1: 16 + Math.cos(angle) * 3.4,
-      y1: 16 + Math.sin(angle) * 3.4,
-      x2: 16 + Math.cos(angle) * 13,
-      y2: 16 + Math.sin(angle) * 13,
-    };
-  });
+/**
+ * OpenCLI's mark: a prompt chevron with the cursor beneath it.
+ *
+ * The same shape as the application icon, so the thing in the window and the
+ * thing in the dock are one mark rather than two. It replaced a twelve-armed
+ * sunburst, which is Claude's, not this product's.
+ *
+ * Drawn on the same 32-unit grid with the same round caps as every other icon
+ * here, so it sits with them rather than beside them.
+ */
+export function OpenCliMark({ size = 30 }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 32 32"
+      fill="none"
       stroke="currentColor"
-      strokeWidth="2.1"
+      strokeWidth="2.6"
       strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
     >
-      {arms.map((arm, index) => (
-        <line key={index} x1={arm.x1} y1={arm.y1} x2={arm.x2} y2={arm.y2} />
-      ))}
+      <polyline points="17,9 9,16 17,23" />
+      <line x1="17" y1="23" x2="25" y2="23" />
     </svg>
   );
 }
