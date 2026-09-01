@@ -518,6 +518,54 @@ function classify(item: Record<string, unknown>): ThreadItem["kind"] {
 }
 
 /**
+ * The agent's own tools, named for a reader rather than for the agent.
+ *
+ * `open_file` is what the model calls it. A row headed `open_file` with
+ * `open_file` underneath tells someone watching nothing they did not already
+ * see — the name of the tool is not the interesting part, the file is.
+ *
+ * `argument` is the field worth showing; a tool not listed here keeps its own
+ * name, because inventing a friendly one for a tool this build has never
+ * heard of would be guessing.
+ */
+const AGENT_TOOLS: Record<string, { label: string; argument: string }> = {
+  open_file: { label: "Read a file", argument: "path" },
+  browse_dir: { label: "List a directory", argument: "path" },
+  search_text: { label: "Search", argument: "query" },
+  apply_patch: { label: "Edit files", argument: "path" },
+  web_search: { label: "Search the web", argument: "query" },
+  update_plan: { label: "Update the plan", argument: "explanation" },
+  view_image: { label: "Look at an image", argument: "path" },
+};
+
+/**
+ * What a tool call should say: a name a reader knows, and the thing it acted
+ * on. Falls back to the tool's own name and a compact view of its arguments.
+ */
+function describeTool(
+  name: string,
+  args: unknown,
+): { label: string; detail: string } {
+  const record = (args ?? {}) as Record<string, unknown>;
+  const known = AGENT_TOOLS[name];
+
+  if (known) {
+    const value = record[known.argument];
+    return {
+      label: known.label,
+      detail: typeof value === "string" && value ? value : name,
+    };
+  }
+
+  // An unknown tool keeps its name; its arguments are shown as they are,
+  // which is more use than the name twice.
+  const pairs = Object.entries(record)
+    .filter(([, value]) => typeof value === "string" || typeof value === "number")
+    .map(([key, value]) => `${key}: ${value}`);
+  return { label: name, detail: pairs.join("  ") || name };
+}
+
+/**
  * Put the server's parse of a command into words.
  *
  * `commandActions` is a best-effort reading of what a shell line will do:
@@ -572,16 +620,22 @@ function toThreadItem(item: Record<string, unknown>): ThreadItem | null {
   const type = String(item.type ?? item.itemType ?? "");
   const command = typeof item.command === "string" ? item.command : "";
   const isTool = type.includes("mcpToolCall") || type.includes("mcp_tool_call");
-  // An empty server is not a name; joining it produced a leading " · ".
-  const tool = isTool
-    ? [item.server, item.tool]
-        .filter((part): part is string => typeof part === "string" && part.length > 0)
-        .join(" · ") || undefined
+  const server = typeof item.server === "string" ? item.server : "";
+  const toolName = typeof item.tool === "string" ? item.tool : "";
+  const described = isTool ? describeTool(toolName, item.arguments) : null;
+
+  // An MCP server's tool is named by its server; one of the agent's own is
+  // named for what it does. An empty server is not a name, and joining it
+  // produced a leading " · ".
+  const tool = described
+    ? server
+      ? `${server} · ${toolName}`
+      : described.label
     : undefined;
 
   const text =
     command ||
-    (tool ? textOf(item.arguments) || tool : "") ||
+    (described ? described.detail : "") ||
     textOf(item) ||
     changes.map((change) => `${change.kind} ${change.path}`).join("\n");
   if (!text) return null;
@@ -620,8 +674,14 @@ export class OpenCliClient {
    * A file-change approval arrives moments later carrying only the id, so the
    * contents have to be held from the start notification to describe it.
    */
-  /** Text accumulated for messages still being written, keyed by item id. */
-  #streaming = new Map<string, string>();
+  /**
+   * Messages still being written, keyed by the id they are streaming under.
+   *
+   * The kind is kept alongside the text because a finished message arrives
+   * under a *different* id from the one it streamed as, and matching it back
+   * to what is on screen is done by kind.
+   */
+  #streaming = new Map<string, { kind: ThreadItem["kind"]; text: string }>();
   /** The thread the agent has actually been given, if any. */
   #loadedThreadId: string | null = null;
   #pendingChanges = new Map<string, FileChange[]>();
@@ -825,26 +885,45 @@ export class OpenCliClient {
       // An empty delta is not nothing happening — a reasoning model sends
       // `content: ""` alongside every thought — but there is nothing to add.
       if (itemId && delta) {
-        const grown = (this.#streaming.get(itemId) ?? "") + delta;
-        this.#streaming.set(itemId, grown);
-        this.#events.onItemDelta?.({
-          id: itemId,
-          // Thinking is shown differently from an answer, and can be turned
-          // off; without this the two would be indistinguishable.
-          kind: method === "item/reasoning/textDelta" ? "reasoning" : "agent",
-          text: grown,
-        });
+        // Thinking is shown differently from an answer, and can be turned off;
+        // without this the two would be indistinguishable.
+        const kind: ThreadItem["kind"] =
+          method === "item/reasoning/textDelta" ? "reasoning" : "agent";
+        const grown = (this.#streaming.get(itemId)?.text ?? "") + delta;
+        this.#streaming.set(itemId, { kind, text: grown });
+        this.#events.onItemDelta?.({ id: itemId, kind, text: grown });
       }
       return;
     }
     if (method === "item/completed") {
       const raw = (payload.item ?? payload) as Record<string, unknown>;
-      if (typeof raw.id === "string") {
-        this.#pendingChanges.delete(raw.id);
-        this.#streaming.delete(raw.id);
-      }
+      if (typeof raw.id === "string") this.#pendingChanges.delete(raw.id);
+
       const item = toThreadItem(raw);
-      if (item) this.#events.onItem?.(item);
+      if (!item) return;
+
+      /*
+       * A finished message arrives under a different id from the one it
+       * streamed under — `item/started` says `8ec3a8e8`, `item/completed`
+       * says `c3eb8a74` for the same reply. Emitting it as it came left the
+       * streamed copy on screen and appended the finished one beside it, so
+       * every paragraph appeared twice.
+       *
+       * It is handed back under the id already on screen, which is matched by
+       * kind: only one message of a kind is ever being written at a time.
+       */
+      if (!this.#streaming.has(item.id)) {
+        for (const [openId, open] of this.#streaming) {
+          if (open.kind === item.kind) {
+            this.#streaming.delete(openId);
+            this.#events.onItem?.({ ...item, id: openId });
+            return;
+          }
+        }
+      }
+
+      this.#streaming.delete(item.id);
+      this.#events.onItem?.(item);
       return;
     }
     if (method === "runtime/pull/progress") {

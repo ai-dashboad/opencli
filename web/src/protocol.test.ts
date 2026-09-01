@@ -698,6 +698,104 @@ describe("when the agent stops to ask", () => {
   });
 });
 
+describe("a reply that finishes under a different id", () => {
+  it("should replace what was streamed, not appear beside it", async () => {
+    // The server streams under one id and completes under another —
+    // `item/started` says 8ec3a8e8 and `item/completed` says c3eb8a74 for the
+    // same reply — so every paragraph was shown twice.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({
+      onItemDelta: (item: ThreadItem) => seen.push(item),
+      onItem: (item: ThreadItem) => seen.push(item),
+    });
+
+    socket.emit({
+      method: "item/agentMessage/delta",
+      params: { itemId: "streamed-id", delta: "read" },
+    });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { type: "agentMessage", id: "finished-id", text: "ready" } },
+    });
+
+    // Handed back under the id already on screen, so the caller replaces.
+    expect(seen.map((item) => [item.id, item.text])).toEqual([
+      ["streamed-id", "read"],
+      ["streamed-id", "ready"],
+    ]);
+  });
+
+  it("should not steal the id of a different kind of item", async () => {
+    // Thinking and an answer stream at once; matching by kind is what keeps a
+    // finished answer from replacing the thought beside it.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({
+      onItemDelta: (item: ThreadItem) => seen.push(item),
+      onItem: (item: ThreadItem) => seen.push(item),
+    });
+
+    socket.emit({
+      method: "item/reasoning/textDelta",
+      params: { itemId: "thought-id", delta: "hmm" },
+    });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { type: "agentMessage", id: "answer-id", text: "ready" } },
+    });
+
+    expect(seen[1].id).toBe("answer-id");
+    expect(seen[1].kind).toBe("agent");
+  });
+});
+
+describe("the agent's own tools", () => {
+  it("should name a tool for a reader and show what it acted on", async () => {
+    // A row headed `open_file` with `open_file` underneath says nothing twice.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "mcpToolCall",
+          id: "t-1",
+          server: "",
+          tool: "open_file",
+          status: "completed",
+          arguments: { path: "web/src/protocol.ts" },
+        },
+      },
+    });
+
+    expect(seen[0].tool).toBe("Read a file");
+    expect(seen[0].text).toBe("web/src/protocol.ts");
+  });
+
+  it("should keep an MCP server's own naming", async () => {
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "mcpToolCall",
+          id: "t-2",
+          server: "figma",
+          tool: "get_design_context",
+          status: "completed",
+          arguments: { node: "12:34" },
+        },
+      },
+    });
+
+    expect(seen[0].tool).toBe("figma · get_design_context");
+    // An unknown tool shows its arguments rather than its name a second time.
+    expect(seen[0].text).toBe("node: 12:34");
+  });
+});
+
 describe("what the agent did, not only what it said about it", () => {
   it("should show a command and what it printed", async () => {
     // A command carries no `text` at all: the command line is in `command`

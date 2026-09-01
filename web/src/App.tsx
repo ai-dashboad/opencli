@@ -1167,6 +1167,7 @@ export default function App() {
                 ))}
                 {busy ? (
                   <p className="working">
+                    <span className="spark" aria-hidden="true" />
                     {doing} {formatElapsed(elapsed)}
                     {streamed > 0 ? ` · ~${Math.round(streamed / 4)} written` : ""}
                     {/*

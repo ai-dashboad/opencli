@@ -622,6 +622,29 @@ that never changed and never said how long it had taken.
 
 ---
 
+## An item's id is not stable across its life
+
+A reply streams under one id and completes under another: `item/started` says
+`8ec3a8e8` and `item/completed` says `c3eb8a74` for the same message. Matching
+them by id therefore never matched, the streamed copy stayed on screen, and
+the finished one was appended beside it — every paragraph shown twice.
+
+The client hands a finished item back under the id already on screen, matched
+by kind, because only one message of a kind is being written at a time. Kind
+matters: thinking and an answer stream at once, and a finished answer must not
+replace the thought beside it.
+
+### A tool's name is for the model, not the reader
+
+`open_file` is what the agent calls it. A row headed `open_file` with
+`open_file` underneath says nothing, twice. The agent's own tools have reader's
+names and show what they acted on — the file, the query — while an MCP
+server's tool keeps `server · tool`, which is how its own documentation names
+it. A tool this build has never heard of keeps its name and shows its
+arguments, because inventing a friendly name for it would be guessing.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

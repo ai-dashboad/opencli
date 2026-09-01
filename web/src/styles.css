@@ -477,23 +477,80 @@ textarea:focus {
   font-size: 13px;
 }
 
-/* A ring that fades rather than spins: a spinner at this size reads as noise. */
-.working::before {
-  content: "";
+/*
+ * A dot that beats, with a ring going out from it.
+ *
+ * It was a bare `::before` with a width and no `flex: none`, so in a flex row
+ * beside a long line it was squeezed to nothing — which is why it seemed to
+ * arrive late rather than at the start.
+ *
+ * Two layers, because one cannot do both jobs: the dot says something is
+ * there even in a still frame, and the ring leaving it says it is moving. A
+ * spinner at this size reads as noise; this reads as a pulse.
+ */
+.spark {
+  position: relative;
+  flex: none;
   width: 12px;
   height: 12px;
-  border: 1.5px solid var(--accent);
-  border-radius: 50%;
-  animation: pulse 1.4s ease-in-out infinite;
 }
 
-@keyframes pulse {
+.spark::before,
+.spark::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+
+/* The dot itself, breathing. */
+.spark::before {
+  inset: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: spark-beat 1.5s ease-in-out infinite;
+}
+
+/* And the ring it sends out. */
+.spark::after {
+  inset: 0;
+  border: 1.5px solid var(--accent);
+  animation: spark-ring 1.5s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+
+@keyframes spark-beat {
   0%,
   100% {
-    opacity: 0.25;
+    opacity: 0.55;
+    transform: scale(0.82);
   }
-  50% {
+  45% {
     opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spark-ring {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.5);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* Still, but still there: someone who asked for less motion still needs to
+   see that something is running. */
+@media (prefers-reduced-motion: reduce) {
+  .spark::before,
+  .spark::after {
+    animation: none;
+  }
+
+  .spark::after {
+    opacity: 0.4;
   }
 }
 
