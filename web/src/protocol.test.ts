@@ -22,9 +22,44 @@ class FakeSocket {
     queueMicrotask(() => this.onopen?.());
   }
 
+  /**
+   * A test's own answers, tried before the built-in ones.
+   *
+   * Returning `undefined` means "not mine" and falls through, so a test only
+   * has to describe the calls it cares about.
+   */
+  static answer:
+    | ((message: { method?: string; params?: Record<string, unknown> }) => unknown | undefined)
+    | null = null;
+
+  /**
+   * Reply with a JSON-RPC error rather than a result.
+   *
+   * Needed because a failing call and a call returning nothing are different
+   * things, and a test that conflates them proves nothing about either.
+   */
+  static rpcError(message: string) {
+    return { __rpcError: message };
+  }
+
   send(raw: string) {
     this.sent.push(raw);
-    const message = JSON.parse(raw) as { id?: number; method?: string };
+    const message = JSON.parse(raw) as {
+      id?: number;
+      method?: string;
+      params?: Record<string, unknown>;
+    };
+    const answered = FakeSocket.answer?.(message) as { __rpcError?: string } | undefined;
+    if (answered !== undefined) {
+      if (answered.__rpcError) {
+        queueMicrotask(() =>
+          this.emit({ id: message.id, error: { code: -32000, message: answered.__rpcError } }),
+        );
+      } else {
+        this.reply(message.id!, answered);
+      }
+      return;
+    }
     // Auto-answer the handshake so `connect()` can resolve.
     if (message.method === "initialize") {
       this.reply(message.id!, {});
@@ -591,5 +626,199 @@ describe("starting another chat", () => {
     expect(client.threadId).toBe(first === "thread-1" ? "thread-1" : first);
     expect(socket.parsedSent().filter((m) => m.method === "initialize")).toHaveLength(1);
     expect(socket.parsedSent().filter((m) => m.method === "thread/start")).toHaveLength(2);
+  });
+});
+
+
+describe("every model, wherever it lives", () => {
+  beforeEach(() => {
+    FakeSocket.answer = null;
+  });
+
+  it("should merge the models of every machine into one list", async () => {
+    // The question the Models page answers is "what do I have", not "what is
+    // on this box". Scoping it to one machine is what made models spread
+    // across several invisible unless you went looking.
+    FakeSocket.answer = (message) => {
+      const baseUrl = message.params?.baseUrl;
+      switch (message.method) {
+        case "server/list":
+          return {
+            data: [
+              { id: "s1", name: "GPU Box", baseUrl: "https://gpu.example", runtime: "ollama" },
+              { id: "s2", name: "Spare", baseUrl: "https://spare.example", runtime: "ollama" },
+            ],
+          };
+        case "runtime/discover":
+          return { data: [] };
+        case "runtime/models":
+          return baseUrl === "https://gpu.example"
+            ? { data: [{ name: "qwen2.5-coder:7b", size: 4_700_000_000 }] }
+            : { data: [{ name: "llama3.1:8b", size: 4_900_000_000 }] };
+        case "runtime/show":
+          return { supportsTools: true, contextLength: 32768 };
+        default:
+          return undefined;
+      }
+    };
+
+    const { client } = await connected();
+    const rows = await client.allInstalledModels();
+
+    expect(rows.map((row) => [row.model.name, row.server])).toEqual([
+      ["llama3.1:8b", "Spare"],
+      ["qwen2.5-coder:7b", "GPU Box"],
+    ]);
+  });
+
+  it("should still list the reachable machines when one is down", async () => {
+    // A server that is off should cost its own models and nothing else.
+    // Failing the whole call would empty a page that is mostly correct.
+    FakeSocket.answer = (message) => {
+      const baseUrl = message.params?.baseUrl;
+      switch (message.method) {
+        case "server/list":
+          return {
+            data: [
+              { id: "s1", name: "Up", baseUrl: "https://up.example", runtime: "ollama" },
+              { id: "s2", name: "Down", baseUrl: "https://down.example", runtime: "ollama" },
+            ],
+          };
+        case "runtime/discover":
+          return { data: [] };
+        case "runtime/models":
+          return baseUrl === "https://up.example"
+            ? { data: [{ name: "mistral:7b", size: 4_100_000_000 }] }
+            : FakeSocket.rpcError("could not reach it");
+        case "runtime/show":
+          return { supportsTools: true };
+        default:
+          return undefined;
+      }
+    };
+
+    const { client } = await connected();
+    const rows = await client.allInstalledModels();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].server).toBe("Up");
+  });
+
+  it("should not list a discovered runtime twice when it is also saved", async () => {
+    // Ollama on this machine is both found by probing and saved by the user;
+    // showing its models twice would read as two copies of one model.
+    FakeSocket.answer = (message) => {
+      switch (message.method) {
+        case "server/list":
+          return {
+            data: [
+              { id: "s1", name: "Mine", baseUrl: "http://localhost:11434", runtime: "ollama" },
+            ],
+          };
+        case "runtime/discover":
+          return {
+            data: [
+              {
+                runtime: "ollama",
+                name: "Ollama",
+                baseUrl: "http://localhost:11434",
+                version: "0.33.2",
+                manageable: true,
+              },
+            ],
+          };
+        case "runtime/models":
+          return { data: [{ name: "qwen3:8b", size: 5_200_000_000 }] };
+        case "runtime/show":
+          return { supportsTools: true };
+        default:
+          return undefined;
+      }
+    };
+
+    const { client } = await connected();
+    expect(await client.allInstalledModels()).toHaveLength(1);
+  });
+});
+
+describe("choosing where to install", () => {
+  beforeEach(() => {
+    FakeSocket.answer = null;
+  });
+
+  it("should report what is already on each machine, and whether it answers", async () => {
+    FakeSocket.answer = (message) => {
+      const baseUrl = message.params?.baseUrl;
+      switch (message.method) {
+        case "server/list":
+          return {
+            data: [
+              { id: "s1", name: "GPU Box", baseUrl: "https://gpu.example", runtime: "ollama" },
+              { id: "s2", name: "Off", baseUrl: "https://off.example", runtime: "ollama" },
+            ],
+          };
+        case "runtime/discover":
+          return { data: [] };
+        case "runtime/probe":
+          return { reachable: baseUrl === "https://gpu.example" };
+        case "runtime/models":
+          return baseUrl === "https://gpu.example"
+            ? { data: [{ name: "qwen2.5-coder:7b", size: 1 }] }
+            : FakeSocket.rpcError("could not reach it");
+        case "server/diagnose":
+          return { http: { reachable: true }, shell: { gpu: "32607 MiB" }, findings: [] };
+        default:
+          return undefined;
+      }
+    };
+
+    const { client } = await connected();
+    const targets = await client.installTargets();
+
+    const gpu = targets.find((target) => target.label === "GPU Box")!;
+    expect(gpu.reachable).toBe(true);
+    expect(gpu.installed).toContain("qwen2.5-coder:7b");
+    // Read from nvidia-smi rather than assumed, so "will it fit" is a fact.
+    expect(gpu.memoryGb).toBe(32);
+
+    const off = targets.find((target) => target.label === "Off")!;
+    expect(off.reachable).toBe(false);
+    expect(off.installed).toEqual([]);
+  });
+
+  it("should leave the fit unstated when memory cannot be read", async () => {
+    // A machine with no SSH alias cannot be asked how much memory it has.
+    // Guessing would be worse than saying nothing: the guess decides which
+    // quantisation gets recommended.
+    FakeSocket.answer = (message) => {
+      switch (message.method) {
+        case "server/list":
+          return { data: [] };
+        case "runtime/discover":
+          return {
+            data: [
+              {
+                runtime: "ollama",
+                name: "Ollama",
+                baseUrl: "http://localhost:11434",
+                version: "0.33.2",
+                manageable: true,
+              },
+            ],
+          };
+        case "runtime/probe":
+          return { reachable: true };
+        case "runtime/models":
+          return { data: [] };
+        default:
+          return undefined;
+      }
+    };
+
+    const { client } = await connected();
+    const targets = await client.installTargets();
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0].memoryGb).toBeNull();
   });
 });

@@ -408,10 +408,17 @@ pub async fn pull(raw: &str, out: Sender<String>) -> bool {
     true
 }
 
-async fn notify(out: &Sender<String>, model: &str, body: Value) {
+/// Report progress, saying both what is being installed and where.
+///
+/// The machine is named on every event because a download outlives the dialog
+/// that started it: when it finishes, the client has to register the model
+/// against the server it actually landed on, and by then it may be showing a
+/// different panel entirely.
+async fn notify(out: &Sender<String>, root: &str, model: &str, body: Value) {
     let mut params = body;
     if let Some(object) = params.as_object_mut() {
         object.insert("model".to_string(), json!(model));
+        object.insert("baseUrl".to_string(), json!(root));
     }
     let _ = out
         .send(json!({ "method": "runtime/pull/progress", "params": params }).to_string())
@@ -427,7 +434,7 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
     {
         Ok(client) => client,
         Err(err) => {
-            notify(&out, model, json!({ "error": err.to_string() })).await;
+            notify(&out, root, model, json!({ "error": err.to_string() })).await;
             return;
         }
     };
@@ -440,9 +447,7 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
     {
         Ok(response) => response,
         Err(err) => {
-            notify(
-                &out,
-                model,
+            notify(&out, root, model,
                 json!({ "error": format!("could not reach it: {}", err.without_url_noise()) }),
             )
             .await;
@@ -451,9 +456,7 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
     };
 
     if !response.status().is_success() {
-        notify(
-            &out,
-            model,
+        notify(&out, root, model,
             json!({ "error": format!("the runtime answered {}", response.status()) }),
         )
         .await;
@@ -468,7 +471,7 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
         let chunk = match chunk {
             Ok(chunk) => chunk,
             Err(err) => {
-                notify(&out, model, json!({ "error": err.to_string() })).await;
+                notify(&out, root, model, json!({ "error": err.to_string() })).await;
                 return;
             }
         };
@@ -489,14 +492,12 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
             // Ollama reports a failed pull inside a 200 response, so the
             // stream is what says whether it worked, not the status code.
             if let Some(error) = event.get("error").and_then(Value::as_str) {
-                notify(&out, model, json!({ "error": error })).await;
+                notify(&out, root, model, json!({ "error": error })).await;
                 return;
             }
 
             let status = event.get("status").and_then(Value::as_str).unwrap_or("");
-            notify(
-                &out,
-                model,
+            notify(&out, root, model,
                 json!({
                     "status": status,
                     "completed": event.get("completed"),
@@ -514,9 +515,7 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
 
     // The stream ended without saying it succeeded — a dropped connection
     // mid-download. Say so rather than leaving a row spinning forever.
-    notify(
-        &out,
-        model,
+    notify(&out, root, model,
         json!({ "error": "the connection ended before the download finished" }),
     )
     .await;

@@ -194,6 +194,40 @@ dialogs.
 
 ---
 
+## Models are the subject, machines are a detail
+
+The Models page was first built machine-first: pick a machine, see what is on
+it. That is the shape of the API — probe a URL, list its models — and letting
+it become the shape of the interface was a mistake. Someone with models on a
+laptop and a GPU box could not see what they owned without switching between
+them, and had to choose a machine before knowing what they wanted.
+
+It is now model-first:
+
+- **Installed** is every model on every machine, in one list, each row naming
+  where it lives. All machines are asked at once; one that is down contributes
+  nothing rather than emptying the list.
+- **Browse** is the library and the hubs, scoped to no machine at all. A row
+  says what a model needs, not whether it fits somewhere in particular.
+- **The machine is chosen when installing**, in the same dialog as the version.
+
+Those last two belong together because one determines the other: the best
+quantisation depends on the memory of the machine picked, so changing the
+machine changes what is recommended. Splitting them across two steps would ask
+the second question before its answer could be known.
+
+Two consequences that read as small and are not:
+
+- **Already having a model does not disable installing it.** Having it on one
+  machine is a reason to want it on another. The row says where it already is;
+  only the dialog, where a machine is named, can refuse a duplicate.
+- **An unknown machine gets the balanced version, not the largest.** Memory is
+  only readable where there is an SSH alias. Treating "unknown" as "it fits"
+  ranked the largest file top — the worst guess for a machine nothing is known
+  about.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

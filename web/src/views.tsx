@@ -8,7 +8,6 @@ import type {
   ConnectorOffer,
   ConnectorSummary,
   FileChange,
-  InstalledModel,
   InstalledPlugin,
   Memory,
   OpenCliClient,
@@ -16,7 +15,9 @@ import type {
   Preferences,
   ReasoningEffort,
   PluginOffer,
-  ModelCapabilities,
+  InstallTarget,
+  ModelLocation,
+  ModelVariant,
   Project,
   ProjectFile,
   PullProgress,
@@ -24,8 +25,6 @@ import type {
   Diagnosis,
   DiscoveredRuntime,
   Offer,
-  RuntimeInfo,
-  RuntimeProbe,
   ServerEntry,
   SshAlias,
   RunStatus,
@@ -1725,122 +1724,79 @@ function modelSize(bytes: number): string {
  * machine, an unreachable machine shows what is wrong inline, no models puts
  * the library right there, and an installed model offers itself to chats.
  */
+/**
+ * Models: what you have, and what you could add.
+ *
+ * Model-first, not machine-first. A machine holds models, but the thought is
+ * "I want a coding model" — not "let me look inside the GPU box". Scoping the
+ * page to one machine meant models spread across several could only be seen by
+ * switching between them, and made choosing a machine a thing you did *before*
+ * knowing what you wanted.
+ *
+ * So: everything installed, wherever it lives, in one list. And when
+ * installing, the machine is chosen then — alongside the quantisation, whose
+ * recommendation depends on which machine was picked.
+ */
 export function ModelsView({
   client,
   pulls,
   onPull,
 }: {
   client: OpenCliClient;
-  /** Downloads in flight, keyed by model. */
+  /** Downloads in flight, keyed by tag. */
   pulls: Record<string, PullProgress>;
   onPull: (baseUrl: string, model: string) => void;
 }) {
-  const [servers, setServers] = useState<ServerEntry[]>([]);
-  const [discovered, setDiscovered] = useState<DiscoveredRuntime[]>([]);
-  const [runtimes, setRuntimes] = useState<RuntimeInfo[]>([]);
-  const [baseUrl, setBaseUrl] = useState("");
-  const [probe, setProbe] = useState<RuntimeProbe | null>(null);
-  const [models, setModels] = useState<InstalledModel[]>([]);
-  const [caps, setCaps] = useState<Record<string, ModelCapabilities>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [needsReload, setNeedsReload] = useState(false);
-
-  const [source, setSource] = useState<"ollama" | "huggingface" | "modelscope">("ollama");
+  const [tab, setTab] = useState<"installed" | "browse">("installed");
+  const [installed, setInstalled] = useState<ModelLocation[]>([]);
   const [library, setLibrary] = useState<Offer[]>([]);
   const [found, setFound] = useState<Offer[]>([]);
-  const [hint, setHint] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [custom, setCustom] = useState("");
-
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [needsReload, setNeedsReload] = useState(false);
   const [managing, setManaging] = useState(false);
-  const [editing, setEditing] = useState<Offer | null>(null);
-  const [entry, setEntry] = useState({
-    tag: "",
-    name: "",
-    note: "",
-    sizeGb: "",
-    needsGb: "",
-    context: "",
-    tools: true,
-  });
+  const [discovered, setDiscovered] = useState<DiscoveredRuntime[]>([]);
 
-  /** Everything selectable: saved machines first, then anything found here. */
-  const choices = [
-    ...servers.map((server) => ({ label: server.name, baseUrl: server.baseUrl, saved: true })),
-    ...discovered
-      .filter((runtime) => !servers.some((server) => server.baseUrl === runtime.baseUrl))
-      .map((runtime) => ({
-        label: `${runtime.name} on this machine`,
-        baseUrl: runtime.baseUrl,
-        saved: false,
-      })),
-  ];
+  const [source, setSource] = useState<"ollama" | "huggingface" | "modelscope">("ollama");
+  const [query, setQuery] = useState("");
+  const [hint, setHint] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [installing, setInstalling] = useState<Offer | null>(null);
 
-  const loadMachines = useCallback(async () => {
-    const [saved, here, kinds] = await Promise.all([
-      client.listServers().catch(() => []),
-      client.discoverRuntimes().catch(() => []),
-      client.listRuntimes().catch(() => []),
-    ]);
-    setServers(saved);
-    setDiscovered(here);
-    setRuntimes(kinds);
-    // Choose something without being asked: the commonest case is one machine.
-    setBaseUrl((current) => current || saved[0]?.baseUrl || here[0]?.baseUrl || "");
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [rows, here] = await Promise.all([
+        client.allInstalledModels(),
+        client.discoverRuntimes().catch(() => []),
+      ]);
+      setInstalled(rows);
+      setDiscovered(here);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
   }, [client]);
 
   useEffect(() => {
-    void loadMachines();
+    void reload();
     void client.modelCatalog().then(setLibrary).catch(() => setLibrary([]));
-  }, [client, loadMachines]);
+  }, [client, reload]);
 
-  const connect = useCallback(async () => {
-    if (!baseUrl) return;
-    setError(null);
-    try {
-      const where = await client.probeRuntime(baseUrl);
-      setProbe(where);
-      if (!where.reachable) {
-        setModels([]);
-        return;
-      }
-      const installed = await client.runtimeModels(baseUrl);
-      setModels(installed);
-      // Whether a model calls tools decides whether it is usable here, so it is
-      // read up front rather than hidden behind another click.
-      const details: Record<string, ModelCapabilities> = {};
-      await Promise.all(
-        installed.map(async (model) => {
-          try {
-            details[model.name] = await client.modelCapabilities(baseUrl, model.name);
-          } catch {
-            // A model whose details cannot be read is still listed.
-          }
-        }),
-      );
-      setCaps(details);
-    } catch (err) {
-      setProbe(null);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [baseUrl, client]);
-
-  useEffect(() => {
-    void connect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [baseUrl]);
-
-  // Register what finished downloading, so it reaches the picker.
+  // A finished download is registered where it landed, then the list refreshed.
   const finished = Object.values(pulls)
     .filter((pull) => pull.done)
-    .map((pull) => pull.model)
+    .map((pull) => `${pull.model}@${pull.baseUrl ?? ""}`)
     .join(",");
   useEffect(() => {
-    if (!finished || !baseUrl) return;
+    if (!finished) return;
     void (async () => {
       let registered = 0;
-      for (const model of finished.split(",")) {
+      for (const pair of finished.split(",")) {
+        const [model, baseUrl] = pair.split("@");
+        if (!baseUrl) continue;
         try {
           const result = await client.registerModel(baseUrl, model);
           if (result.added) registered += 1;
@@ -1850,7 +1806,9 @@ export function ModelsView({
         }
       }
       if (registered > 0) setNeedsReload(true);
-      await connect();
+      // Back to what you now own, which is where a finished install belongs.
+      setTab("installed");
+      await reload();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
@@ -1872,54 +1830,43 @@ export function ModelsView({
       .finally(() => setSearching(false));
   }, [client, query, source]);
 
-  const installedNames = new Set(models.map((model) => model.name));
   const inFlight = Object.values(pulls).filter((pull) => !pull.done && !pull.error);
-  const offers = (source === "ollama" ? library : found).filter(
-    (offer) => !installedNames.has(offer.tag),
-  );
-  const unmanageable = runtimes.filter((runtime) => !runtime.canDownloadRemotely);
+  const offers = source === "ollama" ? library : found;
+
+  // Which machines hold each model, rather than a yes or no: "already on GPU
+  // Box" is what someone deciding needs, and it is also what makes clear that
+  // installing it somewhere else is still open to them.
+  const whereInstalled = new Map<string, string[]>();
+  for (const row of installed) {
+    whereInstalled.set(row.model.name, [
+      ...(whereInstalled.get(row.model.name) ?? []),
+      row.server,
+    ]);
+  }
+
+  // Typing a tag rather than a name is a real way to arrive; offering it as a
+  // result beats a second field beside the search box.
+  const typedTag =
+    query.trim().includes(":") || query.trim().includes("/") ? query.trim() : null;
 
   return (
     <section className="panel">
       <div className="panel-head">
         <h2 className="display">Models</h2>
         <span className="grow" />
-        {choices.length > 0 ? (
-          <select
-            className="sort"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-          >
-            {choices.map((choice) => (
-              <option key={choice.baseUrl} value={choice.baseUrl}>
-                {choice.label}
-              </option>
-            ))}
-          </select>
-        ) : null}
         <button className="secondary" onClick={() => setManaging(true)}>
           Machines…
         </button>
       </div>
 
-      {choices.length === 0 ? (
-        <>
-          <p className="hint">
-            Nothing found on this machine and no server saved yet. A runtime is what actually
-            holds and serves a model; OpenCLI talks to one over HTTP.
-          </p>
-          <div className="task-form">
-            <button onClick={() => void loadMachines()}>Look again on this machine</button>
-            <button className="secondary" onClick={() => setManaging(true)}>
-              Add a server elsewhere
-            </button>
-          </div>
-          <p className="hint">
-            To run models here, install Ollama from{" "}
-            <code>https://ollama.com</code> and it will be found automatically.
-          </p>
-        </>
-      ) : null}
+      <div className="tabs">
+        <button className={tab === "installed" ? "on" : ""} onClick={() => setTab("installed")}>
+          Installed{installed.length > 0 ? ` (${installed.length})` : ""}
+        </button>
+        <button className={tab === "browse" ? "on" : ""} onClick={() => setTab("browse")}>
+          Browse
+        </button>
+      </div>
 
       {error ? <p className="error">{error}</p> : null}
       {needsReload ? (
@@ -1929,46 +1876,27 @@ export function ModelsView({
         </p>
       ) : null}
 
-      {baseUrl && probe ? (
-        probe.reachable ? (
-          <p className="hint">
-            Ollama {probe.version} · {probe.isLocal ? "this machine" : "a server elsewhere"} ·{" "}
-            {models.length} model{models.length === 1 ? "" : "s"}
-          </p>
-        ) : (
-          <>
-            <p className="error">{probe.detail ?? "Nothing answered at that address."}</p>
-            <p className="hint">
-              Open Machines… and use Check to see whether the runtime is installed and running.
-            </p>
-          </>
-        )
-      ) : null}
-
       {inFlight.length > 0 ? (
-        <>
-          <h3>Downloading</h3>
-          <ul className="rows">
-            {inFlight.map((pull) => {
-              const pct =
-                pull.total && pull.completed ? Math.round((100 * pull.completed) / pull.total) : null;
-              return (
-                <li key={pull.model}>
-                  <strong>{pull.model}</strong>
-                  <span>
-                    {pull.status}
-                    {pct !== null ? ` · ${pct}% of ${modelSize(pull.total ?? 0)}` : ""}
+        <ul className="rows">
+          {inFlight.map((pull) => {
+            const pct =
+              pull.total && pull.completed ? Math.round((100 * pull.completed) / pull.total) : null;
+            return (
+              <li key={pull.model}>
+                <strong>{pull.model}</strong>
+                <span>
+                  {pull.status}
+                  {pct !== null ? ` · ${pct}% of ${modelSize(pull.total ?? 0)}` : ""}
+                </span>
+                {pct !== null ? (
+                  <span className="bar">
+                    <i style={{ width: `${pct}%` }} />
                   </span>
-                  {pct !== null ? (
-                    <span className="bar">
-                      <i style={{ width: `${pct}%` }} />
-                    </span>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       ) : null}
 
       {Object.values(pulls).some((pull) => pull.error) ? (
@@ -1984,71 +1912,73 @@ export function ModelsView({
         </ul>
       ) : null}
 
-      {probe?.reachable ? (
+      {tab === "installed" ? (
         <>
-          <h3>Installed</h3>
+          {loading ? <p className="muted">Looking on every machine…</p> : null}
+          {!loading && installed.length === 0 ? (
+            <p className="muted">
+              Nothing installed anywhere yet. Open Browse to add one.
+            </p>
+          ) : null}
           <ul className="rows">
-            {models.length === 0 ? (
-              <li className="muted">None yet — pick one below and it will be installed there.</li>
-            ) : null}
-            {models.map((model) => {
-              const capability = caps[model.name];
-              return (
-                <li key={model.name}>
-                  <strong>{model.name}</strong>
-                  <span>
-                    {modelSize(model.size)}
-                    {model.parameterSize ? ` · ${model.parameterSize}` : ""}
-                    {model.quantization ? ` · ${model.quantization}` : ""}
-                    {capability?.contextLength
-                      ? ` · ${Math.round(capability.contextLength / 1024)}K context`
-                      : ""}
+            {installed.map((row) => (
+              <li key={`${row.baseUrl}:${row.model.name}`}>
+                <strong>{row.model.name}</strong>
+                <span>
+                  <span className="chip-plain">{row.server}</span>
+                  {" · "}
+                  {modelSize(row.model.size)}
+                  {row.model.parameterSize ? ` · ${row.model.parameterSize}` : ""}
+                  {row.model.quantization ? ` · ${row.model.quantization}` : ""}
+                  {row.capabilities?.contextLength
+                    ? ` · ${Math.round(row.capabilities.contextLength / 1024)}K context`
+                    : ""}
+                </span>
+                {row.capabilities ? (
+                  <span className={row.capabilities.supportsTools ? "" : "warn"}>
+                    {row.capabilities.supportsTools
+                      ? "Calls tools"
+                      : "Does not call tools — of little use for agent work here"}
                   </span>
-                  {capability ? (
-                    <span className={capability.supportsTools ? "" : "warn"}>
-                      {capability.supportsTools
-                        ? "Calls tools"
-                        : "Does not call tools — of little use for agent work here"}
-                    </span>
-                  ) : null}
-                  <div className="actions">
-                    <button
-                      className="secondary"
-                      title="Add it to the model picker"
-                      onClick={() => {
-                        void client
-                          .registerModel(baseUrl, model.name)
-                          .then((result) => {
-                            setError(null);
-                            if (result.added) setNeedsReload(true);
-                          })
-                          .catch((err: unknown) =>
-                            setError(err instanceof Error ? err.message : String(err)),
-                          );
-                      }}
-                    >
-                      Use in chats
-                    </button>
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        void client
-                          .deleteModel(baseUrl, model.name)
-                          .then(connect)
-                          .catch((err: unknown) =>
-                            setError(err instanceof Error ? err.message : String(err)),
-                          );
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
+                ) : null}
+                <div className="actions">
+                  <button
+                    className="secondary"
+                    title="Add it to the model picker"
+                    onClick={() => {
+                      void client
+                        .registerModel(row.baseUrl, row.model.name)
+                        .then((result) => {
+                          setError(null);
+                          if (result.added) setNeedsReload(true);
+                        })
+                        .catch((err: unknown) =>
+                          setError(err instanceof Error ? err.message : String(err)),
+                        );
+                    }}
+                  >
+                    Use in chats
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      void client
+                        .deleteModel(row.baseUrl, row.model.name)
+                        .then(reload)
+                        .catch((err: unknown) =>
+                          setError(err instanceof Error ? err.message : String(err)),
+                        );
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
           </ul>
-
-          <h3>Add a model</h3>
+        </>
+      ) : (
+        <>
           <div className="tabs">
             {(["ollama", "huggingface", "modelscope"] as const).map((option) => (
               <button
@@ -2061,7 +1991,7 @@ export function ModelsView({
                 }}
               >
                 {option === "ollama"
-                  ? "Library"
+                  ? "Recommended"
                   : option === "huggingface"
                     ? "Hugging Face"
                     : "ModelScope"}
@@ -2081,7 +2011,11 @@ export function ModelsView({
               onKeyDown={(e) => {
                 if (shouldSend({ ...e, isComposing: e.nativeEvent.isComposing })) runSearch();
               }}
-              placeholder={source === "ollama" ? "Filter the library" : "Search, then press Enter"}
+              placeholder={
+                source === "ollama"
+                  ? "Filter, or paste a tag like mistral:7b"
+                  : "Search by name, then press Enter"
+              }
             />
             {source !== "ollama" ? (
               <button disabled={!query.trim() || searching} onClick={runSearch}>
@@ -2092,131 +2026,57 @@ export function ModelsView({
 
           {hint ? <p className="hint">{hint}</p> : null}
 
-          <ul className="rows">
-            {offers.length === 0 && source !== "ollama" ? (
-              <li className="muted">Nothing found yet — search above.</li>
-            ) : null}
-            {offers.map((offer) => (
-              <li key={offer.tag}>
-                <strong>{offer.name}</strong>
-                {offer.note ? <span>{offer.note}</span> : null}
-                <span>
-                  {offer.sizeGb ? `${offer.sizeGb.toFixed(1)} GB` : ""}
-                  {offer.context ? ` · ${Math.round(offer.context / 1024)}K context` : ""}
-                  {offer.downloads ? `${offer.downloads.toLocaleString()} downloads` : ""}
-                </span>
-                {offer.tools === false ? (
-                  <span className="warn">
-                    Does not call tools — cannot drive the agent&apos;s own work
-                  </span>
-                ) : null}
-                {offer.tools === null ? (
-                  <span>Whether it calls tools is only known once installed.</span>
-                ) : null}
-                {offer.needsQuant ? (
-                  <span>
-                    Add a quantisation, for example <code>{offer.tag}:Q4_K_M</code>
-                  </span>
-                ) : null}
+          {typedTag && !offers.some((offer) => offer.tag === typedTag) ? (
+            <ul className="rows">
+              <li>
+                <strong>{typedTag}</strong>
+                <span>Install this exactly as typed.</span>
                 <div className="actions">
                   <button
-                    disabled={Boolean(pulls[offer.tag] && !pulls[offer.tag].error)}
-                    onClick={() => onPull(baseUrl, offer.tag)}
+                    onClick={() =>
+                      setInstalling({ source: "ollama", tag: typedTag, name: typedTag, tools: null })
+                    }
                   >
                     Install
                   </button>
-                  {source === "ollama" ? (
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        setEditing(offer);
-                        setEntry({
-                          tag: offer.tag,
-                          name: offer.name,
-                          note: offer.note ?? "",
-                          sizeGb: offer.sizeGb ? String(offer.sizeGb) : "",
-                          needsGb: offer.needsGb ? String(offer.needsGb) : "",
-                          context: offer.context ? String(offer.context) : "",
-                          tools: offer.tools !== false,
-                        });
-                      }}
-                    >
-                      {offer.userDefined ? "Edit" : "Override"}
-                    </button>
-                  ) : null}
-                  {offer.userDefined ? (
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        void client
-                          .removeCatalogEntry(offer.tag)
-                          .then(() => client.modelCatalog({ query }))
-                          .then(setLibrary)
-                          .catch((err: unknown) =>
-                            setError(err instanceof Error ? err.message : String(err)),
-                          );
-                      }}
-                    >
-                      Remove
-                    </button>
-                  ) : null}
                 </div>
               </li>
-            ))}
-          </ul>
-
-          {source === "ollama" ? (
-            <button
-              className="secondary"
-              onClick={() => {
-                setEditing({ source: "ollama", tag: "", name: "", tools: true });
-                setEntry({
-                  tag: "",
-                  name: "",
-                  note: "",
-                  sizeGb: "",
-                  needsGb: "",
-                  context: "",
-                  tools: true,
-                });
-              }}
-            >
-              Add to the catalogue…
-            </button>
+            </ul>
           ) : null}
 
-          <div className="task-form">
-            <input
-              value={custom}
-              onChange={(e) => setCustom(e.target.value)}
-              placeholder="Any other tag, e.g. mistral:7b or hf.co/owner/repo:Q4_K_M"
+          {source === "ollama" ? (
+            <PurposeGroups
+              offers={offers}
+              whereInstalled={whereInstalled}
+              onInstall={setInstalling}
             />
-            <button
-              disabled={!custom.trim()}
-              onClick={() => {
-                onPull(baseUrl, custom.trim());
-                setCustom("");
-              }}
-            >
-              Install
-            </button>
-          </div>
+          ) : (
+            <ul className="rows">
+              {offers.length === 0 ? (
+                <li className="muted">Nothing found yet — search above.</li>
+              ) : null}
+              {offers.map((offer) => (
+                <OfferRow
+                  key={offer.tag}
+                  offer={offer}
+                  where={whereInstalled.get(offer.tag) ?? []}
+                  onInstall={() => setInstalling(offer)}
+                />
+              ))}
+            </ul>
+          )}
         </>
-      ) : null}
+      )}
 
-      {unmanageable.length > 0 && probe?.reachable ? (
-        <>
-          <h3>Other runtimes</h3>
-          <ul className="rows">
-            {unmanageable.map((runtime) => (
-              <li key={runtime.id}>
-                <strong>{runtime.name}</strong>
-                <span>{runtime.remoteNote}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
+      <InstallDialog
+        client={client}
+        offer={installing}
+        onClose={() => setInstalling(null)}
+        onInstall={(baseUrl, tag) => {
+          onPull(baseUrl, tag);
+          setInstalling(null);
+        }}
+      />
 
       <MachinesDialog
         client={client}
@@ -2224,116 +2084,280 @@ export function ModelsView({
         discovered={discovered}
         onClose={() => {
           setManaging(false);
-          void loadMachines();
-        }}
-        onChoose={(url) => {
-          setBaseUrl(url);
-          setManaging(false);
+          void reload();
         }}
       />
-
-      <Dialog
-        open={editing !== null}
-        title={
-          editing?.userDefined
-            ? "Edit entry"
-            : editing?.tag
-              ? "Override entry"
-              : "Add to the catalogue"
-        }
-        onClose={() => setEditing(null)}
-        footer={
-          <>
-            <button className="secondary" onClick={() => setEditing(null)}>
-              Cancel
-            </button>
-            <button
-              className="filled"
-              disabled={!entry.tag.trim() || !entry.note.trim()}
-              onClick={() => {
-                void client
-                  .saveCatalogEntry({
-                    tag: entry.tag.trim(),
-                    name: entry.name.trim() || entry.tag.trim(),
-                    note: entry.note.trim(),
-                    sizeGb: Number(entry.sizeGb) || undefined,
-                    needsGb: Number(entry.needsGb) || undefined,
-                    context: Number(entry.context) || undefined,
-                    tools: entry.tools,
-                  })
-                  .then(() => client.modelCatalog({ query }))
-                  .then((rows) => {
-                    setLibrary(rows);
-                    setEditing(null);
-                  })
-                  .catch((err: unknown) =>
-                    setError(err instanceof Error ? err.message : String(err)),
-                  );
-              }}
-            >
-              Save
-            </button>
-          </>
-        }
-      >
-        {editing && !editing.userDefined && editing.tag ? (
-          <p className="hint">
-            This entry ships with the app. Saving keeps your version instead; removing it brings
-            the original back.
-          </p>
-        ) : null}
-        <label className="field">
-          Tag to install
-          <input
-            value={entry.tag}
-            onChange={(e) => setEntry({ ...entry, tag: e.target.value })}
-            placeholder="qwen2.5-coder:7b, or hf.co/owner/repo:Q4_K_M"
-          />
-        </label>
-        <label className="field">
-          Name
-          <input
-            value={entry.name}
-            onChange={(e) => setEntry({ ...entry, name: e.target.value })}
-            placeholder="Shown in the list"
-          />
-        </label>
-        <label className="field">
-          What is it for?
-          <textarea
-            value={entry.note}
-            onChange={(e) => setEntry({ ...entry, note: e.target.value })}
-            rows={2}
-            placeholder="One sentence someone choosing can act on"
-          />
-        </label>
-        <div className="task-form">
-          <input
-            value={entry.sizeGb}
-            onChange={(e) => setEntry({ ...entry, sizeGb: e.target.value })}
-            placeholder="Download GB"
-          />
-          <input
-            value={entry.needsGb}
-            onChange={(e) => setEntry({ ...entry, needsGb: e.target.value })}
-            placeholder="Memory GB"
-          />
-          <input
-            value={entry.context}
-            onChange={(e) => setEntry({ ...entry, context: e.target.value })}
-            placeholder="Context"
-          />
-        </div>
-        <label className="scope">
-          <input
-            type="checkbox"
-            checked={entry.tools}
-            onChange={(e) => setEntry({ ...entry, tools: e.target.checked })}
-          />
-          Calls tools — without this it cannot drive the agent&apos;s own work
-        </label>
-      </Dialog>
     </section>
+  );
+}
+
+/**
+ * One model on offer.
+ *
+ * `where` names the machines that already have it. It is shown, but it does
+ * not disable installing: having a model on one machine is a reason to want it
+ * on another, not a reason to be refused. Whether *this* machine already has
+ * it is a question the install dialog answers, because that is where the
+ * machine is chosen.
+ */
+function OfferRow({
+  offer,
+  where,
+  onInstall,
+}: {
+  offer: Offer;
+  where: string[];
+  onInstall: () => void;
+}) {
+  return (
+    <li>
+      <strong>{offer.name}</strong>
+      {offer.note ? <span>{offer.note}</span> : null}
+      <span>
+        {offer.sizeGb ? `${offer.sizeGb.toFixed(1)} GB` : ""}
+        {offer.needsGb ? ` · needs about ${offer.needsGb.toFixed(0)} GB of memory` : ""}
+        {offer.context ? ` · ${Math.round(offer.context / 1024)}K context` : ""}
+        {offer.downloads ? `${offer.downloads.toLocaleString()} downloads` : ""}
+      </span>
+      {offer.tools === false ? (
+        <span className="warn">Does not call tools — cannot drive the agent&apos;s own work</span>
+      ) : null}
+      {offer.tools === null && offer.source === "huggingface" ? (
+        <span>Whether it calls tools is only known once installed.</span>
+      ) : null}
+      {where.length > 0 ? (
+        <span className="chip-plain">Already on {where.join(", ")}</span>
+      ) : null}
+      <div className="actions">
+        <button onClick={onInstall}>
+          {where.length > 0 ? "Install elsewhere" : "Install"}
+        </button>
+      </div>
+    </li>
+  );
+}
+
+/** The recommended catalogue, grouped by what a model is for. */
+function PurposeGroups({
+  offers,
+  whereInstalled,
+  onInstall,
+}: {
+  offers: Offer[];
+  whereInstalled: Map<string, string[]>;
+  onInstall: (offer: Offer) => void;
+}) {
+  const groups: { id: string; label: string }[] = [
+    { id: "coding", label: "Coding" },
+    { id: "general", label: "General purpose" },
+    { id: "small", label: "Small and fast" },
+  ];
+
+  return (
+    <>
+      {groups.map((group) => {
+        const rows = offers.filter((offer) => offer.purpose === group.id);
+        if (rows.length === 0) return null;
+        return (
+          <div key={group.id}>
+            <h3>{group.label}</h3>
+            <ul className="rows">
+              {rows.map((offer) => (
+                <OfferRow
+                  key={offer.tag}
+                  offer={offer}
+                  where={whereInstalled.get(offer.tag) ?? []}
+                  onInstall={() => onInstall(offer)}
+                />
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * Where to install, and which version.
+ *
+ * The two decisions belong together: which quantisation is best depends on the
+ * memory of the machine chosen, so choosing a machine changes what is
+ * recommended.
+ */
+function InstallDialog({
+  client,
+  offer,
+  onClose,
+  onInstall,
+}: {
+  client: OpenCliClient;
+  offer: Offer | null;
+  onClose: () => void;
+  onInstall: (baseUrl: string, tag: string) => void;
+}) {
+  const [targets, setTargets] = useState<InstallTarget[]>([]);
+  const [chosen, setChosen] = useState<string>("");
+  const [variants, setVariants] = useState<ModelVariant[]>([]);
+  const [variant, setVariant] = useState<string>("");
+  const [showVariants, setShowVariants] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const needsVariant = offer?.source === "huggingface" && offer.needsQuant;
+
+  useEffect(() => {
+    if (!offer) return;
+    setLoading(true);
+    setError(null);
+    setShowVariants(false);
+    void client
+      .installTargets()
+      .then((rows) => {
+        setTargets(rows);
+        // Prefer somewhere it can actually go, and somewhere it is not already.
+        const usable = rows.find(
+          (row) => row.reachable && !row.installed.includes(offer.tag),
+        );
+        setChosen(usable?.baseUrl ?? rows.find((row) => row.reachable)?.baseUrl ?? "");
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoading(false));
+  }, [client, offer]);
+
+  // The recommendation follows the machine, so it is fetched again when the
+  // machine changes rather than chosen once.
+  useEffect(() => {
+    if (!offer || !needsVariant || !chosen) return;
+    const memory = targets.find((row) => row.baseUrl === chosen)?.memoryGb ?? undefined;
+    void client
+      .modelVariants(offer.tag, memory ?? undefined)
+      .then((result) => {
+        setVariants(result.variants);
+        setVariant(result.recommended ?? result.variants[0]?.tag ?? "");
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+  }, [client, offer, needsVariant, chosen, targets]);
+
+  if (!offer) return null;
+
+  const target = targets.find((row) => row.baseUrl === chosen);
+  const tag = needsVariant ? variant : offer.tag;
+  const already = target?.installed.includes(tag) ?? false;
+  const chosenVariant = variants.find((row) => row.tag === variant);
+  const fits =
+    target?.memoryGb == null
+      ? null
+      : needsVariant
+        ? (chosenVariant?.fits ?? null)
+        : offer.needsGb
+          ? offer.needsGb <= target.memoryGb
+          : null;
+
+  return (
+    <Dialog
+      open
+      title={`Install ${offer.name}`}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="filled"
+            disabled={!chosen || !tag || already || loading}
+            onClick={() => onInstall(chosen, tag)}
+          >
+            {already ? "Already there" : "Install"}
+          </button>
+        </>
+      }
+    >
+      {error ? <p className="error">{error}</p> : null}
+      {loading ? <p className="muted">Looking at your machines…</p> : null}
+
+      <label className="field">
+        Which machine?
+        {targets.length === 0 && !loading ? (
+          <span className="field-note">
+            No machine found. Open Machines… to add one, or install Ollama on this computer.
+          </span>
+        ) : null}
+        <select value={chosen} onChange={(e) => setChosen(e.target.value)}>
+          {targets.map((row) => (
+            <option key={row.baseUrl} value={row.baseUrl} disabled={!row.reachable}>
+              {row.label}
+              {row.reachable ? "" : " — not answering"}
+              {row.memoryGb ? ` · ${row.memoryGb} GB` : ""}
+            </option>
+          ))}
+        </select>
+        {target && fits === false ? (
+          <span className="field-note warn">
+            This is larger than the memory on that machine. It will download, and may fail to
+            load.
+          </span>
+        ) : null}
+        {target && target.memoryGb == null ? (
+          <span className="field-note">
+            How much memory that machine has cannot be read from here, so whether it fits is not
+            known. Adding an SSH alias in Machines… would let it be checked.
+          </span>
+        ) : null}
+        {already ? (
+          <span className="field-note">It is already installed there.</span>
+        ) : null}
+      </label>
+
+      {needsVariant ? (
+        <div className="field">
+          Which version?
+          {chosenVariant ? (
+            <div className="variant-chosen">
+              <strong>{chosenVariant.quant}</strong>
+              <span>
+                {chosenVariant.sizeGb.toFixed(1)} GB · {chosenVariant.note}
+              </span>
+              <button className="link" onClick={() => setShowVariants(!showVariants)}>
+                {showVariants ? "Keep this one" : "Choose a different one"}
+              </button>
+            </div>
+          ) : (
+            <span className="field-note">Reading the available versions…</span>
+          )}
+
+          {showVariants ? (
+            <ul className="rows">
+              {variants.map((row) => (
+                <li key={row.tag}>
+                  <label className="choice">
+                    <input
+                      type="radio"
+                      name="variant"
+                      checked={variant === row.tag}
+                      onChange={() => {
+                        setVariant(row.tag);
+                        setShowVariants(false);
+                      }}
+                    />
+                    <span>
+                      <strong>
+                        {row.quant} · {row.sizeGb.toFixed(1)} GB
+                      </strong>
+                      <span className="hint">
+                        {row.note}
+                        {row.fits === false ? " — larger than this machine's memory" : ""}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+    </Dialog>
   );
 }
 
@@ -2349,13 +2373,11 @@ function MachinesDialog({
   open,
   discovered,
   onClose,
-  onChoose,
 }: {
   client: OpenCliClient;
   open: boolean;
   discovered: DiscoveredRuntime[];
   onClose: () => void;
-  onChoose: (baseUrl: string) => void;
 }) {
   const [servers, setServers] = useState<ServerEntry[]>([]);
   const [aliases, setAliases] = useState<SshAlias[]>([]);
@@ -2401,9 +2423,7 @@ function MachinesDialog({
                   {runtime.manageable ? "" : " · serves models but cannot install them"}
                 </span>
                 <div className="actions">
-                  <button onClick={() => onChoose(runtime.baseUrl)}>Use</button>
                   <button
-                    className="secondary"
                     onClick={() => {
                       void client
                         .addServer({ name: `${runtime.name} (this machine)`, baseUrl: runtime.baseUrl })
@@ -2473,9 +2493,7 @@ function MachinesDialog({
               ) : null}
 
               <div className="actions">
-                <button onClick={() => onChoose(server.baseUrl)}>Use</button>
                 <button
-                  className="secondary"
                   disabled={checking === server.id}
                   onClick={() => {
                     setChecking(server.id);

@@ -94,6 +94,8 @@ __pycache__/
 
 # web build output
 web/dist/
+# Built only to drive the client from a script against a real server.
+web/dist-node/
 
 # desktop build output
 desktop/src-tauri/target/

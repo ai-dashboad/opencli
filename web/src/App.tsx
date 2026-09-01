@@ -420,7 +420,10 @@ export default function App() {
         },
         onApprovalRequest: setApproval,
         onPullProgress: (progress) =>
-          setPulls((prev) => ({ ...prev, [progress.model]: progress })),
+          setPulls((prev) => ({
+            ...prev,
+            [progress.model]: { ...prev[progress.model], ...progress },
+          })),
       });
       // Replacing the socket without closing it leaks a connection per reconnect.
       clientRef.current?.close();
@@ -882,12 +885,16 @@ export default function App() {
             onPull={(target, model) => {
               // Show the row immediately; the first progress event may be
               // seconds away while the manifest is fetched.
-              setPulls((prev) => ({ ...prev, [model]: { model, status: "starting" } }));
+              setPulls((prev) => ({
+                ...prev,
+                [model]: { model, baseUrl: target, status: "starting" },
+              }));
               void client.pullModel(target, model).catch((err: unknown) =>
                 setPulls((prev) => ({
                   ...prev,
                   [model]: {
                     model,
+                    baseUrl: target,
                     error: err instanceof Error ? err.message : String(err),
                   },
                 })),

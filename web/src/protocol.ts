@@ -271,6 +271,8 @@ export interface Diagnosis {
 /** A model on offer, from a library or a hub search. */
 export interface Offer {
   source: "ollama" | "huggingface";
+  /** What it is for, which is how the library groups entries. */
+  purpose?: string;
   /** What to pull. Whatever the source, this goes to the runtime unchanged. */
   tag: string;
   name: string;
@@ -310,6 +312,28 @@ export interface RuntimeProbe {
   detail?: string;
 }
 
+/** A model, and the machine it is installed on. */
+export interface ModelLocation {
+  /** The machine, as the user named it. */
+  server: string;
+  baseUrl: string;
+  /** Whether the runtime there can be told to remove it. */
+  manageable: boolean;
+  model: InstalledModel;
+  capabilities?: ModelCapabilities;
+}
+
+/** A machine models can be installed to. */
+export interface InstallTarget {
+  label: string;
+  baseUrl: string;
+  reachable: boolean;
+  /** Memory available to models, when it can be read. Null when it cannot. */
+  memoryGb: number | null;
+  /** Models already there, so a duplicate install can be pointed out. */
+  installed: string[];
+}
+
 /** A model installed on a runtime. */
 export interface InstalledModel {
   name: string;
@@ -328,9 +352,23 @@ export interface ModelCapabilities {
   contextLength: number | null;
 }
 
+/** One quantisation of a model, with what choosing it costs. */
+export interface ModelVariant {
+  quant: string;
+  /** The tag to install, already assembled. */
+  tag: string;
+  sizeGb: number;
+  /** What this quantisation costs, in words rather than letters. */
+  note: string;
+  /** Null when the machine's memory is unknown. */
+  fits: boolean | null;
+}
+
 /** Progress while a model downloads. */
 export interface PullProgress {
   model: string;
+  /** The machine it is being installed on, so a finish can be acted upon. */
+  baseUrl?: string;
   status?: string;
   completed?: number;
   total?: number;
@@ -1207,6 +1245,120 @@ export class OpenCliClient {
       hint?: string;
     };
     return { results: (result.data ?? []) as Offer[], hint: result.hint };
+  }
+
+  /**
+   * Every model on every known machine, in one list.
+   *
+   * Asked of all machines at once rather than one at a time: models live
+   * across several, and having to switch machines to see what you own is the
+   * question this answers.
+   */
+  async allInstalledModels(): Promise<ModelLocation[]> {
+    const [saved, here] = await Promise.all([
+      this.listServers().catch(() => [] as ServerEntry[]),
+      this.discoverRuntimes().catch(() => [] as DiscoveredRuntime[]),
+    ]);
+
+    const machines = [
+      ...saved.map((server) => ({ label: server.name, baseUrl: server.baseUrl })),
+      ...here
+        .filter((runtime) => !saved.some((server) => server.baseUrl === runtime.baseUrl))
+        .map((runtime) => ({
+          label: `${runtime.name} on this machine`,
+          baseUrl: runtime.baseUrl,
+        })),
+    ];
+
+    const perMachine = await Promise.all(
+      machines.map(async (machine) => {
+        // One unreachable machine must not empty the list; it simply
+        // contributes nothing.
+        const models = await this.runtimeModels(machine.baseUrl).catch(() => []);
+        const rows = await Promise.all(
+          models.map(async (model) => ({
+            server: machine.label,
+            baseUrl: machine.baseUrl,
+            manageable: true,
+            model,
+            capabilities: await this.modelCapabilities(machine.baseUrl, model.name).catch(
+              () => undefined,
+            ),
+          })),
+        );
+        return rows;
+      }),
+    );
+
+    return perMachine.flat().sort((a, b) => a.model.name.localeCompare(b.model.name));
+  }
+
+  /**
+   * Machines a model could be installed to, with what is known about each.
+   *
+   * Gathered when the install dialog opens rather than kept fresh: it is a
+   * decision made at that moment, and a stale memory figure would be worse
+   * than one read on the spot.
+   */
+  async installTargets(): Promise<InstallTarget[]> {
+    const [saved, here] = await Promise.all([
+      this.listServers().catch(() => [] as ServerEntry[]),
+      this.discoverRuntimes().catch(() => [] as DiscoveredRuntime[]),
+    ]);
+
+    const machines = [
+      ...saved.map((server) => ({ label: server.name, baseUrl: server.baseUrl, id: server.id })),
+      ...here
+        .filter((runtime) => !saved.some((server) => server.baseUrl === runtime.baseUrl))
+        .map((runtime) => ({
+          label: `${runtime.name} on this machine`,
+          baseUrl: runtime.baseUrl,
+          id: undefined as string | undefined,
+        })),
+    ];
+
+    return Promise.all(
+      machines.map(async (machine) => {
+        const [probe, installed] = await Promise.all([
+          this.probeRuntime(machine.baseUrl).catch(() => ({ reachable: false }) as RuntimeProbe),
+          this.runtimeModels(machine.baseUrl).catch(() => []),
+        ]);
+
+        // Memory is only knowable where a shell can read it, which needs a
+        // saved server with an alias. Guessing it would be worse than leaving
+        // the fit unstated.
+        let memoryGb: number | null = null;
+        if (machine.id) {
+          const report = await this.diagnoseServer(machine.id).catch(() => null);
+          const gpu = report?.shell?.gpu ?? "";
+          const match = /(\d+)\s*MiB/.exec(gpu);
+          if (match) memoryGb = Math.round(Number(match[1]) / 1024);
+        }
+
+        return {
+          label: machine.label,
+          baseUrl: machine.baseUrl,
+          reachable: probe.reachable,
+          memoryGb,
+          installed: installed.map((model) => model.name),
+        };
+      }),
+    );
+  }
+
+  /** The quantisations a Hugging Face repository offers, with real sizes. */
+  async modelVariants(
+    repo: string,
+    memoryGb?: number,
+  ): Promise<{ variants: ModelVariant[]; recommended: string | null }> {
+    const result = (await this.request("hub/variants", {
+      repo,
+      ...(memoryGb ? { memoryGb } : {}),
+    })) as { data?: unknown[]; recommended?: string };
+    return {
+      variants: (result.data ?? []) as ModelVariant[],
+      recommended: result.recommended ?? null,
+    };
   }
 
   /** Read the effective config after layering. */

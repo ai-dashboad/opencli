@@ -1992,3 +1992,30 @@ textarea:focus {
   content: "— ";
   color: var(--text-faint);
 }
+
+/*
+ * The version chosen for an install, shown as a settled decision rather than a
+ * list. A picked recommendation with a way out reads as one choice; ten radio
+ * buttons read as ten, and only one of them is usually right.
+ */
+.variant-chosen {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+}
+
+.variant-chosen span {
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.variant-chosen .link {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 0;
+}

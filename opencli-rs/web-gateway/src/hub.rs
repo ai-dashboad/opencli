@@ -227,6 +227,12 @@ async fn search_hugging_face(query: &str) -> Result<Value, String> {
     Ok(json!({ "data": data }))
 }
 
+/// The quantisation to suggest when nothing is known about the machine.
+///
+/// The one whose description is "the usual balance of size and quality" — it
+/// runs on the widest range of hardware while still being worth running.
+const BALANCED_QUANT: &str = "Q4_K_M";
+
 /// What each quantisation means, in words rather than letters.
 ///
 /// `Q4_K_M` tells a person nothing. Offering the choice without saying what it
@@ -352,16 +358,7 @@ async fn variants(params: &Value) -> Result<Value, String> {
         .collect();
     data.sort_by_key(|entry| quality_rank(entry["quant"].as_str().unwrap_or("")));
 
-    // The best that fits, or the smallest when nothing does — chosen rather
-    // than asked for, because "which quantisation" is not a question most
-    // people can answer.
-    let recommended = data
-        .iter()
-        .filter(|entry| entry["fits"].as_bool().unwrap_or(true))
-        .next_back()
-        .or_else(|| data.first())
-        .and_then(|entry| entry["tag"].as_str())
-        .map(str::to_string);
+    let recommended = recommend(&data, memory.is_some());
 
     if data.is_empty() {
         return Err(format!(
@@ -383,6 +380,32 @@ fn modelscope_hint(query: &str) -> Value {
              for example `modelscope.cn/owner/repo`."
         ),
     })
+}
+
+/// Which version to suggest, given the variants in quality order.
+///
+/// Chosen rather than asked for, because "which quantisation" is not a
+/// question most people can answer.
+///
+/// When the machine's memory is known: the best that fits, or the smallest
+/// when nothing does. When it is not: the balanced default rather than the
+/// largest. An unknown machine is precisely where recommending the biggest
+/// file is least safe — treating "unknown" as "it fits" would send a 16 GB
+/// download to a laptop.
+fn recommend(data: &[Value], memory_is_known: bool) -> Option<String> {
+    let chosen = if memory_is_known {
+        data.iter()
+            .filter(|entry| entry["fits"].as_bool().unwrap_or(false))
+            .next_back()
+            .or_else(|| data.first())
+    } else {
+        data.iter()
+            .find(|entry| entry["quant"].as_str() == Some(BALANCED_QUANT))
+            .or_else(|| data.first())
+    };
+    chosen
+        .and_then(|entry| entry["tag"].as_str())
+        .map(str::to_string)
 }
 
 #[cfg(test)]
@@ -575,6 +598,75 @@ mod tests {
         // Anything unrecognised ranks zero and is left out rather than offered
         // as though its quality were known.
         assert_eq!(quality_rank("Q9_MYSTERY"), 0);
+    }
+
+    /// Variants in the order `variants` produces them: worst quality first.
+    fn ranked(entries: &[(&str, f64, Option<bool>)]) -> Vec<Value> {
+        let mut data: Vec<Value> = entries
+            .iter()
+            .map(|(quant, gb, fits)| {
+                json!({
+                    "quant": quant,
+                    "tag": format!("hf.co/owner/repo:{quant}"),
+                    "sizeGb": gb,
+                    "note": describe_quant(quant),
+                    "fits": fits,
+                })
+            })
+            .collect();
+        data.sort_by_key(|entry| quality_rank(entry["quant"].as_str().unwrap_or("")));
+        data
+    }
+
+    #[test]
+    fn should_suggest_the_best_version_that_fits_the_machine() {
+        let data = ranked(&[
+            ("Q4_K_M", 4.7, Some(true)),
+            ("Q8_0", 8.1, Some(true)),
+            ("F16", 15.2, Some(false)),
+        ]);
+        assert_eq!(
+            recommend(&data, true).as_deref(),
+            Some("hf.co/owner/repo:Q8_0")
+        );
+    }
+
+    #[test]
+    fn should_fall_back_to_the_smallest_when_nothing_fits() {
+        // Better to offer the one with a chance than to offer nothing.
+        let data = ranked(&[("Q4_K_M", 40.0, Some(false)), ("Q8_0", 70.0, Some(false))]);
+        assert_eq!(
+            recommend(&data, true).as_deref(),
+            Some("hf.co/owner/repo:Q4_K_M")
+        );
+    }
+
+    #[test]
+    fn should_suggest_the_balanced_version_when_the_machine_is_unknown() {
+        // The dangerous case. Treating "unknown" as "it fits" recommended the
+        // largest file available, which is the worst guess for a machine
+        // nothing is known about.
+        let data = ranked(&[
+            ("Q4_K_M", 4.7, None),
+            ("Q8_0", 8.1, None),
+            ("F16", 15.2, None),
+        ]);
+        assert_eq!(
+            recommend(&data, false).as_deref(),
+            Some("hf.co/owner/repo:Q4_K_M")
+        );
+    }
+
+    #[test]
+    fn should_suggest_something_when_the_balanced_version_is_not_offered() {
+        let data = ranked(&[("Q3_K_M", 3.8, None), ("Q6_K", 6.3, None)]);
+        assert!(recommend(&data, false).is_some());
+    }
+
+    #[test]
+    fn should_suggest_nothing_when_there_are_no_versions() {
+        assert_eq!(recommend(&[], true), None);
+        assert_eq!(recommend(&[], false), None);
     }
 
     #[tokio::test]
