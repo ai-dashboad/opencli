@@ -602,6 +602,26 @@ timestamp, and not the half that was never in doubt.
 
 ---
 
+## A clock belongs to the thing it times
+
+Two timers were wrong in the same way: neither was driven by the event that
+starts what it measures.
+
+The turn's clock was started by `send`, so a turn the agent began for itself —
+a follow-up after a tool call — never restarted it, and the elapsed time
+accumulated across all of them into one growing number. `turn/started` is the
+only thing that knows when a turn begins, and the client was not listening for
+it. The clock is now keyed on the moment that event arrived, because a second
+turn in the same chat leaves the thread id unchanged and keying on that
+restarts nothing.
+
+Thinking had no clock at all. The server sends no duration for reasoning, so
+it is measured in the client: the row counts up while it streams and keeps its
+total when it ends. A model can think for minutes, and it did so behind a row
+that never changed and never said how long it had taken.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

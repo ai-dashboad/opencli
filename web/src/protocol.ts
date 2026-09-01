@@ -67,6 +67,8 @@ export interface ClientEvents {
    * only thing there is to show.
    */
   onItemDelta?: (item: ThreadItem) => void;
+  /** A turn has begun, in the conversation it names. */
+  onTurnStart?: (threadId: string | null) => void;
   onTurnComplete?: () => void;
   onError?: (message: string) => void;
   /** The agent is asking permission to run something. */
@@ -778,6 +780,19 @@ export class OpenCliClient {
   #handleNotification(method: string, params: unknown): void {
     const payload = (params ?? {}) as Record<string, unknown>;
 
+    /*
+     * The server says when a turn begins, and it is the only thing that knows.
+     *
+     * The clock was started by `send` instead, so it never restarted for a
+     * turn the agent began itself — a follow-up after a tool call — and the
+     * elapsed time accumulated across all of them into one growing number.
+     */
+    if (method === "turn/started") {
+      this.#events.onTurnStart?.(
+        typeof payload.threadId === "string" ? payload.threadId : this.#threadId,
+      );
+      return;
+    }
     if (method === "turn/completed" || method === "opencli/event/task_complete") {
       this.#events.onTurnComplete?.();
       return;

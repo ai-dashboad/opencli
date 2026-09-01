@@ -48,6 +48,7 @@ import {
   OpenCliMark,
 } from "./icons";
 import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./menus";
+import { Boot } from "./boot";
 import { Markdown } from "./markdown";
 import { shouldSend } from "./composer";
 import "./styles.css";
@@ -285,6 +286,17 @@ export default function App() {
    * there is one agent and the flag did not say which chat it belonged to.
    */
   const [runningIn, setRunningIn] = useState<string | null>(null);
+  /** When the running turn began, so its clock is its own. */
+  const [turnAt, setTurnAt] = useState<number | null>(null);
+  /**
+   * When each piece of thinking started, by item id.
+   *
+   * The server sends no duration for reasoning, so it is measured here: the
+   * row counts up while it streams and keeps its total when it ends. Without
+   * it a model could think for four minutes behind a row that never changed
+   * and never said how long it had taken.
+   */
+  const thoughtSince = useRef<Record<string, number>>({});
 
   const clientRef = useRef<OpenCliClient | null>(null);
   const modelRef = useRef<string>("");
@@ -474,7 +486,16 @@ export default function App() {
       const client = new OpenCliClient({
         onStatus: setStatus,
         // The client only surfaces completed items, so each one is new.
-        onItem: (item) => {
+        onItem: (arrived) => {
+          // Reasoning carries no duration of its own, so the one measured here
+          // is attached as it finishes.
+          const startedAt = thoughtSince.current[arrived.id];
+          const item =
+            arrived.kind === "reasoning" && arrived.durationMs === undefined && startedAt
+              ? { ...arrived, durationMs: Date.now() - startedAt }
+              : arrived;
+          delete thoughtSince.current[arrived.id];
+
           // A finished item replaces the partial one it was streamed as,
           // rather than appearing beside it.
           setItems((prev) => {
@@ -492,6 +513,9 @@ export default function App() {
           // Thinking can be turned off, but it still counts as progress: the
           // working line says something is happening even when it is hidden.
           setStreamed(item.text.length);
+          if (item.kind === "reasoning" && !thoughtSince.current[item.id]) {
+            thoughtSince.current[item.id] = Date.now();
+          }
           if (item.kind === "reasoning" && preferencesRef.current.showThinking === false) return;
           setItems((prev) => {
             const at = prev.findIndex((other) => other.id === item.id);
@@ -500,6 +524,13 @@ export default function App() {
             next[at] = { ...next[at], text: item.text };
             return next;
           });
+        },
+        onTurnStart: (threadId) => {
+          // The turn's own clock, restarted by the event that begins it. A
+          // turn the agent starts for itself gets one too.
+          setRunningIn(threadId);
+          setTurnAt(Date.now());
+          setStreamed(0);
         },
         onTurnComplete: () => {
           setRunningIn(null);
@@ -554,13 +585,13 @@ export default function App() {
   const busy = runningIn !== null && runningIn === activeThreadId;
 
   useEffect(() => {
-    if (!runningIn) return;
-    const startedAt = Date.now();
-    setElapsed(0);
-    setStreamed(0);
-    const timer = setInterval(() => setElapsed(Math.round((Date.now() - startedAt) / 1000)), 1000);
+    if (!runningIn || turnAt === null) return;
+    setElapsed(Math.round((Date.now() - turnAt) / 1000));
+    const timer = setInterval(() => setElapsed(Math.round((Date.now() - turnAt) / 1000)), 1000);
     return () => clearInterval(timer);
-  }, [runningIn]);
+    // Keyed on the moment the turn began: a second turn in the same chat
+    // leaves `runningIn` unchanged, so keying on that never restarted it.
+  }, [runningIn, turnAt]);
 
   /*
    * What is happening, rather than that something is.
@@ -655,6 +686,7 @@ export default function App() {
     }
 
     setRunningIn(clientRef.current?.threadId ?? null);
+    setTurnAt(Date.now());
     // The server echoes the user message back as a thread item, so do not add
     // it locally — doing so showed every prompt twice.
     try {
@@ -839,15 +871,7 @@ export default function App() {
   );
 
   if (status !== "ready" && isDesktop()) {
-    return (
-      <main className="connect">
-        <h1>OpenCLI</h1>
-        <p className="hint">
-          {status === "error" ? "The agent could not be started." : "Starting the agent…"}
-        </p>
-        {error ? <p className="error">{error}</p> : null}
-      </main>
-    );
+    return <Boot failed={status === "error"} detail={error} />;
   }
 
   if (status !== "ready") {
@@ -1101,7 +1125,16 @@ export default function App() {
                         <strong>
                           {item.durationMs !== undefined
                             ? `Thought for ${formatDuration(item.durationMs)}`
-                            : "Thinking"}
+                            : thoughtSince.current[item.id]
+                              ? `Thinking… ${formatElapsed(
+                                  Math.max(
+                                    0,
+                                    Math.round(
+                                      (Date.now() - thoughtSince.current[item.id]) / 1000,
+                                    ),
+                                  ),
+                                )}`
+                              : "Thinking"}
                         </strong>
                         <em>{openThoughts[item.id] ? "hide" : "show"}</em>
                       </button>
