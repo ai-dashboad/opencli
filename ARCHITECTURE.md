@@ -422,7 +422,23 @@ GB. Neither figure was visible anywhere in the interface, so the only symptom
 was a spinner.
 
 `size_vram` against `size` is the check worth reaching for first: it answers
-"is this model actually on the card" in one request.
+"is this model actually on the card" in one request. Ollama's own log is
+blunter still — `offloaded 0/66 layers to GPU`, alongside the
+`available="2.2 GiB"` it measured at load time.
+
+Freeing the card and reloading turned the same work from 254 seconds into 10:
+prompt reading from 114.5s to 3.4s, generation from 1.36 to 57.9 tokens per
+second. Nothing in this program changed; the model simply stopped running on
+the CPU.
+
+### Two numbers answer to "context window"
+
+`/api/show` reports what the weights were *trained* to hold; the server is
+started with `-c` and may serve far less. For the model here those are 262,144
+and 32,768 — a factor of eight. Registering the trained figure meant the agent
+never compacted and the server rejected the turn at an eighth of the size it
+had been told it had. The smaller of the two is the only safe answer, and a
+loaded model is the only thing that can report it.
 
 ---
 

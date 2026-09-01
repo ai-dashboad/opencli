@@ -358,11 +358,42 @@ async fn register_model(params: &Value, opencli_home: &std::path::Path) -> Resul
 
     // Read the window from the runtime rather than guessing: a wrong one
     // truncates conversations or overflows the model.
-    let context = match show(params).await {
+    //
+    // Two different numbers answer to that name, and the larger one is wrong.
+    // `/api/show` reports what the weights were *trained* to hold — 262,144
+    // for this family — while the server is started with `-c` and may serve
+    // far less; 32,768 in the case that exposed this. Believing the trained
+    // figure, the agent never compacts and the server rejects the turn at an
+    // eighth of the size it was told it had.
+    let trained = match show(params).await {
         Ok(details) => details.get("contextLength").and_then(Value::as_i64),
         Err(_) => None,
     };
+    let served = served_context(&root, model).await;
+    let context = match (trained, served) {
+        (Some(trained), Some(served)) => Some(trained.min(served)),
+        (only, None) | (None, only) => only,
+    };
     crate::register::register(opencli_home, &root, model, None, context)
+}
+
+/// What the runtime is *actually* serving this model with, if it is loaded.
+///
+/// Only a loaded model can say; an unloaded one is not being served with
+/// anything, and the trained figure is then the only honest answer available.
+async fn served_context(root: &str, model: &str) -> Option<i64> {
+    let response = client()
+        .get(format!("{root}/api/ps"))
+        .send()
+        .await
+        .ok()?;
+    let body: Value = response.json().await.ok()?;
+    body.get("models")?
+        .as_array()?
+        .iter()
+        .find(|entry| entry.get("model").and_then(Value::as_str) == Some(model))
+        .and_then(|entry| entry.get("context_length"))
+        .and_then(Value::as_i64)
 }
 
 async fn delete(params: &Value, opencli_home: &std::path::Path) -> Result<Value, String> {
