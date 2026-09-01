@@ -534,6 +534,10 @@ export default function App() {
       await client.send(text, {
         effort: preferencesRef.current.effort,
         attachments: sending,
+        // Sent every turn so switching model mid-conversation takes effect.
+        // Read from the ref for the same reason the thread does: this callback
+        // outlives the render that created it.
+        ...(modelRef.current ? { model: modelRef.current } : {}),
         // Defaulting to on keeps the agent's reasoning visible unless the user
         // asks for quiet.
         summary: preferencesRef.current.showThinking === false ? "none" : "auto",

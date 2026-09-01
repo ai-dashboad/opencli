@@ -253,6 +253,43 @@ Two consequences that read as small and are not:
 
 ---
 
+## Nothing may be silent
+
+Three reports of "this button does not work" turned out to be three different
+kinds of silence, none of them a broken handler.
+
+- **A picker that changed a label and nothing else.** The model was sent on
+  `thread/start` only, so choosing another mid-conversation was decorative.
+  `turn/start` accepts one and applies it to that turn and the ones after; it
+  is now sent on every turn.
+- **A step nobody could see.** Installing a model puts a file on a machine;
+  the picker offers what `config.toml` names. Seven installed and two offered,
+  with nothing on screen explaining the difference, reads as a broken picker.
+  Each installed row now says whether a chat can select it. The provider id is
+  derived in the gateway, so the rule for turning an address into a provider
+  lives in one place.
+- **Buttons that worked but said nothing for eight seconds.** Remove waited on
+  a fresh look at every machine before the row disappeared. Rows now report
+  what they are doing, say it beside the row rather than at the top of the
+  panel where it scrolls out of sight, and drop themselves immediately while
+  the refresh runs behind.
+
+### One slow answer must not delay the others
+
+The gateway read one message, awaited its handler, then read the next. Every
+request on a connection therefore queued behind the one before it: the panel
+asks all its machines at once, and the answers still arrived one at a time.
+Listing every model took 7.7 seconds against a single remote server.
+
+Methods under `server/`, `hub/` and `runtime/` reach over the network and are
+now answered on their own task. Ownership is decided from the method name
+before any work is done, because the loop must know whether to answer or relay
+without first paying to find out. Replies carry their own id, so arriving out
+of order is what the protocol already expects. Everything else stays in the
+loop: a turn must reach stdin in the order it was sent.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

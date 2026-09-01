@@ -175,6 +175,22 @@ pub async fn serve_with_listener(
     Ok(())
 }
 
+/// Whether a message is one of the methods that reaches over the network.
+///
+/// Decided from the method name alone, before any work is done, because the
+/// loop has to know whether to answer a message or relay it to the agent
+/// without first paying the cost of finding out.
+fn is_networked(raw: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(raw)
+        .ok()
+        .as_ref()
+        .and_then(|message| message.get("method"))
+        .and_then(|method| method.as_str())
+        .is_some_and(|method| {
+            method.starts_with("server/") || method.starts_with("hub/") || method.starts_with("runtime/")
+        })
+}
+
 async fn ws_handler(
     State(state): State<Arc<GatewayState>>,
     Query(params): Query<ConnectParams>,
@@ -271,22 +287,31 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
         if runtime::pull(&text, out_tx_for_local.clone()).await {
             continue;
         }
-        if let Some(reply) = server::handle(&text, &state.opencli_home).await {
-            if out_tx_for_local.send(reply).await.is_err() {
-                break;
-            }
-            continue;
-        }
-        if let Some(reply) = hub::handle(&text, &state.opencli_home).await {
-            if out_tx_for_local.send(reply).await.is_err() {
-                break;
-            }
-            continue;
-        }
-        if let Some(reply) = runtime::handle(&text, &state.opencli_home).await {
-            if out_tx_for_local.send(reply).await.is_err() {
-                break;
-            }
+        // Everything above answers from a local file and returns at once.
+        // These three reach over the network — to a runtime, or to Hugging
+        // Face, or by SSH to another machine — so they are answered on their
+        // own task rather than in this loop.
+        //
+        // Awaiting them here serialised every request on the connection: the
+        // panel asks all its machines at once, and each answer still waited
+        // for the one before it, turning a page of parallel questions into a
+        // queue several seconds long. Replies carry their own id, so arriving
+        // out of order is what the protocol already expects.
+        if is_networked(&text) {
+            let home = state.opencli_home.clone();
+            let out = out_tx_for_local.clone();
+            tokio::spawn(async move {
+                let reply = match server::handle(&text, &home).await {
+                    Some(reply) => Some(reply),
+                    None => match hub::handle(&text, &home).await {
+                        Some(reply) => Some(reply),
+                        None => runtime::handle(&text, &home).await,
+                    },
+                };
+                if let Some(reply) = reply {
+                    let _ = out.send(reply).await;
+                }
+            });
             continue;
         }
         if stdin.write_all(text.as_bytes()).await.is_err() {
@@ -405,3 +430,35 @@ mod tests {
         assert!(!is_loopback(&"192.168.1.5".parse().expect("addr")));
     }
 }
+
+#[cfg(test)]
+mod dispatch_tests {
+    use super::is_networked;
+
+    #[test]
+    fn should_answer_networked_methods_off_the_read_loop() {
+        // These reach a runtime, a hub, or another machine. Awaiting them in
+        // the loop made every request on the connection wait for the one
+        // before it.
+        assert!(is_networked(r#"{"method":"runtime/models","id":1}"#));
+        assert!(is_networked(r#"{"method":"hub/variants","id":1}"#));
+        assert!(is_networked(r#"{"method":"server/diagnose","id":1}"#));
+    }
+
+    #[test]
+    fn should_leave_the_agents_own_methods_in_order() {
+        // A turn must reach stdin in the order it was sent.
+        assert!(!is_networked(r#"{"method":"turn/start","id":1}"#));
+        assert!(!is_networked(r#"{"method":"thread/start","id":1}"#));
+        assert!(!is_networked(r#"{"method":"memory/list","id":1}"#));
+    }
+
+    #[test]
+    fn should_treat_anything_unreadable_as_the_agents() {
+        // Relaying is the safe default: a message this cannot parse is not one
+        // it can answer either.
+        assert!(!is_networked("not json"));
+        assert!(!is_networked(r#"{"id":1}"#));
+    }
+}
+

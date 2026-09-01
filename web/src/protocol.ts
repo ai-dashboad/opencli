@@ -700,9 +700,14 @@ export class OpenCliClient {
   /**
    * Send a user message and begin a turn.
    *
-   * Reasoning effort is a turn option rather than a thread one, so it is
-   * passed here — changing it takes effect on the next message rather than
-   * needing a new chat.
+   * Effort, summary and model are turn options rather than thread ones, so
+   * they are passed here — changing one takes effect on the next message
+   * rather than needing a new chat.
+   *
+   * The model was previously sent only on `thread/start`, which made the
+   * picker decorative once a conversation had begun: choosing a different one
+   * changed the label and nothing else. The server accepts it per turn and
+   * applies it to this turn and the ones after.
    */
   async send(
     text: string,
@@ -711,6 +716,7 @@ export class OpenCliClient {
       attachments?: Attachment[];
       /** `auto` asks for a reasoning summary; `none` does not. */
       summary?: "auto" | "none";
+      model?: string;
     } = {},
   ): Promise<void> {
     if (!this.#threadId) throw new Error("no thread open");
@@ -743,6 +749,7 @@ export class OpenCliClient {
       input,
       ...(options.effort ? { effort: options.effort } : {}),
       ...(options.summary ? { summary: options.summary } : {}),
+      ...(options.model ? { model: options.model } : {}),
     });
   }
 
@@ -1156,6 +1163,20 @@ export class OpenCliClient {
    * `[[models]]` entry as well. Without this a one-click install is one click
    * and then a text editor.
    */
+  /**
+   * Which of a machine's models the chat picker already offers.
+   *
+   * Installing puts a file on a machine; the picker offers what config.toml
+   * names. Showing seven installed while the picker holds two, with nothing
+   * saying why, reads as a broken picker.
+   */
+  async registeredModels(baseUrl: string): Promise<string[]> {
+    const result = (await this.request("runtime/registered", { baseUrl })) as {
+      data?: unknown[];
+    };
+    return (result.data ?? []).map(String);
+  }
+
   async registerModel(baseUrl: string, model: string): Promise<{ added: boolean }> {
     return (await this.request("runtime/register", { baseUrl, model })) as { added: boolean };
   }

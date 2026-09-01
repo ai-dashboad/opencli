@@ -34,6 +34,7 @@ pub async fn handle(raw: &str, opencli_home: &std::path::Path) -> Option<String>
         "runtime/discover" => Ok(discover().await),
         "runtime/models" => models(&params).await,
         "runtime/show" => show(&params).await,
+        "runtime/registered" => registered(opencli_home, &params),
         "runtime/delete" => delete(&params, opencli_home).await,
         "runtime/register" => register_model(&params, opencli_home).await,
         _ => Err(format!("unknown method `{method}`")),
@@ -358,6 +359,49 @@ async fn delete(params: &Value, opencli_home: &std::path::Path) -> Result<Value,
     Ok(json!({ "removed": model, "unregistered": unregistered }))
 }
 
+/// Which of a machine's models are already offered in the chat picker.
+///
+/// Installing a model puts a file on a machine; the picker only offers what
+/// `config.toml` names. Without this the panel could show seven models while
+/// the picker offered two, with nothing on screen explaining the difference —
+/// which reads as the picker being broken rather than as a step not yet taken.
+///
+/// The provider id is derived here rather than in the client so the rule for
+/// turning an address into a provider lives in exactly one place.
+fn registered(opencli_home: &std::path::Path, params: &Value) -> Result<Value, String> {
+    let base_url = params
+        .get("baseUrl")
+        .and_then(Value::as_str)
+        .ok_or("baseUrl is required")?;
+    let provider = crate::register::provider_id(base_url);
+
+    let path = opencli_home.join("config.toml");
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return Ok(json!({ "data": [] }));
+    };
+    let Ok(document) = text.parse::<toml_edit::DocumentMut>() else {
+        // A config this cannot read is one the panel should be quiet about,
+        // not one it should claim has nothing registered as a fact.
+        return Ok(json!({ "data": [], "unreadable": true }));
+    };
+
+    let names: Vec<&str> = document
+        .get("models")
+        .and_then(|models| models.as_array_of_tables())
+        .map(|models| {
+            models
+                .iter()
+                .filter(|entry| {
+                    entry.get("provider").and_then(|value| value.as_str()) == Some(&provider)
+                })
+                .filter_map(|entry| entry.get("model").and_then(|value| value.as_str()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(json!({ "data": names }))
+}
+
 /// Install a model, reporting as it goes.
 ///
 /// Answers the request immediately and pushes `runtime/pull/progress`
@@ -539,6 +583,53 @@ impl WithoutUrlNoise for reqwest::Error {
 
 #[cfg(test)]
 mod tests {
+
+    /// Ask a method and read the reply, as the tests below all do.
+    async fn call_in(raw: &str, home: &std::path::Path) -> Value {
+        let reply = handle(raw, home).await.expect("runtime methods are handled locally");
+        serde_json::from_str(&reply).expect("valid JSON reply")
+    }
+
+    #[tokio::test]
+    async fn should_say_which_models_the_picker_already_offers() {
+        // Seven installed and two offered, with nothing explaining the gap,
+        // reads as a broken picker rather than a step not yet taken.
+        let dir = tempfile::tempdir().expect("tempdir");
+        crate::register::register(dir.path(), "http://localhost:11434", "qwen2.5:3b", None, None)
+            .expect("register");
+
+        let reply = call_in(
+            r#"{"method":"runtime/registered","id":1,"params":{"baseUrl":"http://localhost:11434"}}"#,
+            dir.path(),
+        )
+        .await;
+        assert_eq!(reply["result"]["data"][0], "qwen2.5:3b");
+    }
+
+    #[tokio::test]
+    async fn should_not_credit_one_machine_with_another_machines_models() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        crate::register::register(dir.path(), "http://localhost:11434", "qwen2.5:3b", None, None)
+            .expect("register");
+
+        let reply = call_in(
+            r#"{"method":"runtime/registered","id":1,"params":{"baseUrl":"https://elsewhere.example"}}"#,
+            dir.path(),
+        )
+        .await;
+        assert_eq!(reply["result"]["data"].as_array().expect("a list").len(), 0);
+    }
+
+    #[tokio::test]
+    async fn should_report_nothing_registered_when_there_is_no_config_yet() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let reply = call_in(
+            r#"{"method":"runtime/registered","id":1,"params":{"baseUrl":"http://localhost:11434"}}"#,
+            dir.path(),
+        )
+        .await;
+        assert_eq!(reply["result"]["data"].as_array().expect("a list").len(), 0);
+    }
     use super::*;
 
     #[tokio::test]

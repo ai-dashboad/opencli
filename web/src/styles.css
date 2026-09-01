@@ -2030,3 +2030,21 @@ textarea:focus {
   margin-top: 4px;
   padding: 0;
 }
+
+/*
+ * What just happened to a row.
+ *
+ * Beside the thing it happened to, not at the top of the panel: with several
+ * models on screen the notice up there is off screen, and a click that says
+ * nothing where you clicked reads as a button that does not work.
+ */
+.rows li .done {
+  color: var(--accent);
+  font-size: 12.5px;
+}
+
+/* A row that is installed but not yet selectable in a chat. */
+.rows li .muted-note {
+  color: var(--text-faint);
+  font-size: 12.5px;
+}

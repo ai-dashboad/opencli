@@ -1764,6 +1764,18 @@ export function ModelsView({
   const [searching, setSearching] = useState(false);
   const [installing, setInstalling] = useState<Offer | null>(null);
   const [targets, setTargets] = useState<InstallTarget[]>([]);
+  const [targetsLoading, setTargetsLoading] = useState(true);
+  /**
+   * What is happening to a given row, keyed by machine and model.
+   *
+   * Registering takes a moment and removing takes seconds against a remote
+   * machine. Without this the buttons sat silent for that whole time and read
+   * as dead — which is what they were reported as.
+   */
+  const [working, setWorking] = useState<Record<string, string>>({});
+  const [said, setSaid] = useState<Record<string, string>>({});
+  /** Model names the chat picker already offers, per machine. */
+  const [inPicker, setInPicker] = useState<Record<string, string[]>>({});
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -1775,11 +1787,26 @@ export function ModelsView({
       setInstalled(rows);
       setDiscovered(here);
       setError(null);
+
+      // Which of these the chat picker offers. Asked per machine because the
+      // provider a model belongs to is derived from its address.
+      const machines = [...new Set(rows.map((row) => row.baseUrl))];
+      void Promise.all(
+        machines.map(async (baseUrl) => [
+          baseUrl,
+          await client.registeredModels(baseUrl).catch(() => [] as string[]),
+        ]),
+      ).then((pairs) => setInPicker(Object.fromEntries(pairs as [string, string[]][])));
       // Gathered while the user browses rather than when Install is pressed,
       // so the dialog opens on data already in hand instead of on a round trip
       // to every machine. Refreshed here too, so "already installed there"
       // stays true after an install or a removal.
-      void client.installTargets().then(setTargets).catch(() => setTargets([]));
+      setTargetsLoading(true);
+      void client
+        .installTargets()
+        .then(setTargets)
+        .catch(() => setTargets([]))
+        .finally(() => setTargetsLoading(false));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -1963,8 +1990,12 @@ export function ModelsView({
             </p>
           ) : null}
           <ul className="rows">
-            {installed.map((row) => (
-              <li key={`${row.baseUrl}:${row.model.name}`}>
+            {installed.map((row) => {
+              const key = `${row.baseUrl}:${row.model.name}`;
+              const busy = working[key];
+              const usable = (inPicker[row.baseUrl] ?? []).includes(row.model.name);
+              return (
+              <li key={key}>
                 <strong>{row.model.name}</strong>
                 <span>
                   <span className="chip-plain">{row.server}</span>
@@ -1983,40 +2014,91 @@ export function ModelsView({
                       : "Does not call tools — of little use for agent work here"}
                   </span>
                 ) : null}
+                {said[key] ? (
+                  <span className="done">{said[key]}</span>
+                ) : usable ? (
+                  <span className="done">In the chat model picker</span>
+                ) : (
+                  <span className="muted-note">
+                    Not in the chat picker yet — installed here, but chats cannot select it.
+                  </span>
+                )}
                 <div className="actions">
                   <button
                     className="secondary"
                     title="Add it to the model picker"
+                    disabled={!!busy || usable}
                     onClick={() => {
+                      setWorking((prev) => ({ ...prev, [key]: "adding" }));
                       void client
                         .registerModel(row.baseUrl, row.model.name)
                         .then((result) => {
                           setError(null);
                           if (result.added) setNeedsReload(true);
+                          // Said here rather than only at the top of the panel:
+                          // with several models on screen the notice up there
+                          // is off-screen, so the click looked ignored.
+                          setSaid((prev) => ({
+                            ...prev,
+                            [key]: result.added
+                              ? "Added to the picker — start a new chat to use it."
+                              : "Already in the picker.",
+                          }));
+                          setInPicker((prev) => ({
+                            ...prev,
+                            [row.baseUrl]: [...(prev[row.baseUrl] ?? []), row.model.name],
+                          }));
                         })
                         .catch((err: unknown) =>
                           setError(err instanceof Error ? err.message : String(err)),
+                        )
+                        .finally(() =>
+                          setWorking((prev) => {
+                            const next = { ...prev };
+                            delete next[key];
+                            return next;
+                          }),
                         );
                     }}
                   >
-                    Use in chats
+                    {busy === "adding" ? "Adding…" : usable ? "Already usable" : "Use in chats"}
                   </button>
                   <button
                     className="secondary"
+                    disabled={!!busy}
                     onClick={() => {
+                      setWorking((prev) => ({ ...prev, [key]: "removing" }));
                       void client
                         .deleteModel(row.baseUrl, row.model.name)
-                        .then(reload)
-                        .catch((err: unknown) =>
-                          setError(err instanceof Error ? err.message : String(err)),
-                        );
+                        .then(() => {
+                          // Dropped here rather than waiting on a fresh look at
+                          // every machine, which takes seconds. The reload runs
+                          // behind it to catch anything else that changed.
+                          setInstalled((prev) =>
+                            prev.filter(
+                              (other) =>
+                                other.baseUrl !== row.baseUrl ||
+                                other.model.name !== row.model.name,
+                            ),
+                          );
+                          void reload();
+                        })
+                        .catch((err: unknown) => {
+                          setError(err instanceof Error ? err.message : String(err));
+                          setWorking((prev) => {
+                            const next = { ...prev };
+                            delete next[key];
+                            return next;
+                          });
+                        });
                     }}
                   >
-                    Remove
+                    {busy === "removing" ? "Removing…" : "Remove"}
                   </button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </>
       ) : (
@@ -2106,6 +2188,7 @@ export function ModelsView({
         client={client}
         offer={installing}
         targets={targets}
+        targetsLoading={targetsLoading}
         onClose={() => setInstalling(null)}
         onInstall={(baseUrl, tag) => {
           onPull(baseUrl, tag);
@@ -2224,6 +2307,7 @@ function InstallDialog({
   client,
   offer,
   targets,
+  targetsLoading,
   onClose,
   onInstall,
 }: {
@@ -2231,6 +2315,8 @@ function InstallDialog({
   offer: Offer | null;
   /** Loaded by the panel while browsing, so this opens without a round trip. */
   targets: InstallTarget[];
+  /** Still being gathered, which is a different thing from none existing. */
+  targetsLoading: boolean;
   onClose: () => void;
   onInstall: (baseUrl: string, tag: string) => void;
 }) {
@@ -2309,10 +2395,10 @@ function InstallDialog({
           </button>
           <button
             className="filled"
-            disabled={!chosen || !tag || already}
+            disabled={!chosen || !tag || already || targetsLoading}
             onClick={() => onInstall(chosen, tag)}
           >
-            {already ? "Already there" : "Install"}
+            {targetsLoading ? "Looking…" : already ? "Already there" : "Install"}
           </button>
         </>
       }
@@ -2323,7 +2409,9 @@ function InstallDialog({
         Which machine?
         {targets.length === 0 ? (
           <span className="field-note">
-            No machine found. Open Machines… to add one, or install Ollama on this computer.
+            {targetsLoading
+              ? "Looking for machines…"
+              : "No machine found. Open Machines… to add one, or install Ollama on this computer."}
           </span>
         ) : null}
         <select value={chosen} onChange={(e) => setChosen(e.target.value)}>
