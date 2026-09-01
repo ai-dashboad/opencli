@@ -699,16 +699,31 @@ textarea:focus {
 }
 
 /*
- * The children are capped, not the track.
+ * The panel takes the whole width; the cap belongs to the content.
  *
- * A track with a fixed maximum does not shrink to a narrower container, so
- * `minmax(0, 1040px)` overflowed the panel's own right padding and the cards
- * ran off the edge of the window. A full-width track with capped children
- * left-aligns and still leaves the padding intact.
+ * One number could not serve every panel: 1040px was too wide for a
+ * paragraph and too narrow for a diff, and on a 1920 display it left 560px
+ * of nothing. So each kind of content states its own limit — prose gets a
+ * readable measure, card lists reflow into columns, and wide content keeps
+ * the room it needs.
  */
 .panel > * {
   min-width: 0;
-  max-width: 1040px;
+}
+
+/*
+ * Prose stops at a readable measure.
+ *
+ * A line of text 1600px long is measurably harder to read than one of about
+ * seventy characters: the eye loses its place returning to the next line.
+ * This is the one place a fixed limit is right, because it follows the
+ * reader rather than the window.
+ */
+.panel > p,
+.panel > .hint,
+.panel > .notice,
+.panel > .error {
+  max-width: 68ch;
 }
 
 .panel h2 {
@@ -730,13 +745,44 @@ textarea:focus {
   font-size: 13px;
 }
 
+/*
+ * A card list, in as many columns as fit.
+ *
+ * `auto-fill` rather than a column count: the number follows the width, so a
+ * laptop gets two columns and a 1920 display three, without either being
+ * named. 420px was chosen against the longest thing a card holds — a model
+ * tag like `huihui-qwen3.8-27b:latest` above a line of size, memory and
+ * context — which at 360px filled the card edge to edge.
+ *
+ * The same pattern `.cards` already used — the difference was that `.rows`
+ * was a single column whatever the room, which is what left a wide display
+ * mostly empty.
+ */
 .rows {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
   gap: 8px;
+}
+
+/*
+ * Lists whose rows are not cards: a diff, a run's output, a remembered
+ * paragraph. Splitting those into columns would halve the width of the one
+ * thing in them that needs width.
+ */
+.rows.wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rows.wide > li {
+  max-width: 1040px;
+}
+
+/* An empty state is a sentence about the list, not one card in it. */
+.rows li.muted {
+  grid-column: 1 / -1;
 }
 
 .rows li {
@@ -2069,4 +2115,20 @@ textarea:focus {
 .rows li .muted-note {
   color: var(--text-faint);
   font-size: 12.5px;
+}
+
+
+/*
+ * Grid items stretch to their row's height by default, so cards beside each
+ * other are equally tall; their actions are pushed to the bottom so they line
+ * up rather than sitting at three different heights.
+ */
+.rows:not(.wide) li > .actions {
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+/* A dialog is narrower than one card's minimum, so its lists stay a column. */
+.dialog .rows {
+  grid-template-columns: minmax(0, 1fr);
 }

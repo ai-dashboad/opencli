@@ -948,7 +948,7 @@ export function ArtifactsView({ changes }: { changes: FileChange[] }) {
         Files the agent wrote in this session. The changes are already on disk — this is here so
         you can check them without leaving.
       </p>
-      <ul className="rows">
+      <ul className="rows wide">
         {rows.length === 0 ? <li className="muted">Nothing written yet.</li> : null}
         {rows.map((change) => (
           <li key={change.path}>
@@ -1043,7 +1043,7 @@ export function MemoryView({
         </button>
       </div>
 
-      <ul className="rows">
+      <ul className="rows wide">
         {memories.length === 0 ? <li className="muted">Nothing remembered yet.</li> : null}
         {memories.map((memory) => (
           <li key={memory.id}>
@@ -1360,7 +1360,7 @@ export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cw
       </div>
 
       <h3>Active</h3>
-      <ul className="rows">
+      <ul className="rows wide">
         {active.length === 0 ? <li className="muted">Nothing running.</li> : null}
         {active.map((run) => (
           <RunRow
@@ -1380,7 +1380,7 @@ export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cw
           </button>
         ) : null}
       </h3>
-      <ul className="rows">
+      <ul className="rows wide">
         {past.length === 0 ? <li className="muted">Nothing has run yet.</li> : null}
         {past.map((run) => (
           <RunRow

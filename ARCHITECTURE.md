@@ -313,6 +313,33 @@ loop: a turn must reach stdin in the order it was sent.
 
 ---
 
+## Width belongs to the content, not to the panel
+
+Panels were once a fixed column centred beside the sidebar, then a fixed
+column left-aligned. Both were the same mistake with a different number: one
+figure cannot serve a paragraph, a card and a diff at the same time. At
+1040px a remembered note was wider than is comfortable to read, a model card
+was wider than it needed, and on a 1920 display 560px sat empty.
+
+Each kind of content now states its own limit:
+
+| Content | Limit | Why |
+| --- | --- | --- |
+| Prose | `68ch` | A line of 1600px is measurably harder to read; the eye loses its place returning |
+| Card lists | `repeat(auto-fill, minmax(420px, 1fr))` | As many columns as fit — two at 1200px, three at 1900, four at 2560 |
+| Diffs, run output, notes | one column, `1040px` | Splitting these would halve the width of the one thing in them that needs it |
+
+`auto-fill` rather than a column count, so the number follows the window and
+no display size is ever named. 420px was measured against the longest thing a
+card holds — a tag like `huihui-qwen3.8-27b:latest` above a line of size,
+memory and context — which at 360px filled the card edge to edge.
+
+The chat keeps its centred 780px: `.thread` and `.composer` share it so the
+messages and the box beneath them line up, and a paragraph wants that measure
+anyway.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks
