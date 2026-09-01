@@ -44,7 +44,13 @@ export interface ThreadItem {
 
 export interface ClientEvents {
   onItem?: (item: ThreadItem) => void;
-  /** A message being written, sent again each time it grows. */
+  /**
+   * A message being written, sent again each time it grows.
+   *
+   * Covers the agent's answer and its thinking alike: a reasoning model can
+   * think for minutes before writing a word, and that whole time it is the
+   * only thing there is to show.
+   */
   onItemDelta?: (item: ThreadItem) => void;
   onTurnComplete?: () => void;
   onError?: (message: string) => void;
@@ -699,13 +705,21 @@ export class OpenCliClient {
      * that reads as a pause; on a local one it is minutes of a spinner with
      * nothing to show for it, which is indistinguishable from a hang.
      */
-    if (method === "item/agentMessage/delta") {
+    if (method === "item/agentMessage/delta" || method === "item/reasoning/textDelta") {
       const itemId = payload.itemId as string | undefined;
       const delta = payload.delta as string | undefined;
+      // An empty delta is not nothing happening — a reasoning model sends
+      // `content: ""` alongside every thought — but there is nothing to add.
       if (itemId && delta) {
         const grown = (this.#streaming.get(itemId) ?? "") + delta;
         this.#streaming.set(itemId, grown);
-        this.#events.onItemDelta?.({ id: itemId, kind: "agent", text: grown });
+        this.#events.onItemDelta?.({
+          id: itemId,
+          // Thinking is shown differently from an answer, and can be turned
+          // off; without this the two would be indistinguishable.
+          kind: method === "item/reasoning/textDelta" ? "reasoning" : "agent",
+          text: grown,
+        });
       }
       return;
     }

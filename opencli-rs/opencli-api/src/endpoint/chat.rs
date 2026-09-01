@@ -94,8 +94,14 @@ impl<T: HttpTransport, A: AuthProvider> ChatClient<T, A> {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
+/// What to do with the model's *thinking* as it arrives.
+///
+/// The answer itself is always streamed; only reasoning is at stake here.
 pub enum AggregateMode {
+    /// Keep the thinking to itself, and report only the finished answer
+    /// alongside the streamed text.
     AggregatedOnly,
+    /// Pass the thinking on as well, for a caller that shows it.
     Streaming,
 }
 
@@ -220,11 +226,15 @@ impl Stream for AggregatedStream {
                 }
                 Poll::Ready(Some(Ok(ResponseEvent::OutputTextDelta(delta)))) => {
                     this.cumulative.push_str(&delta);
-                    if matches!(this.mode, AggregateMode::Streaming) {
-                        return Poll::Ready(Some(Ok(ResponseEvent::OutputTextDelta(delta))));
-                    } else {
-                        continue;
-                    }
+                    // The answer is always passed on, in both modes.
+                    //
+                    // Withholding it was the difference between a reply that
+                    // appears a word at a time and one that appears all at
+                    // once after minutes of nothing — and it was decided by a
+                    // flag about whether to show the model's *thinking*, which
+                    // is a different question entirely. Every local model
+                    // speaks this wire, so every local model was affected.
+                    return Poll::Ready(Some(Ok(ResponseEvent::OutputTextDelta(delta))));
                 }
                 Poll::Ready(Some(Ok(ResponseEvent::ReasoningContentDelta {
                     delta,
@@ -277,5 +287,80 @@ impl AggregatedStream {
             pending: VecDeque::new(),
             mode,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::StreamExt;
+
+    /// Feed a fixed set of events through the adapter and collect what came out.
+    async fn through(mode: AggregateMode, events: Vec<ResponseEvent>) -> Vec<ResponseEvent> {
+        let (tx, rx_event) = tokio::sync::mpsc::channel(16);
+        for event in events {
+            tx.send(Ok(event)).await.expect("queue an event");
+        }
+        drop(tx);
+
+        let mut stream = AggregatedStream::new(ResponseStream { rx_event }, mode);
+        let mut out = Vec::new();
+        while let Some(event) = stream.next().await {
+            out.push(event.expect("no error"));
+        }
+        out
+    }
+
+    #[tokio::test]
+    async fn should_stream_the_answer_whether_or_not_thinking_is_shown() {
+        // A flag about showing the model's *thinking* was deciding whether the
+        // answer arrived a word at a time or all at once after minutes of
+        // nothing. Every local model speaks this wire, so every local model
+        // was affected.
+        for mode in [AggregateMode::AggregatedOnly, AggregateMode::Streaming] {
+            let out = through(
+                mode,
+                vec![
+                    ResponseEvent::OutputTextDelta("Hello".into()),
+                    ResponseEvent::OutputTextDelta(" there".into()),
+                ],
+            )
+            .await;
+
+            let streamed: Vec<&str> = out
+                .iter()
+                .filter_map(|event| match event {
+                    ResponseEvent::OutputTextDelta(delta) => Some(delta.as_str()),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(streamed, vec!["Hello", " there"]);
+        }
+    }
+
+    #[tokio::test]
+    async fn should_keep_thinking_to_itself_unless_it_was_asked_for() {
+        let count = |out: &[ResponseEvent]| {
+            out.iter()
+                .filter(|event| matches!(event, ResponseEvent::ReasoningContentDelta { .. }))
+                .count()
+        };
+        let thinking = || {
+            vec![ResponseEvent::ReasoningContentDelta {
+                delta: "thinking".into(),
+                content_index: 0,
+            }]
+        };
+
+        assert_eq!(
+            count(&through(AggregateMode::AggregatedOnly, thinking()).await),
+            0,
+            "hidden when it was not asked for"
+        );
+        assert_eq!(
+            count(&through(AggregateMode::Streaming, thinking()).await),
+            1,
+            "passed on when it was"
+        );
     }
 }

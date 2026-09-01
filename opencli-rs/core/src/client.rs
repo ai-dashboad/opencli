@@ -261,8 +261,9 @@ impl ModelClientSession {
     /// Streams a single model turn using either the Responses or Chat
     /// Completions wire API, depending on the configured provider.
     ///
-    /// For Chat providers, the underlying stream is optionally aggregated
-    /// based on the `show_raw_agent_reasoning` flag in the config.
+    /// For Chat providers the answer is always streamed; the
+    /// `show_raw_agent_reasoning` flag decides only whether the model's
+    /// thinking is passed on with it.
     pub async fn stream(&mut self, prompt: &Prompt) -> Result<ResponseStream> {
         let wire_api = self.state.provider.wire_api;
         match wire_api {

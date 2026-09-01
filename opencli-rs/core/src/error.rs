@@ -214,9 +214,11 @@ impl OpenCLIErr {
             | OpenCLIErr::SessionConfiguredNotFirstEvent
             | OpenCLIErr::UsageLimitReached(_)
             | OpenCLIErr::ModelCap(_) => false,
+            // A proxy timing out is not worth sending again: the same
+            // request takes the same time and fails the same way.
+            OpenCLIErr::UnexpectedStatus(error) => error.is_worth_retrying(),
             OpenCLIErr::Stream(..)
             | OpenCLIErr::Timeout
-            | OpenCLIErr::UnexpectedStatus(_)
             | OpenCLIErr::ResponseStreamFailed(_)
             | OpenCLIErr::ConnectionFailed(_)
             | OpenCLIErr::InternalServerError
@@ -296,8 +298,36 @@ pub struct UnexpectedResponseError {
 const CLOUDFLARE_BLOCKED_MESSAGE: &str =
     "Access blocked by Cloudflare. This usually happens when connecting from a restricted region";
 
+/// Statuses that mean "the server took too long", not "something went wrong".
+///
+/// A proxy in front of the model gives up after a fixed time — Cloudflare's
+/// 524 at about two minutes is the one met in practice. Sending the identical
+/// request again takes exactly as long and fails exactly the same way, so
+/// eight retries is eight guaranteed failures and a quarter of an hour of a
+/// spinner. Measured against a real tunnel: 524 after 127s every time, while
+/// the same request over an SSH tunnel to the same machine returned 200 after
+/// 232s.
+const GATEWAY_TIMEOUT_STATUSES: &[u16] = &[
+    504, // Gateway Timeout
+    522, // Cloudflare: connection timed out
+    524, // Cloudflare: origin did not reply in time
+];
+
+const GATEWAY_TIMEOUT_MESSAGE: &str = "The server in front of the model gave up waiting for it. \
+The model is most likely still working but is too slow to answer within that limit — a large \
+prompt on a machine without a free GPU is the usual cause. Retrying sends the same request and \
+waits the same time, so it is not retried.";
+
 impl UnexpectedResponseError {
+    /// Whether sending the identical request again could plausibly work.
+    pub fn is_worth_retrying(&self) -> bool {
+        !GATEWAY_TIMEOUT_STATUSES.contains(&self.status.as_u16())
+    }
+
     fn friendly_message(&self) -> Option<String> {
+        if !self.is_worth_retrying() {
+            return Some(self.with_context(GATEWAY_TIMEOUT_MESSAGE.to_string()));
+        }
         if self.status == StatusCode::FORBIDDEN
             && self.body.contains("Cloudflare")
             && self.body.contains("blocked")
@@ -650,6 +680,51 @@ pub fn get_error_message_ui(e: &OpenCLIErr) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn should_not_resend_a_request_a_proxy_already_gave_up_on() {
+        // Measured against a real tunnel: 524 after 127 seconds every time,
+        // while the same request over SSH to the same machine returned 200
+        // after 232. Eight retries is eight guaranteed failures.
+        for status in [504u16, 522, 524] {
+            let error = UnexpectedResponseError {
+                status: StatusCode::from_u16(status).expect("a real status"),
+                body: String::new(),
+                url: None,
+                request_id: None,
+            };
+            assert!(!error.is_worth_retrying(), "{status} should not be retried");
+            assert!(!OpenCLIErr::UnexpectedStatus(error).is_retryable());
+        }
+    }
+
+    #[test]
+    fn should_still_retry_a_status_that_might_succeed_next_time() {
+        // A gateway that is briefly unwell is worth another attempt; one that
+        // timed out is not.
+        for status in [500u16, 502, 503, 429] {
+            let error = UnexpectedResponseError {
+                status: StatusCode::from_u16(status).expect("a real status"),
+                body: String::new(),
+                url: None,
+                request_id: None,
+            };
+            assert!(error.is_worth_retrying(), "{status} should be retried");
+        }
+    }
+
+    #[test]
+    fn should_explain_a_timeout_rather_than_show_its_number() {
+        let error = UnexpectedResponseError {
+            status: StatusCode::from_u16(524).expect("a real status"),
+            body: "error code: 524".to_string(),
+            url: Some("https://llm.example/v1/chat/completions".to_string()),
+            request_id: None,
+        };
+        let message = OpenCLIErr::UnexpectedStatus(error).to_string();
+        assert!(message.contains("gave up waiting"), "got: {message}");
+        assert!(message.contains("not retried"), "got: {message}");
+    }
     use super::*;
     use crate::exec::StreamOutput;
     use chrono::DateTime;

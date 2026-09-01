@@ -437,7 +437,10 @@ export default function App() {
           }
         },
         onItemDelta: (item) => {
+          // Thinking can be turned off, but it still counts as progress: the
+          // working line says something is happening even when it is hidden.
           setStreamed(item.text.length);
+          if (item.kind === "reasoning" && preferencesRef.current.showThinking === false) return;
           setItems((prev) => {
             const at = prev.findIndex((other) => other.id === item.id);
             if (at === -1) return [...prev, item];

@@ -375,6 +375,43 @@ reply can take minutes, and a spinner that says only "Working…" cannot be
 told apart from one that has hung — which is exactly how the fault below was
 first reported.
 
+### Streaming was off for every local model
+
+A reply arriving in one lump after minutes of a spinner turned out to be four
+faults stacked, each of which looked deliberate:
+
+1. **One flag did two jobs.** `client.rs` chose `aggregate()` over
+   `streaming_mode()` for the Chat wire whenever `show_raw_agent_reasoning`
+   was false — and `AggregateMode::AggregatedOnly` swallows the *answer*
+   deltas as well as the thinking. Whether to show a model's reasoning and
+   whether the answer arrives a word at a time are different questions; every
+   local model speaks Chat, so every local model had streaming off by default.
+   The answer now always streams; the flag governs only the thinking.
+2. **The client never listened.** It handled `item/started` and
+   `item/completed` and nothing between them.
+3. **Thinking is a separate event.** Ollama streams a reasoning model's
+   thoughts as `delta.reasoning` while `delta.content` stays `""`. Those
+   arrive as `item/reasoning/textDelta`, which is now shown — and can be
+   hidden — separately from the answer.
+4. **An empty delta is not an update.** Every reasoning chunk carries
+   `content: ""`; treating that as text would blank the message each time.
+
+### A proxy in front of the model has its own clock
+
+The turn also could not finish, for two reasons that compounded:
+
+- **Our own idle timeout was 90 seconds**, on the reasoning that a stream
+  silent that long is wedged. It is not: nothing arrives at all while a model
+  reads the prompt, and an 11,700-token agent prompt on a CPU takes about
+  three minutes. Silence before the first event now gets four times the
+  allowance of a gap during one.
+- **Cloudflare gives up at about 127 seconds** and answers 524. Measured both
+  ways: the identical request returned 524 after 127s through the tunnel and
+  200 after 232s through an SSH tunnel to the same machine. Retrying sends the
+  same request and waits the same time, so gateway timeouts (504, 522, 524)
+  are no longer retried — eight attempts was a quarter of an hour of
+  guaranteed failure.
+
 ### Slowness is usually not the harness
 
 A 27B model answering at 1.6 tokens per second turned out to be a GPU that

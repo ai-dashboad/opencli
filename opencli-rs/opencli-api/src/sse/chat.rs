@@ -21,6 +21,14 @@ use tokio::time::timeout;
 use tracing::debug;
 use tracing::trace;
 
+/// How much longer a stream may take to say anything at all.
+///
+/// Multiplied against the provider's configured idle timeout rather than being
+/// a figure of its own, so raising `stream_idle_timeout_ms` for a slow machine
+/// still raises both together. At the 90 second default this allows six
+/// minutes to read a prompt, which covers a 24,000-token one on a CPU.
+const FIRST_EVENT_TIMEOUT_FACTOR: u32 = 4;
+
 pub(crate) fn spawn_chat_stream(
     stream_response: StreamResponse,
     idle_timeout: Duration,
@@ -58,6 +66,18 @@ pub async fn process_chat_sse<S>(
     S: Stream<Item = Result<bytes::Bytes, opencli_client::TransportError>> + Unpin,
 {
     let mut stream = stream.eventsource();
+
+    // Nothing arrives at all while the model reads the prompt, and on a local
+    // one that legitimately takes minutes: a 12,000-token agent prompt at the
+    // 68 tokens per second a CPU manages is nearly three of them. Judging that
+    // by the same rule as a gap *during* a reply cancelled the request and
+    // retried it, which re-read the whole prompt from the start — a turn that
+    // could never finish however long it was left.
+    //
+    // A silence before the first event and a silence in the middle of one mean
+    // different things, so they are allowed different lengths.
+    let first_event_timeout = idle_timeout * FIRST_EVENT_TIMEOUT_FACTOR;
+    let mut seen_anything = false;
 
     #[derive(Default, Debug)]
     struct ToolCallState {
@@ -108,7 +128,15 @@ pub async fn process_chat_sse<S>(
 
     loop {
         let start = Instant::now();
-        let response = timeout(idle_timeout, stream.next()).await;
+        let response = timeout(
+            if seen_anything {
+                idle_timeout
+            } else {
+                first_event_timeout
+            },
+            stream.next(),
+        )
+        .await;
         if let Some(t) = telemetry.as_ref() {
             t.on_sse_poll(&response, start.elapsed());
         }
@@ -129,13 +157,20 @@ pub async fn process_chat_sse<S>(
                 return;
             }
             Err(_) => {
-                let _ = tx_event
-                    .send(Err(ApiError::Stream("idle timeout waiting for SSE".into())))
-                    .await;
+                // Say which silence it was. "Nothing for six minutes before it
+                // started" and "it stopped halfway" have different causes and
+                // different answers.
+                let message = if seen_anything {
+                    "the reply stopped part-way through"
+                } else {
+                    "the model sent nothing at all — it may still be reading a long prompt on a slow machine"
+                };
+                let _ = tx_event.send(Err(ApiError::Stream(message.into()))).await;
                 return;
             }
         };
 
+        seen_anything = true;
         trace!("SSE event: {}", sse.data);
 
         let data = sse.data.trim();
@@ -410,6 +445,48 @@ mod tests {
             body.push_str(&format!("event: message\ndata: {e}\n\n"));
         }
         body
+    }
+
+    #[tokio::test]
+    async fn should_wait_longer_for_a_model_that_has_not_started_yet() {
+        // A local model reading a long prompt sends nothing for minutes. Held
+        // to the same rule as a gap during a reply, the request was cancelled
+        // and retried, which re-read the prompt from the start — a turn that
+        // could never finish.
+        let idle = Duration::from_millis(150);
+        let quiet_for = idle.mul_f32(2.0); // longer than idle, shorter than the first-event allowance
+
+        let (tx, mut rx) = mpsc::channel::<Result<ResponseEvent, ApiError>>(16);
+        let stream = futures::stream::once(async move {
+            tokio::time::sleep(quiet_for).await;
+            Ok(bytes::Bytes::from("event: message\ndata: [DONE]\n\n"))
+        });
+        tokio::spawn(process_chat_sse(Box::pin(stream), tx, idle, None));
+
+        let mut events = Vec::new();
+        while let Some(event) = rx.recv().await {
+            events.push(event.expect("no error while it was still starting"));
+        }
+        assert_matches!(&events[..], [ResponseEvent::Completed { .. }]);
+    }
+
+    #[tokio::test]
+    async fn should_say_which_kind_of_silence_it_gave_up_on() {
+        // "Nothing at all" and "it stopped halfway" have different causes.
+        let idle = Duration::from_millis(80);
+        let (tx, mut rx) = mpsc::channel::<Result<ResponseEvent, ApiError>>(16);
+        let stream = futures::stream::once(async move {
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            Ok(bytes::Bytes::from("unreachable"))
+        });
+        tokio::spawn(process_chat_sse(Box::pin(stream), tx, idle, None));
+
+        let first = rx.recv().await.expect("something is reported");
+        let message = first.expect_err("a timeout is an error").to_string();
+        assert!(
+            message.contains("sent nothing at all"),
+            "should name the silence it saw: {message}"
+        );
     }
 
     #[tokio::test]

@@ -658,6 +658,49 @@ describe("a reply being written", () => {
     expect(seen).toEqual(["Quick", "Quicksort ", "Quicksort divides."]);
   });
 
+  it("should show a model thinking, which is all there is to show at first", async () => {
+    // A reasoning model streams its thinking as `reasoning` while `content`
+    // stays an empty string. Handling only the answer meant minutes of a
+    // blank screen while the model was demonstrably working.
+    const seen: { kind: string; text: string }[] = [];
+    const { socket } = await connected({
+      onItemDelta: (item: ThreadItem) => seen.push({ kind: item.kind, text: item.text }),
+    });
+
+    socket.emit({
+      method: "item/reasoning/textDelta",
+      params: { itemId: "r-1", delta: "We need" },
+    });
+    socket.emit({
+      method: "item/reasoning/textDelta",
+      params: { itemId: "r-1", delta: " to respond." },
+    });
+    socket.emit({
+      method: "item/agentMessage/delta",
+      params: { itemId: "m-1", delta: "ready" },
+    });
+
+    expect(seen).toEqual([
+      { kind: "reasoning", text: "We need" },
+      { kind: "reasoning", text: "We need to respond." },
+      { kind: "agent", text: "ready" },
+    ]);
+  });
+
+  it("should ignore the empty content a thinking model sends alongside", async () => {
+    // Every reasoning chunk carries `content: ""`. Treating that as an update
+    // would replace the message with nothing on every thought.
+    const seen: string[] = [];
+    const { socket } = await connected({
+      onItemDelta: (item: ThreadItem) => seen.push(item.text),
+    });
+
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "m-1", delta: "ok" } });
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "m-1", delta: "" } });
+
+    expect(seen).toEqual(["ok"]);
+  });
+
   it("should keep two replies apart while both are being written", async () => {
     const seen: Record<string, string> = {};
     const { client, socket } = await connected({
