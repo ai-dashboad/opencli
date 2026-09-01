@@ -6,6 +6,7 @@ use opencli_client::StreamResponse;
 use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::ReasoningItemContent;
 use opencli_protocol::models::ResponseItem;
+use opencli_protocol::protocol::TokenUsage;
 use eventsource_stream::Eventsource;
 use futures::Stream;
 use futures::StreamExt;
@@ -73,12 +74,17 @@ pub async fn process_chat_sse<S>(
     let mut last_tool_call_index: Option<usize> = None;
     let mut assistant_item: Option<ResponseItem> = None;
     let mut reasoning_item: Option<ResponseItem> = None;
-    let mut completed_sent = false;
+    // A streaming provider reports what the turn cost in a trailing chunk of
+    // its own, after the one that says the reply is finished. Held here until
+    // the stream ends so it can be reported with the completion rather than
+    // dropped, which is why nothing could say what a turn had cost.
+    let mut token_usage: Option<TokenUsage> = None;
 
     async fn flush_and_complete(
         tx_event: &mpsc::Sender<Result<ResponseEvent, ApiError>>,
         reasoning_item: &mut Option<ResponseItem>,
         assistant_item: &mut Option<ResponseItem>,
+        token_usage: Option<TokenUsage>,
     ) {
         if let Some(reasoning) = reasoning_item.take() {
             let _ = tx_event
@@ -95,7 +101,7 @@ pub async fn process_chat_sse<S>(
         let _ = tx_event
             .send(Ok(ResponseEvent::Completed {
                 response_id: String::new(),
-                token_usage: None,
+                token_usage,
             }))
             .await;
     }
@@ -113,9 +119,13 @@ pub async fn process_chat_sse<S>(
                 return;
             }
             Ok(None) => {
-                if !completed_sent {
-                    flush_and_complete(&tx_event, &mut reasoning_item, &mut assistant_item).await;
-                }
+                flush_and_complete(
+                    &tx_event,
+                    &mut reasoning_item,
+                    &mut assistant_item,
+                    token_usage.take(),
+                )
+                .await;
                 return;
             }
             Err(_) => {
@@ -135,9 +145,13 @@ pub async fn process_chat_sse<S>(
         }
 
         if data == "[DONE]" || data == "DONE" {
-            if !completed_sent {
-                flush_and_complete(&tx_event, &mut reasoning_item, &mut assistant_item).await;
-            }
+            flush_and_complete(
+                &tx_event,
+                &mut reasoning_item,
+                &mut assistant_item,
+                token_usage.take(),
+            )
+            .await;
             return;
         }
 
@@ -151,6 +165,10 @@ pub async fn process_chat_sse<S>(
                 continue;
             }
         };
+
+        if let Some(usage) = value.get("usage").and_then(parse_usage) {
+            token_usage = Some(usage);
+        }
 
         let Some(choices) = value.get("choices").and_then(|c| c.as_array()) else {
             continue;
@@ -269,15 +287,10 @@ pub async fn process_chat_sse<S>(
                         .send(Ok(ResponseEvent::OutputItemDone(assistant)))
                         .await;
                 }
-                if !completed_sent {
-                    let _ = tx_event
-                        .send(Ok(ResponseEvent::Completed {
-                            response_id: String::new(),
-                            token_usage: None,
-                        }))
-                        .await;
-                    completed_sent = true;
-                }
+                // Deliberately not completing here. The chunk reporting what
+                // the turn cost comes *after* this one, so finishing now threw
+                // it away. The stream's end completes instead, which is what
+                // the tool-call path above already relied on.
                 continue;
             }
 
@@ -397,6 +410,89 @@ mod tests {
             body.push_str(&format!("event: message\ndata: {e}\n\n"));
         }
         body
+    }
+
+    #[tokio::test]
+    async fn should_report_what_a_turn_cost() {
+        // The exact three chunks Ollama sends: the reply, then a chunk with no
+        // choices carrying the usage, then the sentinel. The cost arriving
+        // *after* the reply is finished is the whole difficulty — completing
+        // on `finish_reason` threw it away, which is why nothing in the
+        // interface could say what a turn had cost.
+        let body = build_body(&[
+            json!({"choices":[{"delta":{"content":"ready"},"finish_reason":null}]}),
+            json!({"choices":[{"delta":{},"finish_reason":"stop"}]}),
+            json!({"choices":[],"usage":{"prompt_tokens":31,"completion_tokens":46,"total_tokens":77}}),
+        ]) + "event: message\ndata: [DONE]\n\n";
+
+        let events = collect_events(&body).await;
+        let usage = events
+            .iter()
+            .find_map(|event| match event {
+                ResponseEvent::Completed { token_usage, .. } => token_usage.clone(),
+                _ => None,
+            })
+            .expect("the completion carries what the turn cost");
+
+        assert_eq!(usage.input_tokens, 31);
+        assert_eq!(usage.output_tokens, 46);
+        assert_eq!(usage.total_tokens, 77);
+    }
+
+    #[tokio::test]
+    async fn should_complete_exactly_once_when_a_reply_finishes() {
+        // Completing both on `finish_reason` and at the sentinel would report
+        // the turn twice, and the second report would overwrite the first.
+        let body = build_body(&[
+            json!({"choices":[{"delta":{"content":"ready"},"finish_reason":null}]}),
+            json!({"choices":[{"delta":{},"finish_reason":"stop"}]}),
+        ]) + "event: message\ndata: [DONE]\n\n";
+
+        let events = collect_events(&body).await;
+        let completions = events
+            .iter()
+            .filter(|event| matches!(event, ResponseEvent::Completed { .. }))
+            .count();
+        assert_eq!(completions, 1, "got {events:?}");
+    }
+
+    #[tokio::test]
+    async fn should_still_complete_when_a_provider_reports_no_cost() {
+        // Most of the reason to keep this working: a server that does not
+        // understand `stream_options` simply says nothing, and a turn that
+        // cannot be priced must still finish.
+        let body = build_body(&[
+            json!({"choices":[{"delta":{"content":"ready"},"finish_reason":"stop"}]}),
+        ]) + "event: message\ndata: [DONE]\n\n";
+
+        let events = collect_events(&body).await;
+        assert_matches!(
+            events.last(),
+            Some(ResponseEvent::Completed { token_usage: None, .. })
+        );
+    }
+
+    #[test]
+    fn should_read_the_chat_apis_own_field_names() {
+        // `prompt_tokens` and `completion_tokens`, not input and output.
+        let usage = parse_usage(&json!({
+            "prompt_tokens": 100,
+            "completion_tokens": 20,
+            "total_tokens": 120,
+            "prompt_tokens_details": { "cached_tokens": 64 }
+        }))
+        .expect("parsed");
+        assert_eq!(usage.input_tokens, 100);
+        assert_eq!(usage.cached_input_tokens, 64);
+        assert_eq!(usage.output_tokens, 20);
+        assert_eq!(usage.total_tokens, 120);
+    }
+
+    #[test]
+    fn should_work_out_a_total_a_provider_did_not_give() {
+        let usage = parse_usage(&json!({ "prompt_tokens": 10, "completion_tokens": 5 }))
+            .expect("parsed");
+        assert_eq!(usage.total_tokens, 15);
     }
 
     /// Regression test: the stream should complete when we see a `[DONE]` sentinel.
@@ -713,4 +809,28 @@ mod tests {
         }));
         assert_matches!(events.last(), Some(ResponseEvent::Completed { .. }));
     }
+}
+
+/// Read a Chat Completions `usage` object.
+///
+/// The field names are the Chat API's, not this codebase's: `prompt_tokens`
+/// and `completion_tokens` rather than input and output. Cached input is
+/// nested and often absent, and reasoning tokens are not reported by this API
+/// at all, so both default to nothing rather than being guessed at.
+fn parse_usage(value: &serde_json::Value) -> Option<TokenUsage> {
+    let number = |key: &str| value.get(key).and_then(serde_json::Value::as_i64);
+    let input = number("prompt_tokens")?;
+    let output = number("completion_tokens").unwrap_or(0);
+    let cached = value
+        .get("prompt_tokens_details")
+        .and_then(|details| details.get("cached_tokens"))
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    Some(TokenUsage {
+        input_tokens: input,
+        cached_input_tokens: cached,
+        output_tokens: output,
+        reasoning_output_tokens: 0,
+        total_tokens: number("total_tokens").unwrap_or(input + output),
+    })
 }

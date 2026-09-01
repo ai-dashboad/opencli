@@ -27,6 +27,7 @@ import {
   type Preferences,
   type Project,
   type PullProgress,
+  type TokenUsage,
   type Run,
   type ScheduledTask,
   type SkillSummary,
@@ -191,6 +192,18 @@ const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   other: "",
 };
 
+/**
+ * Elapsed time, in the largest unit that stays readable.
+ *
+ * Seconds alone stop meaning anything past a minute or two, which is exactly
+ * the range a slow local model lands in.
+ */
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+}
+
 export default function App() {
   const [url, setUrl] = useState(gatewayUrlFromLocation);
   const [cwd, setCwd] = useState("");
@@ -214,6 +227,9 @@ export default function App() {
   // Downloads in flight, kept in the shell so progress survives leaving the
   // Models panel — a download takes minutes and the user will look elsewhere.
   const [pulls, setPulls] = useState<Record<string, PullProgress>>({});
+  const [usage, setUsage] = useState<TokenUsage | null>(null);
+  /** Seconds the current turn has been running, ticking while it does. */
+  const [elapsed, setElapsed] = useState(0);
   // Cowork sends work to the background instead of waiting on it inline.
   const [cowork, setCowork] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
@@ -419,6 +435,7 @@ export default function App() {
           setBusy(false);
         },
         onApprovalRequest: setApproval,
+        onTokenUsage: setUsage,
         onPullProgress: (progress) =>
           setPulls((prev) => ({
             ...prev,
@@ -449,6 +466,21 @@ export default function App() {
     },
     [openThreadOn, refreshThreads],
   );
+
+  /*
+   * Count while the agent works.
+   *
+   * A local model can take minutes for one reply, and a spinner that says
+   * only "Working…" cannot be told apart from one that has hung. The number
+   * is what makes waiting bearable and a stall obvious.
+   */
+  useEffect(() => {
+    if (!busy) return;
+    const startedAt = Date.now();
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed(Math.round((Date.now() - startedAt) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [busy]);
 
   const connect = useCallback(() => connectTo(url, cwd), [connectTo, url, cwd]);
 
@@ -972,10 +1004,20 @@ export default function App() {
                 ))}
                 {busy ? (
                   <p className="working">
-                    Working…{" "}
+                    Working… {formatElapsed(elapsed)}{" "}
                     <button className="link" onClick={() => void interrupt()}>
                       stop
                     </button>
+                  </p>
+                ) : null}
+                {!busy && usage && usage.last > 0 ? (
+                  <p className="spent">
+                    {usage.last.toLocaleString()} tokens this turn
+                    {usage.output > 0 ? ` (${usage.output.toLocaleString()} written)` : ""} ·{" "}
+                    {usage.total.toLocaleString()} in this chat
+                    {usage.contextWindow
+                      ? ` · ${Math.round((100 * usage.total) / usage.contextWindow)}% of the ${Math.round(usage.contextWindow / 1024)}K context`
+                      : ""}
                   </p>
                 ) : null}
               </div>

@@ -295,6 +295,11 @@ impl<'a> ChatRequestBuilder<'a> {
             "model": self.model,
             "messages": messages,
             "stream": true,
+            // Without this a streaming provider sends no usage at all, and the
+            // token counts arrive empty — which is what left the interface
+            // unable to say what a turn had cost. Servers that do not know the
+            // field ignore it, so asking is free.
+            "stream_options": { "include_usage": true },
             "tools": self.tools,
         });
 

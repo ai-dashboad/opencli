@@ -2150,3 +2150,15 @@ textarea:focus {
 .dialog .rows {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/*
+ * What the turn cost, once it is done.
+ *
+ * Beside the reply rather than in a status bar: it belongs to the turn above
+ * it, and a number tucked into a corner is one nobody reads.
+ */
+.spent {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}

@@ -50,6 +50,8 @@ export interface ClientEvents {
   onApprovalRequest?: (request: ApprovalRequest) => void;
   /** A model download reported progress. */
   onPullProgress?: (progress: PullProgress) => void;
+  /** The running total of tokens this conversation has cost. */
+  onTokenUsage?: (usage: TokenUsage) => void;
   onStatus?: (status: ConnectionStatus) => void;
 }
 
@@ -364,6 +366,25 @@ export interface ModelVariant {
   fits: boolean | null;
 }
 
+/**
+ * What a conversation has cost so far.
+ *
+ * The server has always reported this; nothing listened. Without it a slow
+ * model is indistinguishable from a stuck one, and how close a conversation
+ * is to filling its context — which is what triggers compaction — is
+ * invisible until it happens.
+ */
+export interface TokenUsage {
+  /** Everything this conversation has spent. */
+  total: number;
+  /** The most recent turn alone. */
+  last: number;
+  input: number;
+  output: number;
+  /** What the model can hold, when the server knows it. */
+  contextWindow: number | null;
+}
+
 /** Progress while a model downloads. */
 export interface PullProgress {
   model: string;
@@ -676,6 +697,33 @@ export class OpenCliClient {
     }
     if (method === "runtime/pull/progress") {
       this.#events.onPullProgress?.(payload as unknown as PullProgress);
+      return;
+    }
+    // Two spellings of the same fact. The v2 notification is camelCase and
+    // nested under `tokenUsage`; the event the server actually sends today is
+    // the older `token_count`, snake_case and nested under `msg.info`. Reading
+    // only the newer one meant reading nothing at all.
+    if (method === "thread/tokenUsage/updated" || method === "opencli/event/token_count") {
+      const record = payload as Record<string, unknown>;
+      const info = (record.tokenUsage ??
+        (record.msg as Record<string, unknown> | undefined)?.info) as
+        | Record<string, Record<string, number> | number | null>
+        | undefined;
+      if (!info) return;
+
+      const total = (info.total ?? info.total_token_usage) as Record<string, number> | undefined;
+      const last = (info.last ?? info.last_token_usage) as Record<string, number> | undefined;
+      const window = (info.modelContextWindow ?? info.model_context_window) as number | null;
+      const pick = (from: Record<string, number> | undefined, camel: string, snake: string) =>
+        from?.[camel] ?? from?.[snake] ?? 0;
+
+      this.#events.onTokenUsage?.({
+        total: pick(total, "totalTokens", "total_tokens"),
+        last: pick(last, "totalTokens", "total_tokens"),
+        input: pick(last, "inputTokens", "input_tokens"),
+        output: pick(last, "outputTokens", "output_tokens"),
+        contextWindow: window ?? null,
+      });
       return;
     }
     if (method.endsWith("/error") || method === "opencli/event/error") {

@@ -350,6 +350,45 @@ them reads as misalignment.
 
 ---
 
+## Saying what a turn cost
+
+Nothing in the interface could report tokens or elapsed time, and the reason
+went three layers deep — each layer looked like it worked.
+
+1. **The provider was never asked.** The Chat request sent `"stream": true`
+   without `stream_options: { include_usage: true }`, so a streaming server
+   sends no usage at all. Servers that do not know the field ignore it, so
+   asking costs nothing.
+2. **The answer was thrown away.** The Chat SSE parser hardcoded
+   `token_usage: None`. The chunk carrying the cost has an *empty* `choices`
+   array and arrives *after* the one that says the reply is finished, so
+   completing on `finish_reason` discarded it. Completion now happens at the
+   stream's end — which the tool-call path already relied on — carrying
+   whatever the provider reported.
+3. **The client listened for the wrong name.** The server emits the older
+   `opencli/event/token_count`, snake_case under `msg.info`; the client was
+   written against the v2 `thread/tokenUsage/updated`, camelCase under
+   `tokenUsage`. It now reads both.
+
+Elapsed time is counted client-side while a turn runs. On a local model a
+reply can take minutes, and a spinner that says only "Working…" cannot be
+told apart from one that has hung — which is exactly how the fault below was
+first reported.
+
+### Slowness is usually not the harness
+
+A 27B model answering at 1.6 tokens per second turned out to be a GPU that
+another process had filled: `nvidia-smi` showed 28.9 GB of 32 GB held by an
+unrelated vLLM engine, leaving Ollama to run a 27 GB model almost entirely on
+the CPU — `/api/ps` reported `size_vram` of 293 MB against a `size` of 27.1
+GB. Neither figure was visible anywhere in the interface, so the only symptom
+was a spinner.
+
+`size_vram` against `size` is the check worth reaching for first: it answers
+"is this model actually on the card" in one request.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks
