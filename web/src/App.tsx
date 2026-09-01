@@ -1261,7 +1261,7 @@ export default function App() {
                     <span>
                       {APPROVAL_MODES.find(
                         (mode) => mode.value === (preferences.approvalPolicy ?? "untrusted"),
-                      )?.short ?? "Ask first"}
+                      )?.label ?? "Manual"}
                     </span>
                     <ChevronIcon size={13} />
                   </button>

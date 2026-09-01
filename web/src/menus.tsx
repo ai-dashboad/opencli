@@ -369,32 +369,33 @@ const EFFORTS: { value: ReasoningEffort; label: string; note?: string }[] = [
  * `on-request` is not offered here for the same reason it is not offered
  * there: it leaves the decision to the model, which in practice almost never
  * asks, so it reads as "never" to anyone who chose it expecting to be asked.
+ *
+ * The label is a word and the hint is the sentence, rather than the label
+ * being the sentence and the hint repeating it. A list of three is scanned by
+ * its labels; a label that is itself a paragraph gives the eye nothing to
+ * land on, and the explanation underneath then says the same thing twice.
  */
 export const APPROVAL_MODES: {
   value: ApprovalPolicy;
-  short: string;
   label: string;
   hint: string;
   icon: () => React.ReactNode;
 }[] = [
   {
     value: "untrusted",
-    short: "Ask first",
-    label: "Ask before anything unfamiliar",
+    label: "Manual",
     hint: "Every command that is not known-safe is shown to you first.",
     icon: () => <HandIcon size={16} />,
   },
   {
     value: "on-failure",
-    short: "Auto",
-    label: "Run unattended",
+    label: "Auto",
     hint: "Commands run without asking. You are stopped only when one needs more access.",
     icon: () => <BoltIcon size={16} />,
   },
   {
     value: "never",
-    short: "Never ask",
-    label: "Never stop to ask",
+    label: "Never ask",
     hint: "Nothing is shown before it runs. For a directory you would let a script loose in.",
     icon: () => <FastForwardIcon size={16} />,
   },
