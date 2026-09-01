@@ -334,13 +334,15 @@ no display size is ever named. 420px was measured against the longest thing a
 card holds — a tag like `huihui-qwen3.8-27b:latest` above a line of size,
 memory and context — which at 360px filled the card edge to edge.
 
-The chat was left at a centred 780px on the same reasoning, and that was only
-half right. A conversation is not one kind of content either: prose wants a
-measure, but a shell command or a diff wrapped at ninety characters is worse
-than one that is not. So the column grows to `min(1180px, 100%)` for the sake
-of the code in it, and the prose inside keeps its own 78ch. 1180px is where a
-monospace line stops gaining — about a hundred and forty characters at 12.5px,
-past the width of anything the agent prints.
+The chat fills the window. It was a centred 780px, then a capped 1180px, and
+both left a wide display mostly empty; the owner asked for the width to be
+used, so `--chat-width` is `100%` and nothing inside it is capped either.
+
+This is a deliberate trade against one thing: on a very wide display a
+paragraph becomes a very long line, and a long line is harder to read because
+the eye loses its place returning to the next one. Restoring a measure means
+putting `max-width` back on `.item.agent pre` alone — the code blocks should
+keep the full width regardless, since a wrapped diff is worse than a wide one.
 
 The transcript, the composer, the approval box and the footer all read the
 same `--chat-width`. They are stacked, so a few pixels of difference between
