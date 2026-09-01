@@ -731,6 +731,14 @@ pub struct ShellToolCallParams {
     pub prefix_rule: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub justification: Option<String>,
+    /// What the command is for, in the model's own words.
+    ///
+    /// Optional, and often absent: a smaller model routinely skips fields it
+    /// is not required to fill. A front end that wants a line of prose beside
+    /// a command has to be able to do without this one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub description: Option<String>,
 }
 
 /// If the `name` of a `ResponseItem::FunctionCall` is `shell_command`, the
@@ -753,7 +761,12 @@ pub struct ShellCommandToolCallParams {
     #[ts(optional)]
     pub prefix_rule: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub justification: Option<String>,
+    pub justification: Option<String>,    /// What the command is for, in the model's own words. Optional, and often
+    /// absent: a smaller model routinely skips a field it need not fill.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub description: Option<String>,
+
 }
 
 /// Responses API compatible content items that can be returned by a tool call.

@@ -498,6 +498,30 @@ asterisk.
 
 ---
 
+## A transcript is a timeline
+
+Events run down a line of dots: what ran, what it thought, what it wrote. Two
+things make it readable rather than a wall.
+
+**A row says what a command is for, not what it is.** Two sources, in order:
+the model's own `description` — an optional parameter added to the shell tool
+— and otherwise the server's `command_actions`, its best-effort parse of the
+line into `Read`, `ListFiles` or `Search`. The parse is not a rarely-used
+fallback: a smaller model routinely skips a field it is not required to fill,
+so it is the ordinary case. Neither is invented — a command that parses to
+`Unknown` is shown as itself rather than described by a guess.
+
+**Thinking folds away.** It is long, it is not the answer, and while it is
+still arriving it is the only sign of life there is — so it reads "Thinking"
+while it streams and "Thought for 8s" once it is done, opening on a click.
+
+The working line says what is happening rather than that something is. Four
+minutes of "Working…" tells a reader nothing they could not already see; the
+last item in the transcript says whether a command is running, a thought is
+being had, or an answer is being written.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

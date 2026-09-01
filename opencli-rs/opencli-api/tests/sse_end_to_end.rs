@@ -214,26 +214,38 @@ async fn responses_stream_aggregates_output_text_deltas() -> Result<()> {
         .filter(|ev| !matches!(ev, ResponseEvent::RateLimits(_)))
         .collect();
 
-    assert_eq!(events.len(), 2);
+    // Aggregating assembles the whole message *and* passes the pieces on as
+    // they arrive. It used to do only the first, which is what left every
+    // local model with no streaming at all — the mode was chosen by a flag
+    // about whether to show the model's thinking.
+    let streamed: Vec<&str> = events
+        .iter()
+        .filter_map(|event| match event {
+            ResponseEvent::OutputTextDelta(delta) => Some(delta.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(streamed, vec!["Hello, ", "world"]);
 
-    match &events[0] {
-        ResponseEvent::OutputItemDone(ResponseItem::Message { content, .. }) => {
-            let mut aggregated = String::new();
-            for item in content {
-                if let ContentItem::OutputText { text } = item {
-                    aggregated.push_str(text);
-                }
-            }
-            assert_eq!(aggregated, "Hello, world");
-        }
-        other => panic!("unexpected first event: {other:?}"),
-    }
+    let assembled = events.iter().find_map(|event| match event {
+        ResponseEvent::OutputItemDone(ResponseItem::Message { content, .. }) => Some(
+            content
+                .iter()
+                .filter_map(|item| match item {
+                    ContentItem::OutputText { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<String>(),
+        ),
+        _ => None,
+    });
+    assert_eq!(assembled.as_deref(), Some("Hello, world"));
 
-    match &events[1] {
-        ResponseEvent::Completed { response_id, .. } => {
+    match events.last() {
+        Some(ResponseEvent::Completed { response_id, .. }) => {
             assert_eq!(response_id, "resp-agg");
         }
-        other => panic!("unexpected second event: {other:?}"),
+        other => panic!("the stream should finish with a completion: {other:?}"),
     }
 
     Ok(())

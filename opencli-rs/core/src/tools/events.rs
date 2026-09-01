@@ -66,6 +66,7 @@ pub(crate) async fn emit_exec_command_begin(
     source: ExecCommandSource,
     interaction_input: Option<String>,
     process_id: Option<&str>,
+    description: Option<String>,
 ) {
     ctx.session
         .send_event(
@@ -77,6 +78,7 @@ pub(crate) async fn emit_exec_command_begin(
                 command: command.to_vec(),
                 cwd: cwd.to_path_buf(),
                 parsed_cmd: parsed_cmd.to_vec(),
+                description,
                 source,
                 interaction_input,
             }),
@@ -91,6 +93,8 @@ pub(crate) enum ToolEmitter {
         source: ExecCommandSource,
         parsed_cmd: Vec<ParsedCommand>,
         freeform: bool,
+        /// The model's own words for what this is, when it wrote any.
+        description: Option<String>,
     },
     ApplyPatch {
         changes: HashMap<PathBuf, FileChange>,
@@ -111,6 +115,7 @@ impl ToolEmitter {
         cwd: PathBuf,
         source: ExecCommandSource,
         freeform: bool,
+        description: Option<String>,
     ) -> Self {
         let parsed_cmd = parse_command(&command);
         Self::Shell {
@@ -119,6 +124,7 @@ impl ToolEmitter {
             source,
             parsed_cmd,
             freeform,
+            description,
         }
     }
 
@@ -153,13 +159,15 @@ impl ToolEmitter {
                     cwd,
                     source,
                     parsed_cmd,
+                    description,
                     ..
                 },
                 stage,
             ) => {
                 emit_exec_stage(
                     ctx,
-                    ExecCommandInput::new(command, cwd.as_path(), parsed_cmd, *source, None, None),
+                    ExecCommandInput::new(command, cwd.as_path(), parsed_cmd, *source, None, None)
+                        .described(description.clone()),
                     stage,
                 )
                 .await;
@@ -328,6 +336,15 @@ struct ExecCommandInput<'a> {
     source: ExecCommandSource,
     interaction_input: Option<&'a str>,
     process_id: Option<&'a str>,
+    description: Option<String>,
+}
+
+impl ExecCommandInput<'_> {
+    /// Attach the model's own words, when it wrote any.
+    fn described(mut self, description: Option<String>) -> Self {
+        self.description = description;
+        self
+    }
 }
 
 impl<'a> ExecCommandInput<'a> {
@@ -346,6 +363,7 @@ impl<'a> ExecCommandInput<'a> {
             source,
             interaction_input,
             process_id,
+            description: None,
         }
     }
 }
@@ -374,6 +392,7 @@ async fn emit_exec_stage(
                 exec_input.source,
                 exec_input.interaction_input.map(str::to_owned),
                 exec_input.process_id,
+                exec_input.description.clone(),
             )
             .await;
         }

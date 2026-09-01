@@ -91,6 +91,8 @@ impl EscalateServer {
                 windows_sandbox_level: WindowsSandboxLevel::Disabled,
                 justification: None,
                 arg0: None,
+                            // An escalated re-run of a command already described.
+                description: None,
             },
             &sandbox_state.sandbox_policy,
             &sandbox_state.sandbox_cwd,

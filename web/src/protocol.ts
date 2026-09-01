@@ -46,6 +46,15 @@ export interface ThreadItem {
   durationMs?: number;
   /** Which tool ran: a shell, or an MCP server's tool. */
   tool?: string;
+  /**
+   * What the command does, in a few words.
+   *
+   * The model's own `description` when it wrote one, and otherwise worked out
+   * from the server's parse of the command. A local model often leaves an
+   * optional field empty, so the parse is not a fallback that rarely runs — it
+   * is the usual case.
+   */
+  summary?: string;
 }
 
 export interface ClientEvents {
@@ -505,6 +514,38 @@ function classify(item: Record<string, unknown>): ThreadItem["kind"] {
 }
 
 /**
+ * Put the server's parse of a command into words.
+ *
+ * `commandActions` is a best-effort reading of what a shell line will do:
+ * reading a file, listing a directory, searching. It is what makes a row say
+ * "Read markdown.tsx" instead of repeating a line of shell nobody scans.
+ *
+ * A command is often several joined together, so only the first recognised
+ * action is used — a row is a glance, and three clauses is not one.
+ */
+function describeActions(actions: unknown): string {
+  if (!Array.isArray(actions)) return "";
+  for (const raw of actions) {
+    const action = raw as Record<string, unknown>;
+    const type = String(action.type ?? "");
+    const name = typeof action.name === "string" ? action.name : "";
+    const path = typeof action.path === "string" ? action.path : "";
+    const query = typeof action.query === "string" ? action.query : "";
+
+    if (type === "read") return `Read ${name || path}`;
+    if (type === "listFiles" || type === "list_files") {
+      return path ? `List ${path}` : "List files";
+    }
+    if (type === "search") {
+      if (query && path) return `Search ${path} for “${query}”`;
+      if (query) return `Search for “${query}”`;
+      return "Search";
+    }
+  }
+  return "";
+}
+
+/**
  * Convert one server item into what the UI renders, or `null` if it carries
  * nothing to show.
  *
@@ -538,11 +579,17 @@ function toThreadItem(item: Record<string, unknown>): ThreadItem | null {
     changes.map((change) => `${change.kind} ${change.path}`).join("\n");
   if (!text) return null;
 
+  const summary =
+    (typeof item.description === "string" && item.description.trim()) ||
+    describeActions(item.commandActions) ||
+    undefined;
+
   const output =
     (typeof item.aggregatedOutput === "string" ? item.aggregatedOutput : "") ||
     (isTool ? textOf(item.result) : "") ||
     undefined;
   return {
+    summary,
     output,
     durationMs: typeof item.durationMs === "number" ? item.durationMs : undefined,
     tool,

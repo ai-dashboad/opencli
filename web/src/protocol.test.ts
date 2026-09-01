@@ -695,6 +695,73 @@ describe("what the agent did, not only what it said about it", () => {
     expect(seen[0].durationMs).toBe(19440);
   });
 
+  it("should say what a command does, from the server's parse of it", async () => {
+    // A local model usually leaves an optional description empty, so the
+    // parse is the ordinary case rather than a rarely-used fallback.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "commandExecution",
+          id: "c-1",
+          command: "bash -lc 'cat src/markdown.tsx'",
+          commandActions: [{ type: "read", name: "markdown.tsx", path: "src/markdown.tsx" }],
+          status: "completed",
+        },
+      },
+    });
+
+    expect(seen[0].summary).toBe("Read markdown.tsx");
+    // The command itself is still there; the summary heads it, not replaces it.
+    expect(seen[0].text).toBe("bash -lc 'cat src/markdown.tsx'");
+  });
+
+  it("should prefer the model's own words when it wrote any", async () => {
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "commandExecution",
+          id: "c-2",
+          command: "bash -lc 'cat src/markdown.tsx'",
+          description: "Check how emphasis is parsed",
+          commandActions: [{ type: "read", name: "markdown.tsx" }],
+          status: "completed",
+        },
+      },
+    });
+
+    expect(seen[0].summary).toBe("Check how emphasis is parsed");
+  });
+
+  it("should say nothing rather than guess at an unrecognised command", async () => {
+    // A row that invents a description of a command it did not understand is
+    // worse than one that simply shows the command.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "commandExecution",
+          id: "c-3",
+          command: "cargo test -p opencli-api",
+          commandActions: [{ type: "unknown", command: "cargo test -p opencli-api" }],
+          status: "completed",
+        },
+      },
+    });
+
+    expect(seen[0].summary).toBeUndefined();
+  });
+
   it("should name the tool an MCP call went to", async () => {
     const seen: ThreadItem[] = [];
     const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });

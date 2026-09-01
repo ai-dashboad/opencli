@@ -2075,6 +2075,12 @@ pub enum ThreadItem {
         /// This returns a list of CommandAction objects because a single shell command may
         /// be composed of many commands piped together.
         command_actions: Vec<CommandAction>,
+        /// What the command is for, in the model's own words, when it wrote
+        /// any. Often absent, so a front end showing it must be able to fall
+        /// back to `command_actions` or to the command itself.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        description: Option<String>,
         /// The command's output, aggregated from stdout and stderr.
         aggregated_output: Option<String>,
         /// The command's exit code.

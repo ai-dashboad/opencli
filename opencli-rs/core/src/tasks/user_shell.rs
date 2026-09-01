@@ -98,7 +98,9 @@ impl SessionTask for UserShellCommandTask {
                     parsed_cmd: parsed_cmd.clone(),
                     source: ExecCommandSource::UserShell,
                     interaction_input: None,
-                }),
+                                    // The user typed this one; there is nobody to have described it.
+                    description: None,
+}),
             )
             .await;
 

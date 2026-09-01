@@ -333,6 +333,15 @@ fn create_shell_tool(include_prefix_rule: bool) -> ToolSpec {
                 description: Some("The timeout for the command in milliseconds".to_string()),
             },
         ),
+        (
+            "description".to_string(),
+            JsonSchema::String {
+                description: Some(
+                    "What this command is for, in five words or fewer, so a reader can                      follow along without reading the command - e.g. 'Run the api tests'                      or 'Check which files changed'. Optional."
+                        .to_string(),
+                ),
+            },
+        ),
     ]);
     properties.extend(create_approval_parameters(include_prefix_rule));
 

@@ -116,6 +116,9 @@ impl ToolRouter {
                             sandbox_permissions: Some(SandboxPermissions::UseDefault),
                             prefix_rule: None,
                             justification: None,
+                            // The legacy local-shell call carries no room for
+                            // one; the front end falls back to the parse.
+                            description: None,
                         };
                         Ok(Some(ToolCall {
                             tool_name: "local_shell".to_string(),

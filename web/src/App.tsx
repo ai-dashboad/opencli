@@ -250,6 +250,8 @@ export default function App() {
   const [viewing, setViewing] = useState<Project | null>(null);
   const [modelMenu, setModelMenu] = useState(false);
   const [modeMenu, setModeMenu] = useState(false);
+  /** Which pieces of thinking the reader asked to see. */
+  const [openThoughts, setOpenThoughts] = useState<Record<string, boolean>>({});
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [model, setModel] = useState<string>("");
@@ -516,6 +518,21 @@ export default function App() {
     const timer = setInterval(() => setElapsed(Math.round((Date.now() - startedAt) / 1000)), 1000);
     return () => clearInterval(timer);
   }, [busy]);
+
+  /*
+   * What is happening, rather than that something is.
+   *
+   * The last item in the transcript says it: a command that has not finished
+   * is being run, thinking that has not finished is being thought. "Working…"
+   * for four minutes tells a reader nothing they could not see.
+   */
+  const doing = (() => {
+    const last = items[items.length - 1];
+    if (!last) return "Working…";
+    if (last.kind === "command") return `${last.summary ?? "Running a command"}…`;
+    if (last.kind === "reasoning") return "Thinking…";
+    return "Writing…";
+  })();
 
   const connect = useCallback(() => connectTo(url, cwd), [connectTo, url, cwd]);
 
@@ -1031,9 +1048,25 @@ export default function App() {
                 ) : null}
                 {items.map((item) => (
                   <article key={item.id} className={`item ${item.kind}`}>
-                    {KIND_LABEL[item.kind] ? (
+                    {item.kind === "reasoning" ? (
+                      <button
+                        type="button"
+                        className="label thought"
+                        onClick={() =>
+                          setOpenThoughts((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+                        }
+                      >
+                        <strong>
+                          {item.durationMs !== undefined
+                            ? `Thought for ${formatElapsed(Math.round(item.durationMs / 1000))}`
+                            : "Thinking"}
+                        </strong>
+                        <em>{openThoughts[item.id] ? "hide" : "show"}</em>
+                      </button>
+                    ) : KIND_LABEL[item.kind] ? (
                       <span className="label">
-                        {item.tool ?? KIND_LABEL[item.kind]}
+                        <strong>{item.tool ?? KIND_LABEL[item.kind]}</strong>
+                        {item.summary ? <span className="what">{item.summary}</span> : null}
                         {item.durationMs !== undefined ? (
                           <em>{formatElapsed(Math.round(item.durationMs / 1000))}</em>
                         ) : null}
@@ -1045,7 +1078,8 @@ export default function App() {
                       * because a shell line with an asterisk in it means the
                       * asterisk.
                       */}
-                    {item.kind === "agent" || item.kind === "reasoning" ? (
+                    {item.kind === "reasoning" && !openThoughts[item.id] ? null : item.kind ===
+                        "agent" || item.kind === "reasoning" ? (
                       <Markdown text={item.text} />
                     ) : (
                       <pre>{item.text}</pre>
@@ -1058,7 +1092,7 @@ export default function App() {
                 ))}
                 {busy ? (
                   <p className="working">
-                    Working… {formatElapsed(elapsed)}
+                    {doing} {formatElapsed(elapsed)}
                     {streamed > 0 ? ` · ~${Math.round(streamed / 4)} tokens written` : ""}
                     {usage && usage.total > 0 ? ` · ${usage.total.toLocaleString()} so far in this chat` : ""}{" "}
                     <button className="link" onClick={() => void interrupt()}>

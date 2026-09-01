@@ -50,6 +50,7 @@ impl ShellHandler {
             sandbox_permissions: params.sandbox_permissions.unwrap_or_default(),
             windows_sandbox_level: turn_context.windows_sandbox_level,
             justification: params.justification.clone(),
+            description: params.description.clone(),
             arg0: None,
         }
     }
@@ -77,6 +78,7 @@ impl ShellCommandHandler {
             sandbox_permissions: params.sandbox_permissions.unwrap_or_default(),
             windows_sandbox_level: turn_context.windows_sandbox_level,
             justification: params.justification.clone(),
+            description: params.description.clone(),
             arg0: None,
         }
     }
@@ -286,6 +288,7 @@ impl ShellHandler {
             exec_params.cwd.clone(),
             source,
             freeform,
+            exec_params.description.clone(),
         );
         let event_ctx = ToolEventCtx::new(session.as_ref(), turn.as_ref(), &call_id, None);
         emitter.begin(event_ctx).await;
@@ -434,6 +437,7 @@ mod tests {
             sandbox_permissions: Some(sandbox_permissions),
             prefix_rule: None,
             justification: justification.clone(),
+                    description: None,
         };
 
         let exec_params = ShellCommandHandler::to_exec_params(&params, &session, &turn_context);

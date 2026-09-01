@@ -2353,3 +2353,88 @@ textarea:focus {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* ── The timeline down the left of a conversation ──────────────────── */
+
+/*
+ * A dot per event, joined by a line.
+ *
+ * The line is drawn on the item rather than behind the column, so it stops at
+ * the last event instead of running on into empty space.
+ */
+.item.command,
+.item.reasoning,
+.item.fileChange {
+  position: relative;
+  padding-left: 22px;
+}
+
+.item.command::before,
+.item.reasoning::before,
+.item.fileChange::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.item.command::before {
+  background: var(--accent);
+}
+
+/* The line joining one event to the next, stopping short of the dot. */
+.item.command::after,
+.item.reasoning::after,
+.item.fileChange::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 18px;
+  bottom: -22px;
+  width: 1px;
+  background: var(--line-soft);
+}
+
+.thread > .item:last-child::after {
+  display: none;
+}
+
+.item .label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.item .label strong {
+  color: var(--text);
+  font-weight: 550;
+  font-size: 12.5px;
+}
+
+/* What the command does, in the model's words or the server's parse. */
+.item .label .what {
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+/* Thinking folds away: it is long, and it is not the answer. */
+.item .label.thought {
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.item .label.thought em {
+  opacity: 0;
+  transition: opacity 90ms;
+}
+
+.item .label.thought:hover em {
+  opacity: 1;
+}

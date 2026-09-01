@@ -895,6 +895,7 @@ pub(crate) async fn apply_bespoke_event_handling(
             let command = shlex_join(&exec_command_begin_event.command);
             let cwd = exec_command_begin_event.cwd;
             let process_id = exec_command_begin_event.process_id;
+            let description = exec_command_begin_event.description;
 
             let item = ThreadItem::CommandExecution {
                 id: item_id,
@@ -903,6 +904,7 @@ pub(crate) async fn apply_bespoke_event_handling(
                 process_id,
                 status: CommandExecutionStatus::InProgress,
                 command_actions,
+                description,
                 aggregated_output: None,
                 exit_code: None,
                 duration_ms: None,
@@ -1011,6 +1013,8 @@ pub(crate) async fn apply_bespoke_event_handling(
                 aggregated_output,
                 exit_code: Some(exit_code),
                 duration_ms: Some(duration_ms),
+                // Rebuilt after the fact; the model's words are on the begin event.
+                description: None,
             };
 
             let notification = ItemCompletedNotification {
@@ -1264,6 +1268,9 @@ async fn complete_command_execution_item(
         process_id,
         status,
         command_actions,
+        // Rebuilt after the fact; the model's words rode the begin event, and
+        // the client keeps what that one carried.
+        description: None,
         aggregated_output: None,
         exit_code: None,
         duration_ms: None,

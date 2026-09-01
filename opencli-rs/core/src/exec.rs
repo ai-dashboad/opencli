@@ -66,6 +66,9 @@ pub struct ExecParams {
     pub sandbox_permissions: SandboxPermissions,
     pub windows_sandbox_level: opencli_protocol::config_types::WindowsSandboxLevel,
     pub justification: Option<String>,
+    /// What this command is for, in the model's own words, when it wrote any.
+    /// Carried only so the interface can show it; it never affects execution.
+    pub description: Option<String>,
     pub arg0: Option<String>,
 }
 
@@ -155,6 +158,8 @@ pub async fn process_exec_tool_call(
     tracing::debug!("Sandbox type: {sandbox_type:?}");
 
     let ExecParams {
+        // Carried for the interface only; execution has no use for it.
+        description: _,
         command,
         cwd,
         expiration,
@@ -224,6 +229,7 @@ pub(crate) async fn execute_exec_env(
         windows_sandbox_level,
         justification,
         arg0,
+            description: None,
     };
 
     let start = Instant::now();
@@ -1052,6 +1058,7 @@ mod tests {
             windows_sandbox_level: opencli_protocol::config_types::WindowsSandboxLevel::Disabled,
             justification: None,
             arg0: None,
+                    description: None,
         };
 
         let output = exec(params, SandboxType::None, &SandboxPolicy::ReadOnly, None).await?;
@@ -1098,6 +1105,7 @@ mod tests {
             windows_sandbox_level: opencli_protocol::config_types::WindowsSandboxLevel::Disabled,
             justification: None,
             arg0: None,
+                    description: None,
         };
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(1_000)).await;
