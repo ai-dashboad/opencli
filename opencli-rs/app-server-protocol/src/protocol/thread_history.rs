@@ -32,26 +32,42 @@ fn unwrap_output(raw: &str) -> String {
 }
 
 /// Flatten a recorded reasoning item into the text a reader sees.
+///
+/// A summary is a list of separate points and is joined with blank lines
+/// between them. `content` is not: it is one piece of thinking recorded in the
+/// fragments it streamed as, so joining those with blank lines put every word
+/// on a line of its own — "The\n\n user\n\n is\n\n saying".
 fn reasoning_text(
     summary: &[opencli_protocol::models::ReasoningItemReasoningSummary],
     content: Option<&[opencli_protocol::models::ReasoningItemContent]>,
 ) -> String {
-    let mut parts: Vec<&str> = summary
+    let points: Vec<&str> = summary
         .iter()
         .map(|entry| match entry {
             opencli_protocol::models::ReasoningItemReasoningSummary::SummaryText { text } => {
                 text.as_str()
             }
         })
+        .filter(|text| !text.trim().is_empty())
         .collect();
-    if let Some(content) = content {
-        parts.extend(content.iter().map(|entry| match entry {
+
+    let body: String = content
+        .unwrap_or_default()
+        .iter()
+        .map(|entry| match entry {
             opencli_protocol::models::ReasoningItemContent::ReasoningText { text }
             | opencli_protocol::models::ReasoningItemContent::Text { text } => text.as_str(),
-        }));
+        })
+        .collect();
+
+    let mut whole = points.join("\n\n");
+    if !body.trim().is_empty() {
+        if !whole.is_empty() {
+            whole.push_str("\n\n");
+        }
+        whole.push_str(body.trim_end());
     }
-    parts.retain(|part| !part.trim().is_empty());
-    parts.join("\n\n")
+    whole
 }
 
 /// Convert persisted [`EventMsg`] entries into a sequence of [`Turn`] values.
@@ -540,6 +556,65 @@ mod tests {
                 _ => None,
             });
         assert_eq!(output, Some(None));
+    }
+
+    #[test]
+    fn should_join_the_fragments_thinking_streamed_as() {
+        // `content` is one piece of thinking recorded in the pieces it arrived
+        // in. Joining those with blank lines put every word on its own line.
+        use opencli_protocol::models::ReasoningItemContent;
+
+        let items = vec![RolloutItem::ResponseItem(ResponseItem::Reasoning {
+            id: String::new(),
+            summary: Vec::new(),
+            content: Some(
+                ["The", " user", " is", " saying"]
+                    .into_iter()
+                    .map(|text| ReasoningItemContent::ReasoningText {
+                        text: text.to_string(),
+                    })
+                    .collect(),
+            ),
+            encrypted_content: None,
+        })];
+
+        let thought = build_turns_from_rollout(&items)
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::Reasoning { content, .. } => Some(content.join("")),
+                _ => None,
+            });
+        assert_eq!(thought.as_deref(), Some("The user is saying"));
+    }
+
+    #[test]
+    fn should_keep_separate_summary_points_apart() {
+        // A summary is a list of points, not fragments of one.
+        use opencli_protocol::models::ReasoningItemReasoningSummary;
+
+        let items = vec![RolloutItem::ResponseItem(ResponseItem::Reasoning {
+            id: String::new(),
+            summary: vec![
+                ReasoningItemReasoningSummary::SummaryText {
+                    text: "First point.".to_string(),
+                },
+                ReasoningItemReasoningSummary::SummaryText {
+                    text: "Second point.".to_string(),
+                },
+            ],
+            content: None,
+            encrypted_content: None,
+        })];
+
+        let thought = build_turns_from_rollout(&items)
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::Reasoning { content, .. } => Some(content.join("")),
+                _ => None,
+            });
+        assert_eq!(thought.as_deref(), Some("First point.\n\nSecond point."));
     }
 
     #[test]
