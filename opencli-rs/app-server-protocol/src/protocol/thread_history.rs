@@ -326,16 +326,33 @@ impl ThreadHistoryBuilder {
                 summary, content, ..
             } => {
                 let text = reasoning_text(summary, content.as_deref());
-                if !text.is_empty() {
-                    let id = self.next_item_id();
-                    let took = self.thought_took.take();
-                    self.ensure_turn().items.push(ThreadItem::Reasoning {
-                        id,
-                        summary: Vec::new(),
-                        content: vec![text],
-                        duration_ms: took,
-                    });
+                if text.is_empty() {
+                    return;
                 }
+
+                // A rollout records each thought twice, milliseconds apart —
+                // once in the fragments it streamed as, once whole — so a
+                // reopened conversation showed every thought doubled. The two
+                // copies are not adjacent: the call the model went on to make
+                // is written between them, which is why the whole turn is
+                // searched rather than only the item before this one.
+                //
+                // The first copy is the one kept: its duration was measured
+                // against the record that really did precede the thinking.
+                let took = self.thought_took.take();
+                if self.ensure_turn().items.iter().any(|item| {
+                    matches!(item, ThreadItem::Reasoning { content, .. } if content.concat() == text)
+                }) {
+                    return;
+                }
+
+                let id = self.next_item_id();
+                self.ensure_turn().items.push(ThreadItem::Reasoning {
+                    id,
+                    summary: Vec::new(),
+                    content: vec![text],
+                    duration_ms: took,
+                });
             }
             _ => {}
         }
@@ -701,6 +718,65 @@ mod tests {
                 _ => None,
             });
         assert_eq!(output, Some(None));
+    }
+
+    #[test]
+    fn should_show_a_thought_recorded_twice_only_once() {
+        // The rollout holds each thought twice, a millisecond apart, which is
+        // why a reopened conversation doubled every one of them.
+        use opencli_protocol::models::ReasoningItemContent;
+
+        let thought = || {
+            RolloutItem::ResponseItem(ResponseItem::Reasoning {
+                id: String::new(),
+                summary: Vec::new(),
+                content: Some(vec![ReasoningItemContent::ReasoningText {
+                    text: "The user is saying continue.".to_string(),
+                }]),
+                encrypted_content: None,
+            })
+        };
+
+        // The repeat lands after the call the model made, not next to its
+        // first copy, which is how the rollout really records it.
+        let call = RolloutItem::ResponseItem(ResponseItem::FunctionCall {
+            name: "run".to_string(),
+            arguments: r#"{"command":["ls"]}"#.to_string(),
+            call_id: "c1".to_string(),
+            id: None,
+        });
+        let thoughts = build_turns_from_rollout(&recorded(vec![thought(), call, thought()]))
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .filter(|item| matches!(item, ThreadItem::Reasoning { .. }))
+            .count();
+        assert_eq!(thoughts, 1);
+    }
+
+    #[test]
+    fn should_keep_two_thoughts_that_are_genuinely_different() {
+        use opencli_protocol::models::ReasoningItemContent;
+
+        let thought = |text: &str| {
+            RolloutItem::ResponseItem(ResponseItem::Reasoning {
+                id: String::new(),
+                summary: Vec::new(),
+                content: Some(vec![ReasoningItemContent::ReasoningText {
+                    text: text.to_string(),
+                }]),
+                encrypted_content: None,
+            })
+        };
+
+        let thoughts = build_turns_from_rollout(&recorded(vec![
+            thought("First, read the file."),
+            thought("Now write it back."),
+        ]))
+        .iter()
+        .flat_map(|turn| turn.items.iter())
+        .filter(|item| matches!(item, ThreadItem::Reasoning { .. }))
+        .count();
+        assert_eq!(thoughts, 2);
     }
 
     #[test]
