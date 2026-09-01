@@ -1,4 +1,5 @@
 use crate::protocol::v2::ThreadItem;
+use crate::protocol::v2::ThreadTokenUsage;
 use crate::protocol::v2::Turn;
 use crate::protocol::v2::TurnError;
 use crate::protocol::v2::TurnStatus;
@@ -15,6 +16,14 @@ use crate::protocol::v2::McpToolCallResult;
 use crate::protocol::v2::McpToolCallStatus;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::RolloutItem;
+
+/// Shown where a conversation was compacted.
+///
+/// Written as a sentence rather than a marker the interface has to know about,
+/// so it survives a front end that has never heard of compaction.
+const COMPACTION_NOTICE: &str =
+    "— Earlier messages were summarised here to fit the model's context. \
+     The full transcript is still on disk.";
 
 /// What a recorded tool output carries, once opened.
 struct RecordedOutput {
@@ -123,6 +132,19 @@ pub fn build_turns_from_event_msgs(events: &[EventMsg]) -> Vec<Turn> {
 /// discarded every one of them: across the sessions this was found on, 1,302
 /// calls, 1,300 outputs and 422 pieces of reasoning, all present on disk and
 /// none of them reaching the screen.
+/// What a rollout says the conversation cost, if it says anything.
+///
+/// The last figure recorded wins: each is the running total at that moment,
+/// so the newest is the total for the whole conversation.
+pub fn token_usage_from_rollout(items: &[RolloutItem]) -> Option<ThreadTokenUsage> {
+    items.iter().rev().find_map(|item| match item {
+        RolloutItem::EventMsg(EventMsg::TokenCount(event)) => {
+            event.info.clone().map(ThreadTokenUsage::from)
+        }
+        _ => None,
+    })
+}
+
 pub fn build_turns_from_rollout(items: &[RolloutItem]) -> Vec<Turn> {
     let mut builder = ThreadHistoryBuilder::new();
     for item in items {
@@ -176,6 +198,7 @@ impl ThreadHistoryBuilder {
             EventMsg::ExitedReviewMode(_) => {}
             EventMsg::ThreadRolledBack(payload) => self.handle_thread_rollback(payload),
             EventMsg::UndoCompleted(_) => {}
+            EventMsg::ContextCompacted(_) => self.handle_context_compacted(),
             EventMsg::TurnAborted(payload) => self.handle_turn_aborted(payload),
             _ => {}
         }
@@ -407,6 +430,20 @@ impl ThreadHistoryBuilder {
                 _ => {}
             }
         }
+    }
+
+    /// Say that the conversation was compacted here.
+    ///
+    /// Compaction replaces the earlier exchange with a summary. Without a
+    /// marker, reopening one looks like the beginning of the conversation
+    /// simply went missing — a reader has no way to tell a lost transcript
+    /// from a summarised one, and assumes the worse of the two.
+    fn handle_context_compacted(&mut self) {
+        let id = self.next_item_id();
+        self.ensure_turn().items.push(ThreadItem::AgentMessage {
+            id,
+            text: COMPACTION_NOTICE.to_string(),
+        });
     }
 
     fn handle_turn_aborted(&mut self, _payload: &TurnAbortedEvent) {
@@ -747,6 +784,75 @@ mod tests {
         // A tool that returns plain text is returning plain text.
         assert_eq!(unwrap_output("just text").text, "just text");
         assert_eq!(unwrap_output(r#"{"other":"shape"}"#).text, r#"{"other":"shape"}"#);
+    }
+
+    #[test]
+    fn should_say_where_a_conversation_was_compacted() {
+        // Without this, reopening a compacted chat looks like the beginning
+        // simply went missing, and a reader assumes the transcript was lost.
+        use opencli_protocol::protocol::ContextCompactedEvent;
+
+        let turns = build_turns_from_rollout(&[
+            RolloutItem::EventMsg(EventMsg::AgentMessage(
+                opencli_protocol::protocol::AgentMessageEvent {
+                    message: "before".to_string(),
+                },
+            )),
+            RolloutItem::EventMsg(EventMsg::ContextCompacted(ContextCompactedEvent)),
+        ]);
+
+        let said: Vec<String> = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .filter_map(|item| match item {
+                ThreadItem::AgentMessage { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(said.len(), 2);
+        assert!(said[1].contains("summarised"), "got: {}", said[1]);
+        assert!(said[1].contains("still on disk"), "got: {}", said[1]);
+    }
+
+    #[test]
+    fn should_report_what_a_reopened_conversation_cost() {
+        // The figure is recorded on every turn and none of it was read back,
+        // so a chat that had spent a hundred thousand tokens reopened
+        // reporting nothing at all.
+        use opencli_protocol::protocol::TokenCountEvent;
+        use opencli_protocol::protocol::TokenUsage as CoreTokenUsage;
+        use opencli_protocol::protocol::TokenUsageInfo;
+
+        let usage = |total: i64| {
+            RolloutItem::EventMsg(EventMsg::TokenCount(TokenCountEvent {
+                info: Some(TokenUsageInfo {
+                    total_token_usage: CoreTokenUsage {
+                        input_tokens: 0,
+                        cached_input_tokens: 0,
+                        output_tokens: 0,
+                        reasoning_output_tokens: 0,
+                        total_tokens: total,
+                    },
+                    last_token_usage: CoreTokenUsage {
+                        input_tokens: 0,
+                        cached_input_tokens: 0,
+                        output_tokens: 0,
+                        reasoning_output_tokens: 0,
+                        total_tokens: 10,
+                    },
+                    model_context_window: Some(32768),
+                }),
+                rate_limits: None,
+            }))
+        };
+
+        // Each figure is the running total at that moment, so the last wins.
+        let found = token_usage_from_rollout(&[usage(500), usage(101_420)]).expect("a total");
+        assert_eq!(found.total.total_tokens, 101_420);
+        assert_eq!(found.model_context_window, Some(32768));
+
+        assert!(token_usage_from_rollout(&[]).is_none());
     }
 
     #[test]

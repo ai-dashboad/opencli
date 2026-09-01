@@ -1678,6 +1678,14 @@ pub struct Thread {
     pub cwd: PathBuf,
     /// Version of the CLI that created the thread.
     pub cli_version: String,
+    /// What the conversation has cost, as it was last recorded.
+    ///
+    /// Reopened without this, a chat that had spent a hundred thousand tokens
+    /// reported nothing at all — the figure is in the rollout and was simply
+    /// not read back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub token_usage: Option<ThreadTokenUsage>,
     /// Origin of the thread (CLI, VSCode, opencli exec, opencli app-server, etc.).
     pub source: SessionSource,
     /// Optional Git metadata captured when the thread was created.

@@ -1036,7 +1036,28 @@ export class OpenCliClient {
     const result = (await this.request("thread/read", {
       threadId: id,
       includeTurns: true,
-    })) as { thread?: { turns?: { items?: unknown[] }[] } };
+    })) as {
+      thread?: {
+        turns?: { items?: unknown[] }[];
+        tokenUsage?: {
+          total?: Record<string, number>;
+          modelContextWindow?: number | null;
+        };
+      };
+    };
+
+    // What it cost, as recorded. Without this a reopened conversation that had
+    // spent a hundred thousand tokens reported nothing.
+    const recorded = result.thread?.tokenUsage;
+    if (recorded?.total) {
+      this.#events.onTokenUsage?.({
+        total: recorded.total.totalTokens ?? 0,
+        last: 0,
+        input: recorded.total.inputTokens ?? 0,
+        output: recorded.total.outputTokens ?? 0,
+        contextWindow: recorded.modelContextWindow ?? null,
+      });
+    }
 
     return (result.thread?.turns ?? []).flatMap((turn) =>
       (turn.items ?? []).flatMap((raw) => {

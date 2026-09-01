@@ -131,6 +131,7 @@ use opencli_app_server_protocol::UserInput as V2UserInput;
 use opencli_app_server_protocol::UserSavedConfig;
 use opencli_app_server_protocol::build_turns_from_event_msgs;
 use opencli_app_server_protocol::build_turns_from_rollout;
+use opencli_app_server_protocol::token_usage_from_rollout;
 use opencli_backend_client::Client as BackendClient;
 use opencli_chatgpt::connectors;
 use opencli_core::AuthManager;
@@ -2247,6 +2248,7 @@ impl OpenCLIMessageProcessor {
             match read_rollout_items(rollout_path).await {
                 Ok(items) => {
                     thread.turns = build_turns_from_rollout(&items);
+                    thread.token_usage = token_usage_from_rollout(&items);
                 }
                 Err(err) => {
                     self.send_internal_error(
@@ -5068,6 +5070,8 @@ fn build_ephemeral_thread(thread_id: ThreadId, config_snapshot: &ThreadConfigSna
         source: config_snapshot.session_source.clone().into(),
         git_info: None,
         turns: Vec::new(),
+        // Filled in by the reader when a rollout is read.
+        token_usage: None,
     }
 }
 
@@ -5132,6 +5136,8 @@ pub(crate) fn summary_to_thread(summary: ConversationSummary) -> Thread {
         source: source.into(),
         git_info,
         turns: Vec::new(),
+        // Filled in by the reader when a rollout is read.
+        token_usage: None,
     }
 }
 

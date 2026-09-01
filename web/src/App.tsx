@@ -1148,10 +1148,13 @@ export default function App() {
                     </button>
                   </p>
                 ) : null}
-                {!busy && usage && usage.last > 0 ? (
+                {!busy && usage && usage.total > 0 ? (
                   <p className="spent">
-                    {usage.last.toLocaleString()} tokens this turn
-                    {usage.output > 0 ? ` (${usage.output.toLocaleString()} written)` : ""} ·{" "}
+                    {usage.last > 0
+                      ? `${usage.last.toLocaleString()} tokens this turn${
+                          usage.output > 0 ? ` (${usage.output.toLocaleString()} written)` : ""
+                        } · `
+                      : ""}
                     {usage.total.toLocaleString()} in this chat
                     {usage.contextWindow
                       ? ` · ${Math.round((100 * usage.total) / usage.contextWindow)}% of the ${Math.round(usage.contextWindow / 1024)}K context`

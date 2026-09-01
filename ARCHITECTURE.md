@@ -581,6 +581,27 @@ thing approvals exist to prevent.
 
 ---
 
+## The app runs a binary it does not build
+
+The desktop process does not serve the agent itself. It runs the `opencli`
+binary beside it, bundled by Tauri as an `externalBin`, and that copy was
+staged by hand. For half a day it was not restaged: every change to the agent,
+the gateway and the history reader was built, tested, committed — and never
+reached the running app, while frontend changes arrived every time because
+Vite rebuilds and Tauri re-embeds them.
+
+Nothing failed. Two halves of one release drifted twelve hours apart in
+silence, and "rebuilt and relaunched" stayed true of the half that could be
+seen while being false of the half being reported on. Checking the frontend
+hash confirmed the wrong half, repeatedly.
+
+`stage-sidecar.sh` builds and stages it from `beforeBuildCommand`, so the
+binary shipped is the binary just built. The check that means anything is
+asking a gateway *run from inside the bundle* what it returns — not a
+timestamp, and not the half that was never in doubt.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks
