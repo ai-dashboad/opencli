@@ -662,6 +662,78 @@ describe("when the agent stops to ask", () => {
   });
 });
 
+describe("what the agent did, not only what it said about it", () => {
+  it("should show a command and what it printed", async () => {
+    // A command carries no `text` at all: the command line is in `command`
+    // and its output in `aggregatedOutput`. Looking only for `text` judged
+    // every one of them to be carrying nothing and dropped it, so the
+    // transcript showed the narration about running commands and never the
+    // commands.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "commandExecution",
+          id: "c-1",
+          command: "cargo test -p opencli-core",
+          cwd: "/work",
+          status: "completed",
+          aggregatedOutput: "test result: ok. 1022 passed",
+          exitCode: 0,
+          durationMs: 19440,
+        },
+      },
+    });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0].kind).toBe("command");
+    expect(seen[0].text).toBe("cargo test -p opencli-core");
+    expect(seen[0].output).toBe("test result: ok. 1022 passed");
+    expect(seen[0].durationMs).toBe(19440);
+  });
+
+  it("should name the tool an MCP call went to", async () => {
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "mcpToolCall",
+          id: "m-1",
+          server: "figma",
+          tool: "get_design_context",
+          status: "completed",
+          arguments: { text: "node 12:34" },
+          result: { text: "a frame" },
+        },
+      },
+    });
+
+    expect(seen[0].kind).toBe("command");
+    expect(seen[0].tool).toBe("figma · get_design_context");
+    expect(seen[0].output).toBe("a frame");
+  });
+
+  it("should still drop an item that really carries nothing", async () => {
+    // The emptiness check is what keeps housekeeping items out of the
+    // transcript; widening it must not turn that off.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/completed",
+      params: { item: { type: "contextCompaction", id: "x-1" } },
+    });
+
+    expect(seen).toHaveLength(0);
+  });
+});
+
 describe("a reply being written", () => {
   it("should show text as it arrives rather than only when it is finished", async () => {
     // Without this a reply appears in one lump at the end. On a local model

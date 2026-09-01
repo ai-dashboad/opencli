@@ -40,6 +40,12 @@ export interface ThreadItem {
   exitCode?: number;
   /** Present for file-change items: what was written, and the diff. */
   changes?: FileChange[];
+  /** What a command printed, or what a tool returned. */
+  output?: string;
+  /** How long it took, once it is over. */
+  durationMs?: number;
+  /** Which tool ran: a shell, or an MCP server's tool. */
+  tool?: string;
 }
 
 export interface ClientEvents {
@@ -492,6 +498,7 @@ function classify(item: Record<string, unknown>): ThreadItem["kind"] {
   if (type.includes("agentMessage") || type.includes("agent_message")) return "agent";
   if (type.includes("userMessage") || type.includes("user_message")) return "user";
   if (type.includes("command") || type.includes("exec")) return "command";
+  if (type.includes("mcpToolCall") || type.includes("mcp_tool_call")) return "command";
   if (type.includes("reasoning")) return "reasoning";
   if (type.includes("fileChange") || type.includes("file_change")) return "fileChange";
   return "other";
@@ -506,9 +513,39 @@ function classify(item: Record<string, unknown>): ThreadItem["kind"] {
  */
 function toThreadItem(item: Record<string, unknown>): ThreadItem | null {
   const changes = changesOf(item);
-  const text = textOf(item) || changes.map((change) => `${change.kind} ${change.path}`).join("\n");
+
+  /*
+   * A command and a tool call carry no `text` at all.
+   *
+   * The command line lives in `command` and what it printed in
+   * `aggregatedOutput`; an MCP call names a `server` and a `tool`. Looking only
+   * for `text` found neither, so every one of them was judged to be carrying
+   * nothing and dropped — the transcript showed the agent's narration about
+   * running commands and never the commands. Exactly the fault file changes
+   * had, which is why `changesOf` already exists beside this.
+   */
+  const type = String(item.type ?? item.itemType ?? "");
+  const command = typeof item.command === "string" ? item.command : "";
+  const isTool = type.includes("mcpToolCall") || type.includes("mcp_tool_call");
+  const tool = isTool
+    ? [item.server, item.tool].filter((part) => typeof part === "string").join(" · ")
+    : undefined;
+
+  const text =
+    command ||
+    (tool ? textOf(item.arguments) || tool : "") ||
+    textOf(item) ||
+    changes.map((change) => `${change.kind} ${change.path}`).join("\n");
   if (!text) return null;
+
+  const output =
+    (typeof item.aggregatedOutput === "string" ? item.aggregatedOutput : "") ||
+    (isTool ? textOf(item.result) : "") ||
+    undefined;
   return {
+    output,
+    durationMs: typeof item.durationMs === "number" ? item.durationMs : undefined,
+    tool,
     id: String(item.id ?? crypto.randomUUID()),
     kind: classify(item),
     text,

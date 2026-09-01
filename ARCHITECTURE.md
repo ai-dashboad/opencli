@@ -451,6 +451,30 @@ loaded model is the only thing that can report it.
 
 ---
 
+## An item that carries no text still carries something
+
+Three item kinds have now been dropped by the same emptiness check, each for
+the same reason and each found only by someone noticing the transcript was
+missing things it should have had.
+
+| Item | Where its content is |
+| --- | --- |
+| File change | `changes`, as a list of paths and diffs |
+| Command | `command`, with what it printed in `aggregatedOutput` |
+| MCP tool call | `server` and `tool`, with the answer in `result` |
+
+None of them has a `text` field, so a converter looking for one concluded
+they carried nothing and returned null. The visible symptom the third time
+was a transcript of nothing but the agent's own narration, every paragraph
+of it stamped with the agent's name — because narration was the only thing
+left in it.
+
+The check itself is right and stays: it is what keeps housekeeping items out
+of the transcript. What was wrong was asking only one question of every kind
+of item.
+
+---
+
 ## Recurring failure
 
 Nearly every bug worth recording here is the same shape: **a control that looks

@@ -2252,3 +2252,25 @@ textarea:focus {
   color: var(--text-faint);
   font-size: 12.5px;
 }
+
+/*
+ * What a command printed, under the command itself.
+ *
+ * Held to a few lines: output is usually long and usually skimmed, and a
+ * hundred lines of it between two sentences buries the conversation the
+ * sentences belong to.
+ */
+.item.command pre.output {
+  max-height: 200px;
+  overflow: auto;
+  margin-top: 6px;
+  border-style: dashed;
+  color: var(--text-dim);
+}
+
+/* How long it took, beside what it was. */
+.item .label em {
+  margin-left: 8px;
+  color: var(--text-faint);
+  font-style: normal;
+}

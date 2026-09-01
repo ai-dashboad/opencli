@@ -184,10 +184,18 @@ function researchInstructions(preferences: Preferences): string {
   ].join("\n");
 }
 
+/**
+ * What to head each item with.
+ *
+ * The agent's own prose gets nothing. It is most of a conversation, and
+ * stamping the same name on every paragraph of it turns the transcript into a
+ * column of one repeated word — which is what it looked like before commands
+ * were rendered at all, because narration was the only thing left in it.
+ */
 const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   user: "You",
-  agent: "OpenCLI",
-  command: "Command",
+  agent: "",
+  command: "Ran a command",
   reasoning: "Thinking",
   fileChange: "Files",
   other: "",
@@ -1023,9 +1031,15 @@ export default function App() {
                 {items.map((item) => (
                   <article key={item.id} className={`item ${item.kind}`}>
                     {KIND_LABEL[item.kind] ? (
-                      <span className="label">{KIND_LABEL[item.kind]}</span>
+                      <span className="label">
+                        {item.tool ?? KIND_LABEL[item.kind]}
+                        {item.durationMs !== undefined ? (
+                          <em>{formatElapsed(Math.round(item.durationMs / 1000))}</em>
+                        ) : null}
+                      </span>
                     ) : null}
                     <pre>{item.text}</pre>
+                    {item.output ? <pre className="output">{item.output}</pre> : null}
                     {item.exitCode !== undefined && item.exitCode !== 0 ? (
                       <span className="exit">exit {item.exitCode}</span>
                     ) : null}
