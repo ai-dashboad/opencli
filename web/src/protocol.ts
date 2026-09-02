@@ -486,6 +486,26 @@ function textOf(value: unknown): string {
 }
 
 /**
+ * What an error actually said.
+ *
+ * The text is nested under `msg`, one level below where the reader of the
+ * payload looked, so every failure arrived as the same six words: a model
+ * that does not exist, a conversation past its context window and an endpoint
+ * that is down were indistinguishable. The server had sent the reason in full
+ * each time.
+ */
+function errorText(payload: unknown): string {
+  const record = (payload ?? {}) as Record<string, unknown>;
+  const turn = record.turn as Record<string, unknown> | undefined;
+  return (
+    textOf(record.msg) ||
+    textOf(record) ||
+    textOf(turn?.error) ||
+    "the agent reported an error"
+  );
+}
+
+/**
  * Read the `changes` array of a file-change item.
  *
  * These items carry no text at all, so without this they are dropped by the
@@ -1108,7 +1128,7 @@ export class OpenCliClient {
       return;
     }
     if (method.endsWith("/error") || method === "opencli/event/error") {
-      this.#events.onError?.(textOf(payload) || "the agent reported an error");
+      this.#events.onError?.(errorText(payload));
     }
   }
 

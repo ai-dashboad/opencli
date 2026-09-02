@@ -539,6 +539,50 @@ describe("reopening a conversation", () => {
   });
 });
 
+describe("errors", () => {
+  it("should report what actually went wrong", async () => {
+    // The reason is nested a level below where this used to look, so every
+    // failure read as the same six words — a missing model, a full context
+    // window and a dead endpoint were indistinguishable.
+    const errors: string[] = [];
+    const { socket } = await connected({ onError: (message: string) => errors.push(message) });
+
+    socket.emit({
+      method: "opencli/event/error",
+      params: {
+        id: "1",
+        msg: {
+          type: "error",
+          message: "model 'no-such-model' not found (status 404 Not Found)",
+        },
+      },
+    });
+
+    expect(errors).toEqual(["model 'no-such-model' not found (status 404 Not Found)"]);
+  });
+
+  it("should still say something when the reason is missing", async () => {
+    const errors: string[] = [];
+    const { socket } = await connected({ onError: (message: string) => errors.push(message) });
+
+    socket.emit({ method: "opencli/event/error", params: {} });
+
+    expect(errors).toEqual(["the agent reported an error"]);
+  });
+
+  it("should read the reason a finished turn carries", async () => {
+    const errors: string[] = [];
+    const { socket } = await connected({ onError: (message: string) => errors.push(message) });
+
+    socket.emit({
+      method: "turn/error",
+      params: { turn: { error: { message: "the context window is full" } } },
+    });
+
+    expect(errors).toEqual(["the context window is full"]);
+  });
+});
+
 describe("projects", () => {
   it("should send only the fields being changed on update", async () => {
     // The server leaves omitted fields alone; sending empty strings would

@@ -535,6 +535,10 @@ export default function App() {
           setRunningIn(threadId);
           setTurnAt(Date.now());
           setStreamed(0);
+          // Whatever went wrong last time is over. Nothing cleared this, so a
+          // failure stayed on screen through every later prompt, saying a turn
+          // that had since succeeded had failed.
+          setError(null);
         },
         onTurnComplete: () => {
           setRunningIn(null);
@@ -696,6 +700,10 @@ export default function App() {
 
     setRunningIn(clientRef.current?.threadId ?? null);
     setTurnAt(Date.now());
+    // Cleared here as well as on `turn/started`: a turn that fails before the
+    // server acknowledges it never sends that event, and the previous error
+    // would sit there through the failure of the next one.
+    setError(null);
     // The server echoes the user message back as a thread item, so do not add
     // it locally — doing so showed every prompt twice.
     try {
