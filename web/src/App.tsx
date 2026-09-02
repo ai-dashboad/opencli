@@ -602,9 +602,14 @@ export default function App() {
    */
   const doing = (() => {
     const last = items[items.length - 1];
-    if (!last) return "Working…";
+    if (!last) return "Waiting for the model…";
     if (last.kind === "command") return `${last.summary ?? "Running a command"}…`;
     if (last.kind === "reasoning") return "Thinking…";
+    // Nothing has come back yet when the last thing in the transcript is what
+    // the reader just typed. That window is the model reading the
+    // conversation, not writing an answer, and it is the longest wait in a
+    // turn — saying "Writing…" through all of it was simply untrue.
+    if (last.kind === "user") return "Waiting for the model…";
     return "Writing…";
   })();
 

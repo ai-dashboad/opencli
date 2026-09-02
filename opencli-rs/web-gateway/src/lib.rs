@@ -220,6 +220,13 @@ async fn ws_handler(
 async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
     let mut child = tokio::process::Command::new(&state.server_bin)
         .arg("app-server")
+        // Without this the Chat wire holds a whole thought back until it is
+        // finished and only then sends it. A local reasoning model thinks for
+        // tens of seconds, so the reader watches a blank screen for the
+        // longest part of the turn. The flag is safe to force here because a
+        // gateway client decides for itself whether to show thinking; the CLI,
+        // which has no such control, keeps the configured default.
+        .args(["-c", "show_raw_agent_reasoning=true"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
