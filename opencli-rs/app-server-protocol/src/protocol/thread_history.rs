@@ -289,6 +289,22 @@ impl ThreadHistoryBuilder {
             return;
         }
 
+        // Fragments of one answer, not one answer each.
+        //
+        // A reply is recorded as a run of `agent_message` events — 140 of them
+        // for a single answer in the conversation this was found in, most of
+        // them empty and the rest a token apiece. Given a row each, a reopened
+        // conversation showed "Both", "scripts", "exist", "." one under the
+        // other: the model's own token boundaries, laid out as paragraphs.
+        //
+        // Joined onto the last one, the way thinking already was.
+        if let Some(ThreadItem::AgentMessage { text: sofar, .. }) =
+            self.ensure_turn().items.last_mut()
+        {
+            sofar.push_str(&text);
+            return;
+        }
+
         let id = self.next_item_id();
         self.ensure_turn()
             .items
@@ -907,6 +923,39 @@ mod tests {
         assert_eq!(turns.len(), 2);
         assert_eq!(turns[0].total_ms, Some(240_000), "four minutes of work");
         assert_eq!(turns[1].total_ms, Some(60_000));
+    }
+
+    #[test]
+    fn should_join_the_fragments_an_answer_was_recorded_in() {
+        // A reply is written to the rollout as a run of `agent_message`
+        // events — 140 of them for one answer in the conversation this was
+        // found in. A row each turned the model's token boundaries into
+        // paragraphs: "Both", "scripts", "exist", "." one under the other.
+        let piece = |at: &str, text: &str| RolloutLine {
+            timestamp: at.to_string(),
+            item: RolloutItem::EventMsg(EventMsg::AgentMessage(
+                opencli_protocol::protocol::AgentMessageEvent {
+                    message: text.to_string(),
+                },
+            )),
+        };
+
+        let turns = build_turns_from_rollout(&[
+            piece("2026-09-01T09:28:00.000Z", "Both"),
+            piece("2026-09-01T09:28:00.100Z", " scripts"),
+            piece("2026-09-01T09:28:00.200Z", " exist"),
+            piece("2026-09-01T09:28:00.300Z", "."),
+        ]);
+
+        let said: Vec<String> = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .filter_map(|item| match item {
+                ThreadItem::AgentMessage { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(said, vec!["Both scripts exist."], "one answer, not four");
     }
 
     #[test]
