@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::ModelProviderInfo;
 use tracing::warn;
 use crate::context_manager::ContextManager;
+use opencli_protocol::models::FunctionCallOutputContentItem;
 use crate::Prompt;
 use crate::client_common::ResponseEvent;
 use crate::opencli::Session;
@@ -114,7 +115,17 @@ async fn condense_until_it_fits(
     history: &mut ContextManager,
     budget: i64,
 ) -> OpenCLIResult<usize> {
-    let items = history.raw_items().to_vec();
+    // The instruction to summarise is already the last thing in the history,
+    // and it has to stay there. Summarising it along with everything else left
+    // a request that was nothing but assistant messages, which the provider
+    // refused outright: "Cannot have 2 or more assistant messages at the end
+    // of the list."
+    let mut items = history.raw_items().to_vec();
+    let tail = match items.last() {
+        Some(ResponseItem::Message { role, .. }) if role == "user" => items.pop(),
+        _ => None,
+    };
+
     let pieces = split_into_pieces(&items, budget, turn_context.truncation_policy);
     if pieces.len() < 2 {
         return Ok(0);
@@ -132,7 +143,16 @@ async fn condense_until_it_fits(
         )
         .await;
 
-        let mut to_summarise = piece.clone();
+        // Through a history rather than sent as raw items.
+        //
+        // Cutting a conversation at an arbitrary point can put a tool call in
+        // one piece and its output in the next, and a conversation with a call
+        // that is never answered is not a conversation a model will accept —
+        // the request failed, was retried eight times, and a compaction that
+        // should have taken ten seconds a piece sat there for five minutes.
+        // `for_prompt` restores the invariant, and drops the snapshots that
+        // have no business being summarised.
+        let mut to_summarise = prepare_piece(piece, turn_context.truncation_policy);
         to_summarise.push(ResponseItem::Message {
             id: None,
             role: "user".to_string(),
@@ -153,8 +173,80 @@ async fn condense_until_it_fits(
         });
     }
 
+    summarised.extend(tail);
     history.replace(summarised);
     Ok(pieces.len())
+}
+
+/// Make a piece of a conversation into something a model will accept.
+///
+/// Cutting at an arbitrary point can put a tool call in one piece and its
+/// output in the next, and a call that is never answered is not a
+/// conversation — the request failed, was retried eight times, and a
+/// compaction that should have taken ten seconds a piece sat for five
+/// minutes. Going through a history restores the invariant and drops the
+/// snapshots that have no business being summarised.
+fn prepare_piece(
+    piece: &[ResponseItem],
+    policy: crate::truncate::TruncationPolicy,
+) -> Vec<ResponseItem> {
+    let without_images: Vec<ResponseItem> = piece.iter().cloned().map(drop_images).collect();
+    let mut history = ContextManager::new();
+    history.record_items(without_images.iter(), policy);
+    history.for_prompt()
+}
+
+/// Replace pictures with a word saying one was there.
+///
+/// An image is carried as base64, and in a real conversation each one came to
+/// 286,772 characters — on its own more than twice a 32K window. Nothing can
+/// summarise a piece like that, so the request failed after minutes and was
+/// retried eight times, and the compaction never finished.
+///
+/// There is nothing in a picture to summarise anyway. What matters for a
+/// summary is that one was sent, which is what stays.
+fn drop_images(item: ResponseItem) -> ResponseItem {
+    const PLACEHOLDER: &str = "[an image was shared here]";
+    match item {
+        ResponseItem::Message {
+            id,
+            role,
+            content,
+            end_turn,
+        } => ResponseItem::Message {
+            id,
+            role,
+            content: content
+                .into_iter()
+                .map(|part| match part {
+                    ContentItem::InputImage { .. } => ContentItem::InputText {
+                        text: PLACEHOLDER.to_string(),
+                    },
+                    kept => kept,
+                })
+                .collect(),
+            end_turn,
+        },
+        ResponseItem::FunctionCallOutput { call_id, mut output } => {
+            if let Some(items) = output.content_items.take() {
+                output.content_items = Some(
+                    items
+                        .into_iter()
+                        .map(|part| match part {
+                            FunctionCallOutputContentItem::InputImage { .. } => {
+                                FunctionCallOutputContentItem::InputText {
+                                    text: PLACEHOLDER.to_string(),
+                                }
+                            }
+                            kept => kept,
+                        })
+                        .collect(),
+                );
+            }
+            ResponseItem::FunctionCallOutput { call_id, output }
+        }
+        kept => kept,
+    }
 }
 
 /// Cut a conversation into consecutive pieces that each fit `budget`.
@@ -582,6 +674,94 @@ mod tests {
             }],
             end_turn: None,
         }
+    }
+
+    #[test]
+    fn should_not_summarise_the_instruction_to_summarise() {
+        // It is the last thing in the history and has to stay there. Folding
+        // it in with everything else left a request that was nothing but
+        // assistant messages, which the provider refused: "Cannot have 2 or
+        // more assistant messages at the end of the list."
+        let asked = ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![ContentItem::InputText {
+                text: "Summarise the conversation.".to_string(),
+            }],
+            end_turn: None,
+        };
+        let mut items: Vec<ResponseItem> = (0..8).map(|_| said(&"word ".repeat(200))).collect();
+        items.push(asked.clone());
+
+        // What the condensing does with the tail, without a model to call.
+        let tail = match items.last() {
+            Some(ResponseItem::Message { role, .. }) if role == "user" => items.pop(),
+            _ => None,
+        };
+
+        assert_eq!(tail.as_ref(), Some(&asked), "the instruction is held back");
+        assert!(
+            !items.iter().any(|item| item == &asked),
+            "and is not among the messages being summarised"
+        );
+    }
+
+    #[test]
+    fn should_not_try_to_summarise_a_picture() {
+        // Measured on a real conversation: one image came to 286,772
+        // characters of base64 — on its own more than twice a 32K window, so
+        // the piece holding it could never be summarised. The request failed
+        // after minutes and was retried eight times.
+        let huge = "A".repeat(280_000);
+        let piece = vec![ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![
+                ContentItem::InputText {
+                    text: "look at this".to_string(),
+                },
+                ContentItem::InputImage {
+                    image_url: format!("data:image/png;base64,{huge}"),
+                },
+            ],
+            end_turn: None,
+        }];
+
+        let prepared = prepare_piece(&piece, TruncationPolicy::Tokens(100_000));
+
+        let sent = serde_json::to_string(&prepared).expect("serialise");
+        assert!(
+            !sent.contains(&huge),
+            "the base64 must not be sent to be summarised"
+        );
+        assert!(sent.contains("an image was shared here"), "but say one was there");
+        assert!(sent.contains("look at this"), "and keep the words around it");
+    }
+
+    #[test]
+    fn should_not_send_a_call_whose_answer_is_in_another_piece() {
+        // The cut falls where the budget runs out, which is not where a tool
+        // call ends. A call with no answer is not a conversation a model will
+        // take, and the request failed and was retried eight times.
+        let call = ResponseItem::FunctionCall {
+            name: "run".to_string(),
+            arguments: r#"{"command":["ls"]}"#.to_string(),
+            call_id: "c1".to_string(),
+            id: None,
+        };
+        let piece = vec![said("before the call"), call];
+
+        let prepared = prepare_piece(&piece, TruncationPolicy::Tokens(100_000));
+
+        let calls = prepared
+            .iter()
+            .filter(|item| matches!(item, ResponseItem::FunctionCall { .. }))
+            .count();
+        let answers = prepared
+            .iter()
+            .filter(|item| matches!(item, ResponseItem::FunctionCallOutput { .. }))
+            .count();
+        assert_eq!(calls, answers, "every call in a piece must have an answer in it");
     }
 
     #[test]
