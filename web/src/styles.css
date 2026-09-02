@@ -501,6 +501,67 @@ textarea:focus {
 }
 
 /*
+ * Stop, as one control that names its own shortcut.
+ *
+ * It was an underlined word and a bare key chip, beside a round button in the
+ * composer that did exactly the same thing — two shabby halves of a control
+ * that already existed twice over. The key chip had no styling at all,
+ * because the rule adding it never reached the file.
+ *
+ * Quiet until approached: this sits under a running turn for minutes at a
+ * time, and a red button pulling the eye for all of them would read as an
+ * alarm rather than an option.
+ */
+.stop-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 8px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  line-height: 1.6;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.stop-button:hover {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
+  color: var(--danger);
+}
+
+.stop-button:active {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+/* The key, said inside the control it belongs to rather than beside it. */
+.stop-button kbd {
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.stop-button:hover kbd {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+  color: color-mix(in srgb, var(--danger) 75%, var(--text-faint));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stop-button {
+    transition: none;
+  }
+}
+
+/*
  * A dot that beats, with a ring going out from it.
  *
  * It was a bare `::before` with a width and no `flex: none`, so in a flex row

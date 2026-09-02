@@ -1260,21 +1260,34 @@ export default function App() {
                 {busy ? (
                   <p className="working">
                     <WorkingDot />
-                    {doing} {formatElapsed(elapsed)}
-                    {streamed > 0 ? ` · ~${Math.round(streamed / 4)} written` : ""}
+                    <span className="doing">
+                      {doing} {formatElapsed(elapsed)}
+                      {streamed > 0 ? ` · ~${Math.round(streamed / 4)} written` : ""}
+                    </span>
                     {/*
-                      * The conversation's total is deliberately not shown here.
-                      * A streaming provider reports usage once, when the turn
-                      * ends, so the figure cannot move while one is running —
-                      * and a number that sits still for fourteen minutes under
-                      * the words "so far" reads as a counter that has broken.
-                      */}{" "}
-                    <button className="link" onClick={() => void interrupt()}>
-                      stop
+                      * The conversation's total is deliberately not shown
+                      * here. A streaming provider reports usage once, when the
+                      * turn ends, so the figure cannot move while one is
+                      * running — and a number that sits still for fourteen
+                      * minutes under the words "so far" reads as a counter
+                      * that has broken.
+                      */}
+                    {/*
+                      * One control, naming its own shortcut.
+                      *
+                      * This was an underlined word and a loose key chip beside
+                      * a round button in the composer that did the same thing:
+                      * two shabby halves of a control that already existed
+                      * twice. Sat next to the text rather than pushed to the
+                      * far right, because the transcript runs the full width
+                      * of the window and right-aligning would strand it a
+                      * screen away from the words it belongs to.
+                      */}
+                    <button type="button" className="stop-button" onClick={() => void interrupt()}>
+                      <StopIcon size={12} />
+                      Stop
+                      <kbd>esc</kbd>
                     </button>
-                    {/* Said once, where the action is: a shortcut nobody is
-                        told about is a shortcut nobody uses. */}
-                    <kbd className="hint-key">esc</kbd>
                   </p>
                 ) : null}
                 {!busy && usage && usage.total > 0 ? (
@@ -1568,16 +1581,6 @@ export default function App() {
                   </Popover>
                 </span>
 
-                {busy ? (
-                  <button
-                    type="button"
-                    className="icon-button"
-                    title="Stop"
-                    onClick={() => void interrupt()}
-                  >
-                    <StopIcon />
-                  </button>
-                ) : null}
                 <button
                   type="submit"
                   className="icon-button send"
