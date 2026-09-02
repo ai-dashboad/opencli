@@ -103,3 +103,6 @@ desktop/src-tauri/gen/
 
 # The agent binary is copied in at package time, not tracked.
 desktop/src-tauri/bin/
+
+# The site serves the installer from `scripts/`; the copy is made at build time.
+website/public/install.sh

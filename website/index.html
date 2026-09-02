@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenCLI — a coding agent for the models you run yourself</title>
+    <meta
+      name="description"
+      content="A coding agent for your terminal and your desktop that works with any OpenAI-compatible API — including a model running on your own machine. No accounts, no keys built in."
+    />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 32 32"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="17,9 9,16 17,23" />
+            <line x1="17" y1="23" x2="25" y2="23" />
+          </svg>
+          OpenCLI
+        </a>
+        <nav>
+          <a href="/download.html">Download</a>
+          <a href="#cli">CLI</a>
+          <a href="https://github.com/ai-dashboad/opencli">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="wrap">
+          <h1>A coding agent for the models you run yourself</h1>
+          <p class="lede">
+            OpenCLI reads your code, runs your commands and edits your files — through any
+            OpenAI-compatible API. A hosted provider, your own gateway, or a model on the machine
+            in front of you. It ships with no accounts and no keys.
+          </p>
+          <div class="cta">
+            <a class="button" href="/download.html" data-download-main>Download</a>
+            <a class="button ghost" href="#cli">Install the CLI</a>
+          </div>
+          <p class="detail" data-download-detail hidden style="color: var(--text-faint); font-size: 13px; margin-top: 12px">
+            <span data-version-block hidden>Version <span data-version></span> · </span>other
+            platforms on the <a href="/download.html">download page</a>
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>What it is</h2>
+          <p>
+            The same agent in three shapes: a terminal program, a desktop app, and a local web UI.
+            All three run on your machine and talk to whichever model you point them at.
+          </p>
+          <div class="grid">
+            <div class="card">
+              <strong>Bring your own model</strong>
+              <p>
+                Ollama, LM Studio, vLLM, llama.cpp, or any hosted endpoint that speaks the
+                OpenAI API. Declare it in one config file and it appears in the picker.
+              </p>
+            </div>
+            <div class="card">
+              <strong>Nothing phones home</strong>
+              <p>
+                No built-in gateway, no telemetry account, no key baked into the binary. What it
+                talks to is what you configured.
+              </p>
+            </div>
+            <div class="card">
+              <strong>It asks before it acts</strong>
+              <p>
+                Commands and file writes are shown before they run, with a sandbox underneath.
+                You choose how much it may do unattended.
+              </p>
+            </div>
+            <div class="card">
+              <strong>Projects, memory, schedules</strong>
+              <p>
+                Group work by directory with standing instructions, keep facts across
+                conversations, and put a recurring prompt on a timer.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="cli">
+        <div class="wrap">
+          <h2>The CLI</h2>
+          <p>One binary. macOS and Linux:</p>
+          <div class="oneline">
+            <code>curl -fsSL https://opencli.ai/install.sh | sh</code>
+            <button data-copy="curl -fsSL https://opencli.ai/install.sh | sh">Copy</button>
+          </div>
+          <p style="margin-top: 18px">Or with npm, on any platform Node runs on:</p>
+          <div class="oneline">
+            <code>npm install -g @ai-dashboad/opencli</code>
+            <button data-copy="npm install -g @ai-dashboad/opencli">Copy</button>
+          </div>
+          <p style="margin-top: 22px">
+            Then point it at a model. A local Ollama, for example, needs nothing but this in
+            <code>~/.opencli/config.toml</code>:
+          </p>
+          <pre class="block">[model_providers.ollama]
+name = "Ollama"
+base_url = "http://localhost:11434/v1"
+wire_api = "chat"
+
+[[models]]
+slug = "qwen3-coder"
+model = "qwen3-coder:30b"
+provider = "ollama"
+context_window = 32768</pre>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>How it compares</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>&nbsp;</th>
+                <th>OpenCLI</th>
+                <th>Hosted agents</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Where the model runs</td>
+                <td>Wherever you point it, including your own hardware</td>
+                <td>The vendor's servers</td>
+              </tr>
+              <tr>
+                <td>Where your code goes</td>
+                <td>To the endpoint you configured, and nowhere else</td>
+                <td>To the vendor</td>
+              </tr>
+              <tr>
+                <td>Cost</td>
+                <td>Free; you pay for inference, or nothing if it is local</td>
+                <td>Per seat or per token</td>
+              </tr>
+              <tr>
+                <td>Works offline</td>
+                <td>Yes, with a local model</td>
+                <td>No</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="margin-top: 22px">
+            One thing worth saying plainly: a small local model is not as good at this as a
+            frontier one. The interface is the same; the reasoning is not. OpenCLI is built so
+            that choice is yours to make per task, not made for you.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span class="grow">OpenCLI · Apache-2.0</span>
+        <a href="https://github.com/ai-dashboad/opencli">Source</a>
+        <a href="https://github.com/ai-dashboad/opencli/tree/main/docs">Docs</a>
+        <a href="https://github.com/ai-dashboad/opencli/issues">Issues</a>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

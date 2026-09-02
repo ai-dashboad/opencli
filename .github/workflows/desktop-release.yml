@@ -1,0 +1,152 @@
+# Desktop app bundles for a release.
+#
+# Called by `rust-release.yml` so that everything a release contains — the CLI
+# binaries and the desktop app — lands in one GitHub Release under one tag.
+# Two workflows publishing to the same tag would race each other.
+#
+# Each platform builds natively. Cross-compiling would be faster to configure
+# and wrong in a way that is hard to see: the app does not run the agent
+# itself, it runs the `opencli` binary staged next to it, and that binary is
+# built for whatever `rustc` calls the host.
+
+name: desktop-release
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            platform: darwin-aarch64
+            bundles: app,dmg
+          - runner: macos-13
+            platform: darwin-x86_64
+            bundles: app,dmg
+          - runner: ubuntu-22.04
+            platform: linux-x86_64
+            bundles: appimage,deb
+          - runner: windows-latest
+            platform: windows-x86_64
+            bundles: msi,nsis
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@1.93
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            opencli-rs/target/
+            desktop/src-tauri/target/
+          key: desktop-${{ matrix.platform }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      # WebKitGTK is the web view on Linux; without it the crate does not build.
+      - if: ${{ startsWith(matrix.runner, 'ubuntu') }}
+        name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            libssl-dev build-essential file
+
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Install the Tauri CLI
+        run: cargo binstall --no-confirm tauri-cli@^2
+
+      # `beforeBuildCommand` runs `stage-sidecar.sh` and builds the frontend,
+      # so the app cannot be bundled around a stale agent.
+      - name: Build the app
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: cargo tauri build --bundles ${{ matrix.bundles }}
+
+      # Two kinds of file come out of here, and they are named differently on
+      # purpose.
+      #
+      # The updater's artifacts keep the names Tauri gave them, because they are
+      # paired with a `.sig` and the manifest finds them by that pairing.
+      #
+      # The files a person downloads are copied to names with no version in
+      # them, so that `releases/latest/download/OpenCLI-macos-aarch64.dmg` is a
+      # link that never has to be edited — the download page, the README and
+      # every answer anyone ever gives in an issue can use it.
+      - name: Stage bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest="dist-desktop/${{ matrix.platform }}"
+          mkdir -p "$dest"
+          bundle="desktop/src-tauri/target/release/bundle"
+          arch="${{ matrix.platform }}"
+          arch="${arch#*-}"
+
+          shopt -s nullglob globstar
+
+          # Updater artifacts, renamed to carry the platform.
+          #
+          # Tauri names the macOS one `OpenCLI.app.tar.gz` with no architecture
+          # in it, so both Mac jobs would upload the same file name into the
+          # same release and one would silently replace the other — leaving
+          # half the users updating into a build for the wrong processor. The
+          # extension is preserved exactly, because the updater decides how to
+          # install from it.
+          for signature in "$bundle"/**/*.sig; do
+            artifact="${signature%.sig}"
+            name="$(basename "$artifact")"
+            case "$name" in
+              *.app.tar.gz) renamed="OpenCLI-${{ matrix.platform }}.app.tar.gz" ;;
+              *.AppImage)   renamed="OpenCLI-${{ matrix.platform }}.AppImage" ;;
+              *-setup.exe)  renamed="OpenCLI-${{ matrix.platform }}-setup.exe" ;;
+              *.msi)        renamed="OpenCLI-${{ matrix.platform }}.msi" ;;
+              *)            renamed="$name" ;;
+            esac
+            cp "$artifact" "$dest/$renamed"
+            cp "$signature" "$dest/${renamed}.sig"
+          done
+
+          # Human downloads, under names with no version in them so the links
+          # on the site and in the README never have to be edited. On Linux and
+          # Windows this is the same file the updater uses, already staged
+          # above; copying it again would only add a name nothing points at.
+          stable() {
+            [[ -f "$1" ]] || return 0
+            cp "$1" "$dest/$2"
+          }
+          for file in "$bundle"/**/*.dmg; do stable "$file" "OpenCLI-macos-${arch}.dmg"; done
+          for file in "$bundle"/**/*.deb; do stable "$file" "OpenCLI-linux-${arch}.deb"; done
+
+          ls -l "$dest"
+          if [[ -z "$(ls -A "$dest")" ]]; then
+            echo "no bundles were produced for ${{ matrix.platform }}" >&2
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: dist-desktop/${{ matrix.platform }}/*

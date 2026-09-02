@@ -10,9 +10,42 @@ where your inference comes from and no secrets.
 
 ---
 
+## Install
+
+**Desktop app** — [opencli.ai/download](https://opencli.ai/download.html), or
+straight from the latest release:
+
+| Platform | File |
+| --- | --- |
+| macOS · Apple Silicon | [`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg) |
+| macOS · Intel | [`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg) |
+| Windows | [`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe) |
+| Linux | [`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage) |
+
+The app updates itself. The first launch will not go quietly, though: these
+builds are **not signed** with an Apple or Microsoft certificate, so the
+operating system cannot tell who made them. On macOS, run
+`xattr -dr com.apple.quarantine /Applications/OpenCLI.app` once, or right-click
+the app and choose *Open*. On Windows, SmartScreen wants *More info → Run
+anyway*.
+
+**Command line** — one binary, macOS and Linux:
+
+```shell
+curl -fsSL https://opencli.ai/install.sh | sh
+```
+
+or with npm, anywhere Node runs:
+
+```shell
+npm install -g @ai-dashboad/opencli
+```
+
+---
+
 ## Quickstart
 
-### Build
+### Build from source
 
 Requires a recent Rust toolchain.
 

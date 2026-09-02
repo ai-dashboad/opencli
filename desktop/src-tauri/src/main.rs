@@ -149,14 +149,92 @@ fn choose_files() -> Result<Vec<String>, String> {
     Ok(Vec::new())
 }
 
+/// The version this app was built as, for the UI to show and compare.
+///
+/// Read from the crate rather than passed in from the frontend: the web build
+/// and the desktop build share a bundle, and only one of them is a release with
+/// a version at all.
+#[tauri::command]
+fn app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// A release newer than the running one, if there is one.
+#[derive(serde::Serialize)]
+struct Available {
+    version: String,
+    notes: Option<String>,
+}
+
+/// Ask the release feed whether there is a newer version.
+///
+/// Driven from Rust rather than from the frontend's plugin bindings: installing
+/// reports progress over a Tauri channel, and hand-rolling that from a page
+/// with no `@tauri-apps` packages is more moving parts than the three commands
+/// here. It also keeps the window's granted capabilities down to what it
+/// actually uses.
+#[tauri::command]
+async fn check_update(app: tauri::AppHandle) -> Result<Option<Available>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|err| err.to_string())?;
+    let update = updater.check().await.map_err(|err| err.to_string())?;
+    Ok(update.map(|update| Available {
+        version: update.version.clone(),
+        notes: update.body.clone(),
+    }))
+}
+
+/// Download and install the newer version, reporting progress as it goes.
+///
+/// The app is not restarted here. Replacing itself under a conversation the
+/// user is in the middle of is the wrong moment to choose for them, so the
+/// frontend offers the restart and waits.
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Emitter;
+    use tauri_plugin_updater::UpdaterExt;
+
+    let updater = app.updater().map_err(|err| err.to_string())?;
+    let Some(update) = updater.check().await.map_err(|err| err.to_string())? else {
+        return Err("there is no update to install".to_string());
+    };
+
+    let progress = app.clone();
+    let mut downloaded = 0usize;
+    update
+        .download_and_install(
+            move |chunk, total| {
+                downloaded += chunk;
+                // A download with no declared length reports `None`; the UI
+                // shows an indeterminate bar rather than inventing a fraction.
+                let _ = progress.emit("update://progress", (downloaded as u64, total));
+            },
+            || {},
+        )
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+/// Restart into the version that was just installed.
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) {
+    app.restart();
+}
+
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(GatewayUrl::default())
         .invoke_handler(tauri::generate_handler![
             gateway_url,
             default_cwd,
             choose_directory,
-            choose_files
+            choose_files,
+            app_version,
+            check_update,
+            install_update,
+            restart_app
         ])
         .setup(|app| {
             let handle = app.handle().clone();

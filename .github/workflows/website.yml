@@ -1,0 +1,57 @@
+# Build and publish opencli.ai.
+#
+# The site is in this repository so that a release and the page announcing it
+# move together: the download links point at `releases/latest/download/...`,
+# which the release workflow keeps valid by uploading a copy of each installer
+# under a name with no version in it.
+#
+# Publishing is skipped when no Cloudflare credentials are configured, so a
+# fork — or this repository before the token is added — still builds the site
+# on every pull request and simply does not deploy it.
+
+name: website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "scripts/install.sh"
+      - ".github/workflows/website.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - "scripts/install.sh"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the site
+        run: pnpm --dir website build
+
+      # The installer is served from the site, so a broken one would be shipped
+      # to every `curl | sh` in the README. It is not run here — only parsed.
+      - name: Check the installer parses
+        run: sh -n website/dist/install.sh
+
+      - if: ${{ github.event_name == 'push' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+        name: Publish to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy website/dist --project-name=opencli

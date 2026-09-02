@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { shouldDismiss } from "./composer";
 import type { Project, ScheduledTask, ThreadSummary } from "./protocol";
+import type { UpdateState } from "./update";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -61,6 +62,66 @@ interface SidebarProps {
   onForward: () => void;
   canBack: boolean;
   canForward: boolean;
+  /** Present only in the desktop build, which is the only one that updates. */
+  update?: UpdateState;
+}
+
+/**
+ * The one line an update gets.
+ *
+ * It sits above the account row, where nothing else competes for attention, and
+ * it never takes the focus or the keyboard. Downloading shows a real fraction
+ * when the server declares a length and a sweep when it does not — a bar that
+ * fills at a made-up rate is a lie told smoothly.
+ */
+function UpdateLine({ update }: { update: UpdateState }) {
+  if (update.stage === "ready") {
+    return (
+      <div className="update-line ready">
+        <span>Version {update.version} is installed</span>
+        <button className="link" onClick={update.restart}>
+          Restart
+        </button>
+      </div>
+    );
+  }
+
+  if (update.stage === "downloading") {
+    return (
+      <div className="update-line">
+        <span>Downloading {update.version}…</span>
+        <div className="progress">
+          <div
+            className={`progress-fill${update.progress === null ? " sweeping" : ""}`}
+            style={update.progress === null ? undefined : { width: `${update.progress * 100}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (update.stage === "failed") {
+    return (
+      <div className="update-line failed">
+        <span>{update.error ?? "The update could not be installed."}</span>
+        <button className="link" onClick={update.install}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="update-line">
+      <span>Version {update.version} is available</span>
+      <button className="link" onClick={update.install}>
+        Update
+      </button>
+      <button className="dismiss" aria-label="Not now" onClick={update.dismiss}>
+        ×
+      </button>
+    </div>
+  );
 }
 
 /**
@@ -166,6 +227,7 @@ export default function Sidebar({
   onForward,
   canBack,
   canForward,
+  update,
 }: SidebarProps) {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -392,6 +454,7 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-foot">
+        {update && update.stage !== "none" ? <UpdateLine update={update} /> : null}
         {SECONDARY.map((item) => (
           <button
             key={item.id}

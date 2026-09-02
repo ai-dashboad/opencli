@@ -3,6 +3,7 @@ packages:
   - opencli-rs/responses-api-proxy/npm
   - sdk/typescript
   - web
+  - website
   - shell-tool-mcp
 
 ignoredBuiltDependencies:

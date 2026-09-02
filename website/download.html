@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Download OpenCLI</title>
+    <meta name="description" content="Download OpenCLI for macOS, Windows and Linux, or install the CLI with one command." />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 32 32"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="17,9 9,16 17,23" />
+            <line x1="17" y1="23" x2="25" y2="23" />
+          </svg>
+          OpenCLI
+        </a>
+        <nav>
+          <a href="/download.html">Download</a>
+          <a href="/#cli">CLI</a>
+          <a href="https://github.com/ai-dashboad/opencli">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section style="border-top: none; padding-top: 48px">
+        <div class="wrap">
+          <h2>Download</h2>
+          <p>
+            <span data-version-block hidden>Version <span data-version></span> · </span>The
+            desktop app updates itself once installed.
+          </p>
+
+          <div class="download-main">
+            <a class="button" href="#all" data-download-main>See all downloads</a>
+            <p class="detail" data-download-detail hidden>
+              Not your platform? Everything is listed below.
+            </p>
+          </div>
+
+          <div class="notice">
+            <h3>Your computer will warn you about this app</h3>
+            <p>
+              These builds are not signed with an Apple or Microsoft certificate — those cost
+              money per year, and this project has not spent it yet. Nothing is wrong with the
+              download; the operating system simply cannot tell who built it.
+            </p>
+            <p><strong>macOS</strong> — after dragging OpenCLI to Applications, run once:</p>
+            <pre class="block">xattr -dr com.apple.quarantine /Applications/OpenCLI.app</pre>
+            <p>
+              Or right-click the app, choose <em>Open</em>, and confirm at the prompt. You only
+              have to do this for the first launch; updates after that are silent.
+            </p>
+            <p><strong>Windows</strong> — SmartScreen will show a blue box. Click <em>More info</em>, then <em>Run anyway</em>.</p>
+            <p>
+              If you would rather not take our word for any of it,
+              <a href="https://github.com/ai-dashboad/opencli">build it from source</a> — it is
+              one <code>cargo build</code>.
+            </p>
+          </div>
+
+          <h3 id="all">All platforms</h3>
+          <ul class="files">
+            <li>
+              <span>macOS · Apple Silicon</span>
+              <a href="https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg">OpenCLI-macos-aarch64.dmg</a>
+            </li>
+            <li>
+              <span>macOS · Intel</span>
+              <a href="https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg">OpenCLI-macos-x86_64.dmg</a>
+            </li>
+            <li>
+              <span>Windows · 64-bit installer</span>
+              <a href="https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe">OpenCLI-windows-x86_64-setup.exe</a>
+            </li>
+            <li>
+              <span>Windows · MSI</span>
+              <a href="https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64.msi">OpenCLI-windows-x86_64.msi</a>
+            </li>
+            <li>
+              <span>Linux · AppImage</span>
+              <a href="https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage">OpenCLI-linux-x86_64.AppImage</a>
+            </li>
+            <li>
+              <span>Linux · Debian and Ubuntu</span>
+              <a href="https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.deb">OpenCLI-linux-x86_64.deb</a>
+            </li>
+          </ul>
+          <p style="margin-top: 14px; font-size: 13.5px">
+            Checksums and every earlier version are on the
+            <a href="https://github.com/ai-dashboad/opencli/releases">releases page</a>.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>Command line</h2>
+          <p>The agent on its own, with no window. macOS and Linux:</p>
+          <div class="oneline">
+            <code>curl -fsSL https://opencli.ai/install.sh | sh</code>
+            <button data-copy="curl -fsSL https://opencli.ai/install.sh | sh">Copy</button>
+          </div>
+          <p style="margin-top: 18px">Or with npm:</p>
+          <div class="oneline">
+            <code>npm install -g @ai-dashboad/opencli</code>
+            <button data-copy="npm install -g @ai-dashboad/opencli">Copy</button>
+          </div>
+          <p style="margin-top: 18px; font-size: 13.5px">
+            On Windows, use the npm package or the binaries on the
+            <a href="https://github.com/ai-dashboad/opencli/releases">releases page</a>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span class="grow">OpenCLI · Apache-2.0</span>
+        <a href="https://github.com/ai-dashboad/opencli">Source</a>
+        <a href="https://github.com/ai-dashboad/opencli/tree/main/docs">Docs</a>
+        <a href="https://github.com/ai-dashboad/opencli/issues">Issues</a>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

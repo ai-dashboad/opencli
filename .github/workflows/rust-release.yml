@@ -1,15 +1,20 @@
-# Release workflow for opencli-rs.
-# To release, follow a workflow like:
+# Everything a release contains: the CLI binaries for eight targets, and the
+# desktop app for four. One tag, one GitHub Release — the desktop bundles are
+# built by `desktop-release.yml`, called from here rather than triggered by the
+# same tag, because two workflows publishing to one tag race each other.
+#
+# To release:
 # ```
-# git tag -a rust-v0.1.0 -m "Release 0.1.0"
-# git push origin rust-v0.1.0
+# scripts/set-version.sh 0.2.0
+# git commit -am "release 0.2.0" && git tag -a v0.2.0 -m "Release 0.2.0"
+# git push origin main v0.2.0
 # ```
 
 name: rust-release
 on:
   push:
     tags:
-      - "rust-v*.*.*"
+      - "v*.*.*"
 
 concurrency:
   group: ${{ github.workflow }}
@@ -30,11 +35,11 @@ jobs:
           # 1. Must be a tag and match the regex
           [[ "${GITHUB_REF_TYPE}" == "tag" ]] \
             || { echo "❌  Not a tag push"; exit 1; }
-          [[ "${GITHUB_REF_NAME}" =~ ^rust-v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
+          [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)(\.[0-9]+)?)?$ ]] \
             || { echo "❌  Tag '${GITHUB_REF_NAME}' doesn't match expected format"; exit 1; }
 
           # 2. Extract versions
-          tag_ver="${GITHUB_REF_NAME#rust-v}"
+          tag_ver="${GITHUB_REF_NAME#v}"
           cargo_ver="$(grep -m1 '^version' opencli-rs/Cargo.toml \
                         | sed -E 's/version *= *"([^"]+)".*/\1/')"
 
@@ -207,7 +212,10 @@ jobs:
           target: ${{ matrix.target }}
           artifacts-dir: ${{ github.workspace }}/opencli-rs/target/${{ matrix.target }}/release
 
-      - if: ${{ contains(matrix.target, 'windows') }}
+      # Skipped when no certificate is configured, which is the normal case:
+      # releases are unsigned, and the download page says so. A missing secret
+      # must not fail the build that everyone gets.
+      - if: ${{ contains(matrix.target, 'windows') && secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID != '' }}
         name: Sign Windows binaries with Azure Trusted Signing
         uses: ./.github/actions/windows-code-sign
         with:
@@ -219,7 +227,7 @@ jobs:
           account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
           certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
 
-      - if: ${{ runner.os == 'macOS' }}
+      - if: ${{ runner.os == 'macOS' && secrets.APPLE_CERTIFICATE_P12 != '' }}
         name: MacOS code signing (binaries)
         uses: ./.github/actions/macos-code-sign
         with:
@@ -278,7 +286,7 @@ jobs:
             exit 1
           fi
 
-      - if: ${{ runner.os == 'macOS' }}
+      - if: ${{ runner.os == 'macOS' && secrets.APPLE_CERTIFICATE_P12 != '' }}
         name: MacOS code signing (dmg)
         uses: ./.github/actions/macos-code-sign
         with:
@@ -419,10 +427,17 @@ jobs:
       publish: true
     secrets: inherit
 
+  desktop:
+    name: desktop
+    needs: tag-check
+    uses: ./.github/workflows/desktop-release.yml
+    secrets: inherit
+
   release:
     needs:
       - build
       - shell-tool-mcp
+      - desktop
     name: release
     runs-on: ubuntu-latest
     permissions:
@@ -481,9 +496,30 @@ jobs:
         id: release_name
         run: |
           # Extract the version from the tag name, which is in the format
-          # "rust-v0.1.0".
-          version="${GITHUB_REF_NAME#rust-v}"
+          # "v0.1.0".
+          version="${GITHUB_REF_NAME#v}"
           echo "name=${version}" >> $GITHUB_OUTPUT
+
+      # The file the desktop updater asks for. Built from what was actually
+      # uploaded rather than from a list written by hand, so a platform whose
+      # build failed is absent from the manifest instead of being offered as a
+      # download that 404s.
+      - name: Write the updater manifest
+        run: |
+          set -euo pipefail
+          mkdir -p dist-desktop
+          for dir in dist/desktop-*; do
+            [[ -d "$dir" ]] || continue
+            cp -r "$dir" "dist-desktop/$(basename "$dir" | sed 's/^desktop-//')"
+          done
+          ./scripts/make-updater-manifest.py \
+            --version "${{ steps.release_name.outputs.name }}" \
+            --dist dist-desktop \
+            --repo "${GITHUB_REPOSITORY}" \
+            --tag "${GITHUB_REF_NAME}" \
+            --notes-file "${{ steps.release_notes.outputs.path }}" \
+            --out dist/latest.json
+          cat dist/latest.json
 
       - name: Determine npm publish settings
         id: npm_publish_settings

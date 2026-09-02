@@ -1,0 +1,389 @@
+/*
+ * The site and the app are one product, so they share a palette.
+ *
+ * The tokens below are copied from `web/src/styles.css` rather than imported:
+ * pulling in the app's stylesheet would drag a thousand rules for a screen the
+ * site does not have. If the app's palette changes, change it here too — the
+ * two are meant to look like the same thing, and a site in last year's colours
+ * is worse than one that never matched.
+ */
+:root {
+  color-scheme: dark;
+
+  --bg: #262624;
+  --bg-deep: #1f1e1d;
+  --surface: #30302e;
+  --surface-hover: #35342f;
+  --line: #3a3936;
+  --line-soft: #302f2c;
+
+  --text: #ecebe6;
+  --text-dim: #a5a29a;
+  --text-faint: #7b7871;
+
+  --accent: #c96442;
+  --accent-soft: #3a2a22;
+  --danger: #e2726e;
+
+  --radius: 10px;
+  --radius-sm: 7px;
+
+  font-family: ui-sans-serif, -apple-system, "SF Pro Text", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── Header ────────────────────────────────────────────────────────── */
+
+header.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+header.top .wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 58px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-weight: 550;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.brand svg {
+  color: var(--accent);
+}
+
+header.top nav {
+  display: flex;
+  gap: 18px;
+  margin-left: auto;
+  font-size: 14px;
+}
+
+header.top nav a {
+  color: var(--text-dim);
+}
+
+header.top nav a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────── */
+
+.hero {
+  padding: 96px 0 72px;
+  text-align: center;
+}
+
+h1 {
+  margin: 0 0 18px;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-size: 52px;
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+.lede {
+  max-width: 620px;
+  margin: 0 auto 32px;
+  color: var(--text-dim);
+  font-size: 17px;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 15px;
+  font-weight: 550;
+}
+
+.button:hover {
+  text-decoration: none;
+  opacity: 0.9;
+}
+
+.button.ghost {
+  background: none;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.button.ghost:hover {
+  border-color: var(--accent);
+}
+
+/* The one-line install, which is the whole CLI story. */
+.oneline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 560px;
+  margin: 28px auto 0;
+  padding: 12px 14px;
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.oneline code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.oneline button {
+  flex: none;
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.oneline button:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* ── Sections ──────────────────────────────────────────────────────── */
+
+section {
+  padding: 56px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+h2 {
+  margin: 0 0 10px;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-size: 30px;
+  font-weight: 400;
+}
+
+h3 {
+  margin: 28px 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 14px;
+  color: var(--text-dim);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.card {
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.card strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.card p {
+  margin: 0;
+  font-size: 14px;
+}
+
+table {
+  width: 100%;
+  margin-top: 22px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th,
+td {
+  padding: 11px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+th {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+td:first-child {
+  color: var(--text);
+}
+
+td {
+  color: var(--text-dim);
+}
+
+/* ── Download ──────────────────────────────────────────────────────── */
+
+.download-main {
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.download-main .button {
+  margin-top: 8px;
+}
+
+.download-main .detail {
+  margin: 10px 0 0;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+ul.files {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+ul.files li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 14px;
+}
+
+ul.files li span {
+  flex: 1;
+  color: var(--text-dim);
+}
+
+/* The warning people will hit, said before they hit it rather than after. */
+.notice {
+  margin-top: 28px;
+  padding: 18px 20px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: var(--radius);
+}
+
+.notice h3 {
+  margin-top: 0;
+}
+
+.notice p:last-child {
+  margin-bottom: 0;
+}
+
+pre.block {
+  margin: 12px 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────── */
+
+footer {
+  padding: 40px 0 64px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--text-faint);
+  font-size: 13.5px;
+}
+
+footer .wrap {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+footer .grow {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 38px;
+  }
+
+  .hero {
+    padding: 64px 0 48px;
+  }
+}

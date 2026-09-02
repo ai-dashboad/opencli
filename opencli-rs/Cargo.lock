@@ -351,7 +351,7 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "app_test_support"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -1311,7 +1311,7 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "core_test_support"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2257,7 +2257,7 @@ dependencies = [
 
 [[package]]
 name = "exec_server_test_support"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "opencli-core",
@@ -3921,7 +3921,7 @@ checksum = "b3eede3bdf92f3b4f9dc04072a9ce5ab557d5ec9038773bf9ffcd5588b3cc05b"
 
 [[package]]
 name = "mcp-types"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "schemars 0.8.22",
  "serde",
@@ -3931,7 +3931,7 @@ dependencies = [
 
 [[package]]
 name = "mcp_test_support"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "core_test_support",
@@ -4468,7 +4468,7 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "opencli-ansi-escape"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "ansi-to-tui",
  "ratatui",
@@ -4477,7 +4477,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-api"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_matches",
@@ -4505,7 +4505,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-app-server"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "app_test_support",
@@ -4549,7 +4549,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-app-server-protocol"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4572,7 +4572,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-app-server-test-client"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4585,7 +4585,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-apply-patch"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -4601,7 +4601,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-arg0"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "dotenvy",
@@ -4614,7 +4614,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-async-utils"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "pretty_assertions",
@@ -4624,7 +4624,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-backend-client"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "opencli-backend-openapi-models",
@@ -4638,7 +4638,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-backend-openapi-models"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4647,7 +4647,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-chatgpt"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4665,7 +4665,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-cli"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -4707,7 +4707,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-client"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4730,7 +4730,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-cloud-requirements"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -4748,7 +4748,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-cloud-tasks"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4777,7 +4777,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-cloud-tasks-client"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4792,7 +4792,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-common"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "clap",
  "opencli-core",
@@ -4807,7 +4807,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-core"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4907,7 +4907,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-debug-client"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4919,7 +4919,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-exec"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -4953,7 +4953,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-exec-server"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4980,7 +4980,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-execpolicy"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4996,7 +4996,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-execpolicy-legacy"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "allocative",
  "anyhow",
@@ -5016,7 +5016,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-feedback"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "opencli-protocol",
@@ -5028,7 +5028,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-file-search"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -5044,7 +5044,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-git"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "assert_matches",
  "once_cell",
@@ -5060,7 +5060,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-keyring-store"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "keyring",
  "tracing",
@@ -5068,7 +5068,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-linux-sandbox"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "clap",
  "landlock",
@@ -5083,7 +5083,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-lmstudio"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "opencli-core",
  "reqwest",
@@ -5096,7 +5096,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-login"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -5120,7 +5120,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-mcp-server"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "core_test_support",
@@ -5146,7 +5146,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-network-proxy"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5176,7 +5176,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-ollama"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "assert_matches",
  "async-stream",
@@ -5194,7 +5194,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-otel"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "eventsource-stream",
@@ -5223,7 +5223,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-process-hardening"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "libc",
  "pretty_assertions",
@@ -5231,7 +5231,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-protocol"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "icu_decimal",
@@ -5259,7 +5259,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-responses-api-proxy"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -5275,7 +5275,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-rmcp-client"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -5306,7 +5306,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-ssh"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "russh",
@@ -5317,7 +5317,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-state"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5338,7 +5338,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-stdio-to-uds"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -5350,7 +5350,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-tui"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -5428,7 +5428,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-absolute-path"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "dirs",
  "path-absolutize",
@@ -5442,7 +5442,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-cache"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "lru 0.16.3",
  "sha1",
@@ -5451,7 +5451,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-cargo-bin"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "runfiles",
@@ -5460,7 +5460,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-home-dir"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "dirs",
  "pretty_assertions",
@@ -5469,7 +5469,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-image"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "base64",
  "image",
@@ -5481,7 +5481,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-json-to-toml"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "pretty_assertions",
  "serde_json",
@@ -5490,7 +5490,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-pty"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "filedescriptor",
@@ -5506,7 +5506,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-readiness"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -5517,11 +5517,11 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-string"
-version = "0.94.0"
+version = "0.1.0"
 
 [[package]]
 name = "opencli-web-gateway"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -5542,7 +5542,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-windows-sandbox"
-version = "0.94.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",

@@ -49,6 +49,8 @@ import {
   WorkingDot,
 } from "./icons";
 import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./menus";
+import { chooseDirectory, chooseFiles, fromHost, isDesktop } from "./host";
+import { useUpdate } from "./update";
 import { Boot } from "./boot";
 import { Markdown } from "./markdown";
 import { shouldInterrupt, shouldSend } from "./composer";
@@ -63,71 +65,6 @@ function gatewayUrlFromLocation(): string {
   const gateway = params.get("gateway") ?? "ws://127.0.0.1:4517/ws";
   const token = params.get("token");
   return token ? `${gateway}?token=${encodeURIComponent(token)}` : gateway;
-}
-
-interface TauriBridge {
-  invoke(command: string, args?: Record<string, unknown>): Promise<unknown>;
-}
-
-function bridge(): TauriBridge | null {
-  return (window as unknown as { __TAURI__?: { core?: TauriBridge } }).__TAURI__?.core ?? null;
-}
-
-function isDesktop(): boolean {
-  return bridge() !== null;
-}
-
-/**
- * Ask the desktop host for a value it alone knows: the gateway binds a random
- * port at startup, and a desktop launch has no shell to inherit a directory
- * from. Returns `null` in the browser build, where the user supplies both.
- */
-async function fromHost(command: "gateway_url" | "default_cwd"): Promise<string | null> {
-  const core = bridge();
-  if (!core) return null;
-  try {
-    const value = await core.invoke(command);
-    return typeof value === "string" ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Open the platform's folder chooser, if the host offers one.
- *
- * Returns `null` in the browser build and when the user cancels — in both
- * cases the caller should leave whatever path is already there.
- */
-/**
- * Open the platform's file chooser, if the host offers one.
- *
- * Only the desktop build can attach a file: the browser hands over a `File`
- * with no path, and a path is what the agent needs to read it.
- */
-export async function chooseFiles(): Promise<{ name: string; path: string }[]> {
-  const core = bridge();
-  if (!core) return [];
-  try {
-    const chosen = await core.invoke("choose_files");
-    if (!Array.isArray(chosen)) return [];
-    return chosen
-      .filter((path): path is string => typeof path === "string" && path.length > 0)
-      .map((path) => ({ name: path.split("/").pop() || path, path }));
-  } catch {
-    return [];
-  }
-}
-
-export async function chooseDirectory(start: string): Promise<string | null> {
-  const core = bridge();
-  if (!core) return null;
-  try {
-    const chosen = await core.invoke("choose_directory", { start });
-    return typeof chosen === "string" && chosen ? chosen : null;
-  } catch {
-    return null;
-  }
 }
 
 /** Images the composer will inline; anything else is referenced by path. */
@@ -352,6 +289,7 @@ const TranscriptItem = memo(function TranscriptItem({
 });
 
 export default function App() {
+  const update = useUpdate();
   const [url, setUrl] = useState(gatewayUrlFromLocation);
   const [cwd, setCwd] = useState("");
   const [status, setStatus] = useState<ConnectionStatus | "idle">("idle");
@@ -1203,6 +1141,7 @@ export default function App() {
         onForward={() => step(1)}
         canBack={historyAt > 0}
         canForward={historyAt < history.length - 1}
+        update={update}
         onRenameThread={(id, name) => {
           void clientRef.current
             ?.renameThread(id, name)
