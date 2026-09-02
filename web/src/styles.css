@@ -2133,12 +2133,28 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* The name reaches over the whole card, so clicking anywhere on a project
+   opens it — the title alone was a small target on a large card that looked
+   clickable everywhere. The buttons below sit above this layer. */
+.cards.projects .card-title .open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.cards.projects li:hover .card-title .open {
+  color: var(--accent);
+}
+
 .card-title .open:hover {
   color: var(--accent);
 }
 
 .pin {
   display: flex;
+  position: relative;
+  z-index: 1;
   padding: 3px;
   background: none;
   border: none;
@@ -2191,6 +2207,57 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* The project page's own composer. Same shape as the chat one — hover warms
+   the border, focus takes it further — so it reads as the same thing. */
+.project-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 14px 0 4px;
+  padding: 10px 10px 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.project-composer:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.project-composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-composer {
+    transition: none;
+  }
+}
+
+.project-composer textarea {
+  flex: 1;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  resize: none;
+  font-size: 14.5px;
+}
+
+.panel .project-composer button.filled {
+  display: flex;
+  padding: 8px;
+  border-radius: 999px;
+}
+
+.panel .project-composer button.filled:disabled {
+  opacity: 0.4;
+}
+
 /* Edit and delete stay hidden until the card is under the pointer, so a grid
    of cards reads as a list of projects rather than a wall of buttons. */
 .card-hover {
@@ -2198,6 +2265,7 @@ textarea:focus {
   position: absolute;
   top: 10px;
   right: 34px;
+  z-index: 1;
   gap: 6px;
 }
 

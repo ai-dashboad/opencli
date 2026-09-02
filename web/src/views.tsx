@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { FolderIcon, FolderPlusIcon, PinIcon, SearchIcon } from "./icons";
+import { FolderIcon, FolderPlusIcon, PinIcon, SearchIcon, SendIcon } from "./icons";
 import { Dialog } from "./menus";
-import { shouldDismiss } from "./composer";
+import { shouldDismiss, shouldSend } from "./composer";
 import type {
   ApprovalPolicy,
   ConnectorConfig,
@@ -599,10 +599,13 @@ function slug(name: string): string {
 export function ProjectsView({
   client,
   onOpen,
+  onChanged,
   onBrowse,
 }: {
   client: OpenCliClient;
   onOpen: (project: Project) => void;
+  /** Told whenever the list is written to, so the sidebar can catch up. */
+  onChanged?: () => void;
   /** Opens the platform folder chooser; absent in the browser build. */
   onBrowse?: (start: string) => Promise<string | null>;
 }) {
@@ -626,6 +629,12 @@ export function ProjectsView({
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [client]);
+
+  /** After a write: this page and the sidebar must agree on what exists. */
+  const written = useCallback(async () => {
+    await reload();
+    onChanged?.();
+  }, [onChanged, reload]);
 
   useEffect(() => {
     void reload();
@@ -655,11 +664,11 @@ export function ProjectsView({
         await client.createProject({ ...draft, createDirectory: true });
       }
       close();
-      await reload();
+      await written();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [client, close, draft, editing, reload]);
+  }, [client, close, draft, editing, written]);
 
   const edit = useCallback((project: Project) => {
     setEditing(project);
@@ -851,7 +860,7 @@ export function ProjectsView({
                 onClick={() => {
                   void client
                     .updateProject(project.id, { pinned: !project.pinned })
-                    .then(reload);
+                    .then(written);
                 }}
               >
                 <PinIcon size={14} />
@@ -878,7 +887,7 @@ export function ProjectsView({
               <button
                 className="secondary"
                 onClick={() => {
-                  void client.deleteProject(project.id).then(reload);
+                  void client.deleteProject(project.id).then(written);
                 }}
               >
                 Delete
@@ -1571,6 +1580,7 @@ export function ProjectDetailView({
   project,
   threads,
   onNewChat,
+  onStartChat,
   onOpenThread,
   onChanged,
   onBack,
@@ -1579,6 +1589,8 @@ export function ProjectDetailView({
   project: Project;
   threads: ThreadSummary[];
   onNewChat: () => void;
+  /** Opens a chat here with this as its first message. */
+  onStartChat: (text: string) => void;
   onOpenThread: (id: string) => void;
   onChanged: () => void;
   onBack: () => void;
@@ -1587,11 +1599,20 @@ export function ProjectDetailView({
   const [filesError, setFilesError] = useState<string | null>(null);
   const [instructions, setInstructions] = useState(project.instructions);
   const [saved, setSaved] = useState(false);
+  const [prompt, setPrompt] = useState("");
 
   useEffect(() => {
     setInstructions(project.instructions);
     setSaved(false);
+    setPrompt("");
   }, [project.id, project.instructions]);
+
+  const start = useCallback(() => {
+    const text = prompt.trim();
+    if (!text) return;
+    setPrompt("");
+    onStartChat(text);
+  }, [onStartChat, prompt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1634,6 +1655,26 @@ export function ProjectDetailView({
       <p className="hint">
         {project.description || "No description."} · {project.cwd}
       </p>
+
+      {/* A project is somewhere to work, so the way to start working is here
+          rather than two clicks away in an empty chat. */}
+      <div className="project-composer">
+        <textarea
+          value={prompt}
+          rows={2}
+          placeholder={`Start a new chat in ${project.name}…`}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            if (shouldSend({ ...e, isComposing: e.nativeEvent.isComposing })) {
+              e.preventDefault();
+              start();
+            }
+          }}
+        />
+        <button className="filled" disabled={prompt.trim() === ""} onClick={start}>
+          <SendIcon size={15} />
+        </button>
+      </div>
 
       <h3>Chats</h3>
       <ul className="rows">

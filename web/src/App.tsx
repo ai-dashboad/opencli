@@ -858,60 +858,74 @@ export default function App() {
     }
   }, []);
 
+  /**
+   * Send one prompt on the open thread.
+   *
+   * Separate from the composer so a prompt can come from somewhere else — the
+   * project page starts a chat with its first message already typed.
+   */
+  const sendPrompt = useCallback(
+    async (text: string, sending: Attachment[]) => {
+      const client = clientRef.current;
+      if ((!text && sending.length === 0) || !client) return;
+
+      // Cowork sends the work away rather than waiting on it: the run appears in
+      // the Active list and keeps going after this window moves on. Attachments
+      // are not carried — a background run has no conversation to attach them to.
+      if (cowork) {
+        try {
+          await client.dispatchRun({
+            prompt: text,
+            cwd: cwd || ".",
+            ...(modelRef.current ? { model: modelRef.current } : {}),
+            source: "cowork",
+          });
+          void refreshThreads();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+        return;
+      }
+
+      setRunningIn(client.threadId ?? null);
+      setTurnAt(Date.now());
+      // Cleared here as well as on `turn/started`: a turn that fails before the
+      // server acknowledges it never sends that event, and the previous error
+      // would sit there through the failure of the next one.
+      setError(null);
+      // The server echoes the user message back as a thread item, so do not add
+      // it locally — doing so showed every prompt twice.
+      try {
+        await client.send(text, {
+          effort: preferencesRef.current.effort,
+          attachments: sending,
+          // Sent every turn so switching model mid-conversation takes effect.
+          // Read from the ref for the same reason the thread does: this callback
+          // outlives the render that created it.
+          ...(modelRef.current ? { model: modelRef.current } : {}),
+          ...(preferencesRef.current.approvalPolicy
+            ? { approvalPolicy: preferencesRef.current.approvalPolicy }
+            : {}),
+          // Defaulting to on keeps the agent's reasoning visible unless the user
+          // asks for quiet.
+          summary: preferencesRef.current.showThinking === false ? "none" : "auto",
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setRunningIn(null);
+      }
+    },
+    [cowork, cwd, refreshThreads],
+  );
+
   const send = useCallback(async () => {
     const text = draft.trim();
-    const client = clientRef.current;
-    if ((!text && attachments.length === 0) || !client) return;
+    if ((!text && attachments.length === 0) || !clientRef.current) return;
     const sending = attachments;
     setDraft("");
     setAttachments([]);
-
-    // Cowork sends the work away rather than waiting on it: the run appears in
-    // the Active list and keeps going after this window moves on. Attachments
-    // are not carried — a background run has no conversation to attach them to.
-    if (cowork) {
-      try {
-        await client.dispatchRun({
-          prompt: text,
-          cwd: cwd || ".",
-          ...(modelRef.current ? { model: modelRef.current } : {}),
-          source: "cowork",
-        });
-        void refreshThreads();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-      return;
-    }
-
-    setRunningIn(clientRef.current?.threadId ?? null);
-    setTurnAt(Date.now());
-    // Cleared here as well as on `turn/started`: a turn that fails before the
-    // server acknowledges it never sends that event, and the previous error
-    // would sit there through the failure of the next one.
-    setError(null);
-    // The server echoes the user message back as a thread item, so do not add
-    // it locally — doing so showed every prompt twice.
-    try {
-      await client.send(text, {
-        effort: preferencesRef.current.effort,
-        attachments: sending,
-        // Sent every turn so switching model mid-conversation takes effect.
-        // Read from the ref for the same reason the thread does: this callback
-        // outlives the render that created it.
-        ...(modelRef.current ? { model: modelRef.current } : {}),
-        ...(preferencesRef.current.approvalPolicy
-          ? { approvalPolicy: preferencesRef.current.approvalPolicy }
-          : {}),
-        // Defaulting to on keeps the agent's reasoning visible unless the user
-        // asks for quiet.
-        summary: preferencesRef.current.showThinking === false ? "none" : "auto",
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setRunningIn(null);
-    }
-  }, [attachments, cowork, cwd, draft, refreshThreads]);
+    await sendPrompt(text, sending);
+  }, [attachments, draft, sendPrompt]);
 
   const interrupt = useCallback(async () => {
     try {
@@ -994,6 +1008,20 @@ export default function App() {
   useEffect(() => {
     openProjectRef.current = openProject;
   }, [openProject]);
+
+  /**
+   * Start a chat in a project with its first message already written.
+   *
+   * The project page has its own composer, so getting from "here is my project"
+   * to "here is what I want" is one step rather than three.
+   */
+  const startChatIn = useCallback(
+    async (target: Project, text: string) => {
+      await openProject(target);
+      await sendPrompt(text.trim(), []);
+    },
+    [openProject, sendPrompt],
+  );
 
   /**
    * Clone a repository and open it as a project.
@@ -1233,6 +1261,9 @@ export default function App() {
           <ProjectsView
             client={client}
             onOpen={showProject}
+            // The sidebar reads its own copy of the list, so a project created
+            // here was invisible there until something else happened to refresh.
+            onChanged={refreshThreads}
             onBrowse={isDesktop() ? chooseDirectory : undefined}
           />
         ) : view === "scheduled" && client ? (
@@ -1247,6 +1278,7 @@ export default function App() {
             project={viewing}
             threads={threads}
             onNewChat={() => void openProject(viewing)}
+            onStartChat={(text) => void startChatIn(viewing, text)}
             onOpenThread={(id) => {
               setProject(viewing);
               setCwd(viewing.cwd);
