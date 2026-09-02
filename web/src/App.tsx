@@ -910,7 +910,13 @@ export default function App() {
       setProject(owner);
       if (owner) setCwd(owner.cwd);
       try {
-        setItems(await client.resumeThread(id));
+        const restored = await client.resumeThread(id);
+        setItems(restored);
+        // What the agent wrote is part of the conversation, not part of this
+        // window's session. Rebuilt from the transcript so the Artifacts panel
+        // is about the chat on screen rather than about whatever happened to
+        // be watched live — it used to be empty for every reopened chat.
+        setChanges(restored.flatMap((item) => item.changes ?? []));
         setActiveThreadId(id);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));

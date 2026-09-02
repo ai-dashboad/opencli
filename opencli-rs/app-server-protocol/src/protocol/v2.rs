@@ -2298,6 +2298,58 @@ pub enum PatchApplyStatus {
     Declined,
 }
 
+/// Turn the core representation of a patch into the one clients read.
+///
+/// Here rather than in the app server because two places need it: the live
+/// stream, and the reader that rebuilds a conversation from its rollout. A
+/// second copy of this would let a reopened conversation describe the same
+/// change differently from the one that is running, which is precisely the
+/// kind of difference nobody looks for.
+pub fn file_changes_from_core(
+    changes: &HashMap<PathBuf, opencli_protocol::protocol::FileChange>,
+) -> Vec<FileUpdateChange> {
+    let mut converted: Vec<FileUpdateChange> = changes
+        .iter()
+        .map(|(path, change)| FileUpdateChange {
+            path: path.to_string_lossy().into_owned(),
+            kind: patch_change_kind(change),
+            diff: file_change_diff(change),
+        })
+        .collect();
+    // Sorted because the source is a map: without this the same patch lists
+    // its files in a different order every time it is read.
+    converted.sort_by(|a, b| a.path.cmp(&b.path));
+    converted
+}
+
+fn patch_change_kind(change: &opencli_protocol::protocol::FileChange) -> PatchChangeKind {
+    match change {
+        opencli_protocol::protocol::FileChange::Add { .. } => PatchChangeKind::Add,
+        opencli_protocol::protocol::FileChange::Delete { .. } => PatchChangeKind::Delete,
+        opencli_protocol::protocol::FileChange::Update { move_path, .. } => {
+            PatchChangeKind::Update {
+                move_path: move_path.clone(),
+            }
+        }
+    }
+}
+
+/// What to show for a change: the whole file for an add or a delete, the
+/// unified diff for an edit.
+fn file_change_diff(change: &opencli_protocol::protocol::FileChange) -> String {
+    match change {
+        opencli_protocol::protocol::FileChange::Add { content } => content.clone(),
+        opencli_protocol::protocol::FileChange::Delete { content } => content.clone(),
+        opencli_protocol::protocol::FileChange::Update {
+            unified_diff,
+            move_path,
+        } => match move_path {
+            Some(path) => format!("{unified_diff}\n\nMoved to: {}", path.display()),
+            None => unified_diff.clone(),
+        },
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export_to = "v2/")]

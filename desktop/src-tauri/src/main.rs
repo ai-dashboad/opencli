@@ -216,6 +216,38 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Show a file the agent wrote in the platform's file manager.
+///
+/// Selecting the file rather than opening it: the question behind the button is
+/// "where did that go", and opening a file in whatever is registered for its
+/// extension answers a different one.
+#[tauri::command]
+fn reveal_path(path: String) -> Result<(), String> {
+    let mut command = if cfg!(target_os = "macos") {
+        let mut command = std::process::Command::new("open");
+        command.arg("-R").arg(&path);
+        command
+    } else if cfg!(target_os = "windows") {
+        let mut command = std::process::Command::new("explorer");
+        command.arg(format!("/select,{path}"));
+        command
+    } else {
+        // No portable "select this file" on Linux; the folder it is in is the
+        // closest thing every desktop environment agrees on.
+        let parent = std::path::Path::new(&path)
+            .parent()
+            .map(|dir| dir.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.clone());
+        let mut command = std::process::Command::new("xdg-open");
+        command.arg(parent);
+        command
+    };
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|err| format!("could not show {path}: {err}"))
+}
+
 /// Restart into the version that was just installed.
 #[tauri::command]
 fn restart_app(app: tauri::AppHandle) {
@@ -234,7 +266,8 @@ fn main() {
             app_version,
             check_update,
             install_update,
-            restart_app
+            restart_app,
+            reveal_path
         ])
         .setup(|app| {
             let handle = app.handle().clone();

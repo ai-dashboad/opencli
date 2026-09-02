@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FolderIcon, FolderPlusIcon, PinIcon, SearchIcon, SendIcon } from "./icons";
 import { Dialog } from "./menus";
 import { shouldDismiss, shouldSend } from "./composer";
+import { isDesktop, revealPath } from "./host";
 import type {
   ApprovalPolicy,
   ConnectorConfig,
@@ -954,11 +955,24 @@ export function ArtifactsView({ changes }: { changes: FileChange[] }) {
     <section className="panel">
       <h2>Artifacts</h2>
       <p className="hint">
-        Files the agent wrote in this session. The changes are already on disk — this is here so
-        you can check them without leaving.
+        Files the agent edited in this conversation. The changes are already on disk — this is
+        here so you can check them without leaving.
       </p>
       <ul className="rows wide">
-        {rows.length === 0 ? <li className="muted">Nothing written yet.</li> : null}
+        {rows.length === 0 ? (
+          <li className="muted">
+            <p style={{ margin: 0 }}>Nothing edited in this conversation.</p>
+            {/* Said plainly rather than left as a puzzle: a model that writes
+                files by running `cat > file` has still written them, and an
+                empty panel after watching it do that reads as a broken panel
+                rather than as a limit of what is recorded. */}
+            <p className="hint" style={{ marginBottom: 0 }}>
+              Only edits made with the agent's file-editing tool are listed here. Files written by
+              a shell command it ran — a heredoc, a script, <code>git checkout</code> — are not
+              tracked, and will not appear.
+            </p>
+          </li>
+        ) : null}
         {rows.map((change) => (
           <li key={change.path}>
             <strong>{change.path}</strong>
@@ -970,6 +984,11 @@ export function ArtifactsView({ changes }: { changes: FileChange[] }) {
               >
                 {openPath === change.path ? "Hide" : change.kind === "update" ? "Show diff" : "Show file"}
               </button>
+              {isDesktop() && change.kind !== "delete" ? (
+                <button className="secondary" onClick={() => revealPath(change.path)}>
+                  Show in {onMac() ? "Finder" : "folder"}
+                </button>
+              ) : null}
             </div>
             {openPath === change.path ? <ChangeBody change={change} /> : null}
           </li>
@@ -977,6 +996,11 @@ export function ArtifactsView({ changes }: { changes: FileChange[] }) {
       </ul>
     </section>
   );
+}
+
+/** Name the file manager the way the platform's own menus do. */
+function onMac(): boolean {
+  return navigator.userAgent.includes("Mac");
 }
 
 /**

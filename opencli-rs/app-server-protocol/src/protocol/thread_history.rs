@@ -8,10 +8,13 @@ use opencli_protocol::protocol::AgentReasoningEvent;
 use opencli_protocol::protocol::AgentReasoningRawContentEvent;
 use opencli_protocol::protocol::EventMsg;
 use opencli_protocol::protocol::ItemCompletedEvent;
+use opencli_protocol::protocol::PatchApplyBeginEvent;
 use opencli_protocol::protocol::ThreadRolledBackEvent;
 use opencli_protocol::protocol::TurnAbortedEvent;
 use opencli_protocol::protocol::UserMessageEvent;
 use crate::protocol::v2::CommandExecutionStatus;
+use crate::protocol::v2::PatchApplyStatus;
+use crate::protocol::v2::file_changes_from_core;
 use crate::protocol::v2::McpToolCallResult;
 use crate::protocol::v2::McpToolCallStatus;
 use opencli_protocol::models::ResponseItem;
@@ -267,8 +270,28 @@ impl ThreadHistoryBuilder {
             EventMsg::UndoCompleted(_) => {}
             EventMsg::ContextCompacted(_) => self.handle_context_compacted(),
             EventMsg::TurnAborted(payload) => self.handle_turn_aborted(payload),
+            EventMsg::PatchApplyBegin(payload) => self.handle_patch_apply(payload),
             _ => {}
         }
+    }
+
+    /// A patch the agent applied.
+    ///
+    /// Recorded as completed rather than in progress: this is being read back
+    /// from a file, so whatever was going to happen already has. A patch that
+    /// failed is not in the record at all — the tool call output beside it says
+    /// so, in the words the tool used.
+    fn handle_patch_apply(&mut self, payload: &PatchApplyBeginEvent) {
+        let changes = file_changes_from_core(&payload.changes);
+        if changes.is_empty() {
+            return;
+        }
+        let id = self.next_item_id();
+        self.ensure_turn().items.push(ThreadItem::FileChange {
+            id,
+            changes,
+            status: PatchApplyStatus::Completed,
+        });
     }
 
     fn handle_user_message(&mut self, payload: &UserMessageEvent) {
@@ -1368,6 +1391,62 @@ mod tests {
             });
         assert_eq!(tool.as_deref(), Some("run"));
     }
+
+    #[test]
+    fn should_read_back_the_files_a_conversation_edited() {
+        // The panel listing what the agent wrote was empty in every reopened
+        // conversation, because the event carrying the changes was recorded
+        // nowhere. Now that it is kept, the reader has to turn it back into the
+        // same item the live stream sends.
+        use opencli_protocol::protocol::FileChange as CoreFileChange;
+        use opencli_protocol::protocol::PatchApplyBeginEvent;
+        use std::collections::HashMap;
+        use std::path::PathBuf;
+
+        let mut changes = HashMap::new();
+        changes.insert(
+            PathBuf::from("/work/second.txt"),
+            CoreFileChange::Add {
+                content: "hello".to_string(),
+            },
+        );
+        changes.insert(
+            PathBuf::from("/work/first.rs"),
+            CoreFileChange::Update {
+                unified_diff: "@@\n-old\n+new".to_string(),
+                move_path: None,
+            },
+        );
+
+        let turns = build_turns_from_rollout(&recorded(vec![RolloutItem::EventMsg(
+            EventMsg::PatchApplyBegin(PatchApplyBeginEvent {
+                call_id: "call-1".to_string(),
+                turn_id: String::new(),
+                auto_approved: true,
+                changes,
+            }),
+        )]));
+
+        let found = turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .find_map(|item| match item {
+                ThreadItem::FileChange { changes, status, .. } => {
+                    Some((changes.clone(), status.clone()))
+                }
+                _ => None,
+            })
+            .expect("the edit is there");
+
+        // Sorted by path, so the same patch reads the same way every time.
+        let paths: Vec<&str> = found.0.iter().map(|change| change.path.as_str()).collect();
+        assert_eq!(paths, vec!["/work/first.rs", "/work/second.txt"]);
+        assert_eq!(found.0[0].diff, "@@\n-old\n+new");
+        // An addition shows the file, not a diff against nothing.
+        assert_eq!(found.0[1].diff, "hello");
+        assert_eq!(found.1, PatchApplyStatus::Completed);
+    }
+
     use super::*;
     use opencli_protocol::protocol::AgentMessageEvent;
     use opencli_protocol::protocol::AgentReasoningEvent;

@@ -78,6 +78,11 @@ export async function chooseFiles(): Promise<{ name: string; path: string }[]> {
   }
 }
 
+/** Show a file in the platform's file manager; nothing to do in a browser. */
+export function revealPath(path: string): void {
+  void bridge()?.invoke("reveal_path", { path });
+}
+
 /**
  * Open the platform's folder chooser, if the host offers one.
  *

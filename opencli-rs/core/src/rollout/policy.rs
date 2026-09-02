@@ -48,6 +48,16 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::ThreadRolledBack(_)
         | EventMsg::UndoCompleted(_)
         | EventMsg::TurnAborted(_) => true,
+        // What the agent wrote. The tool call that made the change is already
+        // persisted, but only as the patch text it was asked to apply — which
+        // is not what a reader shows, and not what the live stream showed at
+        // the time. Without this event a reopened conversation had no file
+        // changes in it at all, and the panel listing them said "nothing
+        // written yet" about a session that had written a dozen files.
+        //
+        // `PatchApplyEnd` is still dropped: it repeats the same changes and
+        // adds the tool's stdout, which nothing reads back.
+        EventMsg::PatchApplyBegin(_) => true,
         EventMsg::ItemCompleted(event) => {
             // Plan items are derived from streaming tags and are not part of the
             // raw ResponseItem history, so we persist their completion to replay
@@ -80,7 +90,6 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::ApplyPatchApprovalRequest(_)
         | EventMsg::BackgroundEvent(_)
         | EventMsg::StreamError(_)
-        | EventMsg::PatchApplyBegin(_)
         | EventMsg::PatchApplyEnd(_)
         | EventMsg::TurnDiff(_)
         | EventMsg::GetHistoryEntryResponse(_)
