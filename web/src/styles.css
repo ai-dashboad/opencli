@@ -248,6 +248,12 @@ textarea:focus {
   color: var(--text);
 }
 
+/* The project the open chat lives in. Marked by its icon rather than a filled
+   row: it is where you are, not what you selected. */
+.tree-row.folder.holding svg {
+  color: var(--accent);
+}
+
 .tree-row svg {
   flex: none;
   color: var(--text-faint);

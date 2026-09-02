@@ -958,18 +958,28 @@ export default function App() {
     setOpenThoughts((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  const openThread = useCallback(async (id: string) => {
-    const client = clientRef.current;
-    if (!client) return;
-    go("chat");
-    forgetThisChat();
-    try {
-      setItems(await client.resumeThread(id));
-      setActiveThreadId(id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
+  const openThread = useCallback(
+    async (id: string) => {
+      const client = clientRef.current;
+      if (!client) return;
+      go("chat");
+      forgetThisChat();
+      // Which project this chat is in is a property of the chat, so opening one
+      // has to move with it. It did not, and the app went on claiming the last
+      // project opened by hand — the sidebar marked that one as the place you
+      // were, while the chat on screen belonged to another.
+      const owner = projectList.find((row) => row.threadIds.includes(id)) ?? null;
+      setProject(owner);
+      if (owner) setCwd(owner.cwd);
+      try {
+        setItems(await client.resumeThread(id));
+        setActiveThreadId(id);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [projectList],
+  );
 
   /**
    * Show a project's page.
@@ -1183,6 +1193,7 @@ export default function App() {
         activeThreadId={activeThreadId}
         runningThreadId={runningIn}
         activeProjectId={project?.id ?? null}
+        viewedProjectId={view === "project" ? (viewing?.id ?? null) : null}
         onNavigate={go}
         onNewChat={() => void newChat()}
         onOpenThread={(id) => void openThread(id)}
@@ -1279,11 +1290,9 @@ export default function App() {
             threads={threads}
             onNewChat={() => void openProject(viewing)}
             onStartChat={(text) => void startChatIn(viewing, text)}
-            onOpenThread={(id) => {
-              setProject(viewing);
-              setCwd(viewing.cwd);
-              void openThread(id);
-            }}
+            // `openThread` settles the project and the directory itself, from
+            // whichever project owns the chat.
+            onOpenThread={(id) => void openThread(id)}
             onChanged={() => {
               void refreshThreads();
               void client.listProjects().then((rows) => {

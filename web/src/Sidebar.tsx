@@ -46,7 +46,10 @@ interface SidebarProps {
   activeThreadId: string | null;
   /** The chat the agent is working in, when it is working in one. */
   runningThreadId: string | null;
+  /** The project holding the open chat: marked, but not the selected row. */
   activeProjectId: string | null;
+  /** The project whose own page is on screen, which is a selection. */
+  viewedProjectId: string | null;
   onNavigate: (view: View) => void;
   onNewChat: () => void;
   onOpenThread: (id: string) => void;
@@ -151,6 +154,7 @@ export default function Sidebar({
   activeThreadId,
   runningThreadId,
   activeProjectId,
+  viewedProjectId,
   onNavigate,
   onNewChat,
   onOpenThread,
@@ -272,9 +276,14 @@ export default function Sidebar({
               projects.map((project) => (
                 <li key={project.id}>
                   <button
+                    // Two different things, so two different marks: the pill
+                    // means "this is what you are looking at", and belongs to
+                    // one row at a time. A project whose chat is open is only
+                    // shown as holding it — otherwise the chat and its project
+                    // both wore the pill and neither read as the selection.
                     className={`tree-row folder${
-                      project.id === activeProjectId ? " active" : ""
-                    }`}
+                      project.id === viewedProjectId ? " active" : ""
+                    }${project.id === activeProjectId ? " holding" : ""}`}
                     onClick={() => onOpenProject(project)}
                     title={project.cwd}
                   >
