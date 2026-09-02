@@ -4159,6 +4159,7 @@ impl OpenCLIMessageProcessor {
                     items: vec![],
                     error: None,
                     status: TurnStatus::InProgress,
+                                        total_ms: None,
                 };
 
                 let response = TurnStartResponse { turn: turn.clone() };
@@ -4203,6 +4204,7 @@ impl OpenCLIMessageProcessor {
             items,
             error: None,
             status: TurnStatus::InProgress,
+                        total_ms: None,
         }
     }
 

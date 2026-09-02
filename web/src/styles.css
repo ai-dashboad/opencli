@@ -444,6 +444,29 @@ textarea:focus {
   font-size: 13.5px;
 }
 
+/*
+ * A span of the turn, rather than something the agent produced.
+ *
+ * Quieter than an item on purpose: these rows say only how long something
+ * took, and a transcript where the timings shout as loudly as the work is
+ * harder to read than one without them.
+ */
+.item.span .label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  opacity: 0.75;
+}
+
+.item.total {
+  border-top: 1px solid var(--line);
+  margin-top: 0.35rem;
+  padding-top: 0.5rem;
+}
+
+.item.total .label strong {
+  letter-spacing: 0.02em;
+}
+
 .item .label {
   display: block;
   margin-bottom: 6px;
@@ -491,8 +514,22 @@ textarea:focus {
 .spark {
   position: relative;
   flex: none;
+  /* Not `flex: none` alone: outside a flex row an inline span ignores width
+     and height entirely, and both layers below are sized from this box. */
+  display: inline-block;
   width: 12px;
   height: 12px;
+  /*
+   * The dot is painted by the element itself, not only by an animated layer.
+   *
+   * It was drawn entirely in two animating pseudo-elements, and it kept
+   * vanishing mid-turn: WebKit gives an animation its own compositing layer
+   * and drops it while the row beside it re-renders every second, taking the
+   * whole indicator with it. What is painted here survives that, so at worst
+   * the pulse stops — the reader never loses the thing that says work is
+   * happening.
+   */
+  background: radial-gradient(circle at center, var(--accent) 0 2.6px, transparent 3px);
 }
 
 .spark::before,
@@ -502,7 +539,7 @@ textarea:focus {
   border-radius: 50%;
 }
 
-/* The dot itself, breathing. */
+/* The glow around the dot, breathing. */
 .spark::before {
   inset: 3px;
   background: var(--accent);

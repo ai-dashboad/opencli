@@ -34,7 +34,7 @@ export interface FileChange {
 /** A turn item as surfaced to the UI. */
 export interface ThreadItem {
   id: string;
-  kind: "user" | "agent" | "command" | "reasoning" | "fileChange" | "other";
+  kind: "user" | "agent" | "command" | "reasoning" | "fileChange" | "other" | "wait" | "total";
   text: string;
   /** Present for command items once the command has finished. */
   exitCode?: number;
@@ -727,6 +727,16 @@ export class OpenCliClient {
    * to what is on screen is done by kind.
    */
   #streaming = new Map<string, { kind: ThreadItem["kind"]; text: string }>();
+  /**
+   * When the current turn's request went out, and whether the wait it opened
+   * has been closed yet.
+   *
+   * A turn's time is not one span but several, and the first of them — the
+   * model reading the conversation before it says anything — was invisible.
+   * It is measured from here to whatever comes back first.
+   */
+  #turnBegan: number | null = null;
+  #waitShown = false;
   /** When each piece of thinking began, so its length can be reported. */
   #thoughtSince = new Map<string, number>();
   /**
@@ -900,11 +910,33 @@ export class OpenCliClient {
    * another, and the timer was started against the first.
    */
   #timed(item: ThreadItem, startedUnder: string): ThreadItem {
+    // Thinking only. This model starts writing its answer while it is still
+    // thinking — measured: both begin at 4.4s of the same turn — so an
+    // answer's span overlaps the thought's, and showing the two as separate
+    // rows of a timeline would claim a sequence that did not happen.
     if (item.kind !== "reasoning" || item.durationMs !== undefined) return item;
     const began = this.#thoughtSince.get(startedUnder) ?? this.#thoughtSince.get(item.id);
     this.#thoughtSince.delete(startedUnder);
     this.#thoughtSince.delete(item.id);
     return began ? { ...item, durationMs: Date.now() - began } : item;
+  }
+
+  /**
+   * End the span between sending a turn and hearing anything back.
+   *
+   * The reader's own message does not end it: the server echoes that back
+   * within milliseconds of the turn starting, long before the model has read
+   * anything. Only something the model produced means the wait is over.
+   */
+  #closeTheWait(kind: ThreadItem["kind"]): void {
+    if (this.#waitShown || this.#turnBegan === null || kind === "user") return;
+    this.#waitShown = true;
+    this.#events.onItem?.({
+      id: `wait:${this.#turnBegan}`,
+      kind: "wait",
+      text: "",
+      durationMs: Date.now() - this.#turnBegan,
+    });
   }
 
   #handleNotification(method: string, params: unknown): void {
@@ -918,12 +950,26 @@ export class OpenCliClient {
      * elapsed time accumulated across all of them into one growing number.
      */
     if (method === "turn/started") {
+      this.#turnBegan = Date.now();
+      this.#waitShown = false;
       this.#events.onTurnStart?.(
         typeof payload.threadId === "string" ? payload.threadId : this.#threadId,
       );
       return;
     }
     if (method === "turn/completed" || method === "opencli/event/task_complete") {
+      // What the whole turn cost, kept in the transcript rather than lost with
+      // the running clock: the phases above it only add up if the total is
+      // there to add them against.
+      if (this.#turnBegan !== null) {
+        this.#events.onItem?.({
+          id: `total:${this.#turnBegan}`,
+          kind: "total",
+          text: "",
+          durationMs: Date.now() - this.#turnBegan,
+        });
+        this.#turnBegan = null;
+      }
       this.#events.onTurnComplete?.();
       return;
     }
@@ -943,9 +989,11 @@ export class OpenCliClient {
        * arrived — and those showed a bare "Thinking" that never said how long
        * it had taken, which is the one thing the row exists to say.
        */
-      if (classify(item) === "reasoning" && typeof item.id === "string") {
+      const beginning = classify(item);
+      if (beginning === "reasoning" && typeof item.id === "string") {
         this.#thoughtSince.set(item.id, Date.now());
       }
+      this.#closeTheWait(beginning);
       return;
     }
     // Only `item/completed` is rendered. `item/started` carries the same item
@@ -970,6 +1018,7 @@ export class OpenCliClient {
         // without this the two would be indistinguishable.
         const kind: ThreadItem["kind"] =
           method === "item/reasoning/textDelta" ? "reasoning" : "agent";
+        this.#closeTheWait(kind);
         const grown = (this.#streaming.get(itemId)?.text ?? "") + delta;
         this.#streaming.set(itemId, { kind, text: grown });
         this.#events.onItemDelta?.({ id: itemId, kind, text: grown });
@@ -982,6 +1031,10 @@ export class OpenCliClient {
 
       const item = toThreadItem(raw);
       if (!item) return;
+      // A command can be the first thing a turn produces, and it arrives
+      // finished — no `item/started`, no deltas — so the wait must end here
+      // too or it would never be closed at all.
+      this.#closeTheWait(item.kind);
 
       /*
        * A finished message arrives under a different id from the one it
@@ -1213,6 +1266,8 @@ export class OpenCliClient {
     this.#streaming.clear();
     this.#shownAs.clear();
     this.#thoughtSince.clear();
+    this.#turnBegan = null;
+    this.#waitShown = false;
 
     /*
      * Opening a chat reads it; it does not load it into the agent.
@@ -1232,7 +1287,7 @@ export class OpenCliClient {
       includeTurns: true,
     })) as {
       thread?: {
-        turns?: { items?: unknown[] }[];
+        turns?: { items?: unknown[]; totalMs?: number | null }[];
         tokenUsage?: {
           total?: Record<string, number>;
           modelContextWindow?: number | null;
@@ -1253,12 +1308,27 @@ export class OpenCliClient {
       });
     }
 
-    return (result.thread?.turns ?? []).flatMap((turn) =>
-      (turn.items ?? []).flatMap((raw) => {
+    /*
+     * What each reopened turn took, put back where the live view shows it.
+     *
+     * The total only. A live turn also shows the wait before the model said
+     * anything, which a rollout cannot recover: a thought is written when it
+     * finishes, so the gap from the request to that record holds the wait and
+     * the thinking together. Showing it as a wait would print the same span
+     * twice — once as the wait, again as the thought that contains it.
+     */
+    return (result.thread?.turns ?? []).flatMap((turn, at) => {
+      const items = (turn.items ?? []).flatMap((raw) => {
         const item = toThreadItem(raw as Record<string, unknown>);
         return item ? [item] : [];
-      }),
-    );
+      });
+
+      if (typeof turn.totalMs === "number" && items.length > 0) {
+        items.push({ id: `total:${at}`, kind: "total", text: "", durationMs: turn.totalMs });
+      }
+
+      return items;
+    });
   }
 
   /** Give a chat a name, so the list is readable later. */

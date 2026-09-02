@@ -1211,6 +1211,9 @@ async fn emit_turn_completed_with_status(
             items: vec![],
             error,
             status,
+            // A live turn is timed by the client watching it happen; only one
+            // read back from a rollout carries a recorded total.
+            total_ms: None,
         },
     };
     outgoing

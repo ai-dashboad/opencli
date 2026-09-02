@@ -201,6 +201,10 @@ const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   reasoning: "Thinking",
   fileChange: "Files",
   other: "",
+  // Both are spans of a turn rather than things the agent produced, and both
+  // are rendered on their own below.
+  wait: "",
+  total: "",
 };
 
 /**
@@ -1117,7 +1121,25 @@ export default function App() {
                     ) : null}
                   </div>
                 ) : null}
-                {items.map((item) => (
+                {items.map((item) =>
+                  /*
+                   * A turn is not one span of time but several, and only some
+                   * of them belong to something the agent produced. Reading
+                   * the conversation before it answers, and the turn as a
+                   * whole, are spans with nothing to show but their length —
+                   * so they are rows of their own rather than a label on
+                   * something else.
+                   */
+                  item.kind === "wait" || item.kind === "total" ? (
+                    <article key={item.id} className={`item span ${item.kind}`}>
+                      <span className="label">
+                        <strong>
+                          {item.kind === "wait" ? "Waited for the model" : "Turn total"}
+                        </strong>
+                        <em>{formatDuration(item.durationMs ?? 0)}</em>
+                      </span>
+                    </article>
+                  ) : (
                   <article key={item.id} className={`item ${item.kind}`}>
                     {item.kind === "reasoning" ? (
                       <button

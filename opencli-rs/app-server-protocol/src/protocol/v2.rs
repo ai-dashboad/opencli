@@ -1774,6 +1774,16 @@ pub struct Turn {
     pub status: TurnStatus,
     /// Only populated when the Turn's status is failed.
     pub error: Option<TurnError>,
+    /// How long the whole turn took, in milliseconds.
+    ///
+    /// Only this. A live client can also time the wait before the model says
+    /// anything, but a rollout cannot: a thought is recorded when it finishes,
+    /// so the gap from the request to that record is the wait and the thinking
+    /// together, with nothing to tell them apart. Reporting it as a wait would
+    /// show the same span twice, once as a wait and again as the thought.
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub total_ms: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS, Error)]

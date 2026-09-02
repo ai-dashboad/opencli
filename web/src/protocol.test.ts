@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenCliClient, type ApprovalRequest, type ThreadItem } from "./protocol";
 
 /**
@@ -403,6 +403,139 @@ describe("thread items", () => {
     socket.emit("not json" as unknown as object);
 
     expect(items).toEqual([]);
+  });
+});
+
+describe("the spans of a turn", () => {
+  it("should record how long the model took to say anything", async () => {
+    // The longest part of a turn used to be invisible: the request goes out
+    // and nothing is on screen until the model has read the conversation.
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({ method: "turn/started", params: { threadId: "t" } });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { id: "a", type: "agentMessage", text: "hello" } },
+    });
+
+    expect(items.map((item) => item.kind)).toEqual(["wait", "agent"]);
+    expect(items[0].durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should not let the reader's own message end the wait", async () => {
+    // The server echoes the message back within milliseconds of the turn
+    // starting, long before the model has read a word of it.
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({ method: "turn/started", params: { threadId: "t" } });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { id: "u", type: "userMessage", text: "go" } },
+    });
+
+    expect(items.map((item) => item.kind)).toEqual(["user"]);
+  });
+
+  it("should record the wait once, however many items follow", async () => {
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({ method: "turn/started", params: { threadId: "t" } });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { id: "a", type: "commandExecution", text: "ls" } },
+    });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { id: "b", type: "agentMessage", text: "done" } },
+    });
+
+    expect(items.filter((item) => item.kind === "wait")).toHaveLength(1);
+  });
+
+  it("should close the turn with what the whole thing took", async () => {
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({ method: "turn/started", params: { threadId: "t" } });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { id: "a", type: "agentMessage", text: "done" } },
+    });
+    socket.emit({ method: "turn/completed", params: { threadId: "t" } });
+
+    const total = items[items.length - 1];
+    expect(total.kind).toBe("total");
+    expect(total.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should not leave a total behind for a turn that never started", async () => {
+    // A `task_complete` can arrive for a turn this client never saw begin.
+    const items: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => items.push(item) });
+
+    socket.emit({ method: "turn/completed", params: { threadId: "t" } });
+
+    expect(items).toEqual([]);
+  });
+});
+
+describe("reopening a conversation", () => {
+  afterEach(() => {
+    FakeSocket.answer = null;
+  });
+
+  const readsBack = (turn: Record<string, unknown>) => {
+    FakeSocket.answer = (message) =>
+      message.method === "thread/read" ? { thread: { id: "t-1", turns: [turn] } } : undefined;
+  };
+
+  it("should close a reopened turn with what it took", async () => {
+    // History used to show the work but not where the time went, so a
+    // reopened conversation read as a different product from the live one.
+    const { client } = await connected();
+    readsBack({
+      id: "turn-1",
+      totalMs: 76_000,
+      items: [
+        { type: "userMessage", id: "i-1", content: [{ type: "text", text: "go" }] },
+        { type: "agentMessage", id: "i-2", text: "done" },
+      ],
+    });
+
+    const items = await client.resumeThread("t-1");
+    expect(items.map((item) => item.kind)).toEqual(["user", "agent", "total"]);
+    expect(items[2].durationMs).toBe(76_000);
+  });
+
+  it("should claim no wait for a reopened turn, which cannot be measured", async () => {
+    // A rollout records a thought when it finishes, so the gap from the
+    // request holds the wait and the thinking together. A wait row would
+    // print the same span the thought already shows.
+    const { client } = await connected();
+    readsBack({
+      id: "turn-1",
+      totalMs: 76_000,
+      items: [{ type: "agentMessage", id: "i-2", text: "done" }],
+    });
+
+    const items = await client.resumeThread("t-1");
+    expect(items.some((item) => item.kind === "wait")).toBe(false);
+  });
+
+  it("should show no total for a turn recorded before it was kept", async () => {
+    // An older rollout has no timestamps to measure from. A row saying 0s
+    // would be a claim; no row at all is the truth.
+    const { client } = await connected();
+    readsBack({
+      id: "turn-1",
+      items: [{ type: "agentMessage", id: "i-2", text: "done" }],
+    });
+
+    const items = await client.resumeThread("t-1");
+    expect(items.map((item) => item.kind)).toEqual(["agent"]);
   });
 });
 

@@ -151,6 +151,7 @@ pub fn build_turns_from_rollout(lines: &[RolloutLine]) -> Vec<Turn> {
     let mut previous: Option<&str> = None;
 
     for line in lines {
+        builder.now = Some(line.timestamp.clone());
         match &line.item {
             RolloutItem::EventMsg(event) => builder.handle_event(event),
             RolloutItem::ResponseItem(response) => {
@@ -160,7 +161,7 @@ pub fn build_turns_from_rollout(lines: &[RolloutLine]) -> Vec<Turn> {
                 // spent producing it. Approximate — it includes the request's
                 // own latency — and the only measurement there is.
                 builder.thought_took = matches!(response, ResponseItem::Reasoning { .. })
-                    .then(|| gap_ms(previous, &line.timestamp))
+                    .then(|| gap_ms(previous, Some(&line.timestamp)))
                     .flatten();
                 builder.handle_response_item(response);
             }
@@ -172,9 +173,9 @@ pub fn build_turns_from_rollout(lines: &[RolloutLine]) -> Vec<Turn> {
 }
 
 /// Milliseconds between two recorded moments, when both can be read.
-fn gap_ms(from: Option<&str>, to: &str) -> Option<i64> {
+fn gap_ms(from: Option<&str>, to: Option<&str>) -> Option<i64> {
     let from = chrono::DateTime::parse_from_rfc3339(from?).ok()?;
-    let to = chrono::DateTime::parse_from_rfc3339(to).ok()?;
+    let to = chrono::DateTime::parse_from_rfc3339(to?).ok()?;
     let gap = (to - from).num_milliseconds();
     (gap >= 0).then_some(gap)
 }
@@ -188,6 +189,13 @@ struct ThreadHistoryBuilder {
     open_calls: Vec<String>,
     /// How long the reasoning item being read took, when it can be worked out.
     thought_took: Option<i64>,
+    /// When the record being read was written, and when the turn began.
+    ///
+    /// A turn's spans are not recorded anywhere; they are the distances
+    /// between records, so reading them back means keeping the clock as the
+    /// file is walked.
+    now: Option<String>,
+    turn_began: Option<String>,
 }
 
 impl ThreadHistoryBuilder {
@@ -199,6 +207,8 @@ impl ThreadHistoryBuilder {
             next_item_index: 1,
             open_calls: Vec::new(),
             thought_took: None,
+            now: None,
+            turn_began: None,
         }
     }
 
@@ -231,6 +241,9 @@ impl ThreadHistoryBuilder {
 
     fn handle_user_message(&mut self, payload: &UserMessageEvent) {
         self.finish_current_turn();
+        // A turn begins when the reader sends it, which is the only moment its
+        // wait can be measured from.
+        self.turn_began = self.now.clone();
         let mut turn = self.new_turn();
         let id = self.next_item_id();
         let content = self.build_user_inputs(payload);
@@ -518,10 +531,11 @@ impl ThreadHistoryBuilder {
     }
 
     fn finish_current_turn(&mut self) {
-        if let Some(turn) = self.current_turn.take() {
+        if let Some(mut turn) = self.current_turn.take() {
             if turn.items.is_empty() {
                 return;
             }
+            turn.total_ms = gap_ms(self.turn_began.as_deref(), self.now.as_deref());
             self.turns.push(turn.into());
         }
     }
@@ -532,6 +546,7 @@ impl ThreadHistoryBuilder {
             items: Vec::new(),
             error: None,
             status: TurnStatus::Completed,
+            total_ms: None,
         }
     }
 
@@ -590,6 +605,9 @@ struct PendingTurn {
     items: Vec<ThreadItem>,
     error: Option<TurnError>,
     status: TurnStatus,
+    /// The gap from this turn's request to its last record. `None` for a
+    /// rollout written before the timestamps were kept.
+    total_ms: Option<i64>,
 }
 
 impl From<PendingTurn> for Turn {
@@ -599,6 +617,7 @@ impl From<PendingTurn> for Turn {
             items: value.items,
             error: value.error,
             status: value.status,
+            total_ms: value.total_ms,
         }
     }
 }
@@ -777,6 +796,48 @@ mod tests {
         .filter(|item| matches!(item, ThreadItem::Reasoning { .. }))
         .count();
         assert_eq!(thoughts, 2);
+    }
+
+    #[test]
+    fn should_say_what_a_reopened_turn_took_in_total() {
+        // A turn is several spans, and the total is the one a rollout can
+        // report without guessing.
+        use opencli_protocol::models::ReasoningItemContent;
+
+        let lines = vec![
+            RolloutLine {
+                timestamp: "2026-09-01T09:28:00.000Z".to_string(),
+                item: RolloutItem::EventMsg(EventMsg::UserMessage(UserMessageEvent {
+                    message: "go".to_string(),
+                    images: None,
+                    local_images: Vec::new(),
+                    text_elements: Vec::new(),
+                })),
+            },
+            RolloutLine {
+                timestamp: "2026-09-01T09:28:09.000Z".to_string(),
+                item: RolloutItem::ResponseItem(ResponseItem::Reasoning {
+                    id: String::new(),
+                    summary: Vec::new(),
+                    content: Some(vec![ReasoningItemContent::ReasoningText {
+                        text: "Thinking.".to_string(),
+                    }]),
+                    encrypted_content: None,
+                }),
+            },
+            RolloutLine {
+                timestamp: "2026-09-01T09:29:16.000Z".to_string(),
+                item: RolloutItem::EventMsg(EventMsg::AgentMessage(
+                    opencli_protocol::protocol::AgentMessageEvent {
+                        message: "done".to_string(),
+                    },
+                )),
+            },
+        ];
+
+        let turns = build_turns_from_rollout(&lines);
+        assert_eq!(turns.len(), 1);
+        assert_eq!(turns[0].total_ms, Some(76_000), "the whole turn");
     }
 
     #[test]
@@ -1446,6 +1507,8 @@ mod tests {
                 id: "turn-1".into(),
                 status: TurnStatus::Completed,
                 error: None,
+                // Events alone carry no timestamps; only a rollout does.
+                total_ms: None,
                 items: vec![
                     ThreadItem::UserMessage {
                         id: "item-1".into(),
@@ -1464,6 +1527,7 @@ mod tests {
                 id: "turn-2".into(),
                 status: TurnStatus::Completed,
                 error: None,
+                total_ms: None,
                 items: vec![
                     ThreadItem::UserMessage {
                         id: "item-3".into(),
