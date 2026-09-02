@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::ModelProviderInfo;
+use crate::context_manager::ContextManager;
 use crate::Prompt;
 use crate::client_common::ResponseEvent;
 use crate::opencli::Session;
@@ -38,6 +39,34 @@ pub(crate) fn should_use_remote_compact_task(
     provider: &ModelProviderInfo,
 ) -> bool {
     provider.is_openai() && session.enabled(Feature::RemoteCompaction)
+}
+
+/// How much of the window a summarising request may use.
+///
+/// Room is left for the summary the model has to write and for the
+/// instructions wrapped around the history. Two thirds is generous enough to
+/// survive an estimate that is only approximate.
+fn summarising_budget(window: i64) -> i64 {
+    window.saturating_mul(2) / 3
+}
+
+/// Drop the oldest items until what is left can be summarised in one request.
+///
+/// Returns how many were dropped. The oldest go first: they are the least
+/// likely to matter and the most likely to already be reflected in what came
+/// after them, and trimming from the front keeps the prefix cache of whatever
+/// remains intact.
+///
+/// One item is always kept. A history that cannot be made to fit at all is a
+/// different problem, and returning an empty prompt would turn it into a
+/// stranger one.
+fn trim_to_fit(history: &mut ContextManager, budget: i64) -> usize {
+    let mut dropped = 0usize;
+    while history.estimated_token_usage() > budget && history.item_count() > 1 {
+        history.remove_first_item();
+        dropped += 1;
+    }
+    dropped
 }
 
 pub(crate) async fn run_inline_auto_compact_task(
@@ -118,6 +147,31 @@ async fn run_compact_task_inner(
         "Compacting the conversation to fit the model's context window…",
     )
     .await;
+
+    // Trim before sending, not only after being refused.
+    //
+    // The loop below already trims when the provider answers
+    // `ContextWindowExceeded`, and that is the case this never hit: a local
+    // server given a prompt several times its window does not answer with a
+    // tidy classification, it answers with an HTTP 500 after two and a half
+    // minutes — or with nothing at all. That fell to the generic retry branch,
+    // which re-sent the same oversized prompt eight times over eighteen
+    // minutes and then gave up. The conversation was stuck for good: it could
+    // not be compacted, because compacting it meant sending it.
+    //
+    // Whether a prompt fits is knowable here, so it is decided here.
+    if let Some(window) = turn_context.client.get_model_context_window() {
+        truncated_count += trim_to_fit(&mut history, summarising_budget(window));
+        if truncated_count > 0 {
+            sess.notify_background_event(
+                turn_context.as_ref(),
+                format!(
+                    "The conversation is larger than the model's context window; dropped {truncated_count} of the oldest message(s) so it can be summarised."
+                ),
+            )
+            .await;
+        }
+    }
 
     loop {
         // Clone is required because of the loop
@@ -392,6 +446,73 @@ mod tests {
     use super::*;
     use crate::session_prefix::TURN_ABORTED_OPEN_TAG;
     use pretty_assertions::assert_eq;
+
+    fn message(role: &str, text: &str) -> ResponseItem {
+        ResponseItem::Message {
+            id: None,
+            role: role.to_string(),
+            content: vec![ContentItem::OutputText {
+                text: text.to_string(),
+            }],
+            end_turn: None,
+        }
+    }
+
+    fn history_of(count: usize, words: usize) -> ContextManager {
+        let mut history = ContextManager::new();
+        let items: Vec<ResponseItem> = (0..count)
+            .map(|at| message(if at % 2 == 0 { "user" } else { "assistant" }, &"word ".repeat(words)))
+            .collect();
+        history.record_items(items.iter(), crate::truncate::TruncationPolicy::Tokens(100_000));
+        history
+    }
+
+    #[test]
+    fn should_drop_the_oldest_until_the_rest_can_be_summarised() {
+        // The conversation that prompted this was several times its model's
+        // window. Compacting it meant sending it, so it could not be
+        // compacted, and every prompt after it took eighteen minutes to fail.
+        // Roughly the shape of the real one: a few hundred messages against a
+        // 32K window.
+        let mut history = history_of(300, 200);
+        let budget = summarising_budget(32_768);
+        assert!(history.estimated_token_usage() > budget, "the fixture must not already fit");
+
+        let dropped = trim_to_fit(&mut history, budget);
+
+        assert!(dropped > 0, "something has to give");
+        assert!(
+            history.estimated_token_usage() <= budget,
+            "what is left must fit in one request"
+        );
+    }
+
+    #[test]
+    fn should_leave_a_history_that_already_fits_alone() {
+        let mut history = history_of(4, 10);
+        let before = history.item_count();
+
+        assert_eq!(trim_to_fit(&mut history, summarising_budget(32_768)), 0);
+        assert_eq!(history.item_count(), before);
+    }
+
+    #[test]
+    fn should_keep_one_item_however_small_the_window() {
+        // A history that cannot be made to fit at all is a different problem;
+        // sending an empty prompt would turn it into a stranger one.
+        let mut history = history_of(6, 500);
+
+        trim_to_fit(&mut history, 1);
+
+        assert_eq!(history.item_count(), 1);
+    }
+
+    #[test]
+    fn should_leave_room_for_the_summary_the_model_has_to_write() {
+        // Filling the window with the request leaves nothing for the reply.
+        assert!(summarising_budget(32_768) < 32_768);
+        assert!(summarising_budget(32_768) > 32_768 / 2);
+    }
 
     #[test]
     fn content_items_to_text_joins_non_empty_segments() {
