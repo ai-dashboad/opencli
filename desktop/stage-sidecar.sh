@@ -10,13 +10,21 @@
 # hours apart without a single error to say so.
 #
 # Run from `desktop/`, by `beforeBuildCommand`, so it cannot be forgotten.
+#
+# `OPENCLI_QUICK=1` builds the iteration profile instead of the release one:
+# the same binary without the whole-program optimisation, minutes rather than
+# ten of them. Never use it for anything anyone else will run — which is why
+# the line it prints says which of the two went in.
 set -euo pipefail
 
 target="$(rustc -vV | sed -n 's/^host: //p')"
 root="$(cd "$(dirname "$0")/.." && pwd)"
+profile="${OPENCLI_QUICK:+quick}"
+profile="${profile:-release}"
 
-cargo build --release --manifest-path "$root/opencli-rs/Cargo.toml" -p opencli-cli --bin opencli
+cargo build --profile "$profile" --manifest-path "$root/opencli-rs/Cargo.toml" \
+  -p opencli-cli --bin opencli
 
 mkdir -p "$root/desktop/src-tauri/bin"
-cp -f "$root/opencli-rs/target/release/opencli" "$root/desktop/src-tauri/bin/opencli-$target"
-echo "staged opencli-$target from this build"
+cp -f "$root/opencli-rs/target/$profile/opencli" "$root/desktop/src-tauri/bin/opencli-$target"
+echo "staged opencli-$target from the $profile profile"

@@ -306,6 +306,23 @@ strip = "symbols"
 # See https://github.com/ai-dashboad/opencli/issues/1411 for details.
 codegen-units = 1
 
+# What to build while iterating.
+#
+# `release` links the whole program at once — `lto = "fat"` with
+# `codegen-units = 1` — which is right for what ships and costs about ten
+# minutes for a one-line change. This profile is the same binary without the
+# whole-program pass: it is slower to run and very much faster to produce.
+#
+# It is never what ships. `stage-sidecar.sh` says which of the two it staged,
+# because a bundle holding one while the release notes claim the other is the
+# kind of mistake that is invisible until someone reports a bug that was
+# already fixed.
+[profile.quick]
+inherits = "release"
+lto = false
+codegen-units = 16
+strip = "symbols"
+
 [profile.ci-test]
 debug = 1         # Reduce debug symbol size
 inherits = "test"
