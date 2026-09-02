@@ -96,7 +96,7 @@ export interface ClientEvents {
    * takes half a minute on a local model and holds up the whole turn — looked
    * exactly like the model being slow.
    */
-  onNotice?: (text: string) => void;
+  onNotice?: (text: string, progress?: { done: number; total: number }) => void;
   /**
    * Whether the conversation is being summarised right now.
    *
@@ -516,6 +516,23 @@ function textOf(value: unknown): string {
     }
   }
   return "";
+}
+
+/**
+ * How far through a job of known length, when the note says.
+ *
+ * Both ends of this are ours: the phrase is written by `compact.rs`, which
+ * counts the pieces a long conversation is cut into. A note that does not
+ * carry one — most of them — leaves the reader with words alone, which is
+ * right: a bar that moves at a made-up rate is a lie told smoothly.
+ */
+function stepsIn(text: string): { done: number; total: number } | undefined {
+  const found = /\bpart (\d+) of (\d+)\b/.exec(text);
+  if (!found) return undefined;
+  const done = Number(found[1]);
+  const total = Number(found[2]);
+  if (!Number.isFinite(done) || !Number.isFinite(total) || total < 1) return undefined;
+  return { done, total };
 }
 
 /**
@@ -1199,7 +1216,7 @@ export class OpenCliClient {
     if (method === "opencli/event/background_event") {
       const nested = (payload.msg ?? payload) as Record<string, unknown>;
       const text = typeof nested.message === "string" ? nested.message : "";
-      if (text) this.#events.onNotice?.(text);
+      if (text) this.#events.onNotice?.(text, stepsIn(text));
       return;
     }
     // A retry, not a failure: the attempt is over, the turn is not. Matched

@@ -381,7 +381,10 @@ export default function App() {
    */
   const [retry, setRetry] = useState<{ attempt: string; reason: string } | null>(null);
   /** What the agent is doing that is not answering — compacting, mostly. */
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{
+    text: string;
+    progress?: { done: number; total: number };
+  } | null>(null);
   /** True while the conversation is being summarised rather than answered. */
   const [compacting, setCompacting] = useState(false);
   const [draft, setDraft] = useState("");
@@ -660,7 +663,7 @@ export default function App() {
           setRunningIn(null);
         },
         onRetry: (attempt, reason) => setRetry({ attempt, reason }),
-        onNotice: setNotice,
+        onNotice: (text, progress) => setNotice({ text, progress }),
         onCompacting: (on) => {
           setCompacting(on);
           if (!on) setNotice(null);
@@ -1324,7 +1327,34 @@ export default function App() {
                       * long enough to have steps is running, so the composer
                       * does not shift for every turn.
                       */}
-                    {notice ? <p className="working-step">{notice}</p> : null}
+                    {notice ? (
+                      <p className="working-step">
+                        {/*
+                          * A bar only where there is something real to
+                          * measure. The steps are counted by the agent as it
+                          * cuts a long conversation up, so this one is honest;
+                          * a note without a count gets the words alone rather
+                          * than a bar moving at an invented rate.
+                          */}
+                        {notice.progress ? (
+                          <span
+                            className="progress"
+                            role="progressbar"
+                            aria-valuenow={notice.progress.done}
+                            aria-valuemin={0}
+                            aria-valuemax={notice.progress.total}
+                          >
+                            <span
+                              className="progress-fill"
+                              style={{
+                                width: `${Math.min(100, Math.round((notice.progress.done / notice.progress.total) * 100))}%`,
+                              }}
+                            />
+                          </span>
+                        ) : null}
+                        {notice.text}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 {!busy && usage && usage.total > 0 ? (

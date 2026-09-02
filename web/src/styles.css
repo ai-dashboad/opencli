@@ -508,10 +508,66 @@ textarea:focus {
  * than it, aligned with the words rather than the mark.
  */
 .working-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   margin: 0;
   padding-left: 21px;
   color: var(--text-faint);
   font-size: 12px;
+}
+
+/*
+ * How far through, where there is a real count behind it.
+ *
+ * The track is dark and the fill carries a bright band travelling along it —
+ * the work is moving even between the steps that move the bar. Only drawn
+ * when the agent has counted the steps itself; nothing here invents a rate.
+ */
+.progress {
+  flex: none;
+  position: relative;
+  width: 96px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      90deg,
+      var(--accent) 0%,
+      color-mix(in srgb, var(--accent) 40%, #fff) 45%,
+      var(--accent) 90%
+    );
+  background-size: 260% 100%;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: progress-arc 1.1s linear infinite;
+  transition: width 240ms ease;
+}
+
+/* The band running along the fill, left to right. */
+@keyframes progress-arc {
+  from {
+    background-position: 160% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+
+/* Still, but still legible: the fill stays, only the travelling band goes. */
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill {
+    animation: none;
+    background: var(--accent);
+    transition: none;
+  }
 }
 
 .working {

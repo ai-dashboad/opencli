@@ -647,6 +647,41 @@ describe("what the agent is busy with", () => {
     expect(notes).toEqual(["Compacting the conversation to fit the model's context window…"]);
   });
 
+  it("should read how far along a counted job is", async () => {
+    // The count is written by the agent as it cuts a long conversation into
+    // pieces, so a bar drawn from it is measuring something real.
+    let seen: { done: number; total: number } | undefined;
+    const { socket } = await connected({
+      onNotice: (_text: string, progress?: { done: number; total: number }) => {
+        seen = progress;
+      },
+    });
+
+    socket.emit({
+      method: "opencli/event/background_event",
+      params: { msg: { message: "part 2 of 5 · nothing is being lost" } },
+    });
+
+    expect(seen).toEqual({ done: 2, total: 5 });
+  });
+
+  it("should leave a note with no count to its words", async () => {
+    // A bar moving at an invented rate is a lie told smoothly.
+    let seen: { done: number; total: number } | undefined = { done: 1, total: 1 };
+    const { socket } = await connected({
+      onNotice: (_text: string, progress?: { done: number; total: number }) => {
+        seen = progress;
+      },
+    });
+
+    socket.emit({
+      method: "opencli/event/background_event",
+      params: { msg: { message: "reading the conversation" } },
+    });
+
+    expect(seen).toBeUndefined();
+  });
+
   it("should ignore a note with nothing in it", async () => {
     const notes: string[] = [];
     const { socket } = await connected({ onNotice: (text: string) => notes.push(text) });
