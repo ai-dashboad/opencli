@@ -1007,9 +1007,8 @@ describe("an item the server gives no id for", () => {
   });
 
   it("should land a repeat on the id it first appeared under", async () => {
-    // The real sequence: a thought streams under a real id, completes with no
-    // id, and is then sent again. The first copy landed under the streamed id
-    // and the repeat under the derived one — two rows for one thought.
+    // The real sequence: a thought streams, completes with no id, and is then
+    // sent again whole. Both copies must land on one row.
     const seen: ThreadItem[] = [];
     const { socket } = await connected({
       onItemDelta: () => {},
@@ -1031,9 +1030,8 @@ describe("an item the server gives no id for", () => {
     socket.emit({ method: "item/completed", params: { item: finished } });
 
     expect(seen).toHaveLength(2);
-    expect(seen[0].id).toBe("streamed-id");
     // The repeat lands on the same row rather than beside it.
-    expect(seen[1].id).toBe("streamed-id");
+    expect(seen[1].id).toBe(seen[0].id);
   });
 
   it("should keep two different thoughts apart", async () => {
@@ -1073,30 +1071,30 @@ describe("how long a thought took", () => {
     expect(seen[0].durationMs).toBeGreaterThanOrEqual(0);
   });
 
-  it("should time it across the id it streamed under", async () => {
-    // The timer starts against the id `item/started` used; the finished item
-    // may arrive under another.
+  it("should time a thought the server gives no id for", async () => {
+    // `item/started` and `item/completed` both carry an empty id and only the
+    // deltas carry one, so the thought is identified here. Following the
+    // server's ids meant three thoughts in a turn shared one key: the first
+    // counted up forever and the rest finished with no time at all.
     const seen: ThreadItem[] = [];
     const { socket } = await connected({
       onItemDelta: () => {},
       onItem: (item: ThreadItem) => seen.push(item),
     });
 
+    // Exactly what the server sends: empty ids on both ends.
     socket.emit({
       method: "item/started",
-      params: { item: { type: "reasoning", id: "streamed", summary: [], content: [] } },
+      params: { item: { type: "reasoning", id: "", summary: [], content: [] } },
     });
-    socket.emit({
-      method: "item/reasoning/textDelta",
-      params: { itemId: "streamed", delta: "hmm" },
-    });
+    socket.emit({ method: "item/reasoning/textDelta", params: { itemId: "", delta: "hmm" } });
     await settle();
     socket.emit({
       method: "item/completed",
-      params: { item: { type: "reasoning", id: "finished", summary: [], content: ["hmm"] } },
+      params: { item: { type: "reasoning", id: "", summary: [], content: ["hmm"] } },
     });
 
-    expect(seen[0].id).toBe("streamed");
+    expect(seen).toHaveLength(1);
     expect(seen[0].durationMs).toBeGreaterThanOrEqual(0);
   });
 });

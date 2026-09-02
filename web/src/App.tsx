@@ -210,6 +210,20 @@ const KIND_LABEL: Record<ThreadItem["kind"], string> = {
 };
 
 /**
+ * The end of what is being thought, for a single line of it.
+ *
+ * The end rather than the beginning: a thought that has run for a minute is
+ * somewhere quite else from where it started, and the interesting part is
+ * where it is now. Whitespace is flattened because a line break in the middle
+ * would take the row with it.
+ */
+function tailOf(text: string, room = 90): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= room) return flat;
+  return `…${flat.slice(flat.length - room)}`;
+}
+
+/**
  * Elapsed time, in the largest unit that stays readable.
  *
  * Seconds alone stop meaning anything past a minute or two, which is exactly
@@ -292,13 +306,24 @@ const TranscriptItem = memo(function TranscriptItem({
           <strong>
             {item.durationMs !== undefined
               ? `Thought for ${formatDuration(item.durationMs)}`
-              : thinkingSince
-                ? `Thinking… ${formatElapsed(
-                    Math.max(0, Math.round((Date.now() - thinkingSince) / 1000)),
-                  )}`
-                : "Thinking"}
+              : "Thinking…"}
           </strong>
-          <em>{open ? "hide" : "show"}</em>
+          {/*
+            * While it thinks, the last of what it is thinking, on one line
+            * beside the label. It is not kept: when the thought ends this
+            * gives way to how long it took, and the words themselves are
+            * behind "show" where they were all along. Watching a model think
+            * is worth a line, not a wall.
+            */}
+          {item.durationMs === undefined ? (
+            <span className="thought-peek">{tailOf(item.text)}</span>
+          ) : null}
+          {item.durationMs === undefined && thinkingSince ? (
+            <em className="thought-clock">
+              {formatElapsed(Math.max(0, Math.round((Date.now() - thinkingSince) / 1000)))}
+            </em>
+          ) : null}
+          {item.text ? <em>{open ? "hide" : "show"}</em> : null}
         </button>
       ) : KIND_LABEL[item.kind] ? (
         <span className="label">

@@ -810,7 +810,27 @@ export class OpenCliClient {
   /** When the compaction now running began, so its row can say how long. */
   #compactingSince: number | null = null;
   /** When each piece of thinking began, so its length can be reported. */
-  #thoughtSince = new Map<string, number>();
+  /**
+   * The thought being thought right now, if any.
+   *
+   * Not keyed on the server's id, because the server does not give one: a
+   * reasoning item's `item/started` and `item/completed` both carry an empty
+   * id, and only its deltas carry a real one. Keyed on the empty string, three
+   * thoughts in a turn shared one entry — the first counted up forever because
+   * nothing ever closed it, and the two after it finished with no time at all.
+   *
+   * Thoughts do not overlap, so one open thought at a time is the whole truth.
+   */
+  #thought: { id: string; began: number; text: string } | null = null;
+  #thoughtCount = 0;
+  /**
+   * The thought that just finished.
+   *
+   * The server sends each one twice — once in the fragments it streamed as,
+   * once whole — and the repeat arrives after the thought is closed. Held so
+   * it lands on the row already on screen instead of beside it.
+   */
+  #lastThought: { id: string; text: string } | null = null;
   /**
    * Which id a piece of content is already shown under.
    *
@@ -974,23 +994,11 @@ export class OpenCliClient {
     this.#handleNotification(message.method ?? "", message.params);
   }
 
-  /**
-   * Attach how long a thought took, measured here because nothing sends it.
-   *
-   * `startedUnder` is the id the server used, which is not always the id the
-   * item is shown under — a message streams under one and completes under
-   * another, and the timer was started against the first.
-   */
-  #timed(item: ThreadItem, startedUnder: string): ThreadItem {
-    // Thinking only. This model starts writing its answer while it is still
-    // thinking — measured: both begin at 4.4s of the same turn — so an
-    // answer's span overlaps the thought's, and showing the two as separate
-    // rows of a timeline would claim a sequence that did not happen.
-    if (item.kind !== "reasoning" || item.durationMs !== undefined) return item;
-    const began = this.#thoughtSince.get(startedUnder) ?? this.#thoughtSince.get(item.id);
-    this.#thoughtSince.delete(startedUnder);
-    this.#thoughtSince.delete(item.id);
-    return began ? { ...item, durationMs: Date.now() - began } : item;
+  /** Begin a thought, closing any that was somehow left open. */
+  #openThought(): { id: string; began: number; text: string } {
+    this.#thoughtCount += 1;
+    this.#thought = { id: `thought:${this.#thoughtCount}`, began: Date.now(), text: "" };
+    return this.#thought;
   }
 
   /**
@@ -1067,8 +1075,10 @@ export class OpenCliClient {
         return;
       }
       const beginning = classify(item);
-      if (beginning === "reasoning" && typeof item.id === "string") {
-        this.#thoughtSince.set(item.id, Date.now());
+      if (beginning === "reasoning") {
+        // Timed from here rather than from the first delta: a thought that
+        // finishes before one arrives still has to say how long it took.
+        this.#openThought();
       }
       this.#closeTheWait(beginning);
       return;
@@ -1088,31 +1098,33 @@ export class OpenCliClient {
     if (method === "item/agentMessage/delta" || method === "item/reasoning/textDelta") {
       const kind: ThreadItem["kind"] =
         method === "item/reasoning/textDelta" ? "reasoning" : "agent";
-      // The first delta of a thought arrives with an empty id — the server has
-      // not settled on one yet — and every one after it carries the real one.
-      // Keyed on the id alone, that first token was dropped on the floor.
-      // Only one message of a kind is being written at a time, so the kind is
-      // enough to hold the place until the id arrives.
-      const given = payload.itemId as string | undefined;
-      const itemId = given || `streaming:${kind}`;
       const delta = payload.delta as string | undefined;
       // An empty delta is not nothing happening — a reasoning model sends
       // `content: ""` alongside every thought — but there is nothing to add.
-      if (delta) {
-        this.#closeTheWait(kind);
-        // Fold whatever was written under the placeholder into the real id the
-        // moment one arrives, so the thought does not appear twice.
-        const placeholder = `streaming:${kind}`;
-        let sofar = this.#streaming.get(itemId)?.text ?? "";
-        if (given && itemId !== placeholder && this.#streaming.has(placeholder)) {
-          sofar = (this.#streaming.get(placeholder)?.text ?? "") + sofar;
-          this.#streaming.delete(placeholder);
-          this.#shownAs.set(itemId, placeholder);
-        }
-        const grown = sofar + delta;
-        this.#streaming.set(itemId, { kind, text: grown });
-        this.#events.onItemDelta?.({ id: this.#shownAs.get(itemId) ?? itemId, kind, text: grown });
+      if (!delta) return;
+      this.#closeTheWait(kind);
+
+      /*
+       * A thought is identified here, not by the server.
+       *
+       * Its `item/started` and `item/completed` both carry an empty id and
+       * only its deltas carry a real one, and the first of those is empty too.
+       * Following the server's ids meant three thoughts in a turn shared one
+       * key: the first counted up forever and the rest finished untimed. One
+       * open thought at a time is the whole truth, because they do not
+       * overlap.
+       */
+      if (kind === "reasoning") {
+        const open = this.#thought ?? this.#openThought();
+        open.text += delta;
+        this.#events.onItemDelta?.({ id: open.id, kind, text: open.text });
+        return;
       }
+
+      const itemId = (payload.itemId as string | undefined) || `streaming:${kind}`;
+      const grown = (this.#streaming.get(itemId)?.text ?? "") + delta;
+      this.#streaming.set(itemId, { kind, text: grown });
+      this.#events.onItemDelta?.({ id: itemId, kind, text: grown });
       return;
     }
     if (method === "item/completed") {
@@ -1143,6 +1155,30 @@ export class OpenCliClient {
       this.#closeTheWait(item.kind);
 
       /*
+       * A finished thought closes the one that is open, whatever id the
+       * server put on it — which is none. This is also the only moment its
+       * duration is known, because nothing sends one.
+       */
+      if (item.kind === "reasoning") {
+        const open = this.#thought;
+        this.#thought = null;
+        if (open) {
+          const closed = { ...item, id: open.id, durationMs: Date.now() - open.began };
+          this.#lastThought = { id: open.id, text: item.text };
+          this.#events.onItem?.(closed);
+          return;
+        }
+        // The repeat of the thought that just finished, landing on the row it
+        // is already on rather than beside it.
+        if (this.#lastThought?.text === item.text) {
+          this.#events.onItem?.({ ...item, id: this.#lastThought.id });
+          return;
+        }
+        this.#events.onItem?.(item);
+        return;
+      }
+
+      /*
        * A finished message arrives under a different id from the one it
        * streamed under — `item/started` says `8ec3a8e8`, `item/completed`
        * says `c3eb8a74` for the same reply. Emitting it as it came left the
@@ -1162,7 +1198,7 @@ export class OpenCliClient {
       const shownAs = this.#shownAs.get(item.id);
       if (shownAs) {
         this.#streaming.delete(item.id);
-        this.#events.onItem?.(this.#timed({ ...item, id: shownAs }, item.id));
+        this.#events.onItem?.({ ...item, id: shownAs });
         return;
       }
 
@@ -1171,7 +1207,7 @@ export class OpenCliClient {
           if (open.kind === item.kind) {
             this.#streaming.delete(openId);
             this.#shownAs.set(item.id, openId);
-            this.#events.onItem?.(this.#timed({ ...item, id: openId }, item.id));
+            this.#events.onItem?.({ ...item, id: openId });
             return;
           }
         }
@@ -1179,7 +1215,7 @@ export class OpenCliClient {
 
       this.#streaming.delete(item.id);
       this.#shownAs.set(item.id, item.id);
-      this.#events.onItem?.(this.#timed(item, item.id));
+      this.#events.onItem?.(item);
       return;
     }
     if (method === "runtime/pull/progress") {
@@ -1388,7 +1424,8 @@ export class OpenCliClient {
     this.#threadId = id;
     this.#streaming.clear();
     this.#shownAs.clear();
-    this.#thoughtSince.clear();
+    this.#thought = null;
+    this.#lastThought = null;
     this.#turnBegan = null;
     this.#waitShown = false;
     this.#compactingSince = null;
