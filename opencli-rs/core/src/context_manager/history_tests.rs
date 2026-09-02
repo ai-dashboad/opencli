@@ -1064,3 +1064,48 @@ fn should_report_nothing_for_a_conversation_that_really_is_empty() {
     let history = ContextManager::new();
     assert_eq!(history.get_total_token_usage(false), 0);
 }
+
+#[test]
+fn should_not_count_the_json_around_the_words() {
+    // The estimate decides when to compact, so it has to be close and not
+    // merely safe. Counting the serialised item — field names, quotes, every
+    // escaped newline — ran so far ahead of the truth that a conversation the
+    // model reported as 17,000 tokens estimated past a 22,937 limit and
+    // compacted again after every few commands.
+    let text = "word ".repeat(2_000); // 10,000 characters, ~2,500 tokens
+    let history = create_history_with_items(vec![assistant_msg(&text)]);
+
+    let estimated = history.get_total_token_usage(false);
+    assert!(
+        (2_000..=3_200).contains(&estimated),
+        "expected an estimate near 2,500 tokens for 10,000 characters, got {estimated}"
+    );
+}
+
+#[test]
+fn should_not_price_a_picture_by_the_length_of_its_base64() {
+    // One image arrived as 286,772 characters of base64. Counted as bytes it
+    // is 72,000 tokens on its own — more than twice a 32K window — so a
+    // conversation holding one compacted on every single turn, for ever.
+    let huge = "A".repeat(280_000);
+    let with_image = ResponseItem::Message {
+        id: None,
+        role: "user".to_string(),
+        content: vec![
+            ContentItem::InputText {
+                text: "look".to_string(),
+            },
+            ContentItem::InputImage {
+                image_url: format!("data:image/png;base64,{huge}"),
+            },
+        ],
+        end_turn: None,
+    };
+    let history = create_history_with_items(vec![with_image]);
+
+    let estimated = history.get_total_token_usage(false);
+    assert!(
+        estimated < 5_000,
+        "a picture costs about what a picture costs, got {estimated}"
+    );
+}

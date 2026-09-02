@@ -12,6 +12,8 @@ use crate::user_shell_command::is_user_shell_command_text;
 use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::FunctionCallOutputContentItem;
 use opencli_protocol::models::FunctionCallOutputPayload;
+use opencli_protocol::models::ReasoningItemContent;
+use opencli_protocol::models::ReasoningItemReasoningSummary;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::TokenUsage;
 use opencli_protocol::protocol::TokenUsageInfo;
@@ -23,6 +25,74 @@ pub(crate) struct ContextManager {
     /// The oldest items are at the beginning of the vector.
     items: Vec<ResponseItem>,
     token_info: Option<TokenUsageInfo>,
+}
+
+
+/// Roughly how much of an item becomes tokens.
+///
+/// The words, not the wrapper. Measuring the serialised item counted field
+/// names, quotes and every escaped newline as if the model had to read them,
+/// which ran so far ahead of the truth that a conversation the model itself
+/// reported as 17,000 tokens estimated past a 22,937 limit — and compacted
+/// again after every few commands.
+///
+/// An image is a fixed, modest cost rather than the length of its base64. To a
+/// model that can see, one picture is on the order of a thousand tokens
+/// however many megabytes it arrived as; to one that cannot, it is nothing.
+fn text_bytes_of(item: &ResponseItem) -> usize {
+    const IMAGE_BYTES: usize = 4_000;
+
+    fn content_bytes(content: &[ContentItem]) -> usize {
+        content
+            .iter()
+            .map(|part| match part {
+                ContentItem::InputText { text } | ContentItem::OutputText { text } => text.len(),
+                ContentItem::InputImage { .. } => IMAGE_BYTES,
+            })
+            .fold(0usize, usize::saturating_add)
+    }
+
+    match item {
+        ResponseItem::Message { content, .. } => content_bytes(content),
+        ResponseItem::Reasoning {
+            summary, content, ..
+        } => {
+            let summarised: usize = summary
+                .iter()
+                .map(|point| match point {
+                    ReasoningItemReasoningSummary::SummaryText { text } => text.len(),
+                })
+                .fold(0usize, usize::saturating_add);
+            let thought: usize = content
+                .iter()
+                .flatten()
+                .map(|part| match part {
+                    ReasoningItemContent::ReasoningText { text }
+                    | ReasoningItemContent::Text { text } => text.len(),
+                })
+                .fold(0usize, usize::saturating_add);
+            summarised.saturating_add(thought)
+        }
+        ResponseItem::FunctionCall {
+            name, arguments, ..
+        } => name.len().saturating_add(arguments.len()),
+        ResponseItem::FunctionCallOutput { output, .. } => output
+            .content_items
+            .as_ref()
+            .map(|items| {
+                items
+                    .iter()
+                    .map(|part| match part {
+                        FunctionCallOutputContentItem::InputText { text } => text.len(),
+                        FunctionCallOutputContentItem::InputImage { .. } => IMAGE_BYTES,
+                    })
+                    .fold(0usize, usize::saturating_add)
+            })
+            .unwrap_or_else(|| output.content.len()),
+        // Anything else is small enough that guessing at its shape would cost
+        // more than counting it wrongly.
+        other => serde_json::to_string(other).map(|text| text.len()).unwrap_or(0),
+    }
 }
 
 impl ContextManager {
@@ -252,11 +322,7 @@ impl ContextManager {
         let bytes: usize = self
             .items
             .iter()
-            .map(|item| {
-                serde_json::to_string(item)
-                    .map(|text| text.len())
-                    .unwrap_or(0)
-            })
+            .map(text_bytes_of)
             .fold(0usize, usize::saturating_add);
         i64::try_from(approx_tokens_from_byte_count(bytes)).unwrap_or(i64::MAX)
     }
@@ -276,11 +342,11 @@ impl ContextManager {
         // be several times larger. Taking the larger of the two is what makes
         // auto-compaction fire before an oversized request goes out.
         //
-        // The estimate reads the serialised items at four bytes to a token, so
-        // it runs high and can compact a little early. That is the direction to
-        // be wrong in: measured on a 32K-window model, the alternative was a
-        // request the server answered with HTTP 500 after two and a half
-        // minutes, retried eight times, eighteen minutes in all.
+        // The estimate has to be close, not merely safe. An earlier one read
+        // the serialised items — field names, quotes and escapes included —
+        // and ran so far ahead of the truth that a conversation the model
+        // reported as 17,000 tokens estimated past a 22,937 limit and
+        // compacted after every few commands.
         let last_tokens = last_tokens.max(self.estimated_token_usage());
         if server_reasoning_included {
             last_tokens
