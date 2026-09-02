@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldDismiss, shouldSend } from "./composer";
+import { shouldDismiss, shouldInterrupt, shouldSend } from "./composer";
 
 describe("pressing Enter in the composer", () => {
   it("should send a finished message", () => {
@@ -32,5 +32,27 @@ describe("pressing Escape in a search box", () => {
     // Escape cancels the candidate list; closing the search would throw away
     // what was half-typed.
     expect(shouldDismiss({ key: "Escape", isComposing: true })).toBe(false);
+  });
+});
+
+describe("pressing Escape while the agent is working", () => {
+  it("should stop the turn", () => {
+    expect(shouldInterrupt({ key: "Escape", isComposing: false })).toBe(true);
+  });
+
+  it("should not stop the turn while an input method is composing", () => {
+    // Escape cancels the candidate list. Stopping the agent as a side effect
+    // of abandoning a half-typed word would be astonishing.
+    expect(shouldInterrupt({ key: "Escape", isComposing: true })).toBe(false);
+  });
+
+  it("should ignore Escape with a modifier held", () => {
+    for (const held of ["metaKey", "ctrlKey", "altKey", "shiftKey"] as const) {
+      expect(shouldInterrupt({ key: "Escape", isComposing: false, [held]: true })).toBe(false);
+    }
+  });
+
+  it("should ignore any other key", () => {
+    expect(shouldInterrupt({ key: "q", isComposing: false })).toBe(false);
   });
 });

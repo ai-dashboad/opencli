@@ -50,7 +50,7 @@ import {
 import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./menus";
 import { Boot } from "./boot";
 import { Markdown } from "./markdown";
-import { shouldSend } from "./composer";
+import { shouldInterrupt, shouldSend } from "./composer";
 import "./styles.css";
 
 /**
@@ -736,6 +736,24 @@ export default function App() {
     setRunningIn(null);
   }, []);
 
+  /*
+   * Escape stops the turn, wherever the focus happens to be.
+   *
+   * Reaching for the mouse to hit a five-pixel "stop" is the wrong shape for
+   * the one action taken in a hurry — usually on realising the prompt was
+   * wrong, seconds after sending it.
+   */
+  useEffect(() => {
+    if (!busy) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!shouldInterrupt(event)) return;
+      event.preventDefault();
+      void interrupt();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, interrupt]);
+
   const openThread = useCallback(async (id: string) => {
     const client = clientRef.current;
     if (!client) return;
@@ -1215,6 +1233,9 @@ export default function App() {
                     <button className="link" onClick={() => void interrupt()}>
                       stop
                     </button>
+                    {/* Said once, where the action is: a shortcut nobody is
+                        told about is a shortcut nobody uses. */}
+                    <kbd className="hint-key">esc</kbd>
                   </p>
                 ) : null}
                 {!busy && usage && usage.total > 0 ? (
@@ -1284,28 +1305,6 @@ export default function App() {
                 void attach([...e.dataTransfer.files]);
               }}
             >
-              {attachments.length > 0 ? (
-                <ul className="attachments">
-                  {attachments.map((attachment, index) => (
-                    <li key={`${attachment.name}-${index}`}>
-                      {attachment.kind === "image" ? (
-                        <img src={attachment.dataUrl} alt={attachment.name} />
-                      ) : null}
-                      <span>{attachment.name}</span>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${attachment.name}`}
-                        onClick={() =>
-                          setAttachments((prev) => prev.filter((_, at) => at !== index))
-                        }
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -1330,6 +1329,36 @@ export default function App() {
                 }
                 rows={3}
               />
+
+              {/*
+                * Below what is being typed, not above it.
+                *
+                * Pasting an image mid-sentence pushed the words already
+                * written down the screen and the caret with them, so the
+                * thing you were in the middle of saying moved while you were
+                * saying it. It belongs after the text, where it was added.
+                */}
+              {attachments.length > 0 ? (
+                <ul className="attachments">
+                  {attachments.map((attachment, index) => (
+                    <li key={`${attachment.name}-${index}`}>
+                      {attachment.kind === "image" ? (
+                        <img src={attachment.dataUrl} alt={attachment.name} />
+                      ) : null}
+                      <span>{attachment.name}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${attachment.name}`}
+                        onClick={() =>
+                          setAttachments((prev) => prev.filter((_, at) => at !== index))
+                        }
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
 
               <div className="composer-actions">
                 <span className="menu-anchor">
@@ -1478,7 +1507,7 @@ export default function App() {
                     {preferences.effort ? <em>{preferences.effort}</em> : null}
                     <ChevronIcon size={13} />
                   </button>
-                  <Popover open={modelMenu} onClose={() => setModelMenu(false)} align="right">
+                  <Popover open={modelMenu} onClose={() => setModelMenu(false)} align="right" wide>
                     <ModelMenu
                       models={models}
                       model={model}

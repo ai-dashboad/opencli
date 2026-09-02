@@ -11,6 +11,7 @@ import {
   BoltIcon,
   CheckIcon,
   ChevronRightIcon,
+  ChipIcon,
   CloseIcon,
   ConnectorIcon,
   FastForwardIcon,
@@ -456,9 +457,13 @@ export function ModelMenu({
   const primary = ordered.slice(0, SHORT);
   const rest = ordered.slice(SHORT);
 
+  // Every row carries one, so the list has the same shape as the modes menu
+  // beside it. Not local-versus-remote, tempting as that is: the server sends
+  // no provider, and the guess would be wrong for half the list.
   const row = (option: ModelOption) => (
     <MenuItem
       key={option.id}
+      icon={<ChipIcon size={16} />}
       label={option.displayName}
       hint={option.description}
       checked={option.model === model}
@@ -468,6 +473,10 @@ export function ModelMenu({
 
   return (
     <>
+      <div className="menu-head">
+        <span>Model</span>
+        <em>Applies from your next message</em>
+      </div>
       {models.length === 0 ? (
         <MenuItem label="No models configured" hint="Add them in config.toml" />
       ) : (
@@ -482,6 +491,10 @@ export function ModelMenu({
             hint={effort}
             submenu={
               <>
+                <div className="menu-head">
+                  <span>Effort</span>
+                  <em>Applies to your next message</em>
+                </div>
                 <p className="menu-note">
                   Higher effort means more thorough responses, but takes longer.
                 </p>

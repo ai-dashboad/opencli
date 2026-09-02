@@ -24,3 +24,23 @@ export function shouldSend(event: {
 export function shouldDismiss(event: { key: string; isComposing: boolean }): boolean {
   return !event.isComposing && event.key === "Escape";
 }
+
+/**
+ * Whether Escape should stop the turn that is running.
+ *
+ * Not while an input method is composing, where Escape cancels the candidate
+ * list and stopping the agent as a side effect of abandoning a word would be
+ * astonishing. Not with a modifier held either: those are somebody else's
+ * shortcuts.
+ */
+export function shouldInterrupt(event: {
+  key: string;
+  isComposing: boolean;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+}): boolean {
+  if (event.isComposing || event.key !== "Escape") return false;
+  return !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
+}

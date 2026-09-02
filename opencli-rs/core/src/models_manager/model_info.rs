@@ -63,17 +63,37 @@ macro_rules! model_info {
     }};
 }
 
+/// The window a `[[models]]` entry declares for this model, if any.
+fn declared_window(config: &Config, slug: &str) -> Option<i64> {
+    config
+        .models
+        .iter()
+        .find(|custom| custom.matches(slug))
+        .and_then(|custom| custom.context_window)
+}
+
 pub(crate) fn with_config_overrides(mut model: ModelInfo, config: &Config) -> ModelInfo {
     if let Some(supports_reasoning_summaries) = config.model_supports_reasoning_summaries {
         model.supports_reasoning_summaries = supports_reasoning_summaries;
     }
     if let Some(context_window) = config.model_context_window {
         model.context_window = Some(context_window);
+    } else if let Some(declared) = declared_window(config, &model.slug) {
+        // A window written down in `[[models]]` is not a guess, so nothing
+        // inferred may overrule it.
+        //
+        // The learned value used to win, and it is the one that can be wrong:
+        // it is recorded from a rejection, and when the gateway names no limit
+        // it falls back to the session's total token usage — a number that
+        // bears no relation to the window. One recorded against an endpoint
+        // that has since changed then silently replaced the correct figure, so
+        // the agent planned for 96K against a server serving 32K and every
+        // long conversation failed after eight invisible retries.
+        model.context_window = Some(declared);
     } else if let Some(learned) =
         crate::models_manager::learned_windows::learned_window(&config.opencli_home, &model.slug)
     {
-        // No explicit override: use the window learned from a prior
-        // context-window rejection by this exact model.
+        // Nothing declared: fall back to what a real rejection taught us.
         model.context_window = Some(learned);
     }
     if let Some(auto_compact_token_limit) = config.model_auto_compact_token_limit {

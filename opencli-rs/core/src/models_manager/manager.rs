@@ -149,17 +149,10 @@ impl ModelsManager {
         } else {
             model_info::find_model_info_for_slug(model)
         };
-        // A `[[models]]` window beats the built-in guess but not an explicit
-        // `model_context_window` or a window learned from a real rejection,
-        // both of which `with_config_overrides` applies on top.
-        if let Some(context_window) = config
-            .models
-            .iter()
-            .find(|custom| custom.matches(&model.slug))
-            .and_then(|custom| custom.context_window)
-        {
-            model.context_window = Some(context_window);
-        }
+        // The whole precedence lives in `with_config_overrides`, so that a
+        // model looked up without the registry gets the same answer: an
+        // explicit `model_context_window`, then a `[[models]]` declaration,
+        // then a learned window, then the built-in guess.
         model_info::with_config_overrides(model, config)
     }
 
@@ -975,6 +968,71 @@ mod tests {
             Some(32_768),
             "a declared window should replace the generic default for an unknown model"
         );
+    }
+
+    #[tokio::test]
+    async fn should_let_a_declared_context_window_beat_a_learned_one() {
+        // A learned window is recorded from a rejection, and when the gateway
+        // names no limit it falls back to the session's total token usage — a
+        // number that is not a window at all. One learned against an endpoint
+        // that has since changed silently replaced a correct declaration, so
+        // the agent planned for 96K against a server serving 32K and every
+        // long conversation failed after eight invisible retries.
+        let opencli_home = tempdir().expect("temp dir");
+        let mut config = ConfigBuilder::default()
+            .opencli_home(opencli_home.path().to_path_buf())
+            .build()
+            .await
+            .expect("load default test config");
+        let mut declared = custom_model("huihui-qwen3.8-27b", "my-gateway");
+        declared.context_window = Some(32_768);
+        config.models = vec![declared];
+        crate::models_manager::learned_windows::record_window(
+            opencli_home.path(),
+            "huihui-qwen3.8-27b",
+            101_420,
+        );
+
+        let auth_manager =
+            AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
+        let provider = provider_for("http://example.test".to_string());
+        let manager =
+            ModelsManager::with_provider(opencli_home.path().to_path_buf(), auth_manager, provider);
+
+        let info = manager.get_model_info("huihui-qwen3.8-27b", &config).await;
+
+        assert_eq!(
+            info.context_window,
+            Some(32_768),
+            "what the config says beats what a stale rejection taught"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_still_use_a_learned_window_when_nothing_was_declared() {
+        // Learning exists for the models nobody wrote down; this must keep
+        // working, or every undeclared model falls back to a generic guess.
+        let opencli_home = tempdir().expect("temp dir");
+        let config = ConfigBuilder::default()
+            .opencli_home(opencli_home.path().to_path_buf())
+            .build()
+            .await
+            .expect("load default test config");
+        crate::models_manager::learned_windows::record_window(
+            opencli_home.path(),
+            "some-undeclared-model",
+            48_000,
+        );
+
+        let auth_manager =
+            AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
+        let provider = provider_for("http://example.test".to_string());
+        let manager =
+            ModelsManager::with_provider(opencli_home.path().to_path_buf(), auth_manager, provider);
+
+        let info = manager.get_model_info("some-undeclared-model", &config).await;
+
+        assert_eq!(info.context_window, Some(48_000));
     }
 
     #[tokio::test]
