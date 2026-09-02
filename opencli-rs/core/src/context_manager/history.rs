@@ -36,18 +36,24 @@ pub(crate) struct ContextManager {
 /// reported as 17,000 tokens estimated past a 22,937 limit — and compacted
 /// again after every few commands.
 ///
-/// An image is a fixed, modest cost rather than the length of its base64. To a
-/// model that can see, one picture is on the order of a thousand tokens
-/// however many megabytes it arrived as; to one that cannot, it is nothing.
+/// An image costs what its encoding costs, because that is what is sent. It
+/// was priced at a flat few thousand bytes on the reasoning that a picture is
+/// worth about a thousand tokens to a model that can see — true, and beside
+/// the point: the base64 goes down the wire either way, and one of them in
+/// this conversation was 286,682 characters. Underpricing it meant compaction
+/// never fired and every turn carried the whole picture again, which is what
+/// made the model appear to grind.
+///
+/// This does not send it into a loop the way an inflated estimate once did:
+/// compaction keeps the text of a conversation and not its pictures, so once
+/// it runs the weight is gone.
 fn text_bytes_of(item: &ResponseItem) -> usize {
-    const IMAGE_BYTES: usize = 4_000;
-
     fn content_bytes(content: &[ContentItem]) -> usize {
         content
             .iter()
             .map(|part| match part {
                 ContentItem::InputText { text } | ContentItem::OutputText { text } => text.len(),
-                ContentItem::InputImage { .. } => IMAGE_BYTES,
+                ContentItem::InputImage { image_url } => image_url.len(),
             })
             .fold(0usize, usize::saturating_add)
     }
@@ -84,7 +90,7 @@ fn text_bytes_of(item: &ResponseItem) -> usize {
                     .iter()
                     .map(|part| match part {
                         FunctionCallOutputContentItem::InputText { text } => text.len(),
-                        FunctionCallOutputContentItem::InputImage { .. } => IMAGE_BYTES,
+                        FunctionCallOutputContentItem::InputImage { image_url } => image_url.len(),
                     })
                     .fold(0usize, usize::saturating_add)
             })

@@ -1086,10 +1086,11 @@ fn should_not_count_the_json_around_the_words() {
 }
 
 #[test]
-fn should_not_price_a_picture_by_the_length_of_its_base64() {
-    // One image arrived as 286,772 characters of base64. Counted as bytes it
-    // is 72,000 tokens on its own — more than twice a 32K window — so a
-    // conversation holding one compacted on every single turn, for ever.
+fn should_price_a_picture_at_what_is_actually_sent() {
+    // Priced at a flat few thousand bytes — a picture being worth about a
+    // thousand tokens to a model that can see — compaction never fired, and
+    // every turn carried the whole 286,682-character encoding again. What
+    // goes down the wire is what it costs.
     let huge = "A".repeat(280_000);
     let with_image = ResponseItem::Message {
         id: None,
@@ -1108,7 +1109,7 @@ fn should_not_price_a_picture_by_the_length_of_its_base64() {
 
     let estimated = history.get_total_token_usage(false);
     assert!(
-        estimated < 5_000,
-        "a picture costs about what a picture costs, got {estimated}"
+        estimated > 50_000,
+        "a picture this size cannot look cheap, got {estimated}"
     );
 }

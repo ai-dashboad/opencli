@@ -707,6 +707,34 @@ mod tests {
     }
 
     #[test]
+    fn should_not_carry_a_picture_through_a_compaction() {
+        // What makes pricing an image honestly safe: once compaction runs, the
+        // encoding is gone, so the estimate falls and it does not fire again.
+        // If a picture survived, every compaction would be followed by another.
+        let huge = "A".repeat(280_000);
+        let asked = ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![
+                ContentItem::InputText {
+                    text: "what is in this".to_string(),
+                },
+                ContentItem::InputImage {
+                    image_url: format!("data:image/png;base64,{huge}"),
+                },
+            ],
+            end_turn: None,
+        };
+
+        let kept = collect_user_messages(std::slice::from_ref(&asked));
+        let rebuilt = build_compacted_history(Vec::new(), &kept, "a summary");
+
+        let sent = serde_json::to_string(&rebuilt).expect("serialise");
+        assert!(!sent.contains(&huge), "the encoding must not survive");
+        assert!(sent.contains("what is in this"), "the words around it must");
+    }
+
+    #[test]
     fn should_not_try_to_summarise_a_picture() {
         // Measured on a real conversation: one image came to 286,772
         // characters of base64 — on its own more than twice a 32K window, so
