@@ -366,6 +366,13 @@ export default function App() {
   const [preferences, setPreferences] = useState<Preferences>({ approvalPolicy: "untrusted" });
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * The attempt being retried, while a turn is still alive.
+   *
+   * A request that fails and is retried eight times took eighteen minutes on
+   * this machine, and the screen said "Waiting for the model…" for all of it.
+   */
+  const [retry, setRetry] = useState<{ attempt: string; reason: string } | null>(null);
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   /**
@@ -621,6 +628,7 @@ export default function App() {
           setRunningIn(threadId);
           setTurnAt(Date.now());
           setStreamed(0);
+          setRetry(null);
           // Whatever went wrong last time is over. Nothing cleared this, so a
           // failure stayed on screen through every later prompt, saying a turn
           // that had since succeeded had failed.
@@ -628,12 +636,15 @@ export default function App() {
         },
         onTurnComplete: () => {
           setRunningIn(null);
+          setRetry(null);
           void refreshThreads();
         },
         onError: (message) => {
           setError(message);
+          setRetry(null);
           setRunningIn(null);
         },
+        onRetry: (attempt, reason) => setRetry({ attempt, reason }),
         onApprovalRequest: setApproval,
         onTokenUsage: setUsage,
         onPullProgress: (progress) =>
@@ -1053,6 +1064,7 @@ export default function App() {
         projects={projectList}
         tasks={taskList}
         activeThreadId={activeThreadId}
+        runningThreadId={runningIn}
         activeProjectId={project?.id ?? null}
         onNavigate={go}
         onNewChat={() => void newChat()}
@@ -1264,6 +1276,19 @@ export default function App() {
                       {doing} {formatElapsed(elapsed)}
                       {streamed > 0 ? ` · ~${Math.round(streamed / 4)} written` : ""}
                     </span>
+                    {/*
+                      * A failed attempt, said while the turn is still alive.
+                      *
+                      * Without this the screen reads "Waiting for the model…"
+                      * through eight failures and eighteen minutes, and the
+                      * reason each one gave — measured: an HTTP 500 from an
+                      * overloaded local server — is never shown at all.
+                      */}
+                    {retry ? (
+                      <span className="retrying" title={retry.reason}>
+                        {retry.attempt}
+                      </span>
+                    ) : null}
                     {/*
                       * The conversation's total is deliberately not shown
                       * here. A streaming provider reports usage once, when the

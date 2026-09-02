@@ -71,6 +71,14 @@ export interface ClientEvents {
   onTurnStart?: (threadId: string | null) => void;
   onTurnComplete?: () => void;
   onError?: (message: string) => void;
+  /**
+   * A failed attempt that is being retried, and what it said.
+   *
+   * Not an error: the turn is still alive. It is reported because a request
+   * that fails and is retried eight times is otherwise eighteen minutes of a
+   * spinner with nothing to explain it.
+   */
+  onRetry?: (attempt: string, reason: string) => void;
   /** The agent is asking permission to run something. */
   onApprovalRequest?: (request: ApprovalRequest) => void;
   /** A model download reported progress. */
@@ -1125,6 +1133,17 @@ export class OpenCliClient {
         output: pick(last, "outputTokens", "output_tokens"),
         contextWindow: window ?? null,
       });
+      return;
+    }
+    // A retry, not a failure: the attempt is over, the turn is not. Matched
+    // before the error test below, which would otherwise claim the turn had
+    // died each time one was retried.
+    if (method === "opencli/event/stream_error") {
+      const nested = (payload.msg ?? payload) as Record<string, unknown>;
+      const attempt = typeof nested.message === "string" ? nested.message : "Retrying";
+      const detail =
+        typeof nested.additional_details === "string" ? nested.additional_details : "";
+      this.#events.onRetry?.(attempt, detail);
       return;
     }
     if (method.endsWith("/error") || method === "opencli/event/error") {

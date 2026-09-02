@@ -134,7 +134,14 @@ pub enum OpenCLIErr {
     )]
     UsageNotIncluded,
 
-    #[error("We're currently experiencing high demand, which may cause temporary errors.")]
+    /// The provider answered, and what it said was that it had failed.
+    ///
+    /// This used to read "We're currently experiencing high demand" — inherited
+    /// wording from a hosted service, and a plain falsehood when the provider
+    /// is a GPU box in the next room that fell over on an oversized request.
+    #[error(
+        "the model server returned an internal error (HTTP 500); for a local server this usually means the request was too large or the model crashed"
+    )]
     InternalServerError,
 
     /// Retry limit exceeded.

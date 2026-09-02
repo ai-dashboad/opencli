@@ -20,6 +20,7 @@ import {
   SidebarToggleIcon,
   SkillIcon,
   SlidersIcon,
+  WorkingDot,
 } from "./icons";
 
 export type View =
@@ -43,6 +44,8 @@ interface SidebarProps {
   projects: Project[];
   tasks: ScheduledTask[];
   activeThreadId: string | null;
+  /** The chat the agent is working in, when it is working in one. */
+  runningThreadId: string | null;
   activeProjectId: string | null;
   onNavigate: (view: View) => void;
   onNewChat: () => void;
@@ -55,6 +58,19 @@ interface SidebarProps {
   onForward: () => void;
   canBack: boolean;
   canForward: boolean;
+}
+
+/**
+ * The marker in front of a chat in the list.
+ *
+ * A chat that is working shows the same beating mark as the transcript does,
+ * so a run that was started and then navigated away from is visible from
+ * anywhere — before this, the list gave no sign which chat was busy, and the
+ * only way to find out was to open each one.
+ */
+function ThreadDot({ running, active }: { running: boolean; active: boolean }) {
+  if (running) return <WorkingDot size={10} />;
+  return <i className={`dot${active ? " on" : ""}`} />;
 }
 
 const SEEN_KEY = "opencli.scheduled.seen";
@@ -133,6 +149,7 @@ export default function Sidebar({
   projects,
   tasks,
   activeThreadId,
+  runningThreadId,
   activeProjectId,
   onNavigate,
   onNewChat,
@@ -277,7 +294,10 @@ export default function Sidebar({
                             onClick={() => onOpenThread(thread.id)}
                             title={thread.preview}
                           >
-                            <i className={`dot${thread.id === activeThreadId ? " on" : ""}`} />
+                            <ThreadDot
+                              running={thread.id === runningThreadId}
+                              active={thread.id === activeThreadId}
+                            />
                             <span>{summarize(thread)}</span>
                           </button>
                         </li>
@@ -330,7 +350,10 @@ export default function Sidebar({
                     onClick={() => onOpenThread(thread.id)}
                     title={thread.preview}
                   >
-                    <i className={`dot${thread.id === activeThreadId ? " on" : ""}`} />
+                    <ThreadDot
+                      running={thread.id === runningThreadId}
+                      active={thread.id === activeThreadId}
+                    />
                     <span>{summarize(thread)}</span>
                   </button>
                   <span className="row-actions">

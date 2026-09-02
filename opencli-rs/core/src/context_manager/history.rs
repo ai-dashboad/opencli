@@ -239,14 +239,49 @@ impl ContextManager {
         token_estimate as usize
     }
 
+    /// Roughly how much of the window this history would fill, when nothing
+    /// has been sent yet and so nothing has been counted.
+    ///
+    /// A reopened conversation has no recorded usage at all, and reporting it
+    /// as zero meant a hundred thousand tokens of history were sent whole on
+    /// the first prompt after opening it — the model then took over two
+    /// minutes to answer and was retried eight times, none of it visible.
+    /// A rough figure is what auto-compaction needs; it only has to be near
+    /// enough to know the window is already full.
+    pub(crate) fn estimated_token_usage(&self) -> i64 {
+        let bytes: usize = self
+            .items
+            .iter()
+            .map(|item| {
+                serde_json::to_string(item)
+                    .map(|text| text.len())
+                    .unwrap_or(0)
+            })
+            .fold(0usize, usize::saturating_add);
+        i64::try_from(approx_tokens_from_byte_count(bytes)).unwrap_or(i64::MAX)
+    }
+
     /// When true, the server already accounted for past reasoning tokens and
     /// the client should not re-estimate them.
     pub(crate) fn get_total_token_usage(&self, server_reasoning_included: bool) -> i64 {
-        let last_tokens = self
-            .token_info
-            .as_ref()
-            .map(|info| info.last_token_usage.total_tokens)
-            .unwrap_or(0);
+        let Some(info) = self.token_info.as_ref() else {
+            // Never sent anything, so nothing was counted. What is on hand is
+            // the history itself.
+            return self.estimated_token_usage();
+        };
+        let last_tokens = info.last_token_usage.total_tokens;
+        // The recorded figure describes the request that was last sent, which
+        // on a reopened conversation is not the one about to be sent: resume
+        // seeds it from the rollout, and the history rebuilt alongside it can
+        // be several times larger. Taking the larger of the two is what makes
+        // auto-compaction fire before an oversized request goes out.
+        //
+        // The estimate reads the serialised items at four bytes to a token, so
+        // it runs high and can compact a little early. That is the direction to
+        // be wrong in: measured on a 32K-window model, the alternative was a
+        // request the server answered with HTTP 500 after two and a half
+        // minutes, retried eight times, eighteen minutes in all.
+        let last_tokens = last_tokens.max(self.estimated_token_usage());
         if server_reasoning_included {
             last_tokens
         } else {

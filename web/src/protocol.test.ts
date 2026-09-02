@@ -583,6 +583,49 @@ describe("errors", () => {
   });
 });
 
+describe("a turn that is being retried", () => {
+  it("should report the attempt without claiming the turn has failed", async () => {
+    // Measured on a real endpoint: a request failed and was retried eight
+    // times over eighteen minutes, and the screen said "Waiting for the
+    // model…" for all of it.
+    const retries: string[] = [];
+    const errors: string[] = [];
+    const { socket } = await connected({
+      onRetry: (attempt: string) => retries.push(attempt),
+      onError: (message: string) => errors.push(message),
+    });
+
+    socket.emit({
+      method: "opencli/event/stream_error",
+      params: {
+        id: "1",
+        msg: {
+          type: "stream_error",
+          message: "Reconnecting... 1/8",
+          additional_details: "the model server returned an internal error (HTTP 500)",
+        },
+      },
+    });
+
+    expect(retries).toEqual(["Reconnecting... 1/8"]);
+    expect(errors).toEqual([]);
+  });
+
+  it("should carry the reason the attempt gave", async () => {
+    const reasons: string[] = [];
+    const { socket } = await connected({
+      onRetry: (_attempt: string, reason: string) => reasons.push(reason),
+    });
+
+    socket.emit({
+      method: "opencli/event/stream_error",
+      params: { msg: { message: "Reconnecting... 2/8", additional_details: "no response" } },
+    });
+
+    expect(reasons).toEqual(["no response"]);
+  });
+});
+
 describe("projects", () => {
   it("should send only the fields being changed on update", async () => {
     // The server leaves omitted fields alone; sending empty strings would

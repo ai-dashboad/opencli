@@ -1022,3 +1022,45 @@ fn normalize_mixed_inserts_and_removals_panics_in_debug() {
     let mut h = create_history_with_items(items);
     h.normalize_history();
 }
+
+#[test]
+fn should_estimate_a_reopened_conversation_rather_than_call_it_empty() {
+    // A reopened conversation has no recorded usage: nothing has been sent, so
+    // nothing has been counted. Reporting zero meant auto-compaction never
+    // fired and the whole history went out on the first prompt — measured
+    // against a real 32K-window model, the reply took over two minutes and
+    // was then retried eight times.
+    let history = create_history_with_items(vec![
+        user_msg(&"a long question ".repeat(400)),
+        assistant_msg(&"a long answer ".repeat(400)),
+    ]);
+
+    let estimated = history.get_total_token_usage(false);
+    assert!(
+        estimated > 2_000,
+        "a conversation of this size cannot report as empty, got {estimated}"
+    );
+}
+
+#[test]
+fn should_not_trust_a_recorded_count_smaller_than_the_history_it_describes() {
+    // Resume seeds the count from the rollout — the size of the request that
+    // was last sent, not of the history rebuilt beside it. Trusting it meant
+    // an oversized request went out anyway.
+    let mut history = create_history_with_items(vec![
+        user_msg(&"a long question ".repeat(400)),
+        assistant_msg(&"a long answer ".repeat(400)),
+    ]);
+    history.set_token_info(Some(TokenUsageInfo::full_context_window(500)));
+
+    assert!(
+        history.get_total_token_usage(false) > 2_000,
+        "the history is what will be sent, whatever the last request cost"
+    );
+}
+
+#[test]
+fn should_report_nothing_for_a_conversation_that_really_is_empty() {
+    let history = ContextManager::new();
+    assert_eq!(history.get_total_token_usage(false), 0);
+}

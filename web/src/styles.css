@@ -500,6 +500,17 @@ textarea:focus {
   font-size: 13px;
 }
 
+/* An attempt that failed and is being tried again. Amber rather than red:
+   the turn has not died, and colouring it as a failure would say it had. */
+.retrying {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 11.5px;
+}
+
 /*
  * Stop, as one control that names its own shortcut.
  *
