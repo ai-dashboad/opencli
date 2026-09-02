@@ -116,11 +116,6 @@ impl ContextManager {
         Some(base_tokens.saturating_add(items_tokens))
     }
 
-    /// How many items the history holds, oldest first.
-    pub(crate) fn item_count(&self) -> usize {
-        self.items.len()
-    }
-
     pub(crate) fn remove_first_item(&mut self) {
         if !self.items.is_empty() {
             // Remove the oldest item (front of the list). Items are ordered from

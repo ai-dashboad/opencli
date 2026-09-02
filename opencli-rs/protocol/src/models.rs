@@ -1329,6 +1329,9 @@ mod tests {
                 sandbox_permissions: None,
                 prefix_rule: None,
                 justification: None,
+                // Absent from this payload, which is the usual case: a smaller
+                // model routinely skips a field it is not required to fill.
+                description: None,
             },
             params
         );

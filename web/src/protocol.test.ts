@@ -626,6 +626,37 @@ describe("a turn that is being retried", () => {
   });
 });
 
+describe("what the agent is busy with", () => {
+  it("should say when it is compacting rather than look like a slow model", async () => {
+    // The server has always sent this. Nothing listened, so half a minute of
+    // compaction was indistinguishable from half a minute of nothing.
+    const notes: string[] = [];
+    const { socket } = await connected({ onNotice: (text: string) => notes.push(text) });
+
+    socket.emit({
+      method: "opencli/event/background_event",
+      params: {
+        id: "1",
+        msg: {
+          type: "background_event",
+          message: "Compacting the conversation to fit the model's context window…",
+        },
+      },
+    });
+
+    expect(notes).toEqual(["Compacting the conversation to fit the model's context window…"]);
+  });
+
+  it("should ignore a note with nothing in it", async () => {
+    const notes: string[] = [];
+    const { socket } = await connected({ onNotice: (text: string) => notes.push(text) });
+
+    socket.emit({ method: "opencli/event/background_event", params: { msg: { message: "" } } });
+
+    expect(notes).toEqual([]);
+  });
+});
+
 describe("projects", () => {
   it("should send only the fields being changed on update", async () => {
     // The server leaves omitted fields alone; sending empty strings would

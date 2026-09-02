@@ -79,6 +79,15 @@ export interface ClientEvents {
    * spinner with nothing to explain it.
    */
   onRetry?: (attempt: string, reason: string) => void;
+  /**
+   * Something the agent is doing that is not a message: compacting the
+   * conversation, mostly.
+   *
+   * The server has always said it. Nothing listened, so a compaction — which
+   * takes half a minute on a local model and holds up the whole turn — looked
+   * exactly like the model being slow.
+   */
+  onNotice?: (text: string) => void;
   /** The agent is asking permission to run something. */
   onApprovalRequest?: (request: ApprovalRequest) => void;
   /** A model download reported progress. */
@@ -1037,19 +1046,32 @@ export class OpenCliClient {
      * nothing to show for it, which is indistinguishable from a hang.
      */
     if (method === "item/agentMessage/delta" || method === "item/reasoning/textDelta") {
-      const itemId = payload.itemId as string | undefined;
+      const kind: ThreadItem["kind"] =
+        method === "item/reasoning/textDelta" ? "reasoning" : "agent";
+      // The first delta of a thought arrives with an empty id — the server has
+      // not settled on one yet — and every one after it carries the real one.
+      // Keyed on the id alone, that first token was dropped on the floor.
+      // Only one message of a kind is being written at a time, so the kind is
+      // enough to hold the place until the id arrives.
+      const given = payload.itemId as string | undefined;
+      const itemId = given || `streaming:${kind}`;
       const delta = payload.delta as string | undefined;
       // An empty delta is not nothing happening — a reasoning model sends
       // `content: ""` alongside every thought — but there is nothing to add.
-      if (itemId && delta) {
-        // Thinking is shown differently from an answer, and can be turned off;
-        // without this the two would be indistinguishable.
-        const kind: ThreadItem["kind"] =
-          method === "item/reasoning/textDelta" ? "reasoning" : "agent";
+      if (delta) {
         this.#closeTheWait(kind);
-        const grown = (this.#streaming.get(itemId)?.text ?? "") + delta;
+        // Fold whatever was written under the placeholder into the real id the
+        // moment one arrives, so the thought does not appear twice.
+        const placeholder = `streaming:${kind}`;
+        let sofar = this.#streaming.get(itemId)?.text ?? "";
+        if (given && itemId !== placeholder && this.#streaming.has(placeholder)) {
+          sofar = (this.#streaming.get(placeholder)?.text ?? "") + sofar;
+          this.#streaming.delete(placeholder);
+          this.#shownAs.set(itemId, placeholder);
+        }
+        const grown = sofar + delta;
         this.#streaming.set(itemId, { kind, text: grown });
-        this.#events.onItemDelta?.({ id: itemId, kind, text: grown });
+        this.#events.onItemDelta?.({ id: this.#shownAs.get(itemId) ?? itemId, kind, text: grown });
       }
       return;
     }
@@ -1133,6 +1155,12 @@ export class OpenCliClient {
         output: pick(last, "outputTokens", "output_tokens"),
         contextWindow: window ?? null,
       });
+      return;
+    }
+    if (method === "opencli/event/background_event") {
+      const nested = (payload.msg ?? payload) as Record<string, unknown>;
+      const text = typeof nested.message === "string" ? nested.message : "";
+      if (text) this.#events.onNotice?.(text);
       return;
     }
     // A retry, not a failure: the attempt is over, the turn is not. Matched

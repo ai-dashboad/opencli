@@ -214,10 +214,22 @@ pub struct ModelInfo {
 }
 
 impl ModelInfo {
+    /// When to compact, in tokens of conversation.
+    ///
+    /// Deliberately well short of the window. Compacting is itself a request
+    /// that must carry the whole conversation plus the instruction to
+    /// summarise it, and leave room for the summary to be written — at nine
+    /// tenths of a 32K window that request has 1,638 tokens of headroom, which
+    /// is to say it does not fit. Compaction then failed at the one job it
+    /// exists for, and the conversation could not be continued at all.
+    ///
+    /// Seven tenths leaves the summarising request room to succeed, so a
+    /// conversation is summarised while it still fits and nothing has to be
+    /// given up.
     pub fn auto_compact_token_limit(&self) -> Option<i64> {
         self.auto_compact_token_limit.or_else(|| {
             self.context_window
-                .map(|context_window| (context_window * 9) / 10)
+                .map(|context_window| (context_window * 7) / 10)
         })
     }
 

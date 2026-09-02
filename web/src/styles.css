@@ -500,6 +500,16 @@ textarea:focus {
   font-size: 13px;
 }
 
+/* Work that is not answering — compacting the conversation, mostly. Stated
+   plainly: it is not a problem, it is what is taking the time. */
+.notice {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+
 /* An attempt that failed and is being tried again. Amber rather than red:
    the turn has not died, and colouring it as a failure would say it had. */
 .retrying {

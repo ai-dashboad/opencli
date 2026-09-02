@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::ModelProviderInfo;
+use tracing::warn;
 use crate::context_manager::ContextManager;
 use crate::Prompt;
 use crate::client_common::ResponseEvent;
@@ -41,32 +42,148 @@ pub(crate) fn should_use_remote_compact_task(
     provider.is_openai() && session.enabled(Feature::RemoteCompaction)
 }
 
-/// How much of the window a summarising request may use.
+/// How much of the window one summarising request may use.
 ///
-/// Room is left for the summary the model has to write and for the
-/// instructions wrapped around the history. Two thirds is generous enough to
-/// survive an estimate that is only approximate.
+/// Half, not all: the request carries the conversation *and* the instruction
+/// to summarise it, and the model still has to write the summary into what is
+/// left.
 fn summarising_budget(window: i64) -> i64 {
-    window.saturating_mul(2) / 3
+    window / 2
 }
 
-/// Drop the oldest items until what is left can be summarised in one request.
+/// Summarise these items, without touching the session's own history.
 ///
-/// Returns how many were dropped. The oldest go first: they are the least
-/// likely to matter and the most likely to already be reflected in what came
-/// after them, and trimming from the front keeps the prefix cache of whatever
-/// remains intact.
-///
-/// One item is always kept. A history that cannot be made to fit at all is a
-/// different problem, and returning an empty prompt would turn it into a
-/// stranger one.
-fn trim_to_fit(history: &mut ContextManager, budget: i64) -> usize {
-    let mut dropped = 0usize;
-    while history.estimated_token_usage() > budget && history.item_count() > 1 {
-        history.remove_first_item();
-        dropped += 1;
+/// `drain_to_completed` records what the model says into the conversation,
+/// which is right for the final compaction and wrong for this: the summary of
+/// an old chunk replaces that chunk, it does not get appended to the thread.
+async fn summarise_items(
+    turn_context: &TurnContext,
+    base_instructions: opencli_protocol::models::BaseInstructions,
+    items: Vec<ResponseItem>,
+) -> OpenCLIResult<String> {
+    let prompt = Prompt {
+        input: items,
+        base_instructions,
+        personality: turn_context.personality,
+        ..Default::default()
+    };
+    let mut client_session = turn_context.client.new_session();
+    let mut stream = client_session.stream(&prompt).await?;
+    let mut said = String::new();
+    loop {
+        let Some(event) = stream.next().await else {
+            return Err(OpenCLIErr::Stream(
+                "stream closed before response.completed".into(),
+                None,
+            ));
+        };
+        match event {
+            Ok(ResponseEvent::OutputItemDone(ResponseItem::Message { content, .. })) => {
+                if let Some(text) = content_items_to_text(&content) {
+                    said.push_str(&text);
+                }
+            }
+            Ok(ResponseEvent::Completed { .. }) => return Ok(said),
+            Ok(_) => continue,
+            Err(e) => return Err(e),
+        }
     }
-    dropped
+}
+
+/// Bring an over-long conversation down to a size that can be summarised,
+/// without discarding any of it.
+///
+/// A conversation larger than the window cannot be summarised in one request:
+/// summarising it means sending it. Dropping the oldest messages would make it
+/// fit, and an earlier attempt did exactly that — but a compaction that
+/// discards is a failure wearing the right label; the model simply forgot what
+/// was thrown away.
+///
+/// So it is cut into pieces that each fit on their own, every piece is
+/// summarised once, and the pieces are replaced by their summaries. Nothing is
+/// discarded: everything is either present or represented.
+///
+/// One pass, not a fold. Summarising the front repeatedly re-reads the summary
+/// it just wrote, which on a real conversation took twenty-one model calls and
+/// climbing where ten would do.
+///
+/// Returns how many pieces were summarised.
+async fn condense_until_it_fits(
+    sess: &Session,
+    turn_context: &TurnContext,
+    history: &mut ContextManager,
+    budget: i64,
+) -> OpenCLIResult<usize> {
+    let items = history.raw_items().to_vec();
+    let pieces = split_into_pieces(&items, budget, turn_context.truncation_policy);
+    if pieces.len() < 2 {
+        return Ok(0);
+    }
+
+    let base_instructions = sess.get_base_instructions().await;
+    let mut summarised = Vec::with_capacity(pieces.len());
+    for (at, piece) in pieces.iter().enumerate() {
+        sess.notify_background_event(
+            turn_context,
+            format!(
+                "The conversation is longer than the model can read at once. Summarising part {} of {} so none of it is lost…",
+                at + 1,
+                pieces.len()
+            ),
+        )
+        .await;
+
+        let mut to_summarise = piece.clone();
+        to_summarise.push(ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![ContentItem::InputText {
+                text: turn_context.compact_prompt().to_string(),
+            }],
+            end_turn: None,
+        });
+        let summary =
+            summarise_items(turn_context, base_instructions.clone(), to_summarise).await?;
+        summarised.push(ResponseItem::Message {
+            id: None,
+            role: "assistant".to_string(),
+            content: vec![ContentItem::OutputText {
+                text: format!("{SUMMARY_PREFIX}\n{summary}"),
+            }],
+            end_turn: None,
+        });
+    }
+
+    history.replace(summarised);
+    Ok(pieces.len())
+}
+
+/// Cut a conversation into consecutive pieces that each fit `budget`.
+///
+/// An item too large on its own gets a piece to itself; refusing to split it
+/// would mean refusing to make progress at all.
+fn split_into_pieces(
+    items: &[ResponseItem],
+    budget: i64,
+    policy: crate::truncate::TruncationPolicy,
+) -> Vec<Vec<ResponseItem>> {
+    let mut pieces: Vec<Vec<ResponseItem>> = Vec::new();
+    let mut piece: Vec<ResponseItem> = Vec::new();
+    let mut measured = ContextManager::new();
+
+    for item in items {
+        measured.record_items(std::slice::from_ref(item), policy);
+        if measured.estimated_token_usage() > budget && !piece.is_empty() {
+            pieces.push(std::mem::take(&mut piece));
+            measured = ContextManager::new();
+            measured.record_items(std::slice::from_ref(item), policy);
+        }
+        piece.push(item.clone());
+    }
+    if !piece.is_empty() {
+        pieces.push(piece);
+    }
+    pieces
 }
 
 pub(crate) async fn run_inline_auto_compact_task(
@@ -148,30 +265,46 @@ async fn run_compact_task_inner(
     )
     .await;
 
-    // Trim before sending, not only after being refused.
-    //
-    // The loop below already trims when the provider answers
-    // `ContextWindowExceeded`, and that is the case this never hit: a local
-    // server given a prompt several times its window does not answer with a
-    // tidy classification, it answers with an HTTP 500 after two and a half
-    // minutes — or with nothing at all. That fell to the generic retry branch,
-    // which re-sent the same oversized prompt eight times over eighteen
-    // minutes and then gave up. The conversation was stuck for good: it could
-    // not be compacted, because compacting it meant sending it.
-    //
-    // Whether a prompt fits is knowable here, so it is decided here.
+    // A conversation too large to summarise in one request is folded down
+    // first, oldest part by oldest part, until what remains can be. Nothing is
+    // discarded on the way: each part is replaced by a summary of itself.
     if let Some(window) = turn_context.client.get_model_context_window() {
-        truncated_count += trim_to_fit(&mut history, summarising_budget(window));
-        if truncated_count > 0 {
-            sess.notify_background_event(
-                turn_context.as_ref(),
-                format!(
-                    "The conversation is larger than the model's context window; dropped {truncated_count} of the oldest message(s) so it can be summarised."
-                ),
-            )
-            .await;
+        let budget = summarising_budget(window);
+        if history.estimated_token_usage() > budget {
+            match condense_until_it_fits(&sess, turn_context.as_ref(), &mut history, budget).await {
+                Ok(rounds) if rounds > 0 => {
+                    sess.notify_background_event(
+                        turn_context.as_ref(),
+                        format!(
+                            "Summarised the older part of the conversation in {rounds} round(s); compacting the rest…"
+                        ),
+                    )
+                    .await;
+                }
+                Ok(_) => {}
+                Err(OpenCLIErr::Interrupted) => return,
+                Err(e) => {
+                    // Fall through to the loop below, which retries and — if
+                    // the provider refuses even that — trims as a last resort.
+                    warn!("could not fold the oldest part of the conversation: {e:#}");
+                }
+            }
         }
     }
+
+    // Nothing is dropped here.
+    //
+    // An earlier attempt trimmed the oldest messages before summarising, to
+    // guarantee the request fit. It did fit, and the conversation continued —
+    // but the messages it dropped were never summarised, so the model simply
+    // forgot them, and the reader was told eighty messages had been dropped.
+    // Compaction exists to *keep* a conversation, condensed; a compaction that
+    // discards is a failure wearing the right label.
+    //
+    // Fitting is handled instead by summarising early enough that the whole
+    // conversation still fits — `auto_compact_token_limit` is seven tenths of
+    // the window, not nine — and by the loop below, which trims only if the
+    // provider refuses even that, which is the last resort it always was.
 
     loop {
         // Clone is required because of the loop
@@ -447,10 +580,10 @@ mod tests {
     use crate::session_prefix::TURN_ABORTED_OPEN_TAG;
     use pretty_assertions::assert_eq;
 
-    fn message(role: &str, text: &str) -> ResponseItem {
+    fn said(text: &str) -> ResponseItem {
         ResponseItem::Message {
             id: None,
-            role: role.to_string(),
+            role: "assistant".to_string(),
             content: vec![ContentItem::OutputText {
                 text: text.to_string(),
             }],
@@ -458,60 +591,42 @@ mod tests {
         }
     }
 
-    fn history_of(count: usize, words: usize) -> ContextManager {
-        let mut history = ContextManager::new();
-        let items: Vec<ResponseItem> = (0..count)
-            .map(|at| message(if at % 2 == 0 { "user" } else { "assistant" }, &"word ".repeat(words)))
-            .collect();
-        history.record_items(items.iter(), crate::truncate::TruncationPolicy::Tokens(100_000));
-        history
+    #[test]
+    fn should_cut_a_long_conversation_into_pieces_that_each_fit() {
+        // Every piece has to be readable on its own, or summarising it fails
+        // for the same reason summarising the whole thing did.
+        let items: Vec<ResponseItem> = (0..60).map(|_| said(&"word ".repeat(300))).collect();
+        let budget = 2_000;
+
+        let pieces = split_into_pieces(&items, budget, TruncationPolicy::Tokens(100_000));
+
+        assert!(pieces.len() > 1, "a conversation this long has to be cut up");
+        for piece in &pieces {
+            let mut measured = ContextManager::new();
+            measured.record_items(piece.iter(), TruncationPolicy::Tokens(100_000));
+            assert!(
+                measured.estimated_token_usage() <= budget || piece.len() == 1,
+                "a piece must fit, unless it is a single item that cannot be split"
+            );
+        }
     }
 
     #[test]
-    fn should_drop_the_oldest_until_the_rest_can_be_summarised() {
-        // The conversation that prompted this was several times its model's
-        // window. Compacting it meant sending it, so it could not be
-        // compacted, and every prompt after it took eighteen minutes to fail.
-        // Roughly the shape of the real one: a few hundred messages against a
-        // 32K window.
-        let mut history = history_of(300, 200);
-        let budget = summarising_budget(32_768);
-        assert!(history.estimated_token_usage() > budget, "the fixture must not already fit");
+    fn should_keep_every_message_across_the_pieces() {
+        // The whole point: cutting up is not throwing away.
+        let items: Vec<ResponseItem> = (0..30).map(|at| said(&format!("message {at} "))).collect();
 
-        let dropped = trim_to_fit(&mut history, budget);
+        let pieces = split_into_pieces(&items, 50, TruncationPolicy::Tokens(100_000));
+        let kept: usize = pieces.iter().map(Vec::len).sum();
 
-        assert!(dropped > 0, "something has to give");
-        assert!(
-            history.estimated_token_usage() <= budget,
-            "what is left must fit in one request"
-        );
+        assert_eq!(kept, items.len(), "every message must land in exactly one piece");
     }
 
     #[test]
-    fn should_leave_a_history_that_already_fits_alone() {
-        let mut history = history_of(4, 10);
-        let before = history.item_count();
-
-        assert_eq!(trim_to_fit(&mut history, summarising_budget(32_768)), 0);
-        assert_eq!(history.item_count(), before);
-    }
-
-    #[test]
-    fn should_keep_one_item_however_small_the_window() {
-        // A history that cannot be made to fit at all is a different problem;
-        // sending an empty prompt would turn it into a stranger one.
-        let mut history = history_of(6, 500);
-
-        trim_to_fit(&mut history, 1);
-
-        assert_eq!(history.item_count(), 1);
-    }
-
-    #[test]
-    fn should_leave_room_for_the_summary_the_model_has_to_write() {
-        // Filling the window with the request leaves nothing for the reply.
-        assert!(summarising_budget(32_768) < 32_768);
-        assert!(summarising_budget(32_768) > 32_768 / 2);
+    fn should_leave_a_short_conversation_in_one_piece() {
+        let items = vec![said("hello"), said("there")];
+        let pieces = split_into_pieces(&items, 100_000, TruncationPolicy::Tokens(100_000));
+        assert_eq!(pieces.len(), 1);
     }
 
     #[test]

@@ -373,6 +373,8 @@ export default function App() {
    * this machine, and the screen said "Waiting for the model…" for all of it.
    */
   const [retry, setRetry] = useState<{ attempt: string; reason: string } | null>(null);
+  /** What the agent is doing that is not answering — compacting, mostly. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   /**
@@ -629,6 +631,7 @@ export default function App() {
           setTurnAt(Date.now());
           setStreamed(0);
           setRetry(null);
+          setNotice(null);
           // Whatever went wrong last time is over. Nothing cleared this, so a
           // failure stayed on screen through every later prompt, saying a turn
           // that had since succeeded had failed.
@@ -637,14 +640,17 @@ export default function App() {
         onTurnComplete: () => {
           setRunningIn(null);
           setRetry(null);
+          setNotice(null);
           void refreshThreads();
         },
         onError: (message) => {
           setError(message);
           setRetry(null);
+          setNotice(null);
           setRunningIn(null);
         },
         onRetry: (attempt, reason) => setRetry({ attempt, reason }),
+        onNotice: setNotice,
         onApprovalRequest: setApproval,
         onTokenUsage: setUsage,
         onPullProgress: (progress) =>
@@ -1284,6 +1290,8 @@ export default function App() {
                       * reason each one gave — measured: an HTTP 500 from an
                       * overloaded local server — is never shown at all.
                       */}
+                    {/* What it is busy with, when that is not answering. */}
+                    {notice ? <span className="notice">{notice}</span> : null}
                     {retry ? (
                       <span className="retrying" title={retry.reason}>
                         {retry.attempt}

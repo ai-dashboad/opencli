@@ -3582,6 +3582,29 @@ pub(crate) async fn run_turn(
                 run_auto_compact(&sess, &turn_context).await;
                 continue;
             }
+            // A conversation past the point where it should have been
+            // compacted, failing for any reason at all, is compacted and
+            // tried again before it is called a failure.
+            //
+            // The tidy case — a provider that answers `ContextWindowExceeded` —
+            // is handled above. A local server given a prompt it cannot read
+            // does not answer tidily: it returns HTTP 500 after two and a half
+            // minutes, or nothing at all. Waiting for a well-formed refusal
+            // meant the one thing that could have helped was never tried.
+            Err(e) if !compacted_after_overflow && is_over_compact_limit(&sess, &turn_context).await => {
+                compacted_after_overflow = true;
+                warn!("turn failed while the conversation was over its compaction limit: {e:#}");
+                sess.send_event(
+                    &turn_context,
+                    EventMsg::Warning(WarningEvent {
+                        message: "The conversation is too long for the model to read. Compacting it and trying again."
+                            .to_string(),
+                    }),
+                )
+                .await;
+                run_auto_compact(&sess, &turn_context).await;
+                continue;
+            }
             Err(e) => {
                 info!("Turn error: {e:#}");
                 let event = EventMsg::Error(e.to_error_event(None));
@@ -3593,6 +3616,17 @@ pub(crate) async fn run_turn(
     }
 
     last_agent_message
+}
+
+/// Whether the conversation has grown past the point where it should have
+/// been summarised.
+async fn is_over_compact_limit(sess: &Arc<Session>, turn_context: &Arc<TurnContext>) -> bool {
+    let limit = turn_context
+        .client
+        .get_model_info()
+        .auto_compact_token_limit()
+        .unwrap_or(i64::MAX);
+    sess.get_total_token_usage().await >= limit
 }
 
 /// Persist the model's real context window after the provider rejected a turn
@@ -3863,7 +3897,25 @@ async fn run_sampling_request(
             retries = 0;
             continue;
         }
-        if retries < max_retries {
+        // Retrying is for a request that might succeed next time. A request
+        // the model cannot read is not one of those: measured against a 32K
+        // model, each attempt cost 135 seconds and eight of them cost eighteen
+        // minutes, all of it re-sending the same prompt that was too long the
+        // first time. When the conversation is already past the point where it
+        // should have been compacted, stop after one attempt and hand the
+        // error back — the caller compacts and tries again, which is the thing
+        // that can actually work.
+        let oversized = {
+            let limit = turn_context
+                .client
+                .get_model_info()
+                .auto_compact_token_limit()
+                .unwrap_or(i64::MAX);
+            sess.get_total_token_usage().await >= limit
+        };
+        let budget = if oversized { 1 } else { max_retries };
+
+        if retries < budget {
             retries += 1;
             let delay = match &err {
                 OpenCLIErr::Stream(_, requested_delay) => {

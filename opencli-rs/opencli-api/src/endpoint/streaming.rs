@@ -105,21 +105,56 @@ fn classify_transport_error(err: TransportError) -> ApiError {
     if let TransportError::Http { body: Some(body), .. } = &err
         && let Ok(value) = serde_json::from_str::<Value>(body)
     {
-        let error = value.get("error").unwrap_or(&value);
+        let error = unwrap_nested_error(value.get("error").unwrap_or(&value));
         let code = error.get("code").and_then(|c| c.as_str());
+        let kind = error.get("type").and_then(|t| t.as_str());
         let message = error.get("message").and_then(|m| m.as_str()).unwrap_or("");
         let is_context = code == Some("context_length_exceeded")
+            || kind == Some("exceed_context_size_error")
             || message.contains("context window")
-            || message.contains("context length");
+            || message.contains("context length")
+            // llama.cpp and Ollama say "context size", and say it in prose.
+            || message.contains("context size");
         if is_context {
             let context_limit = error
                 .get("context_limit_tokens")
                 .and_then(|v| v.as_u64())
-                .or_else(|| value.get("context_limit_tokens").and_then(|v| v.as_u64()));
+                .or_else(|| value.get("context_limit_tokens").and_then(|v| v.as_u64()))
+                .or_else(|| limit_from_message(message));
             return ApiError::ContextWindowExceeded { context_limit };
         }
     }
     ApiError::Transport(err)
+}
+
+/// Look inside an error whose `message` is itself an encoded error.
+///
+/// llama.cpp behind Ollama reports
+/// `{"error":{"message":"{\"error\":{\"type\":\"exceed_context_size_error\"…}}"}}`
+/// — the real error as a string in the field where prose is expected. Read as
+/// prose it matches nothing, so an over-long request looked like an ordinary
+/// bad request and the turn failed instead of compacting.
+fn unwrap_nested_error(error: &Value) -> Value {
+    let Some(text) = error.get("message").and_then(|m| m.as_str()) else {
+        return error.clone();
+    };
+    let Ok(inner) = serde_json::from_str::<Value>(text) else {
+        return error.clone();
+    };
+    inner.get("error").unwrap_or(&inner).clone()
+}
+
+/// The window a provider named in prose, when it named one at all.
+///
+/// "request (36058 tokens) exceeds the available context size (32768 tokens)"
+/// carries the real limit and nothing else does; without it the window has to
+/// be guessed from the request that just overflowed.
+fn limit_from_message(message: &str) -> Option<u64> {
+    let at = message.find("context size")?;
+    let rest = &message[at..];
+    let open = rest.find('(')? + at + 1;
+    let close = message[open..].find(" tokens")? + open;
+    message[open..close].trim().parse().ok()
 }
 
 #[cfg(test)]
@@ -145,6 +180,31 @@ mod tests {
             }
             other => panic!("expected ContextWindowExceeded, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn should_recognise_the_way_a_local_server_says_it() {
+        // Captured from llama.cpp behind Ollama: the real error arrives as a
+        // JSON string inside the `message` field, and says "context size"
+        // rather than "context window". Read as prose it matched nothing, so
+        // an over-long request looked like an ordinary bad request — the turn
+        // failed instead of compacting and retrying.
+        let body = r#"{"error":{"message":"{\"error\":{\"code\":400,\"message\":\"request (36058 tokens) exceeds the available context size (32768 tokens), try increasing it\",\"type\":\"exceed_context_size_error\"}}"}}"#;
+        match classify_transport_error(http_err(body)) {
+            ApiError::ContextWindowExceeded { context_limit } => {
+                assert_eq!(context_limit, Some(32_768), "the window it named");
+            }
+            other => panic!("expected ContextWindowExceeded, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_read_the_window_out_of_prose() {
+        assert_eq!(
+            limit_from_message("request (36058 tokens) exceeds the available context size (32768 tokens)"),
+            Some(32_768)
+        );
+        assert_eq!(limit_from_message("something else entirely"), None);
     }
 
     #[test]
