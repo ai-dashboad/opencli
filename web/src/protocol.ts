@@ -824,6 +824,13 @@ export class OpenCliClient {
   #thought: { id: string; began: number; text: string } | null = null;
   #thoughtCount = 0;
   /**
+   * The answer being written right now, identified here for the same reason a
+   * thought is: the id on a delta is the server's to change, and a row is
+   * created per id. One reply is written at a time.
+   */
+  #writing: { id: string; text: string } | null = null;
+  #writingCount = 0;
+  /**
    * The thought that just finished.
    *
    * The server sends each one twice — once in the fragments it streamed as,
@@ -1121,10 +1128,20 @@ export class OpenCliClient {
         return;
       }
 
-      const itemId = (payload.itemId as string | undefined) || `streaming:${kind}`;
-      const grown = (this.#streaming.get(itemId)?.text ?? "") + delta;
-      this.#streaming.set(itemId, { kind, text: grown });
-      this.#events.onItemDelta?.({ id: itemId, kind, text: grown });
+      /*
+       * And so is the answer, for the same reason.
+       *
+       * Keyed on the id the server put on each delta, a reply whose id
+       * changed part-way — an empty one first and a real one after, which is
+       * exactly what a thought does — became two rows. Every fragment landing
+       * under a fresh id would make a row per word.
+       */
+      if (!this.#writing) {
+        this.#writingCount += 1;
+        this.#writing = { id: `answer:${this.#writingCount}`, text: "" };
+      }
+      this.#writing.text += delta;
+      this.#events.onItemDelta?.({ id: this.#writing.id, kind, text: this.#writing.text });
       return;
     }
     if (method === "item/completed") {
@@ -1159,6 +1176,13 @@ export class OpenCliClient {
        * server put on it — which is none. This is also the only moment its
        * duration is known, because nothing sends one.
        */
+      if (item.kind === "agent" && this.#writing) {
+        const open = this.#writing;
+        this.#writing = null;
+        this.#events.onItem?.({ ...item, id: open.id });
+        return;
+      }
+
       if (item.kind === "reasoning") {
         const open = this.#thought;
         this.#thought = null;
@@ -1426,6 +1450,7 @@ export class OpenCliClient {
     this.#shownAs.clear();
     this.#thought = null;
     this.#lastThought = null;
+    this.#writing = null;
     this.#turnBegan = null;
     this.#waitShown = false;
     this.#compactingSince = null;

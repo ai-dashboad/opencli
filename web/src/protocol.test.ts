@@ -1119,11 +1119,12 @@ describe("a reply that finishes under a different id", () => {
       params: { item: { type: "agentMessage", id: "finished-id", text: "ready" } },
     });
 
-    // Handed back under the id already on screen, so the caller replaces.
-    expect(seen.map((item) => [item.id, item.text])).toEqual([
-      ["streamed-id", "read"],
-      ["streamed-id", "ready"],
-    ]);
+    // Handed back under the id already on screen, so the caller replaces
+    // rather than appends. Which id that is belongs to this client, because
+    // the server's changes part-way through.
+    expect(seen).toHaveLength(2);
+    expect(seen[0].id).toBe(seen[1].id);
+    expect(seen.map((item) => item.text)).toEqual(["read", "ready"]);
   });
 
   it("should not steal the id of a different kind of item", async () => {
@@ -1471,7 +1472,15 @@ describe("a reply being written", () => {
     expect(seen).toEqual(["ok"]);
   });
 
-  it("should keep two replies apart while both are being written", async () => {
+  it("should keep one reply together even when its id changes part-way", async () => {
+    // The id on a delta is the server's to change, and it does: a thought's
+    // first delta carries an empty one and the rest carry a real one. Keyed
+    // on it, a reply became a row per id — and a stream that renumbered every
+    // fragment would be a row per word, which is what a garbled transcript
+    // looks like.
+    //
+    // Two replies are never written at once, so one open reply at a time is
+    // the safer reading of an ambiguous stream.
     const seen: Record<string, string> = {};
     const { client, socket } = await connected({
       onItemDelta: (item: ThreadItem) => {
@@ -1479,11 +1488,12 @@ describe("a reply being written", () => {
       },
     });
 
-    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "a", delta: "one" } });
-    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "b", delta: "two" } });
-    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "a", delta: " more" } });
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "", delta: "one" } });
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "b", delta: " two" } });
+    socket.emit({ method: "item/agentMessage/delta", params: { itemId: "c", delta: " three" } });
 
-    expect(seen).toEqual({ a: "one more", b: "two" });
+    expect(Object.keys(seen)).toHaveLength(1);
+    expect(Object.values(seen)[0]).toBe("one two three");
     void client;
   });
 
