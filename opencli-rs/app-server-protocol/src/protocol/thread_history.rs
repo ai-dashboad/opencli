@@ -152,6 +152,12 @@ pub fn build_turns_from_rollout(lines: &[RolloutLine]) -> Vec<Turn> {
 
     for line in lines {
         builder.now = Some(line.timestamp.clone());
+        // The reader's own message belongs to the turn it starts, not the one
+        // it ends. Advancing the clock for it would charge every turn with the
+        // time spent reading its answer and typing the next prompt.
+        if builder.current_turn.is_some() && !starts_a_turn(&line.item) {
+            builder.last_in_turn = Some(line.timestamp.clone());
+        }
         match &line.item {
             RolloutItem::EventMsg(event) => builder.handle_event(event),
             RolloutItem::ResponseItem(response) => {
@@ -170,6 +176,18 @@ pub fn build_turns_from_rollout(lines: &[RolloutLine]) -> Vec<Turn> {
         previous = Some(&line.timestamp);
     }
     builder.finish()
+}
+
+/// Whether this record is the reader speaking, in either form it is written.
+///
+/// A prompt is recorded twice — once as an event and once as a response item —
+/// and both arrive before the turn it begins.
+fn starts_a_turn(item: &RolloutItem) -> bool {
+    match item {
+        RolloutItem::EventMsg(EventMsg::UserMessage(_)) => true,
+        RolloutItem::ResponseItem(ResponseItem::Message { role, .. }) => role == "user",
+        _ => false,
+    }
 }
 
 /// Milliseconds between two recorded moments, when both can be read.
@@ -196,6 +214,13 @@ struct ThreadHistoryBuilder {
     /// file is walked.
     now: Option<String>,
     turn_began: Option<String>,
+    /// When the last record belonging to the open turn was written.
+    ///
+    /// Not the record that ends it. A turn is closed by the next prompt, which
+    /// may be typed hours later — measuring to that reported an agent that
+    /// worked for 33 minutes as having taken 470, because the reader had gone
+    /// to bed in between.
+    last_in_turn: Option<String>,
 }
 
 impl ThreadHistoryBuilder {
@@ -209,6 +234,7 @@ impl ThreadHistoryBuilder {
             thought_took: None,
             now: None,
             turn_began: None,
+            last_in_turn: None,
         }
     }
 
@@ -244,6 +270,7 @@ impl ThreadHistoryBuilder {
         // A turn begins when the reader sends it, which is the only moment its
         // wait can be measured from.
         self.turn_began = self.now.clone();
+        self.last_in_turn = self.now.clone();
         let mut turn = self.new_turn();
         let id = self.next_item_id();
         let content = self.build_user_inputs(payload);
@@ -535,7 +562,7 @@ impl ThreadHistoryBuilder {
             if turn.items.is_empty() {
                 return;
             }
-            turn.total_ms = gap_ms(self.turn_began.as_deref(), self.now.as_deref());
+            turn.total_ms = gap_ms(self.turn_began.as_deref(), self.last_in_turn.as_deref());
             self.turns.push(turn.into());
         }
     }
@@ -838,6 +865,42 @@ mod tests {
         let turns = build_turns_from_rollout(&lines);
         assert_eq!(turns.len(), 1);
         assert_eq!(turns[0].total_ms, Some(76_000), "the whole turn");
+    }
+
+    #[test]
+    fn should_not_charge_a_turn_for_the_time_before_the_next_prompt() {
+        // A turn is closed by the next prompt, which may be typed hours later.
+        // Measuring to it reported an agent that worked for four minutes as
+        // having taken eight hours, because the reader had gone to bed.
+        let prompt = |at: &str, text: &str| RolloutLine {
+            timestamp: at.to_string(),
+            item: RolloutItem::EventMsg(EventMsg::UserMessage(UserMessageEvent {
+                message: text.to_string(),
+                images: None,
+                local_images: Vec::new(),
+                text_elements: Vec::new(),
+            })),
+        };
+        let answer = |at: &str, text: &str| RolloutLine {
+            timestamp: at.to_string(),
+            item: RolloutItem::EventMsg(EventMsg::AgentMessage(
+                opencli_protocol::protocol::AgentMessageEvent {
+                    message: text.to_string(),
+                },
+            )),
+        };
+
+        let turns = build_turns_from_rollout(&[
+            prompt("2026-09-01T17:44:32.000Z", "go"),
+            answer("2026-09-01T17:48:32.000Z", "done"),
+            // Eight hours later, the reader comes back.
+            prompt("2026-09-02T01:35:00.000Z", "again"),
+            answer("2026-09-02T01:36:00.000Z", "done"),
+        ]);
+
+        assert_eq!(turns.len(), 2);
+        assert_eq!(turns[0].total_ms, Some(240_000), "four minutes of work");
+        assert_eq!(turns[1].total_ms, Some(60_000));
     }
 
     #[test]

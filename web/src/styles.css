@@ -511,54 +511,37 @@ textarea:focus {
  * there even in a still frame, and the ring leaving it says it is moving. A
  * spinner at this size reads as noise; this reads as a pulse.
  */
+/*
+ * The working mark: a dot that is always painted, and a ring that pulses.
+ *
+ * The dot is an SVG `<circle fill="currentColor">` — content, not decoration.
+ * Everything here is animation on top of something already visible, so a
+ * dropped animation costs the pulse and never the mark itself. This is the
+ * third attempt; the previous two put the dot in a pseudo-element, which kept
+ * disappearing with nothing to show for it in the stylesheet.
+ */
 .spark {
-  position: relative;
   flex: none;
-  /* Not `flex: none` alone: outside a flex row an inline span ignores width
-     and height entirely, and both layers below are sized from this box. */
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  /*
-   * The dot is painted by the element itself, not only by an animated layer.
-   *
-   * It was drawn entirely in two animating pseudo-elements, and it kept
-   * vanishing mid-turn: WebKit gives an animation its own compositing layer
-   * and drops it while the row beside it re-renders every second, taking the
-   * whole indicator with it. What is painted here survives that, so at worst
-   * the pulse stops — the reader never loses the thing that says work is
-   * happening.
-   */
-  background: radial-gradient(circle at center, var(--accent) 0 2.6px, transparent 3px);
+  color: var(--accent);
+  overflow: visible;
 }
 
-.spark::before,
-.spark::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-}
-
-/* The glow around the dot, breathing. */
-.spark::before {
-  inset: 3px;
-  background: var(--accent);
-  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+.spark-dot {
   animation: spark-beat 1.5s ease-in-out infinite;
+  transform-origin: center;
 }
 
-/* And the ring it sends out. */
-.spark::after {
-  inset: 0;
-  border: 1.5px solid var(--accent);
+.spark-ring {
+  opacity: 0;
   animation: spark-ring 1.5s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  transform-origin: center;
 }
 
 @keyframes spark-beat {
   0%,
   100% {
-    opacity: 0.55;
-    transform: scale(0.82);
+    opacity: 0.6;
+    transform: scale(0.85);
   }
   45% {
     opacity: 1;
@@ -569,37 +552,32 @@ textarea:focus {
 @keyframes spark-ring {
   0% {
     opacity: 0.7;
-    transform: scale(0.5);
+    transform: scale(0.45);
   }
   70%,
   100% {
     opacity: 0;
-    transform: scale(1.7);
+    transform: scale(1.5);
   }
 }
 
-/* Still, but still there: someone who asked for less motion still needs to
-   see that something is running. */
+/* Still, but still there: someone who asked for less motion keeps the mark
+   and loses only the pulse. */
 @media (prefers-reduced-motion: reduce) {
-  .spark::before,
-  .spark::after {
+  .spark-dot,
+  .spark-ring {
     animation: none;
   }
 
-  .spark::after {
-    opacity: 0.4;
+  .spark-dot {
+    opacity: 1;
+    transform: none;
   }
-}
 
-/* A key named beside the thing it does, quiet enough to ignore. */
-.hint-key {
-  margin-left: 6px;
-  padding: 1px 5px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text-faint);
-  font-family: inherit;
-  font-size: 11px;
+  .spark-ring {
+    opacity: 0.35;
+    transform: none;
+  }
 }
 
 .muted {

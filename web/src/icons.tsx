@@ -396,3 +396,32 @@ export function ServerIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/**
+ * The mark that says the agent is working.
+ *
+ * Drawn as content — a filled circle in the document — rather than as CSS on
+ * an empty span. Three times now it has been reported missing, each time
+ * after a fix that looked right in the stylesheet: it was two animating
+ * pseudo-elements, and a pseudo-element that exists only to be painted can be
+ * dropped, clipped or never composited without anything failing loudly.
+ *
+ * A `<circle>` with a fill cannot go missing without the element going
+ * missing, which a test can see. The ring around it is decoration and may
+ * come and go; the dot is the thing that must always be there.
+ */
+export function WorkingDot({ size = 12 }: IconProps) {
+  return (
+    <svg
+      className="spark"
+      width={size}
+      height={size}
+      viewBox="0 0 12 12"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle className="spark-ring" cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle className="spark-dot" cx="6" cy="6" r="2.6" fill="currentColor" />
+    </svg>
+  );
+}

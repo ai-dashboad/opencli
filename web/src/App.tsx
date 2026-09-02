@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import Sidebar, { type View } from "./Sidebar";
 import {
   ApprovalChanges,
@@ -46,6 +46,7 @@ import {
   StopIcon,
   BoltIcon,
   OpenCliMark,
+  WorkingDot,
 } from "./icons";
 import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./menus";
 import { Boot } from "./boot";
@@ -232,6 +233,91 @@ function formatDuration(ms: number): string {
   if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
   return formatElapsed(Math.round(ms / 1000));
 }
+
+/**
+ * One row of the transcript, rendered only when its own contents change.
+ *
+ * The whole list used to re-render on every tick of the running clock — once a
+ * second, a hundred and sixty articles reconciled and every Markdown reply
+ * re-parsed, for the sake of one number changing. Memoised here so a tick
+ * costs what it should: the rows that actually moved.
+ */
+const TranscriptItem = memo(function TranscriptItem({
+  item,
+  open,
+  thinkingSince,
+  onToggleThought,
+}: {
+  item: ThreadItem;
+  open: boolean;
+  /** When the thought began, for the one still being thought. */
+  thinkingSince?: number;
+  /**
+   * Changes every second. Read by nothing, and that is the point: a thought
+   * still being thought counts up, and it can only do that if the row is
+   * allowed to re-render.
+   */
+  tick: number;
+  onToggleThought: (id: string) => void;
+}) {
+  /*
+   * A turn is not one span of time but several, and only some of them belong
+   * to something the agent produced. Reading the conversation before it
+   * answers, and the turn as a whole, are spans with nothing to show but
+   * their length — so they are rows of their own rather than a label on
+   * something else.
+   */
+  if (item.kind === "wait" || item.kind === "total") {
+    return (
+      <article className={`item span ${item.kind}`}>
+        <span className="label">
+          <strong>{item.kind === "wait" ? "Waited for the model" : "Turn total"}</strong>
+          <em>{formatDuration(item.durationMs ?? 0)}</em>
+        </span>
+      </article>
+    );
+  }
+
+  return (
+    <article className={`item ${item.kind}`}>
+      {item.kind === "reasoning" ? (
+        <button type="button" className="label thought" onClick={() => onToggleThought(item.id)}>
+          <strong>
+            {item.durationMs !== undefined
+              ? `Thought for ${formatDuration(item.durationMs)}`
+              : thinkingSince
+                ? `Thinking… ${formatElapsed(
+                    Math.max(0, Math.round((Date.now() - thinkingSince) / 1000)),
+                  )}`
+                : "Thinking"}
+          </strong>
+          <em>{open ? "hide" : "show"}</em>
+        </button>
+      ) : KIND_LABEL[item.kind] ? (
+        <span className="label">
+          <strong>{item.tool ?? KIND_LABEL[item.kind]}</strong>
+          {item.summary ? <span className="what">{item.summary}</span> : null}
+          {item.durationMs !== undefined ? <em>{formatDuration(item.durationMs)}</em> : null}
+        </span>
+      ) : null}
+      {/*
+        * The agent's prose is Markdown; a command is not. What ran and what it
+        * printed are shown exactly as they are, because a shell line with an
+        * asterisk in it means the asterisk.
+        */}
+      {item.kind === "reasoning" && !open ? null : item.kind === "agent" ||
+        item.kind === "reasoning" ? (
+        <Markdown text={item.text} />
+      ) : (
+        <pre>{item.text}</pre>
+      )}
+      {item.output ? <pre className="output">{item.output}</pre> : null}
+      {item.exitCode !== undefined && item.exitCode !== 0 ? (
+        <span className="exit">exit {item.exitCode}</span>
+      ) : null}
+    </article>
+  );
+});
 
 export default function App() {
   const [url, setUrl] = useState(gatewayUrlFromLocation);
@@ -754,6 +840,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, interrupt]);
 
+  const toggleThought = useCallback((id: string) => {
+    setOpenThoughts((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
   const openThread = useCallback(async (id: string) => {
     const client = clientRef.current;
     if (!client) return;
@@ -1147,80 +1237,29 @@ export default function App() {
                     ) : null}
                   </div>
                 ) : null}
-                {items.map((item) =>
-                  /*
-                   * A turn is not one span of time but several, and only some
-                   * of them belong to something the agent produced. Reading
-                   * the conversation before it answers, and the turn as a
-                   * whole, are spans with nothing to show but their length —
-                   * so they are rows of their own rather than a label on
-                   * something else.
-                   */
-                  item.kind === "wait" || item.kind === "total" ? (
-                    <article key={item.id} className={`item span ${item.kind}`}>
-                      <span className="label">
-                        <strong>
-                          {item.kind === "wait" ? "Waited for the model" : "Turn total"}
-                        </strong>
-                        <em>{formatDuration(item.durationMs ?? 0)}</em>
-                      </span>
-                    </article>
-                  ) : (
-                  <article key={item.id} className={`item ${item.kind}`}>
-                    {item.kind === "reasoning" ? (
-                      <button
-                        type="button"
-                        className="label thought"
-                        onClick={() =>
-                          setOpenThoughts((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
-                        }
-                      >
-                        <strong>
-                          {item.durationMs !== undefined
-                            ? `Thought for ${formatDuration(item.durationMs)}`
-                            : thoughtSince.current[item.id]
-                              ? `Thinking… ${formatElapsed(
-                                  Math.max(
-                                    0,
-                                    Math.round(
-                                      (Date.now() - thoughtSince.current[item.id]) / 1000,
-                                    ),
-                                  ),
-                                )}`
-                              : "Thinking"}
-                        </strong>
-                        <em>{openThoughts[item.id] ? "hide" : "show"}</em>
-                      </button>
-                    ) : KIND_LABEL[item.kind] ? (
-                      <span className="label">
-                        <strong>{item.tool ?? KIND_LABEL[item.kind]}</strong>
-                        {item.summary ? <span className="what">{item.summary}</span> : null}
-                        {item.durationMs !== undefined ? (
-                          <em>{formatDuration(item.durationMs)}</em>
-                        ) : null}
-                      </span>
-                    ) : null}
-                    {/*
-                      * The agent's prose is Markdown; a command is not. What
-                      * ran and what it printed are shown exactly as they are,
-                      * because a shell line with an asterisk in it means the
-                      * asterisk.
-                      */}
-                    {item.kind === "reasoning" && !openThoughts[item.id] ? null : item.kind ===
-                        "agent" || item.kind === "reasoning" ? (
-                      <Markdown text={item.text} />
-                    ) : (
-                      <pre>{item.text}</pre>
-                    )}
-                    {item.output ? <pre className="output">{item.output}</pre> : null}
-                    {item.exitCode !== undefined && item.exitCode !== 0 ? (
-                      <span className="exit">exit {item.exitCode}</span>
-                    ) : null}
-                  </article>
-                ))}
+                {items.map((item) => {
+                  // Only the thought still being thought is given the ticking
+                  // clock. Handing it to every row would change a prop on all
+                  // of them once a second and undo the memo completely, which
+                  // is the whole thing being fixed.
+                  const counting =
+                    item.kind === "reasoning" &&
+                    item.durationMs === undefined &&
+                    thoughtSince.current[item.id] !== undefined;
+                  return (
+                    <TranscriptItem
+                      key={item.id}
+                      item={item}
+                      open={!!openThoughts[item.id]}
+                      thinkingSince={thoughtSince.current[item.id]}
+                      tick={counting ? elapsed : 0}
+                      onToggleThought={toggleThought}
+                    />
+                  );
+                })}
                 {busy ? (
                   <p className="working">
-                    <span className="spark" aria-hidden="true" />
+                    <WorkingDot />
                     {doing} {formatElapsed(elapsed)}
                     {streamed > 0 ? ` · ~${Math.round(streamed / 4)} written` : ""}
                     {/*
