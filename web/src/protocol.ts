@@ -34,7 +34,16 @@ export interface FileChange {
 /** A turn item as surfaced to the UI. */
 export interface ThreadItem {
   id: string;
-  kind: "user" | "agent" | "command" | "reasoning" | "fileChange" | "other" | "wait" | "total";
+  kind:
+    | "user"
+    | "agent"
+    | "command"
+    | "reasoning"
+    | "fileChange"
+    | "other"
+    | "wait"
+    | "total"
+    | "compaction";
   text: string;
   /** Present for command items once the command has finished. */
   exitCode?: number;
@@ -88,6 +97,13 @@ export interface ClientEvents {
    * exactly like the model being slow.
    */
   onNotice?: (text: string) => void;
+  /**
+   * Whether the conversation is being summarised right now.
+   *
+   * Its own signal because it is not the model writing: the status line said
+   * "Writing…" through the whole of it, which was simply the wrong word.
+   */
+  onCompacting?: (on: boolean) => void;
   /** The agent is asking permission to run something. */
   onApprovalRequest?: (request: ApprovalRequest) => void;
   /** A model download reported progress. */
@@ -774,6 +790,8 @@ export class OpenCliClient {
    */
   #turnBegan: number | null = null;
   #waitShown = false;
+  /** When the compaction now running began, so its row can say how long. */
+  #compactingSince: number | null = null;
   /** When each piece of thinking began, so its length can be reported. */
   #thoughtSince = new Map<string, number>();
   /**
@@ -1026,6 +1044,11 @@ export class OpenCliClient {
        * arrived — and those showed a bare "Thinking" that never said how long
        * it had taken, which is the one thing the row exists to say.
        */
+      if (item.type === "contextCompaction") {
+        this.#compactingSince = Date.now();
+        this.#events.onCompacting?.(true);
+        return;
+      }
       const beginning = classify(item);
       if (beginning === "reasoning" && typeof item.id === "string") {
         this.#thoughtSince.set(item.id, Date.now());
@@ -1078,6 +1101,22 @@ export class OpenCliClient {
     if (method === "item/completed") {
       const raw = (payload.item ?? payload) as Record<string, unknown>;
       if (typeof raw.id === "string") this.#pendingChanges.delete(raw.id);
+
+      if (raw.type === "contextCompaction") {
+        const began = this.#compactingSince;
+        this.#compactingSince = null;
+        this.#events.onCompacting?.(false);
+        // A span of the turn like the others, kept in the transcript: a
+        // conversation that was summarised should say so afterwards, or a
+        // reader wonders where the earlier detail went.
+        this.#events.onItem?.({
+          id: `compaction:${began ?? Date.now()}`,
+          kind: "compaction",
+          text: "",
+          ...(began ? { durationMs: Date.now() - began } : {}),
+        });
+        return;
+      }
 
       const item = toThreadItem(raw);
       if (!item) return;
@@ -1335,6 +1374,7 @@ export class OpenCliClient {
     this.#thoughtSince.clear();
     this.#turnBegan = null;
     this.#waitShown = false;
+    this.#compactingSince = null;
 
     /*
      * Opening a chat reads it; it does not load it into the agent.

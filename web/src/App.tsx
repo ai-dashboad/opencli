@@ -206,6 +206,7 @@ const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   // are rendered on their own below.
   wait: "",
   total: "",
+  compaction: "",
 };
 
 /**
@@ -267,12 +268,18 @@ const TranscriptItem = memo(function TranscriptItem({
    * their length — so they are rows of their own rather than a label on
    * something else.
    */
-  if (item.kind === "wait" || item.kind === "total") {
+  if (item.kind === "wait" || item.kind === "total" || item.kind === "compaction") {
+    const said =
+      item.kind === "wait"
+        ? "Waited for the model"
+        : item.kind === "total"
+          ? "Turn total"
+          : "Summarised the conversation";
     return (
       <article className={`item span ${item.kind}`}>
         <span className="label">
-          <strong>{item.kind === "wait" ? "Waited for the model" : "Turn total"}</strong>
-          <em>{formatDuration(item.durationMs ?? 0)}</em>
+          <strong>{said}</strong>
+          {item.durationMs !== undefined ? <em>{formatDuration(item.durationMs)}</em> : null}
         </span>
       </article>
     );
@@ -375,6 +382,8 @@ export default function App() {
   const [retry, setRetry] = useState<{ attempt: string; reason: string } | null>(null);
   /** What the agent is doing that is not answering — compacting, mostly. */
   const [notice, setNotice] = useState<string | null>(null);
+  /** True while the conversation is being summarised rather than answered. */
+  const [compacting, setCompacting] = useState(false);
   const [draft, setDraft] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   /**
@@ -632,6 +641,7 @@ export default function App() {
           setStreamed(0);
           setRetry(null);
           setNotice(null);
+          setCompacting(false);
           // Whatever went wrong last time is over. Nothing cleared this, so a
           // failure stayed on screen through every later prompt, saying a turn
           // that had since succeeded had failed.
@@ -651,6 +661,10 @@ export default function App() {
         },
         onRetry: (attempt, reason) => setRetry({ attempt, reason }),
         onNotice: setNotice,
+        onCompacting: (on) => {
+          setCompacting(on);
+          if (!on) setNotice(null);
+        },
         onApprovalRequest: setApproval,
         onTokenUsage: setUsage,
         onPullProgress: (progress) =>
@@ -712,6 +726,9 @@ export default function App() {
    * for four minutes tells a reader nothing they could not see.
    */
   const doing = (() => {
+    // Summarising is not writing, and saying "Writing…" through a minute of
+    // it was the wrong word for the longest part of the turn.
+    if (compacting) return "Summarising the conversation…";
     const last = items[items.length - 1];
     if (!last) return "Waiting for the model…";
     if (last.kind === "command") return `${last.summary ?? "Running a command"}…`;
@@ -1276,52 +1293,39 @@ export default function App() {
                   );
                 })}
                 {busy ? (
-                  <p className="working">
-                    <WorkingDot />
-                    <span className="doing">
-                      {doing} {formatElapsed(elapsed)}
-                      {streamed > 0 ? ` · ~${Math.round(streamed / 4)} written` : ""}
-                    </span>
-                    {/*
-                      * A failed attempt, said while the turn is still alive.
-                      *
-                      * Without this the screen reads "Waiting for the model…"
-                      * through eight failures and eighteen minutes, and the
-                      * reason each one gave — measured: an HTTP 500 from an
-                      * overloaded local server — is never shown at all.
-                      */}
-                    {/* What it is busy with, when that is not answering. */}
-                    {notice ? <span className="notice">{notice}</span> : null}
-                    {retry ? (
-                      <span className="retrying" title={retry.reason}>
-                        {retry.attempt}
+                  <div className="working-block">
+                    <p className="working">
+                      <WorkingDot />
+                      <span className="doing">
+                        {doing} {formatElapsed(elapsed)}
+                        {streamed > 0 ? ` · ~${Math.round(streamed / 4)} written` : ""}
                       </span>
-                    ) : null}
+                      {retry ? (
+                        <span className="retrying" title={retry.reason}>
+                          {retry.attempt}
+                        </span>
+                      ) : null}
+                      {/*
+                        * One control, naming its own shortcut. Sat next to the
+                        * text rather than pushed to the far right, because the
+                        * transcript runs the full width of the window and
+                        * right-aligning would strand it a screen away from the
+                        * words it belongs to.
+                        */}
+                      <button type="button" className="stop-button" onClick={() => void interrupt()}>
+                        <StopIcon size={12} />
+                        Stop
+                        <kbd>esc</kbd>
+                      </button>
+                    </p>
                     {/*
-                      * The conversation's total is deliberately not shown
-                      * here. A streaming provider reports usage once, when the
-                      * turn ends, so the figure cannot move while one is
-                      * running — and a number that sits still for fourteen
-                      * minutes under the words "so far" reads as a counter
-                      * that has broken.
+                      * How far along, under the line that says what is going
+                      * on rather than crammed into it. Only while something
+                      * long enough to have steps is running, so the composer
+                      * does not shift for every turn.
                       */}
-                    {/*
-                      * One control, naming its own shortcut.
-                      *
-                      * This was an underlined word and a loose key chip beside
-                      * a round button in the composer that did the same thing:
-                      * two shabby halves of a control that already existed
-                      * twice. Sat next to the text rather than pushed to the
-                      * far right, because the transcript runs the full width
-                      * of the window and right-aligning would strand it a
-                      * screen away from the words it belongs to.
-                      */}
-                    <button type="button" className="stop-button" onClick={() => void interrupt()}>
-                      <StopIcon size={12} />
-                      Stop
-                      <kbd>esc</kbd>
-                    </button>
-                  </p>
+                    {notice ? <p className="working-step">{notice}</p> : null}
+                  </div>
                 ) : null}
                 {!busy && usage && usage.total > 0 ? (
                   <p className="spent">

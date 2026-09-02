@@ -1322,10 +1322,48 @@ describe("what the agent did, not only what it said about it", () => {
 
     socket.emit({
       method: "item/completed",
-      params: { item: { type: "contextCompaction", id: "x-1" } },
+      params: { item: { type: "somethingWithNothingInIt", id: "x-1" } },
     });
 
     expect(seen).toHaveLength(0);
+  });
+
+  it("should leave a row saying the conversation was summarised", async () => {
+    // This used to be dropped as an item carrying nothing, which is true of
+    // its text and false of its meaning: a conversation that was summarised
+    // has to say so, or a reader wonders where the earlier detail went.
+    const seen: ThreadItem[] = [];
+    const { socket } = await connected({ onItem: (item: ThreadItem) => seen.push(item) });
+
+    socket.emit({
+      method: "item/started",
+      params: { item: { type: "contextCompaction", id: "c-1" } },
+    });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { type: "contextCompaction", id: "c-1" } },
+    });
+
+    expect(seen.map((item) => item.kind)).toEqual(["compaction"]);
+    expect(seen[0].durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("should say while it is summarising, and stop saying it afterwards", async () => {
+    // The status line said "Writing…" through the whole of a compaction,
+    // which is the wrong word for the longest part of the turn.
+    const states: boolean[] = [];
+    const { socket } = await connected({ onCompacting: (on: boolean) => states.push(on) });
+
+    socket.emit({
+      method: "item/started",
+      params: { item: { type: "contextCompaction", id: "c-2" } },
+    });
+    socket.emit({
+      method: "item/completed",
+      params: { item: { type: "contextCompaction", id: "c-2" } },
+    });
+
+    expect(states).toEqual([true, false]);
   });
 });
 

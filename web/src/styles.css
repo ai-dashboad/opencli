@@ -492,22 +492,34 @@ textarea:focus {
   font-size: 12px;
 }
 
+.working-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/*
+ * How far along a long step is, under the line that says what the step is.
+ *
+ * It began as a chip beside the status text and reached the screen as a
+ * filled brown box — `.notice` was already a panel banner, and the name
+ * collided. Beside the point anyway: a sentence set in a box next to a
+ * running clock reads as an alarm, and this is not one. Under it, quieter
+ * than it, aligned with the words rather than the mark.
+ */
+.working-step {
+  margin: 0;
+  padding-left: 21px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
 .working {
   display: flex;
   align-items: center;
   gap: 9px;
   color: var(--text-faint);
   font-size: 13px;
-}
-
-/* Work that is not answering — compacting the conversation, mostly. Stated
-   plainly: it is not a problem, it is what is taking the time. */
-.notice {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-dim);
 }
 
 /* An attempt that failed and is being tried again. Amber rather than red:

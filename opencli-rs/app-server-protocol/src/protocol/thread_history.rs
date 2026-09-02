@@ -22,9 +22,15 @@ use opencli_protocol::protocol::RolloutLine;
 ///
 /// Written as a sentence rather than a marker the interface has to know about,
 /// so it survives a front end that has never heard of compaction.
+/// What a reopened conversation says where a compaction happened.
+///
+/// Kept a sentence rather than a marker the interface has to know about, so it
+/// survives a front end that has never heard of compaction — but worded to
+/// match the row the live view leaves behind, so the same event does not read
+/// as two different things depending on when you look at it.
 const COMPACTION_NOTICE: &str =
-    "— Earlier messages were summarised here to fit the model's context. \
-     The full transcript is still on disk.";
+    "— Summarised the conversation here to fit the model's context. \
+     Nothing was lost: the full transcript is on disk and shown above.";
 
 /// What a recorded tool output carries, once opened.
 struct RecordedOutput {
@@ -1124,8 +1130,10 @@ mod tests {
             .collect();
 
         assert_eq!(said.len(), 2);
-        assert!(said[1].contains("summarised"), "got: {}", said[1]);
-        assert!(said[1].contains("still on disk"), "got: {}", said[1]);
+        // Says what happened and that nothing went missing — the two things
+        // a reader needs where a conversation visibly jumps.
+        assert!(said[1].contains("Summarised the conversation"), "got: {}", said[1]);
+        assert!(said[1].contains("Nothing was lost"), "got: {}", said[1]);
     }
 
     #[test]

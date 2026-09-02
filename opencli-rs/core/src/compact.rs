@@ -125,11 +125,10 @@ async fn condense_until_it_fits(
     for (at, piece) in pieces.iter().enumerate() {
         sess.notify_background_event(
             turn_context,
-            format!(
-                "The conversation is longer than the model can read at once. Summarising part {} of {} so none of it is lost…",
-                at + 1,
-                pieces.len()
-            ),
+            // Short and structured: the interface puts this under a line of
+            // its own that already says what is happening, and a sentence
+            // crammed in beside that read as an alarm.
+            format!("part {} of {} · nothing is being lost", at + 1, pieces.len()),
         )
         .await;
 
@@ -261,7 +260,7 @@ async fn run_compact_task_inner(
     // header updates again on each trim below.
     sess.notify_background_event(
         turn_context.as_ref(),
-        "Compacting the conversation to fit the model's context window…",
+        "reading the conversation",
     )
     .await;
 
@@ -275,9 +274,7 @@ async fn run_compact_task_inner(
                 Ok(rounds) if rounds > 0 => {
                     sess.notify_background_event(
                         turn_context.as_ref(),
-                        format!(
-                            "Summarised the older part of the conversation in {rounds} round(s); compacting the rest…"
-                        ),
+                        format!("summarised {rounds} part(s); writing the summary"),
                     )
                     .await;
                 }
@@ -323,9 +320,7 @@ async fn run_compact_task_inner(
                 if truncated_count > 0 {
                     sess.notify_background_event(
                         turn_context.as_ref(),
-                        format!(
-                            "Trimmed {truncated_count} older thread item(s) before compacting so the prompt fits the model context window."
-                        ),
+                        format!("trimmed {truncated_count} old message(s) to fit"),
                     )
                     .await;
                 }
@@ -347,9 +342,7 @@ async fn run_compact_task_inner(
                     // rather than a hang.
                     sess.notify_background_event(
                         turn_context.as_ref(),
-                        format!(
-                            "Compacting… trimmed {truncated_count} old message(s) so the summary fits the context window."
-                        ),
+                        format!("trimmed {truncated_count} old message(s) to fit"),
                     )
                     .await;
                     continue;
