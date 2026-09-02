@@ -448,8 +448,46 @@ export default function App() {
   const transcriptRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  /*
+   * Opening a conversation lands at the end of it.
+   *
+   * After the browser has laid the transcript out, not before: a single
+   * scroll on the render that sets the items happens while the height is
+   * still whatever fitted so far, so it stopped somewhere in the middle of a
+   * long chat. Two frames — one for the layout, one for anything that settled
+   * during it.
+   */
   useEffect(() => {
-    transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      const box = transcriptRef.current;
+      if (box) box.scrollTop = box.scrollHeight;
+      second = requestAnimationFrame(() => {
+        const settled = transcriptRef.current;
+        if (settled) settled.scrollTop = settled.scrollHeight;
+      });
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [activeThreadId]);
+
+  /*
+   * A conversation being written follows itself, unless it is being read.
+   *
+   * Someone who has scrolled up to look at what happened earlier is not
+   * asking to be dragged back down every time a word arrives.
+   */
+  useEffect(() => {
+    const box = transcriptRef.current;
+    if (!box) return;
+    const room = box.scrollHeight - box.scrollTop - box.clientHeight;
+    if (room > 160) return;
+    requestAnimationFrame(() => {
+      const settled = transcriptRef.current;
+      if (settled) settled.scrollTop = settled.scrollHeight;
+    });
   }, [items, approval]);
 
   /**

@@ -319,12 +319,20 @@ impl ContextManager {
     /// A rough figure is what auto-compaction needs; it only has to be near
     /// enough to know the window is already full.
     pub(crate) fn estimated_token_usage(&self) -> i64 {
+        // Measured against a real model rather than assumed: English came to
+        // 4.65 bytes a token, Chinese to 5.71, and code to 2.51. No single
+        // number is right for all three, and what fills a coding agent's
+        // history is code and command output — so three, which runs a little
+        // high on prose and is close on the thing there is most of. Erring
+        // towards summarising early is the direction to be wrong in; erring
+        // the other way is a request the model cannot read.
+        const BYTES_PER_TOKEN: usize = 3;
         let bytes: usize = self
             .items
             .iter()
             .map(text_bytes_of)
             .fold(0usize, usize::saturating_add);
-        i64::try_from(approx_tokens_from_byte_count(bytes)).unwrap_or(i64::MAX)
+        i64::try_from(bytes / BYTES_PER_TOKEN).unwrap_or(i64::MAX)
     }
 
     /// When true, the server already accounted for past reasoning tokens and

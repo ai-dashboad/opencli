@@ -393,7 +393,9 @@ textarea:focus {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 28px 20px 8px;
+  /* Room at the bottom, so the last thing said is not pressed against the box
+     you are about to type in. */
+  padding: 28px 20px 24px;
 }
 
 /*
