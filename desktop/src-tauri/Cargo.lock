@@ -3687,7 +3687,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mcp-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "schemars 0.8.22",
  "serde",
@@ -4377,7 +4377,7 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "opencli-api"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4399,7 +4399,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-app-server-protocol"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4418,7 +4418,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-apply-patch"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "similar",
@@ -4429,7 +4429,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-async-utils"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "async-trait",
  "tokio",
@@ -4438,7 +4438,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4459,7 +4459,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4541,7 +4541,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-desktop"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "opencli-web-gateway",
@@ -4556,7 +4556,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-execpolicy"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -4570,7 +4570,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-file-search"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -4584,7 +4584,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-git"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "once_cell",
  "regex",
@@ -4598,7 +4598,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-keyring-store"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "keyring",
  "tracing",
@@ -4606,7 +4606,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-otel"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "eventsource-stream",
@@ -4634,7 +4634,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-protocol"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "icu_decimal",
  "icu_locale_core",
@@ -4659,7 +4659,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-rmcp-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -4686,7 +4686,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-ssh"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "russh",
  "tokio",
@@ -4694,7 +4694,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-state"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4714,7 +4714,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-absolute-path"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "dirs",
  "path-absolutize",
@@ -4725,7 +4725,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-cache"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "lru",
  "sha1",
@@ -4734,14 +4734,14 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-home-dir"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "dirs",
 ]
 
 [[package]]
 name = "opencli-utils-image"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.22.1",
  "image",
@@ -4752,7 +4752,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-pty"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "filedescriptor",
@@ -4767,7 +4767,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-readiness"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "async-trait",
  "thiserror 2.0.17",
@@ -4777,11 +4777,11 @@ dependencies = [
 
 [[package]]
 name = "opencli-utils-string"
-version = "0.1.1"
+version = "0.1.2"
 
 [[package]]
 name = "opencli-web-gateway"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -4800,7 +4800,7 @@ dependencies = [
 
 [[package]]
 name = "opencli-windows-sandbox"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
