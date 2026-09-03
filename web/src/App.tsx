@@ -1208,7 +1208,25 @@ export default function App() {
         </header>
 
         {view === "dispatch" && client ? (
-          <DispatchView client={client} cwd={cwd || "."} model={model} />
+          <DispatchView
+            client={client}
+            cwd={cwd || "."}
+            model={model}
+            onOpenAsChat={(run) => {
+              // What a background run produced is worth continuing from, and
+              // the run itself cannot be spoken to. A new chat in the same
+              // directory, opened with what it did, can be.
+              go("chat");
+              setCwd(run.cwd);
+              void startFreshThread(run.cwd).then((started) => {
+                if (!started) return;
+                void sendPrompt(
+                  `Continue from this background run.\n\nWhat it was asked to do:\n${run.prompt}\n\nWhat it reported:\n${run.output}`,
+                  [],
+                );
+              });
+            }}
+          />
         ) : view === "customize" ? (
           <CustomizeView
             preferences={preferences}

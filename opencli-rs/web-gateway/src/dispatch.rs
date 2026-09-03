@@ -216,6 +216,28 @@ pub async fn run_worker(opencli_home: PathBuf, opencli_bin: PathBuf) {
     }
 }
 
+/// Read one of the child's pipes line by line into the channel.
+///
+/// Both pipes feed the same channel, so the output reads in the order it was
+/// produced rather than as two separate blocks.
+fn pump<R>(stream: R, tx: tokio::sync::mpsc::UnboundedSender<String>)
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+{
+    tokio::spawn(async move {
+        use tokio::io::AsyncBufReadExt;
+        let mut lines = tokio::io::BufReader::new(stream).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            if tx.send(line).is_err() {
+                break;
+            }
+        }
+    });
+}
+
+/// How often a running task's output is written down.
+const WRITE_EVERY: std::time::Duration = std::time::Duration::from_millis(700);
+
 /// Run one dispatched task to completion and record what it did.
 async fn execute(opencli_home: PathBuf, opencli_bin: PathBuf, run: dispatch::Run) {
     tracing::info!("running dispatched task `{}`", run.title);
@@ -234,25 +256,70 @@ async fn execute(opencli_home: PathBuf, opencli_bin: PathBuf, run: dispatch::Run
     }
     command.arg(&run.prompt).current_dir(&run.cwd);
 
-    let (status, output, code) = match command.output().await {
-        Ok(output) => {
-            let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
-            if !output.stderr.is_empty() {
-                text.push_str(&String::from_utf8_lossy(&output.stderr));
-            }
-            let status = if output.status.success() {
-                dispatch::RunStatus::Done
-            } else {
-                dispatch::RunStatus::Failed
-            };
-            (status, text, output.status.code())
+    // Piped and read as it arrives, rather than collected at the end. A run
+    // that takes ten minutes used to show nothing at all until it finished —
+    // which is the whole of what someone watching it wants to know.
+    command
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(err) => {
+            let text = format!("could not start the agent: {err}");
+            let _ = dispatch::set_output(&opencli_home, &run.id, &text);
+            let _ = dispatch::set_status(&opencli_home, &run.id, dispatch::RunStatus::Failed, None);
+            return;
         }
-        Err(err) => (
-            dispatch::RunStatus::Failed,
-            format!("could not start the agent: {err}"),
-            None,
-        ),
     };
+
+    let (chunks_tx, mut chunks_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    if let Some(out) = child.stdout.take() {
+        pump(out, chunks_tx.clone());
+    }
+    if let Some(err) = child.stderr.take() {
+        pump(err, chunks_tx.clone());
+    }
+    // Both readers hold a clone; this one has to go or the loop below never
+    // sees the channel close.
+    drop(chunks_tx);
+
+    let mut text = String::new();
+    let mut unsaved = false;
+    let mut last_save = std::time::Instant::now();
+    loop {
+        let chunk = tokio::time::timeout(WRITE_EVERY, chunks_rx.recv()).await;
+        match chunk {
+            Ok(Some(line)) => {
+                text.push_str(&line);
+                text.push('\n');
+                unsaved = true;
+            }
+            // The pipes are closed: the process has finished writing.
+            Ok(None) => break,
+            Err(_) => {}
+        }
+        // Written at a bounded rate rather than per line: the store is a file,
+        // and a chatty run would otherwise rewrite it hundreds of times a
+        // second for the sake of a reader who polls every few seconds.
+        if unsaved && last_save.elapsed() >= WRITE_EVERY {
+            let _ = dispatch::set_output(&opencli_home, &run.id, &text);
+            unsaved = false;
+            last_save = std::time::Instant::now();
+        }
+    }
+
+    let finished = child.wait().await;
+    let (status, code) = match finished {
+        Ok(exit) if exit.success() => (dispatch::RunStatus::Done, exit.code()),
+        Ok(exit) => (dispatch::RunStatus::Failed, exit.code()),
+        Err(err) => {
+            text.push_str(&format!("\nthe agent could not be waited on: {err}\n"));
+            (dispatch::RunStatus::Failed, None)
+        }
+    };
+    let output = text;
 
     if let Err(err) = dispatch::set_output(&opencli_home, &run.id, &output) {
         tracing::error!("could not record output for `{}`: {err}", run.title);

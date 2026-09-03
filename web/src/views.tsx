@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FolderIcon, FolderPlusIcon, PinIcon, SearchIcon, SendIcon } from "./icons";
 import { Dialog } from "./menus";
 import { shouldDismiss, shouldSend } from "./composer";
@@ -1897,13 +1897,24 @@ function RunRow({
   run,
   onCancel,
   onDelete,
+  onOpenAsChat,
 }: {
   run: Run;
   onCancel: (id: string) => void;
   onDelete: (id: string) => void;
+  /** Continue where the run left off, in a chat you can talk to. */
+  onOpenAsChat?: (run: Run) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const finished = run.status === "done" || run.status === "failed" || run.status === "cancelled";
+  // A run still going is open by default: it is being watched, and the output
+  // arrives as the agent produces it.
+  const [open, setOpen] = useState(!finished);
+  const tail = useRef<HTMLPreElement>(null);
+
+  // Follow the end while it is running, so the newest line is the visible one.
+  useEffect(() => {
+    if (open && !finished) tail.current?.scrollTo({ top: tail.current.scrollHeight });
+  }, [finished, open, run.output]);
 
   return (
     <li className={`run ${run.status}`}>
@@ -1921,6 +1932,11 @@ function RunRow({
               {open ? "Hide" : "Output"}
             </button>
           ) : null}
+          {finished && onOpenAsChat ? (
+            <button className="secondary" onClick={() => onOpenAsChat(run)}>
+              Continue in a chat
+            </button>
+          ) : null}
           {finished ? (
             <button className="secondary" onClick={() => onDelete(run.id)}>
               Remove
@@ -1932,7 +1948,11 @@ function RunRow({
           )}
         </span>
       </div>
-      {open ? <pre className="run-output">{run.output}</pre> : null}
+      {open ? (
+        <pre className={`run-output${finished ? "" : " live"}`} ref={tail}>
+          {run.output || "Waiting for the agent to say something…"}
+        </pre>
+      ) : null}
     </li>
   );
 }
@@ -1944,7 +1964,18 @@ function RunRow({
  * so there is no per-run notification to subscribe to — and a run takes
  * minutes, so a few seconds of staleness costs nothing.
  */
-export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cwd: string; model: string }) {
+export function DispatchView({
+  client,
+  cwd,
+  model,
+  onOpenAsChat,
+}: {
+  client: OpenCliClient;
+  cwd: string;
+  model: string;
+  /** Pick a finished run up as a conversation. */
+  onOpenAsChat?: (run: Run) => void;
+}) {
   const [runs, setRuns] = useState<Run[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -1959,11 +1990,16 @@ export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cw
     }
   }, [client]);
 
+  const active = runs.filter((run) => run.status === "queued" || run.status === "running");
+
+  // Faster while something is running: the output arrives as the agent
+  // produces it, and four seconds between glimpses of a live log is a long
+  // time to watch nothing.
   useEffect(() => {
     void reload();
-    const timer = setInterval(() => void reload(), 4000);
+    const timer = setInterval(() => void reload(), active.length > 0 ? 1500 : 6000);
     return () => clearInterval(timer);
-  }, [reload]);
+  }, [active.length, reload]);
 
   const dispatch = useCallback(async () => {
     try {
@@ -1979,7 +2015,6 @@ export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cw
     }
   }, [client, directory, model, prompt, reload]);
 
-  const active = runs.filter((run) => run.status === "queued" || run.status === "running");
   const past = runs.filter((run) => run.status !== "queued" && run.status !== "running");
 
   return (
@@ -2021,6 +2056,7 @@ export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cw
             run={run}
             onCancel={(id) => void client.cancelRun(id).then(reload)}
             onDelete={(id) => void client.deleteRun(id).then(reload)}
+            onOpenAsChat={onOpenAsChat}
           />
         ))}
       </ul>
@@ -2041,6 +2077,7 @@ export function DispatchView({ client, cwd, model }: { client: OpenCliClient; cw
             run={run}
             onCancel={(id) => void client.cancelRun(id).then(reload)}
             onDelete={(id) => void client.deleteRun(id).then(reload)}
+            onOpenAsChat={onOpenAsChat}
           />
         ))}
       </ul>
