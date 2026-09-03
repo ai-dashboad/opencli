@@ -50,10 +50,14 @@ jobs:
 
       # Not on pull requests — a fork's branch should not overwrite the live
       # site — but yes when run by hand, which is how a deployment is retried.
+      #
+      # Wrangler is called directly rather than through the Cloudflare action:
+      # the action installs it with `pnpm add` at the repository root, which
+      # pnpm refuses in a workspace, so it failed before it reached Cloudflare
+      # at all. It is a devDependency of the site instead.
       - if: ${{ github.event_name != 'pull_request' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
         name: Publish to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy website/dist --project-name=opencli
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm --dir website exec wrangler pages deploy dist --project-name=opencli --branch=main
