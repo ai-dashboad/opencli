@@ -37,43 +37,6 @@ import type {
   ThreadSummary,
 } from "./protocol";
 
-/**
- * Shared loader for the read-only panels.
- *
- * Each panel shows the same three states — loading, failed, empty — and getting
- * those wrong is what makes a panel look broken rather than simply empty.
- */
-function useRemote<T>(load: () => Promise<T[]>, deps: unknown[]): {
-  rows: T[];
-  error: string | null;
-  loading: boolean;
-} {
-  const [rows, setRows] = useState<T[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    load()
-      .then((data) => {
-        if (!cancelled) setRows(data);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-
-  return { rows, error, loading };
-}
 
 function Panel({
   title,
@@ -102,25 +65,76 @@ function Panel({
   );
 }
 
+/**
+ * Skills: what the agent knows how to do here.
+ *
+ * A skill is a directory with instructions in it, read when a task calls for
+ * one. The list was read-only — which meant the `enabled` flag each skill
+ * carries had no way to be changed, and a skill that fired when it should not
+ * could only be turned off by moving the folder.
+ */
 export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string }) {
-  const { rows, error, loading } = useRemote<SkillSummary>(
-    () => client.listSkills(cwd),
-    [client, cwd],
+  const [rows, setRows] = useState<SkillSummary[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    try {
+      setRows(await client.listSkills(cwd));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [client, cwd]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const toggle = useCallback(
+    async (skill: SkillSummary, enabled: boolean) => {
+      // Moved in the list first: the write is a round trip, and a switch that
+      // waits for it feels broken.
+      setRows((previous) =>
+        previous.map((row) => (row.path === skill.path ? { ...row, enabled } : row)),
+      );
+      try {
+        await client.setSkillEnabled(skill.path, enabled);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        await reload();
+      }
+    },
+    [client, reload],
   );
 
   return (
     <Panel
       title="Skills"
-      subtitle={`Reusable capabilities available in ${cwd}`}
+      subtitle={`Reusable instructions the agent can draw on in ${cwd}. Changes apply to the next chat you open.`}
       loading={loading}
       error={error}
       empty={rows.length === 0}
     >
-      <ul className="rows">
+      <ul className="rows wide">
         {rows.map((skill) => (
-          <li key={skill.name}>
+          <li key={skill.path}>
             <strong>{skill.name}</strong>
             <span>{skill.description}</span>
+            <span className="source">{skill.path}</span>
+            <div className="actions">
+              <label className="scope">
+                <input
+                  type="checkbox"
+                  checked={skill.enabled}
+                  onChange={(e) => void toggle(skill, e.target.checked)}
+                />
+                Enabled
+              </label>
+            </div>
           </li>
         ))}
       </ul>
@@ -1294,6 +1308,9 @@ export function MemoryView({
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [scoped, setScoped] = useState(false);
+  const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   const reload = useCallback(async () => {
     try {
@@ -1318,9 +1335,103 @@ export function MemoryView({
     }
   }, [client, project, reload, scoped, text]);
 
+  const save = useCallback(
+    async (id: string) => {
+      const next = draft.trim();
+      if (!next) return;
+      try {
+        await client.updateMemory(id, next);
+        setEditing(null);
+        setDraft("");
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [client, draft, reload],
+  );
+
+  const needle = query.trim().toLowerCase();
+  const shown = needle
+    ? memories.filter((memory) => memory.text.toLowerCase().includes(needle))
+    : memories;
+
+  // Grouped by what they apply to, because that is the only thing that changes
+  // what a memory does. A flat list with a note on each row made the two look
+  // like the same kind of thing.
+  const everywhere = shown.filter((memory) => !memory.projectId);
+  const scopedToProjects = shown.filter((memory) => memory.projectId);
+
+  const row = (memory: Memory) => (
+    <li key={memory.id}>
+      {editing === memory.id ? (
+        <>
+          <textarea
+            value={draft}
+            autoFocus
+            rows={2}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (shouldSend({ ...e, isComposing: e.nativeEvent.isComposing })) {
+                e.preventDefault();
+                void save(memory.id);
+              }
+            }}
+          />
+          <div className="actions">
+            <button disabled={!draft.trim()} onClick={() => void save(memory.id)}>
+              Save
+            </button>
+            <button className="secondary" onClick={() => setEditing(null)}>
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <strong>{memory.text}</strong>
+          <span>about {estimateTokens(memory.text)} tokens in every chat it applies to</span>
+          <div className="actions">
+            <button
+              className="secondary"
+              onClick={() => {
+                setEditing(memory.id);
+                setDraft(memory.text);
+              }}
+            >
+              Edit
+            </button>
+            <button
+              className="secondary"
+              onClick={() => {
+                void client.deleteMemory(memory.id).then(reload);
+              }}
+            >
+              Forget
+            </button>
+          </div>
+        </>
+      )}
+    </li>
+  );
+
   return (
     <section className="panel">
-      <h2>Memory</h2>
+      <div className="panel-head">
+        <h2>Memory</h2>
+        <span className="grow" />
+        {memories.length > 3 ? (
+          <input
+            className="panel-search"
+            value={query}
+            placeholder="Search memories"
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (shouldDismiss({ ...e, isComposing: e.nativeEvent.isComposing })) setQuery("");
+            }}
+          />
+        ) : null}
+      </div>
       <p className="hint">
         Facts the agent should always know. They are added to the context of every new chat, so
         keep the list short — each one costs tokens in every conversation.
@@ -1348,27 +1459,33 @@ export function MemoryView({
         </button>
       </div>
 
+      <h3>In every conversation</h3>
       <ul className="rows wide">
-        {memories.length === 0 ? <li className="muted">Nothing remembered yet.</li> : null}
-        {memories.map((memory) => (
-          <li key={memory.id}>
-            <strong>{memory.text}</strong>
-            <span>{memory.projectId ? "one project only" : "every conversation"}</span>
-            <div className="actions">
-              <button
-                className="secondary"
-                onClick={() => {
-                  void client.deleteMemory(memory.id).then(reload);
-                }}
-              >
-                Forget
-              </button>
-            </div>
-          </li>
-        ))}
+        {everywhere.length === 0 ? (
+          <li className="muted">{needle ? "Nothing matches." : "Nothing remembered yet."}</li>
+        ) : null}
+        {everywhere.map(row)}
       </ul>
+
+      {scopedToProjects.length > 0 ? (
+        <>
+          <h3>In one project only</h3>
+          <ul className="rows wide">{scopedToProjects.map(row)}</ul>
+        </>
+      ) : null}
     </section>
   );
+}
+
+/**
+ * Roughly what a piece of text costs.
+ *
+ * Four characters to a token is the usual rule of thumb for English, and it is
+ * shown here because the panel already asks the reader to keep the list short
+ * without ever saying what short means.
+ */
+function estimateTokens(text: string): number {
+  return Math.max(1, Math.round(text.length / 4));
 }
 
 /**

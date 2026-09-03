@@ -1561,6 +1561,16 @@ export class OpenCliClient {
     );
   }
 
+  /**
+   * Turn a skill on or off.
+   *
+   * By path, not by name: two directories can offer a skill with the same
+   * name, and the one being switched is the one on disk.
+   */
+  async setSkillEnabled(path: string, enabled: boolean): Promise<void> {
+    await this.request("skills/config/write", { path, enabled });
+  }
+
   async listConnectors(): Promise<ConnectorSummary[]> {
     const result = (await this.request("mcpServerStatus/list", {})) as { data?: unknown[] };
     return (result.data ?? []).map((raw) => {
