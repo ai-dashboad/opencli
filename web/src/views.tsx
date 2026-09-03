@@ -154,40 +154,53 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
   const [configured, setConfigured] = useState<ConnectorConfig[]>([]);
   const [offers, setOffers] = useState<ConnectorOffer[]>([]);
   const [status, setStatus] = useState<ConnectorSummary[]>([]);
-  const [checking, setChecking] = useState(true);
+  const [secrets, setSecrets] = useState<SecretStatus[]>([]);
+  const [testing, setTesting] = useState(false);
+  const [tested, setTested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState({ name: "", kind: "stdio", command: "", url: "" });
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ name: "", kind: "stdio", command: "", url: "", envVars: "" });
+  /** Which variable is being given a value, and what has been typed. */
+  const [keyFor, setKeyFor] = useState<string | null>(null);
+  const [keyDraft, setKeyDraft] = useState("");
 
   const reload = useCallback(async () => {
     try {
-      const [rows, catalogued] = await Promise.all([
+      const [rows, catalogued, keys] = await Promise.all([
         client.listConnectorConfigs(),
         client.connectorCatalog(),
+        client.listSecrets().catch(() => [] as SecretStatus[]),
       ]);
       setConfigured(rows);
       setOffers(catalogued);
+      setSecrets(keys);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-
-    // Live status is not awaited with the rest. Answering it means starting
-    // every configured MCP server and waiting for a handshake — measured at
-    // 2.2 seconds against one that fails to authenticate — while what is
-    // configured is read from a file in four milliseconds. Waiting for both
-    // made opening this panel cost the slower one every time.
-    setChecking(true);
-    void client
-      .listConnectors()
-      .then(setStatus)
-      .catch(() => setStatus([]))
-      .finally(() => setChecking(false));
   }, [client]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  /**
+   * Starting every configured server and waiting for a handshake takes
+   * seconds — measured at 2.2 against one that fails to authenticate — so it
+   * happens when asked for, not every time the panel is opened.
+   */
+  const test = useCallback(async () => {
+    setTesting(true);
+    try {
+      setStatus(await client.listConnectors());
+      setTested(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTesting(false);
+    }
+  }, [client]);
 
   const run = useCallback(
     async (work: Promise<unknown>) => {
@@ -201,7 +214,30 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
     [reload],
   );
 
+  const saveKey = useCallback(
+    async (name: string) => {
+      try {
+        await client.writeSecret(name, keyDraft);
+        setKeyFor(null);
+        setKeyDraft("");
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [client, keyDraft, reload],
+  );
+
+  const hasKey = useCallback(
+    (name: string) => secrets.some((secret) => secret.name === name),
+    [secrets],
+  );
+
   const addManual = useCallback(() => {
+    const names = draft.envVars
+      .split(/[\s,]+/)
+      .map((name) => name.trim().toUpperCase())
+      .filter(Boolean);
     const transport =
       draft.kind === "http"
         ? { kind: "http" as const, url: draft.url.trim() }
@@ -209,11 +245,12 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
             kind: "stdio" as const,
             command: draft.command.trim().split(/\s+/)[0] ?? "",
             args: draft.command.trim().split(/\s+/).slice(1),
+            envVars: names,
           };
     void run(
       client.addConnector({ name: draft.name.trim(), transport }).then(() => {
         setAdding(false);
-        setDraft({ name: "", kind: "stdio", command: "", url: "" });
+        setDraft({ name: "", kind: "stdio", command: "", url: "", envVars: "" });
       }),
     );
   }, [client, draft, run]);
@@ -224,7 +261,13 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
 
   return (
     <section className="panel">
-      <h2>Connectors</h2>
+      <div className="panel-head">
+        <h2>Connectors</h2>
+        <span className="grow" />
+        <button className="secondary" disabled={testing} onClick={() => void test()}>
+          {testing ? "Starting them…" : "Test connections"}
+        </button>
+      </div>
       <p className="hint">
         MCP servers the agent can call tools through. Servers start with a chat, so a change here
         applies to the next one you open.
@@ -232,10 +275,11 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
       {error ? <p className="error">{error}</p> : null}
 
       <h3>Configured</h3>
-      <ul className="rows">
+      <ul className="rows wide">
         {configured.length === 0 ? <li className="muted">None yet.</li> : null}
         {configured.map((row) => {
           const live = status.find((entry) => entry.name === row.name);
+          const needs = row.transport.envVars ?? [];
           return (
             <li key={row.name}>
               <strong>{row.name}</strong>
@@ -244,13 +288,58 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                   ? row.transport.url
                   : [row.transport.command, ...(row.transport.args ?? [])].join(" ")}
               </span>
+
+              {needs.length > 0 ? (
+                <span>
+                  {needs.map((name) => (
+                    <em key={name} className={hasKey(name) ? "chip-ok" : "chip-missing"}>
+                      {name}
+                      {hasKey(name) ? " set" : " missing"}
+                    </em>
+                  ))}
+                </span>
+              ) : null}
+
               {live ? (
                 <span>
-                  {live.toolCount} tool{live.toolCount === 1 ? "" : "s"} · {live.status}
+                  {live.status} · {live.toolCount} tool{live.toolCount === 1 ? "" : "s"}
+                  {live.tools.length > 0 ? (
+                    <button
+                      className="link"
+                      onClick={() => setExpanded(expanded === row.name ? null : row.name)}
+                    >
+                      {expanded === row.name ? "hide" : "show"}
+                    </button>
+                  ) : null}
                 </span>
-              ) : checking ? (
-                <span className="muted-note">Starting it to see if it answers…</span>
+              ) : tested ? (
+                <span className="muted-note">Did not answer.</span>
               ) : null}
+
+              {expanded === row.name && live ? (
+                <pre className="config">{live.tools.join("\n")}</pre>
+              ) : null}
+
+              {needs.map((name) =>
+                keyFor === name ? (
+                  <div className="actions" key={`edit-${name}`}>
+                    <input
+                      type="password"
+                      autoFocus
+                      value={keyDraft}
+                      placeholder={`Paste ${name}`}
+                      onChange={(e) => setKeyDraft(e.target.value)}
+                    />
+                    <button disabled={!keyDraft.trim()} onClick={() => void saveKey(name)}>
+                      Save
+                    </button>
+                    <button className="secondary" onClick={() => setKeyFor(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : null,
+              )}
+
               <div className="actions">
                 <label className="scope">
                   <input
@@ -260,6 +349,18 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                   />
                   Enabled
                 </label>
+                {needs.map((name) => (
+                  <button
+                    key={`set-${name}`}
+                    className="secondary"
+                    onClick={() => {
+                      setKeyFor(name);
+                      setKeyDraft("");
+                    }}
+                  >
+                    {hasKey(name) ? `Replace ${name}` : `Set ${name}`}
+                  </button>
+                ))}
                 <button className="secondary" onClick={() => void run(client.removeConnector(row.name))}>
                   Remove
                 </button>
@@ -270,12 +371,12 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
       </ul>
 
       <h3>Add a connector</h3>
-      <ul className="rows">
+      <ul className="rows wide">
         {notYetAdded.map((offer) => (
           <li key={offer.id}>
             <strong>{offer.name}</strong>
             <span>{offer.description}</span>
-            {offer.note ? <span>{offer.note}</span> : null}
+            {offer.note ? <span className="muted-note">{offer.note}</span> : null}
             <div className="actions">
               <button
                 onClick={() =>
@@ -317,11 +418,25 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
             ))}
           </div>
           {draft.kind === "stdio" ? (
-            <input
-              value={draft.command}
-              onChange={(e) => setDraft({ ...draft, command: e.target.value })}
-              placeholder="npx -y @modelcontextprotocol/server-github"
-            />
+            <>
+              <input
+                value={draft.command}
+                onChange={(e) => setDraft({ ...draft, command: e.target.value })}
+                placeholder="npx -y @modelcontextprotocol/server-github"
+              />
+              <label className="field">
+                Environment variables it needs
+                <input
+                  value={draft.envVars}
+                  onChange={(e) => setDraft({ ...draft, envVars: e.target.value })}
+                  placeholder="GITHUB_PERSONAL_ACCESS_TOKEN"
+                />
+                <span className="field-note">
+                  Names only, separated by spaces. Values are set afterwards and kept with your
+                  other keys, not in the connector's configuration.
+                </span>
+              </label>
+            </>
           ) : (
             <input
               value={draft.url}

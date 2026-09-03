@@ -230,6 +230,8 @@ export interface ConnectorSummary {
   name: string;
   toolCount: number;
   status: string;
+  /** What the server offers, when it answered the handshake. */
+  tools: string[];
 }
 
 /**
@@ -495,7 +497,17 @@ export interface PluginOffer {
 export interface ConnectorConfig {
   name: string;
   enabled: boolean;
-  transport: { kind: "stdio" | "http"; command?: string; args?: string[]; url?: string };
+  transport: {
+    kind: "stdio" | "http";
+    command?: string;
+    args?: string[];
+    url?: string;
+    /**
+     * Environment variables passed through to the server, by name. The values
+     * live with the other keys and never appear here.
+     */
+    envVars?: string[];
+  };
 }
 
 /** A connector offered by name, with how it is started. */
@@ -503,8 +515,16 @@ export interface ConnectorOffer {
   id: string;
   name: string;
   description: string;
-  transport: { kind: "stdio" | "http"; command?: string; args?: string[]; url?: string };
+  transport: {
+    kind: "stdio" | "http";
+    command?: string;
+    args?: string[];
+    url?: string;
+    envVars?: string[];
+  };
   note?: string;
+  /** The variable this server needs a value for, when it needs one. */
+  keyHint?: string;
 }
 
 export type ConnectionStatus = "connecting" | "ready" | "closed" | "error";
@@ -1575,11 +1595,17 @@ export class OpenCliClient {
     const result = (await this.request("mcpServerStatus/list", {})) as { data?: unknown[] };
     return (result.data ?? []).map((raw) => {
       const entry = raw as Record<string, unknown>;
-      const tools = Array.isArray(entry.tools) ? entry.tools.length : 0;
+      const tools = Array.isArray(entry.tools)
+        ? entry.tools.map((tool) => {
+            const named = tool as Record<string, unknown>;
+            return String(named.name ?? named.title ?? tool);
+          })
+        : [];
       return {
         name: String(entry.name ?? entry.server ?? "unknown"),
-        toolCount: tools,
+        toolCount: tools.length,
         status: String(entry.authStatus ?? entry.status ?? "configured"),
+        tools,
       };
     });
   }

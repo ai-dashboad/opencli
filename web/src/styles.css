@@ -3051,3 +3051,33 @@ textarea:focus {
     stroke-dashoffset: 0;
   }
 }
+
+/* Whether a connector has the key it needs, said on the row rather than
+   discovered when the first tool call fails. */
+.chip-ok,
+.chip-missing {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-style: normal;
+}
+
+.chip-ok {
+  background: color-mix(in srgb, var(--added) 16%, transparent);
+  color: var(--added);
+}
+
+.chip-missing {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+.rows .link {
+  padding: 0 0 0 6px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: inherit;
+}

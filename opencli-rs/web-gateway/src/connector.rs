@@ -72,10 +72,16 @@ fn write_servers(
 
 fn transport_json(transport: &McpServerTransportConfig) -> Value {
     match transport {
-        McpServerTransportConfig::Stdio { command, args, .. } => json!({
+        McpServerTransportConfig::Stdio {
+            command,
+            args,
+            env_vars,
+            ..
+        } => json!({
             "kind": "stdio",
             "command": command,
             "args": args,
+            "envVars": env_vars,
         }),
         McpServerTransportConfig::StreamableHttp { url, .. } => json!({
             "kind": "http",
@@ -114,7 +120,7 @@ fn catalog() -> Value {
                 "name": "Figma",
                 "description": "Read designs, components and variables from Figma files.",
                 "transport": { "kind": "http", "url": "https://mcp.figma.com/mcp" },
-                "note": "Requires a Figma account; the server asks you to sign in."
+                "note": "Requires a Figma account; the server asks you to sign in in a browser."
             },
             {
                 "id": "github",
@@ -123,9 +129,11 @@ fn catalog() -> Value {
                 "transport": {
                     "kind": "stdio",
                     "command": "npx",
-                    "args": ["-y", "@modelcontextprotocol/server-github"]
+                    "args": ["-y", "@modelcontextprotocol/server-github"],
+                    "envVars": ["GITHUB_PERSONAL_ACCESS_TOKEN"]
                 },
-                "note": "Set GITHUB_PERSONAL_ACCESS_TOKEN in your environment."
+                "note": "Needs a personal access token from github.com/settings/tokens.",
+                "keyHint": "GITHUB_PERSONAL_ACCESS_TOKEN"
             },
             {
                 "id": "filesystem",
@@ -209,11 +217,29 @@ fn add(opencli_home: &Path, params: &Value) -> Result<Value, String> {
                         .collect()
                 })
                 .unwrap_or_default();
+            // Named, not valued. Most MCP servers need a token, and a token
+            // written into the connector's configuration is a token in a file
+            // people share. The name is recorded here; the value lives with
+            // the other keys, in `$OPENCLI_HOME/.env`, and is passed through
+            // to the server's environment when it starts.
+            let env_vars = transport
+                .get("envVars")
+                .and_then(Value::as_array)
+                .map(|names| {
+                    names
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::trim)
+                        .filter(|name| !name.is_empty())
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default();
             McpServerTransportConfig::Stdio {
                 command: command.to_string(),
                 args,
                 env: None,
-                env_vars: Vec::new(),
+                env_vars,
                 cwd: None,
             }
         }
