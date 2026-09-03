@@ -426,6 +426,24 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   /*
+   * Whether the reader is at the end of the conversation.
+   *
+   * Recorded as they scroll, because by the time new content has been laid out
+   * the question can no longer be asked of the DOM: the new text has already
+   * pushed the end away, so measuring then says "far from the bottom" about a
+   * reader who never moved. That is what stopped the transcript following
+   * itself — one paragraph taller than the threshold and it gave up for the
+   * rest of the conversation, leaving the newest lines below the fold.
+   */
+  const atBottom = useRef(true);
+
+  const noticeScroll = useCallback(() => {
+    const box = transcriptRef.current;
+    if (!box) return;
+    atBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  }, []);
+
+  /*
    * Opening a conversation lands at the end of it.
    *
    * After the browser has laid the transcript out, not before: a single
@@ -435,6 +453,9 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
    * during it.
    */
   useEffect(() => {
+    // A conversation just opened is being read from its end, whatever the
+    // last one was left at.
+    atBottom.current = true;
     let second = 0;
     const first = requestAnimationFrame(() => {
       const box = transcriptRef.current;
@@ -457,10 +478,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
    * asking to be dragged back down every time a word arrives.
    */
   useEffect(() => {
-    const box = transcriptRef.current;
-    if (!box) return;
-    const room = box.scrollHeight - box.scrollTop - box.clientHeight;
-    if (room > 160) return;
+    if (!atBottom.current) return;
     requestAnimationFrame(() => {
       const settled = transcriptRef.current;
       if (settled) settled.scrollTop = settled.scrollHeight;
@@ -901,6 +919,10 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
     const sending = attachments;
     setDraft("");
     setAttachments([]);
+    // Sending is a statement about where you are in the conversation: at the
+    // end of it, waiting for the answer. Someone who scrolled up to check
+    // something and then typed should be brought back down with their message.
+    atBottom.current = true;
     await sendPrompt(text, sending);
   }, [attachments, draft, sendPrompt]);
 
@@ -1334,7 +1356,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
           <SettingsView client={client} version={appVersion} update={update} />
         ) : (
           <>
-            <div className="transcript" ref={transcriptRef}>
+            <div className="transcript" ref={transcriptRef} onScroll={noticeScroll}>
               <div className={`thread${items.length === 0 ? " empty" : ""}`}>
                 {items.length === 0 ? (
                   <div className="landing">
