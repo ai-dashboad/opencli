@@ -25,7 +25,7 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
     let params = message.get("params").cloned().unwrap_or(json!({}));
 
     let result = match method {
-        "secret/list" => list(opencli_home),
+        "secret/list" => list(opencli_home, &params),
         "secret/write" => write(opencli_home, &params),
         _ => Err(format!("unknown method `{method}`")),
     };
@@ -40,40 +40,41 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
 
 /// Which variables have a value, and where it came from.
 ///
+/// The caller says which names it cares about — the `env_key` of each provider
+/// it found in the configuration — and gets those back plus anything already
+/// stored. Guessing instead, by looking for variables whose names end in
+/// `_API_KEY`, listed a shell's unrelated credentials next to a button
+/// offering to replace them. Only names are ever returned, never values.
+///
 /// Both sources are reported because they behave differently: one exported in
 /// the shell wins over the file and cannot be changed from here, and saying so
 /// is better than letting someone type a new key into a box that then appears
 /// to do nothing.
-fn list(opencli_home: &Path) -> Result<Value, String> {
+fn list(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     let stored = secrets::read_secrets(opencli_home).map_err(|err| err.to_string())?;
-    let mut names: Vec<&String> = stored.keys().collect();
-    let from_environment: Vec<String> = std::env::vars()
-        .filter(|(key, value)| is_key_like(key) && !value.trim().is_empty())
-        .map(|(key, _)| key)
-        .collect();
-    for key in &from_environment {
-        if !stored.contains_key(key) {
-            names.push(key);
+
+    let mut names: Vec<String> = stored.keys().cloned().collect();
+    for asked in params
+        .get("names")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+    {
+        if !names.iter().any(|name| name == asked) {
+            names.push(asked.to_string());
         }
     }
     names.sort();
-    names.dedup();
 
     Ok(json!({
         "secrets": names.iter().map(|name| json!({
             "name": name,
-            "stored": stored.contains_key(*name),
-            "fromEnvironment": from_environment.contains(name),
+            "stored": stored.contains_key(name),
+            "fromEnvironment": std::env::var(name)
+                .is_ok_and(|value| !value.trim().is_empty()),
         })).collect::<Vec<_>>()
     }))
-}
-
-/// A rough guess at which of this process's variables are credentials, used
-/// only to report that one is already set. Deliberately narrow: listing every
-/// variable a shell happens to export would be both noise and a disclosure.
-fn is_key_like(name: &str) -> bool {
-    let name = name.to_ascii_uppercase();
-    name.ends_with("_API_KEY") || name.ends_with("_TOKEN") || name.ends_with("_KEY")
 }
 
 fn write(opencli_home: &Path, params: &Value) -> Result<Value, String> {
@@ -131,9 +132,30 @@ mod tests {
         )
         .expect("write");
 
-        let listed = list(home.path()).expect("list").to_string();
+        let listed = list(home.path(), &json!({})).expect("list").to_string();
         assert!(listed.contains("SOME_API_KEY"));
         // The whole point: the value does not come back.
         assert!(!listed.contains("sk-secret"), "{listed}");
+    }
+
+    #[test]
+    fn should_report_a_name_that_is_asked_about_but_not_set() {
+        // A provider declares the variable it needs; the panel has to be able
+        // to say "this one is missing" rather than leaving it off the list.
+        let home = tempfile::tempdir().expect("temp dir");
+        let listed = list(home.path(), &json!({ "names": ["NEEDED_KEY"] })).expect("list");
+        let first = &listed["secrets"][0];
+        assert_eq!(first["name"], "NEEDED_KEY");
+        assert_eq!(first["stored"], false);
+    }
+
+    #[test]
+    fn should_not_list_a_shell_variable_nobody_asked_about() {
+        // Guessing by name listed a shell's unrelated credentials beside a
+        // button offering to replace them.
+        let home = tempfile::tempdir().expect("temp dir");
+        unsafe { std::env::set_var("UNRELATED_API_KEY", "not ours") };
+        let listed = list(home.path(), &json!({})).expect("list").to_string();
+        assert!(!listed.contains("UNRELATED_API_KEY"), "{listed}");
     }
 }

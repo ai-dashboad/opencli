@@ -278,14 +278,14 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
 
   const reload = useCallback(async () => {
     try {
-      const [rows, catalogued, keys] = await Promise.all([
+      const [rows, catalogued] = await Promise.all([
         client.listConnectorConfigs(),
         client.connectorCatalog(),
-        client.listSecrets().catch(() => [] as SecretStatus[]),
       ]);
+      const wanted = rows.flatMap((row) => row.transport.envVars ?? []);
       setConfigured(rows);
       setOffers(catalogued);
-      setSecrets(keys);
+      setSecrets(await client.listSecrets(wanted).catch(() => [] as SecretStatus[]));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -668,10 +668,20 @@ export function SettingsView({
 
   const reload = useCallback(async () => {
     try {
-      const [config, available, keys] = await Promise.all([
-        client.readConfig(),
+      const config = await client.readConfig();
+      // Which variables to ask about: the ones the configured providers say
+      // they read a key from. Anything else in the environment is somebody
+      // else's business.
+      const providers = (config.config as Record<string, unknown> | undefined)?.[
+        "model_providers"
+      ];
+      const wanted = Object.values((providers ?? {}) as Record<string, unknown>)
+        .map((provider) => (provider as Record<string, unknown>)?.env_key)
+        .filter((key): key is string => typeof key === "string" && key.length > 0);
+
+      const [available, keys] = await Promise.all([
         client.listModels().catch(() => [] as ModelOption[]),
-        client.listSecrets().catch(() => [] as SecretStatus[]),
+        client.listSecrets(wanted).catch(() => [] as SecretStatus[]),
       ]);
       setResult(config);
       setModels(available);

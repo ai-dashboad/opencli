@@ -2196,9 +2196,16 @@ export class OpenCliClient {
    *
    * Names and whether each has a value — never the values themselves. A key on
    * screen is a key in a screenshot.
+   *
+   * `names` says which variables the caller cares about, on top of whatever is
+   * already stored: the `env_key` of each configured provider, or the ones a
+   * connector declares. Without it the server would have to guess, and
+   * guessing by name listed a shell's unrelated credentials.
    */
-  async listSecrets(): Promise<SecretStatus[]> {
-    const result = (await this.request("secret/list", {})) as { secrets?: SecretStatus[] };
+  async listSecrets(names: string[] = []): Promise<SecretStatus[]> {
+    const result = (await this.request("secret/list", { names })) as {
+      secrets?: SecretStatus[];
+    };
     return result.secrets ?? [];
   }
 
