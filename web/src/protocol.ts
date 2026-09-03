@@ -157,6 +157,27 @@ export interface ThreadSummary {
   name?: string;
 }
 
+/** What a bot is doing, as far as anyone watching can tell. */
+export type BotStatus = "idle" | "working" | "waitingForYou" | "errored";
+
+/** A conversation that keeps a job. */
+export interface Bot {
+  id: string;
+  /** The department it works in, by id. */
+  department: string;
+  departmentName: string;
+  name: string;
+  /** What it is for. Re-sent as instructions whenever its chat is reopened. */
+  job: string;
+  /** The conversation that is this bot, once it has had one. */
+  threadId: string | null;
+  status: BotStatus;
+  /** How another bot refers to it: `finance/reconciler`. */
+  address: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** A skill available in the current working directory. */
 export interface SkillSummary {
   name: string;
@@ -890,6 +911,14 @@ export class OpenCliClient {
   #shownAs = new Map<string, string>();
   /** The thread the agent has actually been given, if any. */
   #loadedThreadId: string | null = null;
+  /**
+   * A bot's job, held until the thread is actually loaded.
+   *
+   * Opening a chat only reads it; the load is deferred to the first message.
+   * The job has to travel with that load, so it waits here rather than being
+   * sent at a moment when there is nothing to send it to.
+   */
+  #standingInstructions: string | null = null;
   #pendingChanges = new Map<string, FileChange[]>();
 
   constructor(events: ClientEvents = {}) {
@@ -948,6 +977,9 @@ export class OpenCliClient {
 
     this.#threadId = started.thread?.id ?? started.threadId ?? null;
     this.#loadedThreadId = this.#threadId;
+    // Already sent with the start; holding onto it would send it twice on the
+    // next reconnect.
+    this.#standingInstructions = null;
     if (!this.#threadId) throw new Error("server did not return a thread id");
     this.#events.onStatus?.("ready");
   }
@@ -1378,7 +1410,16 @@ export class OpenCliClient {
     if (!this.#threadId) throw new Error("no thread open");
     // The first message to a chat that was only read is what loads it.
     if (this.#loadedThreadId !== this.#threadId) {
-      await this.request("thread/resume", { threadId: this.#threadId });
+      // A bot's job goes back in here, and this is the only place it can.
+      // `thread/start` took it once and resuming never sent it again, so
+      // reopening a bot's chat produced an agent holding the transcript with
+      // no idea it was the one that reconciles the ledger every morning.
+      await this.request("thread/resume", {
+        threadId: this.#threadId,
+        ...(this.#standingInstructions
+          ? { developerInstructions: this.#standingInstructions }
+          : {}),
+      });
       this.#loadedThreadId = this.#threadId;
     }
     const attachments = options.attachments ?? [];
@@ -1486,8 +1527,15 @@ export class OpenCliClient {
    * transcript — the conversation looked lost. The history comes from
    * `thread/read`, whose stored items use the same shapes as the live stream.
    */
-  async resumeThread(id: string): Promise<ThreadItem[]> {
+  async resumeThread(
+    id: string,
+    options: {
+      /** A bot's job, re-sent when this thread is loaded. */
+      instructions?: string;
+    } = {},
+  ): Promise<ThreadItem[]> {
     this.#threadId = id;
+    this.#standingInstructions = options.instructions?.trim() || null;
     this.#streaming.clear();
     this.#shownAs.clear();
     this.#thought = null;
@@ -1787,6 +1835,49 @@ export class OpenCliClient {
       // in particular instead.
       return ".";
     }
+  }
+
+  /** Every bot, or one department's roster. */
+  async listBots(department?: string): Promise<Bot[]> {
+    const result = (await this.request(
+      "bot/list",
+      department ? { department } : {},
+    )) as { data?: unknown[] };
+    return (result.data ?? []) as Bot[];
+  }
+
+  async createBot(bot: { department: string; name: string; job?: string }): Promise<Bot> {
+    return (await this.request("bot/create", bot)) as Bot;
+  }
+
+  async updateBot(
+    id: string,
+    changes: { name?: string; job?: string; threadId?: string; status?: BotStatus },
+  ): Promise<Bot> {
+    return (await this.request("bot/update", { id, ...changes })) as Bot;
+  }
+
+  async deleteBot(id: string): Promise<boolean> {
+    const result = (await this.request("bot/delete", { id })) as { removed?: boolean };
+    return result.removed === true;
+  }
+
+  /**
+   * Who an address points at, and whether it may be written to from here.
+   *
+   * Both in one answer, because a caller that resolved a bot and then messaged
+   * it could skip the department's policy — and the policy is the only thing
+   * keeping one department's bots from driving another's.
+   */
+  async resolveBot(
+    address: string,
+    from: string,
+  ): Promise<{ found: boolean; allowed?: boolean; bot?: Bot }> {
+    return (await this.request("bot/resolve", { address, from })) as {
+      found: boolean;
+      allowed?: boolean;
+      bot?: Bot;
+    };
   }
 
   async clearRuns(): Promise<number> {

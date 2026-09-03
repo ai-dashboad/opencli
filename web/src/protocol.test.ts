@@ -976,7 +976,7 @@ describe("when the agent stops to ask", () => {
     // rather than this quietly asserting a default of its own.
     const { client, socket } = await connected();
     await client.startThread({ cwd: "/work" });
-    await client.send("go");
+    void client.send("go");
     await settle();
 
     const turn = socket.parsedSent().find((sent) => sent.method === "turn/start")!;
@@ -1825,5 +1825,67 @@ describe("choosing where to install", () => {
 
     expect(targets).toHaveLength(1);
     expect(targets[0].memoryGb).toBeNull();
+  });
+});
+
+describe("a bot's job", () => {
+  beforeEach(() => {
+    FakeSocket.last = undefined as unknown as FakeSocket;
+  });
+
+  it("should travel with the load when a bot's chat is reopened", async () => {
+    // The whole reason the bot record exists. `thread/start` took the job
+    // once; resuming never sent it again, so reopening produced an agent with
+    // the transcript and no idea what it was for.
+    const { client, socket } = await connected();
+    await client.resumeThread("stored-thread", {
+      instructions: "Match the ledger against the bank statement every morning.",
+    });
+    // `send` waits for the turn to end; what went out is the question here.
+    void client.send("carry on");
+    await settle();
+
+    const resume = socket
+      .parsedSent()
+      .find((frame) => frame.method === "thread/resume");
+    expect(resume, "the chat was never loaded").toBeDefined();
+    expect((resume?.params as Record<string, unknown>).developerInstructions).toBe(
+      "Match the ledger against the bank statement every morning.",
+    );
+  });
+
+  it("should send nothing extra for a chat that is not a bot's", async () => {
+    const { client, socket } = await connected();
+    await client.resumeThread("stored-thread");
+    void client.send("hello");
+    await settle();
+
+    const resume = socket
+      .parsedSent()
+      .find((frame) => frame.method === "thread/resume");
+    expect(
+      (resume?.params as Record<string, unknown>).developerInstructions,
+    ).toBeUndefined();
+  });
+
+  it("should not carry one bot's job into the next chat opened", async () => {
+    // The leak that matters. A job held past the chat it belongs to would be
+    // sent to whatever was opened next, telling an unrelated conversation it
+    // is the reconciler.
+    const { client, socket } = await connected();
+    await client.resumeThread("bot-thread", { instructions: "be the reconciler" });
+    await client.resumeThread("someone-elses-thread");
+    void client.send("hello");
+    await settle();
+
+    const resumes = socket
+      .parsedSent()
+      .filter((frame) => frame.method === "thread/resume");
+    expect(resumes.length).toBeGreaterThan(0);
+    for (const resume of resumes) {
+      expect(
+        (resume.params as Record<string, unknown>).developerInstructions,
+      ).toBeUndefined();
+    }
   });
 });
