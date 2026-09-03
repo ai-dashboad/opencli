@@ -71,7 +71,11 @@ personal/
 # os
 .DS_Store
 Thumbs.db
-Icon?
+# macOS writes a folder icon into a file named `Icon` followed by a carriage
+# return. Written as `Icon?` it also matched `icons/` — which is where the
+# desktop app's icon lives, so the icon was never committed and every build on
+# a fresh checkout failed with "failed to open icon".
+Icon[\r]
 .Spotlight-V100/
 
 # Unwanted package managers

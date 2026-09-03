@@ -81,7 +81,12 @@ for arg in "\$@"; do
   args+=("\${arg}")
 done
 
-exec "${zig_bin}" cc -target "${zig_target}" "\${args[@]}"
+# `zig cc` turns on undefined-behaviour sanitizing by default, and nothing
+# links its runtime — so every C dependency built this way ends in a wall of
+# "undefined reference to __ubsan_handle_*" at link time. Turned off here
+# rather than worked around by preloading libubsan, which is what the workflow
+# used to do and which only moved the problem.
+exec "${zig_bin}" cc -target "${zig_target}" -fno-sanitize=undefined "\${args[@]}"
 EOF
   cat >"${cxx}" <<EOF
 #!/usr/bin/env bash
@@ -109,7 +114,7 @@ for arg in "\$@"; do
   args+=("\${arg}")
 done
 
-exec "${zig_bin}" c++ -target "${zig_target}" "\${args[@]}"
+exec "${zig_bin}" c++ -target "${zig_target}" -fno-sanitize=undefined "\${args[@]}"
 EOF
   chmod +x "${cc}" "${cxx}"
 
