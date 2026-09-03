@@ -197,6 +197,11 @@ impl Session {
     async fn authenticate(&mut self, settings: &HostSettings, user: &str) -> Result<(), Failure> {
         let mut tried = Vec::new();
 
+        // The agent is a Unix idea here: `connect_env` reads `SSH_AUTH_SOCK`,
+        // and on Windows the function does not exist at all — the agent there
+        // speaks over a named pipe. Windows falls through to the identity
+        // files, which is what it would have done anyway.
+        #[cfg(unix)]
         if let Ok(mut agent) = russh::keys::agent::client::AgentClient::connect_env().await
             && let Ok(identities) = agent.request_identities().await
         {
