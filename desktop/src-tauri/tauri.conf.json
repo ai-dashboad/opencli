@@ -46,7 +46,8 @@
     ],
     "createUpdaterArtifacts": true,
     "icon": [
-      "icons/icon.png"
+      "icons/icon.png",
+      "icons/icon.ico"
     ],
     "macOS": {
       "minimumSystemVersion": "10.15"
