@@ -4688,10 +4688,8 @@ dependencies = [
 name = "opencli-ssh"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "russh",
  "tokio",
- "tracing",
 ]
 
 [[package]]

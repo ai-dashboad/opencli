@@ -132,6 +132,15 @@ function researchInstructions(preferences: Preferences): string {
  * column of one repeated word — which is what it looked like before commands
  * were rendered at all, because narration was the only thing left in it.
  */
+/** How a background run's state reads on the landing screen. */
+const RUN_STATUS_WORD: Record<Run["status"], string> = {
+  queued: "queued",
+  running: "running",
+  done: "finished",
+  failed: "failed",
+  cancelled: "cancelled",
+};
+
 const KIND_LABEL: Record<ThreadItem["kind"], string> = {
   user: "You",
   agent: "",
@@ -1320,14 +1329,25 @@ export default function App() {
                     {runs.length > 0 ? (
                       <section className="recent">
                         <div className="recent-head">
-                          <span>Active</span>
+                          {/* Called what it is. Every one of these used to be
+                              listed under "Active" whatever its status, so a
+                              scheduled task that had run five times and
+                              finished five times read as five things still
+                              going on. */}
+                          <span>
+                            {runs.some(
+                              (run) => run.status === "running" || run.status === "queued",
+                            )
+                              ? "Background runs"
+                              : "Recent background runs"}
+                          </span>
                           <button
                             className="link"
                             onClick={() => {
                               void clientRef.current?.clearRuns().then(refreshThreads);
                             }}
                           >
-                            Clear active
+                            Clear finished
                           </button>
                         </div>
                         <ul>
@@ -1343,7 +1363,10 @@ export default function App() {
                                 title={run.prompt}
                               >
                                 <strong>{run.title}</strong>
-                                <em>{ago(run.finishedAt ?? run.startedAt)}</em>
+                                <em>
+                                  {RUN_STATUS_WORD[run.status]} ·{" "}
+                                  {ago(run.finishedAt ?? run.startedAt)}
+                                </em>
                               </button>
                             </li>
                           ))}
