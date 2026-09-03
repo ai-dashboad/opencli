@@ -44,6 +44,17 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
 use tokio::sync::mpsc;
 
+/// Where a conversation starts when nobody has said where.
+///
+/// Re-exported so the desktop shell can ask for it without depending on the
+/// core crate directly — the answer has to be the same one the agent would
+/// give, and two implementations of "the default directory" is how a default
+/// drifts away from what it is documented to be.
+pub fn default_workspace() -> std::io::Result<PathBuf> {
+    let home = opencli_core::config::find_opencli_home()?;
+    opencli_core::config::default_workspace(&home)
+}
+
 /// How the gateway should listen.
 #[derive(Debug, Clone)]
 pub struct ServeConfig {
@@ -287,7 +298,8 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             .or_else(|| dispatch::handle(&text, &state.opencli_home))
             .or_else(|| connector::handle(&text, &state.opencli_home))
             .or_else(|| plugin::handle(&text, &state.opencli_home))
-            .or_else(|| secrets::handle(&text, &state.opencli_home));
+            .or_else(|| secrets::handle(&text, &state.opencli_home))
+            .or_else(|| workspace::handle(&text, &state.opencli_home));
         if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -359,6 +371,7 @@ mod runtime;
 mod schedule;
 mod secrets;
 mod server;
+mod workspace;
 
 mod futures_lite_split {
     use axum::extract::ws::Message;

@@ -1901,6 +1901,30 @@ pub fn find_opencli_home() -> std::io::Result<PathBuf> {
     opencli_utils_home_dir::find_opencli_home()
 }
 
+/// Where a conversation starts when nobody has said where.
+///
+/// A directory of its own, not the home directory. The reason is that the
+/// default does not act alone: `workspace-write` — which is what anyone who
+/// wants the agent to actually do something will be running — makes the
+/// working directory writable, and the two together quietly handed over every
+/// file the person owns. Their keys, their documents, their mail, writable
+/// without a prompt, because a default met a setting and nobody chose the
+/// result.
+///
+/// Reads are a separate matter and this does not touch them: the sandbox does
+/// not restrict reading at all, on any setting, which is worth knowing before
+/// assuming a working directory is a boundary. What this bounds is what can be
+/// changed.
+///
+/// Created on demand, because a directory that does not exist is not somewhere
+/// a conversation can start; if it cannot be created the home directory is
+/// still wrong, so the caller is told and can ask.
+pub fn default_workspace(opencli_home: &Path) -> std::io::Result<PathBuf> {
+    let workspace = opencli_home.join("workspace");
+    std::fs::create_dir_all(&workspace)?;
+    Ok(workspace)
+}
+
 /// Returns the path to the folder where OpenCLI logs are stored. Does not verify
 /// that the directory exists.
 pub fn log_dir(cfg: &Config) -> std::io::Result<PathBuf> {

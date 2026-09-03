@@ -1768,6 +1768,27 @@ export class OpenCliClient {
   }
 
   /** Forget every finished run. Returns how many were cleared. */
+  /**
+   * Where a conversation starts when nobody has said where.
+   *
+   * Asked of the gateway rather than defaulting to `"."` here, because the
+   * answer is a boundary and not a convenience: the working directory is what
+   * `workspace-write` makes writable, and `"."` is wherever the gateway
+   * happened to be started from. The desktop shell asks its own process the
+   * same question and must get the same answer.
+   */
+  async defaultWorkspace(): Promise<string> {
+    try {
+      const result = (await this.request("workspace/default", {})) as { path?: string };
+      return result.path ?? ".";
+    } catch {
+      // An older gateway does not know the method. Falling back to the home
+      // directory is what this exists to avoid, so it falls back to nothing
+      // in particular instead.
+      return ".";
+    }
+  }
+
   async clearRuns(): Promise<number> {
     const result = (await this.request("dispatch/clear", {})) as { cleared?: number };
     return result.cleared ?? 0;

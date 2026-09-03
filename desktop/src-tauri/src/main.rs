@@ -60,14 +60,29 @@ fn gateway_url(state: tauri::State<'_, GatewayUrl>) -> Result<String, String> {
 /// Directory the agent should start in.
 ///
 /// A desktop launch has no shell to inherit a working directory from, and an
-/// app that opens onto a form asking for a path is not usable. Home is a safe,
-/// always-valid default; the user can change it in the UI.
+/// app that opens onto a form asking for a path is not usable — so there has to
+/// be a default, and for a long time it was the home directory, described here
+/// as safe.
+///
+/// It was not. The working directory is writable under `workspace-write`, which
+/// is the setting anyone who wants the agent to do work is running, so every
+/// new conversation began with the whole of `~` open to it: keys, documents,
+/// mail, changeable without a prompt. Neither the default nor the setting is
+/// wrong on its own, which is exactly why it went unnoticed.
+///
+/// A workspace of its own instead. Anything else is a directory the person
+/// chose, which is the point.
 #[tauri::command]
 fn default_cwd() -> String {
-    std::env::var("HOME")
-        .ok()
-        .filter(|home| !home.is_empty())
-        .unwrap_or_else(|| "/".to_string())
+    opencli_web_gateway::default_workspace()
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_else(|err| {
+            // Falling back to home would put back the thing this exists to
+            // avoid, so the fallback is somewhere harmless and the person is
+            // told where they ended up.
+            tracing::warn!("could not prepare the default workspace: {err}");
+            std::env::temp_dir().to_string_lossy().into_owned()
+        })
 }
 
 /// Ask the OS for a directory, returning `None` if the user cancelled.

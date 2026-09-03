@@ -593,7 +593,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
         // Memory is an enhancement; a chat must still open without it.
       }
       await client.startThread({
-        cwd: directory || ".",
+        cwd: directory || (await client.defaultWorkspace()),
         // Read from the ref, not the `model` state: this is created before the
         // first model list arrives, so closing over the state would pin every
         // thread to the empty initial value.
