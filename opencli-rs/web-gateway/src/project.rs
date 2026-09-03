@@ -30,6 +30,7 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
         "project/attachThread" => attach_thread(opencli_home, &params),
         "project/root" => Ok(root_json(opencli_home)),
         "project/files" => files(opencli_home, &params),
+        "project/setAccess" => set_access(opencli_home, &params),
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -52,6 +53,8 @@ fn project_json(project: &projects::Project) -> Value {
         "updatedAt": project.updated_at,
         "pinned": project.pinned,
         "threadIds": project.thread_ids,
+        "connectors": project.connectors,
+        "acceptsFrom": project.accepts_from,
     })
 }
 
@@ -216,14 +219,28 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
         .map(str::trim)
         .filter(|name| !name.is_empty())
         .ok_or("name is required")?;
-    // A project without a directory would silently run in the gateway's own
-    // working directory, which is never what the user meant.
-    let cwd = params
+    // A department without a directory would silently run in the gateway's own
+    // working directory, which is never what the user meant. Given none, it
+    // gets one of its own under the workspace — which is also the boundary
+    // `workspace-write` enforces, so finance and engineering cannot write in
+    // each other's.
+    let owned;
+    let cwd = match params
         .get("cwd")
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|cwd| !cwd.is_empty())
-        .ok_or("cwd is required")?;
+    {
+        Some(given) => given,
+        None => {
+            let slug = projects::directory_slug(name);
+            owned = opencli_core::config::department_workspace(opencli_home, &slug)
+                .map_err(|err| format!("could not make a directory for {name}: {err}"))?;
+            owned
+                .to_str()
+                .ok_or("the directory name is not valid UTF-8")?
+        }
+    };
     let instructions = optional_text(params, "instructions").unwrap_or_default();
     let description = optional_text(params, "description").unwrap_or_default();
 
@@ -282,6 +299,31 @@ fn delete(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     Ok(json!({ "forgottenMemories": forgotten }))
 }
 
+/// Change what a department may reach and who may reach it.
+///
+/// A list given as `null` is left alone, so a client can set the connectors
+/// without also declaring the messaging policy — and cannot wipe one by
+/// forgetting to send it.
+fn set_access(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let id = required_id(params)?;
+    let names = |key: &str| -> Option<Vec<String>> {
+        params.get(key)?.as_array().map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+    };
+
+    let updated = projects::set_access(opencli_home, id, names("connectors"), names("acceptsFrom"))
+        .map_err(|err| format!("could not save: {err}"))?
+        .ok_or_else(|| format!("no project with id `{id}`"))?;
+    Ok(project_json(&updated))
+}
+
 fn attach_thread(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     let id = required_id(params)?;
     let thread_id = params
@@ -336,19 +378,23 @@ mod tests {
     }
 
     #[test]
-    fn should_reject_a_project_without_a_directory() {
+    fn should_never_leave_a_department_running_wherever_the_gateway_started() {
+        // This used to be an error, on the reasoning that a project without a
+        // directory would run wherever the gateway happened to be started
+        // from. The reasoning holds; refusing was the wrong remedy, because
+        // the answer is not for the person to supply a path but for the
+        // department to have one of its own — which is also the boundary
+        // `workspace-write` enforces between departments.
         let dir = tempdir().expect("tempdir");
-        // Without a cwd the project's threads would run wherever the gateway
-        // happens to have been started.
         let reply = call(
             r#"{"method":"project/create","id":1,"params":{"name":"x"}}"#,
             dir.path(),
         );
-        assert!(
-            reply["error"]["message"]
-                .as_str()
-                .is_some_and(|message| message.contains("cwd"))
-        );
+        let cwd = reply["result"]["cwd"]
+            .as_str()
+            .expect("a directory of its own");
+        assert!(std::path::Path::new(cwd).is_dir());
+        assert!(cwd.starts_with(&dir.path().to_string_lossy().to_string()));
     }
 
     #[test]
@@ -658,5 +704,61 @@ mod tests {
                 .expect("data")
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn should_give_a_department_a_directory_of_its_own_when_none_was_chosen() {
+        // The boundary `workspace-write` enforces. Left to default to the home
+        // directory, as it used to, every department would share one.
+        let dir = tempdir().expect("tempdir");
+        let created = call(
+            r#"{"method":"project/create","id":1,"params":{"name":"Finance"}}"#,
+            dir.path(),
+        );
+        let cwd = created["result"]["cwd"].as_str().expect("cwd");
+        assert!(cwd.ends_with("workspace/finance"), "got {cwd}");
+        assert!(std::path::Path::new(cwd).is_dir());
+    }
+
+    #[test]
+    fn should_keep_two_departments_out_of_each_others_directory() {
+        let dir = tempdir().expect("tempdir");
+        let one = call(
+            r#"{"method":"project/create","id":1,"params":{"name":"Finance"}}"#,
+            dir.path(),
+        );
+        let two = call(
+            r#"{"method":"project/create","id":2,"params":{"name":"Engineering"}}"#,
+            dir.path(),
+        );
+        assert_ne!(one["result"]["cwd"], two["result"]["cwd"]);
+    }
+
+    #[test]
+    fn should_report_a_departments_access_as_it_is_set() {
+        let dir = tempdir().expect("tempdir");
+        let created = call(
+            r#"{"method":"project/create","id":1,"params":{"name":"Finance"}}"#,
+            dir.path(),
+        );
+        let id = created["result"]["id"].as_str().expect("id");
+
+        // Nothing named yet: every connector, no inbound department.
+        assert_eq!(created["result"]["connectors"], serde_json::json!([]));
+        assert_eq!(created["result"]["acceptsFrom"], serde_json::json!([]));
+
+        let set = call(
+            &format!(
+                r#"{{"method":"project/setAccess","id":2,"params":
+                    {{"id":"{id}","connectors":["gmail","slack"]}}}}"#
+            ),
+            dir.path(),
+        );
+        assert_eq!(
+            set["result"]["connectors"],
+            serde_json::json!(["gmail", "slack"])
+        );
+        // Not sent, so not wiped.
+        assert_eq!(set["result"]["acceptsFrom"], serde_json::json!([]));
     }
 }

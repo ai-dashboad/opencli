@@ -1925,6 +1925,22 @@ pub fn default_workspace(opencli_home: &Path) -> std::io::Result<PathBuf> {
     Ok(workspace)
 }
 
+/// Where one department's work lives.
+///
+/// A directory each, under the workspace, because the working directory is
+/// what `workspace-write` makes writable and a department is the unit people
+/// already reason about when they say who may see what. Finance keeps payroll
+/// and engineering keeps the repository; neither has any business writing in
+/// the other, and in a real company that is not a preference.
+///
+/// `slug` comes from `projects::directory_slug`, so a department named in any
+/// language gets a directory it can be recognised by.
+pub fn department_workspace(opencli_home: &Path, slug: &str) -> std::io::Result<PathBuf> {
+    let directory = default_workspace(opencli_home)?.join(slug);
+    std::fs::create_dir_all(&directory)?;
+    Ok(directory)
+}
+
 /// Returns the path to the folder where OpenCLI logs are stored. Does not verify
 /// that the directory exists.
 pub fn log_dir(cfg: &Config) -> std::io::Result<PathBuf> {

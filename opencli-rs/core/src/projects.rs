@@ -53,6 +53,51 @@ pub struct Project {
     /// Threads opened under this project, oldest first.
     #[serde(default)]
     pub thread_ids: Vec<String>,
+    /// Connectors this department's bots may use, by name.
+    ///
+    /// Empty means every configured connector, which is what every project
+    /// created before this field existed gets. That is the permissive reading
+    /// and it is the right one for an upgrade: a department that suddenly lost
+    /// access to the servers its work depends on would look broken, where one
+    /// that keeps it looks unchanged.
+    #[serde(default)]
+    pub connectors: Vec<String>,
+    /// Departments allowed to send messages to this one, by id.
+    ///
+    /// Empty — the default — means none: a bot may hand work to a bot beside
+    /// it and not to one in another department. Isolating the finance
+    /// directory from the engineering one and then letting either
+    /// department's bots drive the other's would be isolation in name only.
+    #[serde(default)]
+    pub accepts_from: Vec<String>,
+}
+
+/// Turn a department's name into something usable as a directory.
+///
+/// Departments are named by the person who creates them, in whatever language
+/// they think in, and that name becomes a path. Anything not plainly safe in a
+/// path is replaced rather than stripped, so two departments cannot collapse
+/// into one directory by having their punctuation removed.
+pub fn directory_slug(name: &str) -> String {
+    let mut slug = String::with_capacity(name.len());
+    for character in name.chars() {
+        if character.is_ascii_alphanumeric() {
+            slug.push(character.to_ascii_lowercase());
+        } else if character.is_alphanumeric() {
+            // Kept as it is: a department called 财务 should have a directory
+            // it can be recognised by, and every filesystem this runs on takes
+            // it.
+            slug.push(character);
+        } else {
+            slug.push('-');
+        }
+    }
+    let trimmed = slug.trim_matches('-').to_string();
+    if trimmed.is_empty() {
+        "department".to_string()
+    } else {
+        trimmed
+    }
 }
 
 fn store_path(opencli_home: &Path) -> PathBuf {
@@ -93,6 +138,8 @@ pub fn create(
         updated_at: now,
         pinned: false,
         thread_ids: Vec::new(),
+        connectors: Vec::new(),
+        accepts_from: Vec::new(),
     };
     let mut projects = load(opencli_home);
     projects.push(project.clone());
@@ -154,6 +201,70 @@ pub fn update(
     let updated = project.clone();
     save(opencli_home, &projects)?;
     Ok(Some(updated))
+}
+
+/// Change what a department may reach and who may reach it.
+///
+/// Separate from `update` rather than two more of its arguments. Renaming a
+/// department and changing who may drive its bots are not the same kind of
+/// edit: one is a label, the other is the boundary, and the boundary deserves
+/// its own call — and its own place to audit — rather than riding along with
+/// nine positional parameters.
+pub fn set_access(
+    opencli_home: &Path,
+    id: &str,
+    connectors: Option<Vec<String>>,
+    accepts_from: Option<Vec<String>>,
+) -> std::io::Result<Option<Project>> {
+    let mut projects = load(opencli_home);
+    let Some(project) = projects.iter_mut().find(|project| project.id == id) else {
+        return Ok(None);
+    };
+    if let Some(connectors) = connectors {
+        project.connectors = connectors;
+    }
+    if let Some(accepts_from) = accepts_from {
+        // A department listing itself is harmless and confusing; bots beside
+        // each other never needed permission.
+        project.accepts_from = accepts_from.into_iter().filter(|from| from != id).collect();
+    }
+    project.updated_at = now_seconds();
+    let updated = project.clone();
+    save(opencli_home, &projects)?;
+    Ok(Some(updated))
+}
+
+/// Whether this department's bots may use a connector.
+///
+/// An empty list means all of them, which is what every department created
+/// before the list existed has. Read the other way — empty meaning none — an
+/// upgrade would take away the servers each department's work depends on and
+/// look like a product that had broken.
+pub fn allows_connector(project: &Project, name: &str) -> bool {
+    project.connectors.is_empty()
+        || project
+            .connectors
+            .iter()
+            .any(|allowed| allowed.eq_ignore_ascii_case(name))
+}
+
+/// Whether a bot in `from_department` may send work into this one.
+///
+/// Same department, always: handing work to the bot beside you is the ordinary
+/// case and asking permission for it would make the feature tiresome enough to
+/// be turned off wholesale.
+///
+/// Another department, only when this one has said so. Isolating finance's
+/// directory from engineering's and then letting either department's bots
+/// drive the other's would be isolation in name only — and the direction
+/// matters: finance deciding to accept work from engineering says nothing
+/// about engineering accepting work from finance.
+pub fn accepts_message_from(into: &Project, from_department: &str) -> bool {
+    into.id == from_department
+        || into
+            .accepts_from
+            .iter()
+            .any(|allowed| allowed == from_department)
 }
 
 /// Record that a thread belongs to a project.
@@ -336,5 +447,105 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         std::fs::write(store_path(dir.path()), "{ not json").expect("write");
         assert!(load(dir.path()).is_empty());
+    }
+
+    fn department(home: &std::path::Path, name: &str) -> Project {
+        create(
+            home,
+            name.to_string(),
+            home.to_string_lossy().into_owned(),
+            String::new(),
+            String::new(),
+        )
+        .expect("create")
+    }
+
+    #[test]
+    fn should_let_a_department_use_every_connector_until_it_says_otherwise() {
+        // What every department created before the list existed has. Reading
+        // an empty list as "none" would take away the servers each
+        // department's work depends on, on upgrade, and look like a break.
+        let dir = tempdir().expect("tempdir");
+        let finance = department(dir.path(), "Finance");
+        assert!(allows_connector(&finance, "github"));
+        assert!(allows_connector(&finance, "anything at all"));
+    }
+
+    #[test]
+    fn should_hold_a_department_to_the_connectors_it_lists() {
+        let dir = tempdir().expect("tempdir");
+        let finance = department(dir.path(), "Finance");
+        let finance = set_access(
+            dir.path(),
+            &finance.id,
+            Some(vec!["gmail".to_string()]),
+            None,
+        )
+        .expect("set")
+        .expect("found");
+
+        assert!(allows_connector(&finance, "gmail"));
+        assert!(
+            allows_connector(&finance, "Gmail"),
+            "named however it was configured"
+        );
+        assert!(!allows_connector(&finance, "github"));
+    }
+
+    #[test]
+    fn should_let_bots_beside_each_other_hand_work_over() {
+        // The ordinary case. Asking permission for it would make the feature
+        // tiresome enough to be switched off wholesale.
+        let dir = tempdir().expect("tempdir");
+        let finance = department(dir.path(), "Finance");
+        assert!(accepts_message_from(&finance, &finance.id));
+    }
+
+    #[test]
+    fn should_refuse_work_from_another_department_by_default() {
+        // Isolating finance's directory from engineering's and then letting
+        // either department's bots drive the other's would be isolation in
+        // name only.
+        let dir = tempdir().expect("tempdir");
+        let finance = department(dir.path(), "Finance");
+        let engineering = department(dir.path(), "Engineering");
+        assert!(!accepts_message_from(&finance, &engineering.id));
+    }
+
+    #[test]
+    fn should_accept_work_from_a_department_it_has_named() {
+        let dir = tempdir().expect("tempdir");
+        let finance = department(dir.path(), "Finance");
+        let engineering = department(dir.path(), "Engineering");
+        let finance = set_access(
+            dir.path(),
+            &finance.id,
+            None,
+            Some(vec![engineering.id.clone()]),
+        )
+        .expect("set")
+        .expect("found");
+
+        assert!(accepts_message_from(&finance, &engineering.id));
+        // One direction only: finance accepting work from engineering says
+        // nothing about engineering accepting work from finance.
+        let engineering = get(dir.path(), &engineering.id).expect("found");
+        assert!(!accepts_message_from(&engineering, &finance.id));
+    }
+
+    #[test]
+    fn should_give_a_department_named_in_any_language_a_usable_directory() {
+        assert_eq!(directory_slug("Finance"), "finance");
+        assert_eq!(directory_slug("R&D / Platform"), "r-d---platform");
+        assert_eq!(directory_slug("财务部"), "财务部");
+        // Nothing usable left, and a department still needs somewhere to work.
+        assert_eq!(directory_slug("!!!"), "department");
+    }
+
+    #[test]
+    fn should_not_let_two_departments_collapse_into_one_directory() {
+        // Stripping punctuation instead of replacing it would map both of
+        // these to `ab`, and one department would write in the other's files.
+        assert_ne!(directory_slug("a-b"), directory_slug("ab"));
     }
 }
