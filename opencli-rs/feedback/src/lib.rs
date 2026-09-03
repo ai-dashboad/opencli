@@ -1,18 +1,14 @@
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
-use std::collections::btree_map::Entry;
 use std::fs;
 use std::io::Write;
 use std::io::{self};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Duration;
 
 use anyhow::Result;
-use anyhow::anyhow;
 use opencli_protocol::ThreadId;
-use opencli_protocol::protocol::SessionSource;
 use tracing::Event;
 use tracing::Level;
 use tracing::field::Visit;
@@ -22,9 +18,6 @@ use tracing_subscriber::fmt::writer::MakeWriter;
 use tracing_subscriber::registry::LookupSpan;
 
 const DEFAULT_MAX_BYTES: usize = 4 * 1024 * 1024; // 4 MiB
-const SENTRY_DSN: &str =
-    "https://ae32ed50620d7a7792c1ce5df38b3e3e@o33249.ingest.us.sentry.io/4510195390611458";
-const UPLOAD_TIMEOUT_SECS: u64 = 10;
 const FEEDBACK_TAGS_TARGET: &str = "feedback_tags";
 const MAX_FEEDBACK_TAGS: usize = 64;
 
@@ -218,122 +211,59 @@ impl OpenCLILogSnapshot {
         Ok(path)
     }
 
-    /// Upload feedback to Sentry with optional attachments.
-    pub fn upload_feedback(
+    /// Write a report of this session to a file, for the user to attach.
+    ///
+    /// This used to post the logs, the whole rollout and a set of tags to a
+    /// Sentry project — one belonging to the project this was forked from, so
+    /// anyone reporting a problem here was sending their transcript to a third
+    /// party who had not asked for it and could not act on it.
+    ///
+    /// Nothing is uploaded now. The report is a file on this machine, and what
+    /// happens to it is the reporter's decision: they can read it, redact it,
+    /// and attach it to an issue, or not. That is the same bargain the rest of
+    /// this program makes — it talks to what you configured, and nothing else.
+    pub fn write_report(
         &self,
         classification: &str,
         reason: Option<&str>,
         include_logs: bool,
         rollout_path: Option<&std::path::Path>,
-        session_source: Option<SessionSource>,
-    ) -> Result<()> {
-        use std::collections::BTreeMap;
-        use std::fs;
-        use std::str::FromStr;
-        use std::sync::Arc;
-
-        use sentry::Client;
-        use sentry::ClientOptions;
-        use sentry::protocol::Attachment;
-        use sentry::protocol::Envelope;
-        use sentry::protocol::EnvelopeItem;
-        use sentry::protocol::Event;
-        use sentry::protocol::Level;
-        use sentry::transports::DefaultTransportFactory;
-        use sentry::types::Dsn;
-
-        // Build Sentry client
-        let client = Client::from_config(ClientOptions {
-            dsn: Some(Dsn::from_str(SENTRY_DSN).map_err(|e| anyhow!("invalid DSN: {e}"))?),
-            transport: Some(Arc::new(DefaultTransportFactory {})),
-            ..Default::default()
-        });
-
-        let cli_version = env!("CARGO_PKG_VERSION");
-        let mut tags = BTreeMap::from([
-            (String::from("thread_id"), self.thread_id.to_string()),
-            (String::from("classification"), classification.to_string()),
-            (String::from("cli_version"), cli_version.to_string()),
-        ]);
-        if let Some(source) = session_source.as_ref() {
-            tags.insert(String::from("session_source"), source.to_string());
-        }
-        if let Some(r) = reason {
-            tags.insert(String::from("reason"), r.to_string());
-        }
-
-        let reserved = [
-            "thread_id",
-            "classification",
-            "cli_version",
-            "session_source",
-            "reason",
-        ];
+    ) -> Result<PathBuf> {
+        let mut report = String::new();
+        report.push_str(&format!(
+            "OpenCLI feedback: {}\n",
+            display_classification(classification)
+        ));
+        report.push_str(&format!("Version: {}\n", env!("CARGO_PKG_VERSION")));
+        report.push_str(&format!("Thread: {}\n", self.thread_id));
         for (key, value) in &self.tags {
-            if reserved.contains(&key.as_str()) {
-                continue;
-            }
-            if let Entry::Vacant(entry) = tags.entry(key.clone()) {
-                entry.insert(value.clone());
-            }
+            report.push_str(&format!("{key}: {value}\n"));
         }
-
-        let level = match classification {
-            "bug" | "bad_result" => Level::Error,
-            _ => Level::Info,
-        };
-
-        let mut envelope = Envelope::new();
-        let title = format!(
-            "[{}]: OpenCLI session {}",
-            display_classification(classification),
-            self.thread_id
-        );
-
-        let mut event = Event {
-            level,
-            message: Some(title.clone()),
-            tags,
-            ..Default::default()
-        };
-        if let Some(r) = reason {
-            use sentry::protocol::Exception;
-            use sentry::protocol::Values;
-
-            event.exception = Values::from(vec![Exception {
-                ty: title.clone(),
-                value: Some(r.to_string()),
-                ..Default::default()
-            }]);
+        if let Some(reason) = reason {
+            report.push_str(&format!("\nWhat happened\n-------------\n{reason}\n"));
         }
-        envelope.add_item(EnvelopeItem::Event(event));
 
         if include_logs {
-            envelope.add_item(EnvelopeItem::Attachment(Attachment {
-                buffer: self.bytes.clone(),
-                filename: String::from("opencli-logs.log"),
-                content_type: Some("text/plain".to_string()),
-                ty: None,
-            }));
+            report.push_str("\nLogs\n----\n");
+            report.push_str(&String::from_utf8_lossy(&self.bytes));
+
+            // The transcript is the most revealing thing here — it is the
+            // conversation, including whatever was pasted into it. Included
+            // only when logs were asked for, and named in the report so nobody
+            // attaches it without knowing it is there.
+            if let Some(path) = rollout_path {
+                report.push_str(&format!("\nTranscript ({})\n", path.display()));
+                report.push_str("----------\n");
+                match fs::read_to_string(path) {
+                    Ok(transcript) => report.push_str(&transcript),
+                    Err(err) => report.push_str(&format!("could not be read: {err}\n")),
+                }
+            }
         }
 
-        if let Some((path, data)) = rollout_path.and_then(|p| fs::read(p).ok().map(|d| (p, d))) {
-            let fname = path
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "rollout.jsonl".to_string());
-            let content_type = "text/plain".to_string();
-            envelope.add_item(EnvelopeItem::Attachment(Attachment {
-                buffer: data,
-                filename: fname,
-                content_type: Some(content_type),
-                ty: None,
-            }));
-        }
-
-        client.send_envelope(envelope);
-        client.flush(Some(Duration::from_secs(UPLOAD_TIMEOUT_SECS)));
-        Ok(())
+        let path = std::env::temp_dir().join(format!("opencli-feedback-{}.txt", self.thread_id));
+        fs::write(&path, report)?;
+        Ok(path)
     }
 }
 

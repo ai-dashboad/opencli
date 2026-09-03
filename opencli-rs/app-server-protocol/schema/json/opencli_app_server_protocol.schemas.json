@@ -1133,6 +1133,7 @@
           "type": "object"
         },
         {
+          "description": "Bundle this session's logs and transcript into a file for the user to attach to a bug report. Despite the name, nothing is uploaded — the method predates the removal of the telemetry endpoint it used to post to, and renaming it would break every client at once.",
           "properties": {
             "id": {
               "$ref": "#/definitions/RequestId"
@@ -11425,11 +11426,16 @@
       "FeedbackUploadResponse": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "properties": {
+          "reportPath": {
+            "description": "Where the report was written. Nothing is sent anywhere: the file is for the reporter to read, redact and attach to an issue if they choose to.",
+            "type": "string"
+          },
           "threadId": {
             "type": "string"
           }
         },
         "required": [
+          "reportPath",
           "threadId"
         ],
         "title": "FeedbackUploadResponse",

@@ -171,7 +171,6 @@ use crate::bottom_pane::CollaborationModeIndicator;
 use crate::bottom_pane::DOUBLE_PRESS_QUIT_SHORTCUT_ENABLED;
 use crate::bottom_pane::ExperimentalFeatureItem;
 use crate::bottom_pane::ExperimentalFeaturesView;
-use crate::bottom_pane::FeedbackAudience;
 use crate::bottom_pane::InputResult;
 use crate::bottom_pane::LocalImageAttachment;
 use crate::bottom_pane::QUIT_SHORTCUT_TIMEOUT;
@@ -405,7 +404,6 @@ pub(crate) struct ChatWidgetInit {
     pub(crate) models_manager: Arc<ModelsManager>,
     pub(crate) feedback: opencli_feedback::OpenCLIFeedback,
     pub(crate) is_first_run: bool,
-    pub(crate) feedback_audience: FeedbackAudience,
     pub(crate) model: Option<String>,
     pub(crate) otel_manager: OtelManager,
 }
@@ -596,7 +594,6 @@ pub(crate) struct ChatWidget {
     last_rendered_width: std::cell::Cell<Option<usize>>,
     // Feedback sink for /feedback
     feedback: opencli_feedback::OpenCLIFeedback,
-    feedback_audience: FeedbackAudience,
     // Current session rollout path (if known)
     current_rollout_path: Option<PathBuf>,
     external_editor_state: ExternalEditorState,
@@ -892,7 +889,6 @@ impl ChatWidget {
             rollout,
             self.app_event_tx.clone(),
             include_logs,
-            self.feedback_audience,
         );
         self.bottom_pane.show_view(Box::new(view));
         self.request_redraw();
@@ -2218,7 +2214,6 @@ impl ChatWidget {
             models_manager,
             feedback,
             is_first_run,
-            feedback_audience,
             model,
             otel_manager,
         } = common;
@@ -2321,7 +2316,6 @@ impl ChatWidget {
             last_separator_elapsed_secs: None,
             last_rendered_width: std::cell::Cell::new(None),
             feedback,
-            feedback_audience,
             current_rollout_path: None,
             external_editor_state: ExternalEditorState::Closed,
         };
@@ -2365,7 +2359,6 @@ impl ChatWidget {
             models_manager,
             feedback,
             is_first_run,
-            feedback_audience,
             model,
             otel_manager,
         } = common;
@@ -2467,7 +2460,6 @@ impl ChatWidget {
             last_separator_elapsed_secs: None,
             last_rendered_width: std::cell::Cell::new(None),
             feedback,
-            feedback_audience,
             current_rollout_path: None,
             external_editor_state: ExternalEditorState::Closed,
         };
@@ -2499,7 +2491,6 @@ impl ChatWidget {
             auth_manager,
             models_manager,
             feedback,
-            feedback_audience,
             model,
             otel_manager,
             ..
@@ -2602,7 +2593,6 @@ impl ChatWidget {
             last_separator_elapsed_secs: None,
             last_rendered_width: std::cell::Cell::new(None),
             feedback,
-            feedback_audience,
             current_rollout_path: None,
             external_editor_state: ExternalEditorState::Closed,
         };

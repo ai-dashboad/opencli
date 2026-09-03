@@ -4703,26 +4703,23 @@ impl OpenCLIMessageProcessor {
         } else {
             None
         };
-        let session_source = self.thread_manager.session_source();
-
-        let upload_result = tokio::task::spawn_blocking(move || {
+        let written = tokio::task::spawn_blocking(move || {
             let rollout_path_ref = validated_rollout_path.as_deref();
-            snapshot.upload_feedback(
+            snapshot.write_report(
                 &classification,
                 reason.as_deref(),
                 include_logs,
                 rollout_path_ref,
-                Some(session_source),
             )
         })
         .await;
 
-        let upload_result = match upload_result {
+        let written = match written {
             Ok(result) => result,
             Err(join_err) => {
                 let error = JSONRPCErrorError {
                     code: INTERNAL_ERROR_CODE,
-                    message: format!("failed to upload feedback: {join_err}"),
+                    message: format!("failed to write the feedback report: {join_err}"),
                     data: None,
                 };
                 self.outgoing.send_error(request_id, error).await;
@@ -4730,9 +4727,12 @@ impl OpenCLIMessageProcessor {
             }
         };
 
-        match upload_result {
-            Ok(()) => {
-                let response = FeedbackUploadResponse { thread_id };
+        match written {
+            Ok(path) => {
+                let response = FeedbackUploadResponse {
+                    thread_id,
+                    report_path: path.to_string_lossy().into_owned(),
+                };
                 self.outgoing.send_response(request_id, response).await;
             }
             Err(err) => {

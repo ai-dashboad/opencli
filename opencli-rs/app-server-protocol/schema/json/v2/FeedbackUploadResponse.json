@@ -1,11 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
+    "reportPath": {
+      "description": "Where the report was written. Nothing is sent anywhere: the file is for the reporter to read, redact and attach to an issue if they choose to.",
+      "type": "string"
+    },
     "threadId": {
       "type": "string"
     }
   },
   "required": [
+    "reportPath",
     "threadId"
   ],
   "title": "FeedbackUploadResponse",

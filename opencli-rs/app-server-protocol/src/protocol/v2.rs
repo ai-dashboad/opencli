@@ -1141,6 +1141,9 @@ pub struct FeedbackUploadParams {
 #[ts(export_to = "v2/")]
 pub struct FeedbackUploadResponse {
     pub thread_id: String,
+    /// Where the report was written. Nothing is sent anywhere: the file is for
+    /// the reporter to read, redact and attach to an issue if they choose to.
+    pub report_path: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]

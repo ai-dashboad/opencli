@@ -222,6 +222,10 @@ client_request_definitions! {
         response: v2::GetAccountRateLimitsResponse,
     },
 
+    /// Bundle this session's logs and transcript into a file for the user to
+    /// attach to a bug report. Despite the name, nothing is uploaded — the
+    /// method predates the removal of the telemetry endpoint it used to post
+    /// to, and renaming it would break every client at once.
     FeedbackUpload => "feedback/upload" {
         params: v2::FeedbackUploadParams,
         response: v2::FeedbackUploadResponse,
