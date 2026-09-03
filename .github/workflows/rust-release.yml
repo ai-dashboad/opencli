@@ -114,6 +114,24 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      # `rust-toolchain.toml` pins the channel, and the target the action added
+      # does not always land on the toolchain that file selects — the build
+      # then fails with "can't find crate for `core`", which reads like a
+      # broken checkout rather than a missing standard library.
+      - name: Make sure the target's standard library is installed
+        shell: bash
+        run: rustup target add ${{ matrix.target }}
+
+      # The workspace patches `tokio-tungstenite` to a fork whose own
+      # dependency is written as `ssh://git@github.com/...`. A runner has no
+      # SSH key, so the fetch fails with "failed to load source for dependency"
+      # after several minutes of compiling — on a developer's machine it works,
+      # because their key is right there.
+      - name: Fetch git dependencies over HTTPS
+        shell: bash
+        run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
+
       - if: ${{ matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl'}}
         name: Use hermetic Cargo home (musl)
         shell: bash

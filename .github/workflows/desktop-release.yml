@@ -30,7 +30,8 @@ jobs:
           - runner: macos-14
             platform: darwin-aarch64
             bundles: app,dmg
-          - runner: macos-13
+          # `macos-13` was retired; Intel builds run on `macos-15-intel`.
+          - runner: macos-15-intel
             platform: darwin-x86_64
             bundles: app,dmg
           - runner: ubuntu-22.04
@@ -44,6 +45,15 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@1.93
+
+      # The workspace patches `tokio-tungstenite` to a fork whose own
+      # dependency is written as `ssh://git@github.com/...`. A runner has no
+      # SSH key, so the fetch fails with "failed to load source for dependency"
+      # after several minutes of compiling — on a developer's machine it works,
+      # because their key is right there.
+      - name: Fetch git dependencies over HTTPS
+        shell: bash
+        run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
       - uses: actions/cache@v5
         with:
