@@ -48,7 +48,9 @@ jobs:
       - name: Check the installer parses
         run: sh -n website/dist/install.sh
 
-      - if: ${{ github.event_name == 'push' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+      # Not on pull requests — a fork's branch should not overwrite the live
+      # site — but yes when run by hand, which is how a deployment is retried.
+      - if: ${{ github.event_name != 'pull_request' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
         name: Publish to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
