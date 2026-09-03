@@ -69,6 +69,15 @@ jobs:
       - name: Typecheck the website
         run: pnpm --dir website exec tsc --noEmit
 
+      # A workflow that names a runner GitHub retired, or reads a context it is
+      # not allowed to, is rejected before a single job starts — reported only
+      # as "this run likely failed because of a workflow file issue", with no
+      # logs. Both happened here, and both were found by tagging a release.
+      - name: Lint the workflows
+        uses: raven-actions/actionlint@v2
+        with:
+          flags: "-shellcheck="
+
       - name: Ensure root README.md contains only ASCII and certain Unicode code points
         run: ./scripts/asciicheck.py README.md
       - name: Check root README ToC
