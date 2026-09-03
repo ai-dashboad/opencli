@@ -30,27 +30,44 @@ jobs:
       # stage_npm_packages.py requires DotSlash when staging releases.
       - uses: facebook/install-dotslash@v2
 
+      # Packaging for npm means downloading the binaries from a published
+      # release, so there has to be one. The version used to be written here by
+      # hand, which went stale the moment a release was cut and failed outright
+      # in a repository that has never cut one.
       - name: Stage npm package
         id: stage_npm_package
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Use a rust-release version that includes all native binaries.
-          OPENCLI_VERSION=0.74.0
-          OUTPUT_DIR="${RUNNER_TEMP}"
+          tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')"
+          if [[ -z "$tag" ]]; then
+            echo "No release to package against yet; skipping."
+            exit 0
+          fi
+          version="${tag#v}"
+          output_dir="${RUNNER_TEMP}"
           python3 ./scripts/stage_npm_packages.py \
-            --release-version "$OPENCLI_VERSION" \
+            --release-version "$version" \
             --package opencli \
-            --output-dir "$OUTPUT_DIR"
-          PACK_OUTPUT="${OUTPUT_DIR}/opencli-npm-${OPENCLI_VERSION}.tgz"
-          echo "pack_output=$PACK_OUTPUT" >> "$GITHUB_OUTPUT"
+            --output-dir "$output_dir"
+          echo "pack_output=${output_dir}/opencli-npm-${version}.tgz" >> "$GITHUB_OUTPUT"
 
-      - name: Upload staged npm package artifact
+      - if: ${{ steps.stage_npm_package.outputs.pack_output != '' }}
+        name: Upload staged npm package artifact
         uses: actions/upload-artifact@v6
         with:
           name: opencli-npm-staging
           path: ${{ steps.stage_npm_package.outputs.pack_output }}
+
+      # The web UI ships inside the desktop app and is served by `opencli
+      # serve`, and until now nothing checked it on the way in.
+      - name: Typecheck the web UI
+        run: pnpm --dir web exec tsc --noEmit
+      - name: Test the web UI
+        run: pnpm --dir web exec vitest run
+      - name: Typecheck the website
+        run: pnpm --dir website exec tsc --noEmit
 
       - name: Ensure root README.md contains only ASCII and certain Unicode code points
         run: ./scripts/asciicheck.py README.md

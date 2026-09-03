@@ -3,11 +3,11 @@ name: Bazel (experimental)
 # Note this workflow was originally derived from:
 # https://github.com/cerisier/toolchains_llvm_bootstrapped/blob/main/.github/workflows/ci.yaml
 
+# Run by hand only. The Bazel build needs a remote cache this project does not
+# have an account for, and fails on the first fetch with "missing API key" — a
+# red mark on every commit for a build nobody here uses. Cargo is what CI
+# builds; the BUILD files stay so the Bazel path is not lost.
 on:
-  pull_request: {}
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
