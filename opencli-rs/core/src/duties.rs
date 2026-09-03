@@ -336,6 +336,71 @@ pub fn answer(
     Ok(Some(updated))
 }
 
+/// What to send the bot for one run of a duty.
+///
+/// Assembled every time rather than stored, because three of the four parts
+/// change independently: the rules when someone revisits the policy, the notes
+/// on every run, and the answer only when a question was waiting. A stored
+/// prompt would be a copy of all of them, stale in whichever one moved last.
+///
+/// The order is the order it is read in. What to do, then how to decide, then
+/// when to stop — a bot that reads the escalation rule after it has already
+/// decided has read it too late. Notes come after the rules and before the
+/// answer, since the answer is about the notes.
+pub fn brief(duty: &Duty, state: &DutyState, answered: Option<&Escalation>) -> String {
+    let mut brief = String::new();
+    brief.push_str(duty.what.trim());
+
+    if !duty.rules.trim().is_empty() {
+        brief.push_str("\n\nHow to decide:\n");
+        brief.push_str(duty.rules.trim());
+    }
+
+    if !duty.escalate_when.trim().is_empty() {
+        brief.push_str("\n\nStop and ask rather than deciding, when:\n");
+        brief.push_str(duty.escalate_when.trim());
+    }
+
+    if state.entries.is_empty() {
+        // Said rather than left out. A bot given no notes and no explanation
+        // cannot tell a first run from one whose notes were lost, and the two
+        // call for quite different care.
+        brief.push_str("\n\nThis is the first run; there are no notes from a previous one.");
+    } else {
+        brief.push_str("\n\nWhere the last run got to:\n");
+        for (key, value) in &state.entries {
+            brief.push_str(&format!("- {key}: {value}\n"));
+        }
+        brief.push_str("Do not redo what these say is already done.");
+    }
+
+    if let Some(escalation) = answered
+        && let Some(answer) = &escalation.answer
+    {
+        brief.push_str("\n\nYou stopped last time to ask: ");
+        brief.push_str(escalation.question.trim());
+        brief.push_str("\nThe answer is: ");
+        brief.push_str(answer.trim());
+        brief.push_str("\nCarry on from there.");
+    }
+
+    brief
+}
+
+/// The answered question a run should be told about, if any.
+///
+/// The most recent one, and only while it has not yet been acted on — which is
+/// what `answered_at` after `last_run` means. Told about it again on the run
+/// after, a bot would apply the same decision twice.
+pub fn answer_to_carry(opencli_home: &Path, duty: &Duty) -> Option<Escalation> {
+    let since = duty.last_run.unwrap_or(0);
+    escalations(opencli_home)
+        .into_iter()
+        .filter(|escalation| escalation.duty == duty.id)
+        .filter(|escalation| escalation.answered_at.is_some_and(|at| at >= since))
+        .max_by_key(|escalation| escalation.answered_at.unwrap_or(0))
+}
+
 fn suffix() -> String {
     use std::time::SystemTime;
     use std::time::UNIX_EPOCH;
@@ -610,5 +675,104 @@ mod tests {
         assert!(load(dir.path()).is_empty());
         assert!(state(dir.path(), "duty-1").entries.is_empty());
         assert!(escalations(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn should_tell_a_first_run_that_it_is_one() {
+        // Left out, a bot cannot tell a first run from one whose notes were
+        // lost, and those call for quite different care.
+        let dir = tempdir().expect("tempdir");
+        let duty = a_duty(dir.path());
+        let said = brief(&duty, &state(dir.path(), &duty.id), None);
+        assert!(said.contains("first run"), "got: {said}");
+    }
+
+    #[test]
+    fn should_put_the_notes_in_the_brief_and_say_not_to_redo_them() {
+        let dir = tempdir().expect("tempdir");
+        let duty = a_duty(dir.path());
+        remember(
+            dir.path(),
+            &duty.id,
+            BTreeMap::from([("reconciled_to".to_string(), "txn-4821".to_string())]),
+        )
+        .expect("remember");
+
+        let said = brief(&duty, &state(dir.path(), &duty.id), None);
+        assert!(said.contains("reconciled_to: txn-4821"), "got: {said}");
+        assert!(said.contains("Do not redo"), "got: {said}");
+    }
+
+    #[test]
+    fn should_read_the_escalation_rule_before_deciding_not_after() {
+        let dir = tempdir().expect("tempdir");
+        let mut duty = a_duty(dir.path());
+        duty.rules = "Refund under 200 without asking.".to_string();
+        duty.escalate_when = "The refund is over 200.".to_string();
+
+        let said = brief(&duty, &DutyState::default(), None);
+        let rules_at = said.find("How to decide").expect("rules");
+        let stop_at = said.find("Stop and ask").expect("escalation");
+        assert!(rules_at < stop_at, "the rule to stop must not come last");
+    }
+
+    #[test]
+    fn should_carry_the_answer_into_the_run_that_follows_it() {
+        // The whole point of being able to answer later. Without this the bot
+        // stops, is unblocked, and starts again knowing nothing.
+        let dir = tempdir().expect("tempdir");
+        let duty = a_duty(dir.path());
+        let asked = ask(
+            dir.path(),
+            duty.id.clone(),
+            "bot-1".into(),
+            "Refund 3800?".into(),
+            String::new(),
+        )
+        .expect("ask");
+        answer(dir.path(), &asked.id, "yes, refund it".into()).expect("answer");
+
+        let carried = answer_to_carry(dir.path(), &duty).expect("an answer to carry");
+        let said = brief(&duty, &DutyState::default(), Some(&carried));
+        assert!(said.contains("Refund 3800?"), "got: {said}");
+        assert!(said.contains("yes, refund it"), "got: {said}");
+    }
+
+    #[test]
+    fn should_not_carry_an_answer_the_bot_has_already_acted_on() {
+        // Told again on the next run, it would apply the same decision twice.
+        let dir = tempdir().expect("tempdir");
+        let duty = a_duty(dir.path());
+        let asked = ask(
+            dir.path(),
+            duty.id.clone(),
+            "bot-1".into(),
+            "Refund?".into(),
+            String::new(),
+        )
+        .expect("ask");
+        answer(dir.path(), &asked.id, "yes".into()).expect("answer");
+
+        // The run that used it happens now, so the next one is later.
+        let after = Duty {
+            last_run: Some(now_seconds() + 1),
+            ..duty
+        };
+        assert!(answer_to_carry(dir.path(), &after).is_none());
+    }
+
+    #[test]
+    fn should_not_carry_a_question_that_is_still_open() {
+        let dir = tempdir().expect("tempdir");
+        let duty = a_duty(dir.path());
+        ask(
+            dir.path(),
+            duty.id.clone(),
+            "bot-1".into(),
+            "Refund?".into(),
+            String::new(),
+        )
+        .expect("ask");
+        assert!(answer_to_carry(dir.path(), &duty).is_none());
     }
 }

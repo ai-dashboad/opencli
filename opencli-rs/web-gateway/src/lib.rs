@@ -163,6 +163,9 @@ pub async fn serve_with_listener(
     // The same reasoning applies to background runs: one worker per gateway,
     // or every open window would start the same queued task.
     tokio::spawn(dispatch::run_worker(opencli_home.clone(), server_bin));
+    // Duties ask a question scheduled tasks do not — whether they are waiting
+    // on somebody — so they come due on a loop of their own.
+    tokio::spawn(duty::run_scheduler(opencli_home.clone()));
     // Warm the list of popular models now rather than when the panel opens.
     // Browsing is how someone finds a model whose name they do not know, and
     // putting that behind a network call is what made the panel open empty.
@@ -300,7 +303,8 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             .or_else(|| plugin::handle(&text, &state.opencli_home))
             .or_else(|| secrets::handle(&text, &state.opencli_home))
             .or_else(|| workspace::handle(&text, &state.opencli_home))
-            .or_else(|| bot::handle(&text, &state.opencli_home));
+            .or_else(|| bot::handle(&text, &state.opencli_home))
+            .or_else(|| duty::handle(&text, &state.opencli_home));
         if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -360,10 +364,9 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
 }
 
 mod bot;
-/// Minimal split shim so this file does not pull in `futures` just to halve a
-/// socket.
 mod connector;
 mod dispatch;
+mod duty;
 mod hub;
 mod memory;
 mod plugin;
@@ -375,6 +378,8 @@ mod secrets;
 mod server;
 mod workspace;
 
+/// Minimal split shim so this file does not pull in `futures` just to halve a
+/// socket.
 mod futures_lite_split {
     use axum::extract::ws::Message;
     use axum::extract::ws::WebSocket;
