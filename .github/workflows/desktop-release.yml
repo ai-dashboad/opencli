@@ -13,6 +13,9 @@ name: desktop-release
 
 on:
   workflow_call:
+  # Also runnable by hand, to check the bundles build without cutting a
+  # release.
+  workflow_dispatch:
 
 jobs:
   build:
