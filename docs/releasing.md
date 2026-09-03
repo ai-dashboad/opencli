@@ -21,11 +21,11 @@ at is, so write the commit for people reading the release page.
 
 ## What runs
 
-| Workflow | Triggered by | Produces |
-| --- | --- | --- |
-| `rust-release.yml` | tag `v*.*.*` | CLI binaries, npm packages, the GitHub Release |
-| `desktop-release.yml` | called by the above | `.dmg`, `.AppImage`, `.deb`, `.msi`, `-setup.exe`, and the signed updater artifacts |
-| `website.yml` | push to `main` touching `website/` | opencli.ai |
+| Workflow              | Triggered by                       | Produces                                                                            |
+| --------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `rust-release.yml`    | tag `v*.*.*`                       | CLI binaries, npm packages, the GitHub Release                                      |
+| `desktop-release.yml` | called by the above                | `.dmg`, `.AppImage`, `.deb`, `.msi`, `-setup.exe`, and the signed updater artifacts |
+| `website.yml`         | push to `main` touching `website/` | opencli.ai                                                                          |
 
 `desktop-release.yml` is called rather than triggered by the same tag on
 purpose: two workflows publishing to one tag race each other, and the loser's
@@ -33,14 +33,14 @@ files go missing from the release with no error anywhere.
 
 ## Secrets and variables
 
-| Name | Kind | Needed for | If missing |
-| --- | --- | --- | --- |
-| `TAURI_SIGNING_PRIVATE_KEY` | secret | Signing the desktop updater artifacts | **Auto-update stops working.** The build still succeeds, so this fails quietly — check that `latest.json` in the release lists every platform |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | secret | The above, if the key has a password | Ours has none; set it to an empty string |
-| `CLOUDFLARE_API_TOKEN` | secret | Publishing opencli.ai | The site builds in CI and is not deployed |
-| `CLOUDFLARE_ACCOUNT_ID` | variable | The above | Same |
-| `APPLE_CERTIFICATE_P12` and friends | secret | Signing and notarising the macOS CLI binaries | Skipped; the downloads are unsigned, which the download page explains |
-| `AZURE_TRUSTED_SIGNING_*` | secret | Signing the Windows CLI binaries | Skipped, as above |
+| Name                                 | Kind     | Needed for                                    | If missing                                                                                                                                    |
+| ------------------------------------ | -------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TAURI_SIGNING_PRIVATE_KEY`          | secret   | Signing the desktop updater artifacts         | **Auto-update stops working.** The build still succeeds, so this fails quietly — check that `latest.json` in the release lists every platform |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | secret   | The above, if the key has a password          | Ours has none; set it to an empty string                                                                                                      |
+| `CLOUDFLARE_API_TOKEN`               | secret   | Publishing opencli.ai                         | The site builds in CI and is not deployed                                                                                                     |
+| `CLOUDFLARE_ACCOUNT_ID`              | variable | The above                                     | Same                                                                                                                                          |
+| `APPLE_CERTIFICATE_P12` and friends  | secret   | Signing and notarising the macOS CLI binaries | Skipped; the downloads are unsigned, which the download page explains                                                                         |
+| `AZURE_TRUSTED_SIGNING_*`            | secret   | Signing the Windows CLI binaries              | Skipped, as above                                                                                                                             |
 
 ### The updater signing key
 

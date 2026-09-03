@@ -3,7 +3,7 @@
 How OpenCLI is put together, and why. This is the document to read before
 changing something and wondering whether the current shape was deliberate.
 
-It is deliberately opinionated about *boundaries* — what a layer may claim to
+It is deliberately opinionated about _boundaries_ — what a layer may claim to
 do — because most of the bugs worth recording here were a layer claiming
 something it could not deliver.
 
@@ -15,7 +15,7 @@ something it could not deliver.
 endpoint. Everything else follows from that:
 
 - Choosing a model means writing down where it is served, not loading weights.
-- "Install a model" is an instruction to some *runtime*, not something this
+- "Install a model" is an instruction to some _runtime_, not something this
   program does.
 - Whether a feature is possible depends on what that runtime exposes, and on
   whether it is on this machine.
@@ -43,12 +43,12 @@ desktop/          Tauri shell; runs the gateway in-process
 The app server is scoped to **one conversation**. Anything that outlives a
 conversation is answered by the gateway instead of relayed:
 
-| Concern | Why it cannot live in the app server |
-| --- | --- |
-| Projects, memory | Apply across conversations |
-| Scheduled tasks, dispatch | Run when no conversation is open |
-| Connectors, plugins, servers | Edit files on this machine |
-| Model management | Talks to a runtime, not to a model |
+| Concern                      | Why it cannot live in the app server |
+| ---------------------------- | ------------------------------------ |
+| Projects, memory             | Apply across conversations           |
+| Scheduled tasks, dispatch    | Run when no conversation is open     |
+| Connectors, plugins, servers | Edit files on this machine           |
+| Model management             | Talks to a runtime, not to a model   |
 
 The gateway intercepts these methods before relaying anything to stdin. A
 handler returning `None` means "not mine" and the message passes through.
@@ -60,11 +60,11 @@ handler returning `None` means "not mine" and the message passes through.
 The most important table in this document. Three ways to reach a machine, and
 they answer different questions:
 
-| Tier | What it can do | What it cannot |
-| --- | --- | --- |
-| **HTTP** | list, install, remove models; inference | install or repair the runtime itself |
-| **SSH** | install a runtime into a home directory, start it, read logs | anything needing root |
-| **SSH + root** | system services, drivers, firewall | — |
+| Tier           | What it can do                                               | What it cannot                       |
+| -------------- | ------------------------------------------------------------ | ------------------------------------ |
+| **HTTP**       | list, install, remove models; inference                      | install or repair the runtime itself |
+| **SSH**        | install a runtime into a home directory, start it, read logs | anything needing root                |
+| **SSH + root** | system services, drivers, firewall                           | —                                    |
 
 Consequences that shaped the UI:
 
@@ -84,7 +84,7 @@ carries obligations, and they are met in `ssh/`:
 
 - **Host keys are checked before anything is sent.** `Unknown` and `Changed` are
   different questions: the first asks, showing the fingerprint; the second
-  refuses and does *not* offer to overwrite. Either the server was rebuilt —
+  refuses and does _not_ offer to overwrite. Either the server was rebuilt —
   which deserves a human — or something is in the middle, which no dialog
   should make easy to click past.
 - **Nothing is stored.** Aliases resolve against the user's own
@@ -98,17 +98,17 @@ carries obligations, and they are met in `ssh/`:
 
 Anything a user might reasonably want to change ships as data:
 
-| Catalogue | Location | User's own |
-| --- | --- | --- |
-| Providers | `core/src/providers/catalog/*.toml` | `config.toml` |
-| Models | `core/src/model_catalog/entries/*.toml` | `~/.opencli/models.toml` |
-| Connectors | `web-gateway/src/connector.rs` | `config.toml` |
-| Plugins | `web-gateway/src/plugin.rs` | `~/.opencli/skills/` |
+| Catalogue  | Location                                | User's own               |
+| ---------- | --------------------------------------- | ------------------------ |
+| Providers  | `core/src/providers/catalog/*.toml`     | `config.toml`            |
+| Models     | `core/src/model_catalog/entries/*.toml` | `~/.opencli/models.toml` |
+| Connectors | `web-gateway/src/connector.rs`          | `config.toml`            |
+| Plugins    | `web-gateway/src/plugin.rs`             | `~/.opencli/skills/`     |
 
 The model catalogue was hardcoded first and it was wrong: the same kind of
 thing was data in one place and code in another, for no reason anyone could
 state, and extending it meant a rebuild. A user entry replaces a bundled one
-with the same tag *whole*, rather than merging field by field — a
+with the same tag _whole_, rather than merging field by field — a
 half-overridden entry is harder to reason about than a replaced one. Bundled
 entries can be shadowed but not deleted, so a build's own catalogue stays
 intact.
@@ -130,7 +130,7 @@ skills/            installed skills
 ```
 
 Every store follows the same rules: a missing or corrupt file yields an empty
-list rather than an error, and nothing lives *only* in one of these files. A
+list rather than an error, and nothing lives _only_ in one of these files. A
 lost `projects.json` costs the grouping, never a conversation.
 
 ---
@@ -139,11 +139,11 @@ lost `projects.json` costs the grouping, never a conversation.
 
 `WireApi` decides how a request is shaped:
 
-| Variant | Endpoint | Notes |
-| --- | --- | --- |
-| `Responses` | `/v1/responses` | OpenAI's newer API |
-| `Chat` | `/v1/chat/completions` | What almost every local runtime speaks |
-| `Anthropic` | `/v1/messages` | Not OpenAI-compatible; own request and event shapes |
+| Variant     | Endpoint               | Notes                                               |
+| ----------- | ---------------------- | --------------------------------------------------- |
+| `Responses` | `/v1/responses`        | OpenAI's newer API                                  |
+| `Chat`      | `/v1/chat/completions` | What almost every local runtime speaks              |
+| `Anthropic` | `/v1/messages`         | Not OpenAI-compatible; own request and event shapes |
 
 Anthropic needed more than a URL: a top-level `system` field, a required
 `max_tokens`, `input_schema` tools, and `x-api-key` rather than a bearer token.
@@ -168,7 +168,6 @@ hard way:
   exactly when someone decides they have seen enough of them, and walking to
   another panel then starting a new chat is long enough that they approve
   twenty more instead.
-
 
 - **The decision values are `accept` and `decline`.** An unparseable decision
   is not reported as an error — the command simply never runs. Sending
@@ -290,11 +289,11 @@ under three milliseconds. Only three were slow, and each for the same reason:
 one call that reaches over the network was awaited together with the fast ones,
 so opening the panel cost the slowest thing in it.
 
-| Panel | Was | Now | The slow part |
-| --- | --- | --- | --- |
-| Models | 4.7 s blank | first rows in 25 ms | `/api/show`, 2.5 s per model on a remote server |
-| Connectors | 2.2 s blank | rows at once | starting each MCP server to see if it answers |
-| Browse | network-bound | 1 ms | Hugging Face, now warmed at startup |
+| Panel      | Was           | Now                 | The slow part                                   |
+| ---------- | ------------- | ------------------- | ----------------------------------------------- |
+| Models     | 4.7 s blank   | first rows in 25 ms | `/api/show`, 2.5 s per model on a remote server |
+| Connectors | 2.2 s blank   | rows at once        | starting each MCP server to see if it answers   |
+| Browse     | network-bound | 1 ms                | Hugging Face, now warmed at startup             |
 
 The rule that came out of it: **a panel shows what it already knows, and fills
 in what costs a round trip.** A machine on this computer lists its models in
@@ -332,11 +331,11 @@ was wider than it needed, and on a 1920 display 560px sat empty.
 
 Each kind of content now states its own limit:
 
-| Content | Limit | Why |
-| --- | --- | --- |
-| Prose | `68ch` | A line of 1600px is measurably harder to read; the eye loses its place returning |
-| Card lists | `repeat(auto-fill, minmax(420px, 1fr))` | As many columns as fit — two at 1200px, three at 1900, four at 2560 |
-| Diffs, run output, notes | one column, `1040px` | Splitting these would halve the width of the one thing in them that needs it |
+| Content                  | Limit                                   | Why                                                                              |
+| ------------------------ | --------------------------------------- | -------------------------------------------------------------------------------- |
+| Prose                    | `68ch`                                  | A line of 1600px is measurably harder to read; the eye loses its place returning |
+| Card lists               | `repeat(auto-fill, minmax(420px, 1fr))` | As many columns as fit — two at 1200px, three at 1900, four at 2560              |
+| Diffs, run output, notes | one column, `1040px`                    | Splitting these would halve the width of the one thing in them that needs it     |
 
 `auto-fill` rather than a column count, so the number follows the window and
 no display size is ever named. 420px was measured against the longest thing a
@@ -369,8 +368,8 @@ went three layers deep — each layer looked like it worked.
    sends no usage at all. Servers that do not know the field ignore it, so
    asking costs nothing.
 2. **The answer was thrown away.** The Chat SSE parser hardcoded
-   `token_usage: None`. The chunk carrying the cost has an *empty* `choices`
-   array and arrives *after* the one that says the reply is finished, so
+   `token_usage: None`. The chunk carrying the cost has an _empty_ `choices`
+   array and arrives _after_ the one that says the reply is finished, so
    completing on `finish_reason` discarded it. Completion now happens at the
    stream's end — which the tool-call path already relied on — carrying
    whatever the provider reported.
@@ -391,7 +390,7 @@ faults stacked, each of which looked deliberate:
 
 1. **One flag did two jobs.** `client.rs` chose `aggregate()` over
    `streaming_mode()` for the Chat wire whenever `show_raw_agent_reasoning`
-   was false — and `AggregateMode::AggregatedOnly` swallows the *answer*
+   was false — and `AggregateMode::AggregatedOnly` swallows the _answer_
    deltas as well as the thinking. Whether to show a model's reasoning and
    whether the answer arrives a word at a time are different questions; every
    local model speaks Chat, so every local model had streaming off by default.
@@ -442,7 +441,7 @@ the CPU.
 
 ### Two numbers answer to "context window"
 
-`/api/show` reports what the weights were *trained* to hold; the server is
+`/api/show` reports what the weights were _trained_ to hold; the server is
 started with `-c` and may serve far less. For the model here those are 262,144
 and 32,768 — a factor of eight. Registering the trained figure meant the agent
 never compacted and the server rejected the turn at an eighth of the size it
@@ -457,11 +456,11 @@ Three item kinds have now been dropped by the same emptiness check, each for
 the same reason and each found only by someone noticing the transcript was
 missing things it should have had.
 
-| Item | Where its content is |
-| --- | --- |
-| File change | `changes`, as a list of paths and diffs |
-| Command | `command`, with what it printed in `aggregatedOutput` |
-| MCP tool call | `server` and `tool`, with the answer in `result` |
+| Item          | Where its content is                                  |
+| ------------- | ----------------------------------------------------- |
+| File change   | `changes`, as a list of paths and diffs               |
+| Command       | `command`, with what it printed in `aggregatedOutput` |
+| MCP tool call | `server` and `tool`, with the answer in `result`      |
 
 None of them has a `text` field, so a converter looking for one concluded
 they carried nothing and returned null. The visible symptom the third time
@@ -537,12 +536,12 @@ What was still being dropped after that, found by counting what a rollout
 holds against what came back rather than by checking the total looked large
 enough:
 
-| Data | Where it sits | Was |
-| --- | --- | --- |
-| Exit code | `output.metadata.exit_code` | Dropped — a failed command reopened as a successful one |
-| Duration | `output.metadata.duration_seconds` | Dropped |
-| A non-command tool's answer | the same `function_call_output` | Dropped — output was attached only to commands |
-| Thinking | `content`, in the fragments it streamed as | Joined with blank lines, one word per line |
+| Data                        | Where it sits                              | Was                                                     |
+| --------------------------- | ------------------------------------------ | ------------------------------------------------------- |
+| Exit code                   | `output.metadata.exit_code`                | Dropped — a failed command reopened as a successful one |
+| Duration                    | `output.metadata.duration_seconds`         | Dropped                                                 |
+| A non-command tool's answer | the same `function_call_output`            | Dropped — output was attached only to commands          |
+| Thinking                    | `content`, in the fragments it streamed as | Joined with blank lines, one word per line              |
 
 On one conversation that is 59 timings, 59 exit codes — two of them failures
 — and five tool answers, all present on disk the whole time.
@@ -567,12 +566,12 @@ without naming the conversation it belongs to follows the reader into the next
 one. Found by starting a turn in one chat and switching to another, which then
 also claimed to be working.
 
-| State | What leaked |
-| --- | --- |
-| The working flag | Every other chat said it was running |
-| An approval request | A command from elsewhere, offered without its context |
-| Token totals | Another conversation's figures |
-| Errors, drafts, attachments | Followed the reader across |
+| State                       | What leaked                                           |
+| --------------------------- | ----------------------------------------------------- |
+| The working flag            | Every other chat said it was running                  |
+| An approval request         | A command from elsewhere, offered without its context |
+| Token totals                | Another conversation's figures                        |
+| Errors, drafts, attachments | Followed the reader across                            |
 
 The flag and the approval now carry the thread that owns them and are shown
 only there; the rest is dropped when a chat is left. The approval is the one
@@ -597,7 +596,7 @@ hash confirmed the wrong half, repeatedly.
 
 `stage-sidecar.sh` builds and stages it from `beforeBuildCommand`, so the
 binary shipped is the binary just built. The check that means anything is
-asking a gateway *run from inside the bundle* what it returns — not a
+asking a gateway _run from inside the bundle_ what it returns — not a
 timestamp, and not the half that was never in doubt.
 
 ---
@@ -632,7 +631,7 @@ pair carrying the finished text from the outset — so appending what arrived
 showed every thought twice.
 
 An item the server gives no id for is identified by its content. The repeat
-then *is* the same item and replaces rather than accumulating, and two
+then _is_ the same item and replaces rather than accumulating, and two
 genuinely identical consecutive thoughts collapse into one, which is the right
 answer for them too.
 
@@ -652,16 +651,15 @@ replace the thought beside it.
 
 Three tiers, because they are three different situations:
 
-| | Shown as |
-| --- | --- |
-| The agent's own tools | A reader's name and the thing it acted on — "Read a file", the path |
-| An MCP server's tool | `server · What it does` — where it went is kept, the name is put into words |
-| Anything unfamiliar | Its own words, made readable: `list_resources` → "List resources" |
+|                       | Shown as                                                                    |
+| --------------------- | --------------------------------------------------------------------------- |
+| The agent's own tools | A reader's name and the thing it acted on — "Read a file", the path         |
+| An MCP server's tool  | `server · What it does` — where it went is kept, the name is put into words |
+| Anything unfamiliar   | Its own words, made readable: `list_resources` → "List resources"           |
 
 The last tier invents nothing. Leaving an identifier on screen puts jargon in
 front of someone watching; writing a curated name for a tool this build has
 never seen would be a guess. Reformatting the tool's own words is neither.
-
 
 `open_file` is what the agent calls it. A row headed `open_file` with
 `open_file` underneath says nothing, twice.

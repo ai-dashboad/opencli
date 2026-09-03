@@ -54,6 +54,7 @@ If you are invited by a OpenCLI team member to contribute a PR, here is the reco
   `just fmt` invokes nightly for this reason. If you do not have a nightly
   toolchain (`rustup toolchain install nightly`), format only the files you
   touched and let CI confirm the rest.
+
 - Make sure your branch is up-to-date with `main` and that you have resolved merge conflicts.
 - Mark the PR as **Ready for review** only when you believe it is in a merge-able state.
 
