@@ -256,10 +256,133 @@ fn drop_images(item: ResponseItem) -> ResponseItem {
     }
 }
 
-/// Cut a conversation into consecutive pieces that each fit `budget`.
+/// The model's own scratch work, which a summary does not need.
 ///
-/// An item too large on its own gets a piece to itself; refusing to split it
-/// would mean refusing to make progress at all.
+/// Reasoning is the largest thing in a long conversation by a wide margin: in
+/// the one this was measured on, the four biggest items were all reasoning, at
+/// 101, 87, 85 and 75 thousand characters, and reasoning was most of the 693
+/// thousand tokens the conversation had grown to. Summarising it costs the
+/// bulk of the time compaction takes.
+///
+/// It is also the part with least to summarise. What happened is in the
+/// messages and the tool calls — what was asked, what was run, what came back.
+/// Reasoning is how the model got from one to the next, and it has already
+/// got there.
+///
+/// Dropped only from what is *summarised*. The conversation on disk keeps
+/// everything, and a reopened one still shows the thinking.
+fn worth_summarising(item: &ResponseItem) -> bool {
+    !matches!(item, ResponseItem::Reasoning { .. })
+}
+
+/// Cut down an item that on its own is larger than a whole piece.
+///
+/// Splitting between items is not enough: a single reasoning block or command
+/// output can be bigger than the model's entire window, and a piece containing
+/// it fails however it is arranged. The request then comes back "context
+/// exceeded", is retried, and fails the same way — compaction that cannot
+/// finish, which is what a conversation of 693 thousand tokens against a 30
+/// thousand window ran into.
+///
+/// The head and the tail are kept because that is where a piece of text says
+/// what it is and how it ended; the middle is replaced by a line saying how
+/// much went.
+fn cut_to_fit(
+    item: ResponseItem,
+    budget: i64,
+    policy: crate::truncate::TruncationPolicy,
+) -> ResponseItem {
+    // Measured the way the rest of the system measures, so the two agree.
+    let mut measured = ContextManager::new();
+    measured.record_items(std::slice::from_ref(&item), policy);
+    if measured.estimated_token_usage() <= budget {
+        return item;
+    }
+
+    // Three bytes to a token, matching the estimate, and a margin for the
+    // envelope around the text.
+    let room = ((budget as usize).saturating_mul(3)).saturating_sub(512);
+    map_text(item, |text| shorten(&text, room))
+}
+
+/// Keep both ends of a long string and say what was removed.
+fn shorten(text: &str, room: usize) -> String {
+    if text.len() <= room || room < 200 {
+        return text.to_string();
+    }
+    let half = room / 2;
+    let head = floor_char_boundary(text, half);
+    let tail = ceil_char_boundary(text, text.len() - half);
+    let removed = tail - head;
+    format!(
+        "{}\n\n[… {removed} characters removed to fit this for summarising …]\n\n{}",
+        &text[..head],
+        &text[tail..]
+    )
+}
+
+fn floor_char_boundary(text: &str, mut at: usize) -> usize {
+    while at > 0 && !text.is_char_boundary(at) {
+        at -= 1;
+    }
+    at
+}
+
+fn ceil_char_boundary(text: &str, mut at: usize) -> usize {
+    while at < text.len() && !text.is_char_boundary(at) {
+        at += 1;
+    }
+    at
+}
+
+/// Apply `change` to every piece of text an item carries.
+fn map_text(item: ResponseItem, change: impl Fn(String) -> String + Copy) -> ResponseItem {
+    match item {
+        ResponseItem::Message {
+            id,
+            role,
+            content,
+            end_turn,
+        } => ResponseItem::Message {
+            id,
+            role,
+            content: content
+                .into_iter()
+                .map(|part| match part {
+                    ContentItem::InputText { text } => {
+                        ContentItem::InputText { text: change(text) }
+                    }
+                    ContentItem::OutputText { text } => {
+                        ContentItem::OutputText { text: change(text) }
+                    }
+                    kept => kept,
+                })
+                .collect(),
+            end_turn,
+        },
+        ResponseItem::FunctionCall {
+            id,
+            name,
+            arguments,
+            call_id,
+        } => ResponseItem::FunctionCall {
+            id,
+            name,
+            arguments: change(arguments),
+            call_id,
+        },
+        ResponseItem::FunctionCallOutput {
+            call_id,
+            mut output,
+        } => {
+            output.content = change(output.content);
+            ResponseItem::FunctionCallOutput { call_id, output }
+        }
+        kept => kept,
+    }
+}
+
+/// Cut a conversation into consecutive pieces that each fit `budget`.
 fn split_into_pieces(
     items: &[ResponseItem],
     budget: i64,
@@ -269,14 +392,17 @@ fn split_into_pieces(
     let mut piece: Vec<ResponseItem> = Vec::new();
     let mut measured = ContextManager::new();
 
-    for item in items {
-        measured.record_items(std::slice::from_ref(item), policy);
+    for item in items.iter().filter(|item| worth_summarising(item)) {
+        // Cut first, so what is measured is what will be sent. An item bigger
+        // than a whole piece cannot be placed by splitting alone.
+        let item = cut_to_fit(item.clone(), budget, policy);
+        measured.record_items(std::slice::from_ref(&item), policy);
         if measured.estimated_token_usage() > budget && !piece.is_empty() {
             pieces.push(std::mem::take(&mut piece));
             measured = ContextManager::new();
-            measured.record_items(std::slice::from_ref(item), policy);
+            measured.record_items(std::slice::from_ref(&item), policy);
         }
-        piece.push(item.clone());
+        piece.push(item);
     }
     if !piece.is_empty() {
         pieces.push(piece);
@@ -668,6 +794,73 @@ mod tests {
     use super::*;
     use crate::session_prefix::TURN_ABORTED_OPEN_TAG;
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn should_cut_an_item_that_is_bigger_than_a_whole_piece() {
+        // Splitting between items cannot place one that is larger than the
+        // budget by itself. The piece was sent anyway, the request came back
+        // "context exceeded", and compaction retried it forever.
+        let huge = said(&"x".repeat(200_000));
+        let pieces = split_into_pieces(
+            std::slice::from_ref(&huge),
+            1_000,
+            crate::truncate::TruncationPolicy::Tokens(10_000),
+        );
+
+        assert_eq!(pieces.len(), 1);
+        let mut measured = ContextManager::new();
+        measured.record_items(
+            pieces[0].iter(),
+            crate::truncate::TruncationPolicy::Tokens(10_000),
+        );
+        assert!(
+            measured.estimated_token_usage() <= 1_000,
+            "a piece must fit the budget it was cut for, got {}",
+            measured.estimated_token_usage()
+        );
+    }
+
+    #[test]
+    fn should_keep_both_ends_of_what_it_cuts() {
+        // The beginning says what the text is; the end says how it finished.
+        let text = format!("BEGINNING{}ENDING", "x".repeat(50_000));
+        let shortened = shorten(&text, 2_000);
+        assert!(shortened.starts_with("BEGINNING"), "{}", &shortened[..40]);
+        assert!(shortened.ends_with("ENDING"));
+        assert!(shortened.contains("characters removed"));
+        assert!(shortened.len() < text.len());
+    }
+
+    #[test]
+    fn should_leave_something_that_already_fits_alone() {
+        let small = said("a short answer");
+        let same = cut_to_fit(
+            small.clone(),
+            10_000,
+            crate::truncate::TruncationPolicy::Tokens(10_000),
+        );
+        assert_eq!(same, small);
+    }
+
+    #[test]
+    fn should_not_summarise_the_models_scratch_work() {
+        // Reasoning was most of the conversation this was found on — the four
+        // largest items were all reasoning — and none of it is what a summary
+        // of what happened is made from.
+        let thinking = ResponseItem::Reasoning {
+            id: String::new(),
+            summary: Vec::new(),
+            content: None,
+            encrypted_content: None,
+        };
+        let pieces = split_into_pieces(
+            &[thinking, said("the answer")],
+            10_000,
+            crate::truncate::TruncationPolicy::Tokens(10_000),
+        );
+        let kept: usize = pieces.iter().map(Vec::len).sum();
+        assert_eq!(kept, 1, "only the answer should be summarised");
+    }
 
     fn said(text: &str) -> ResponseItem {
         ResponseItem::Message {
