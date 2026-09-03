@@ -24,6 +24,7 @@ import {
 } from "./icons";
 import { t } from "./i18n";
 import { SCENARIOS } from "./scenarios";
+import type { Bot } from "./protocol";
 
 export type View =
   | "chat"
@@ -57,6 +58,9 @@ interface SidebarProps {
   onOpenScenario: (id: string) => void;
   /** Which kind of work is being read, when one is. */
   openScenarioId: string | null;
+  /** The bots hired into each department. */
+  bots: Bot[];
+  onOpenBot: (bot: Bot) => void;
   onNewChat: () => void;
   onOpenThread: (id: string) => void;
   onOpenProject: (project: Project) => void;
@@ -223,6 +227,8 @@ export default function Sidebar({
   onNavigate,
   onOpenScenario,
   openScenarioId,
+  bots,
+  onOpenBot,
   onNewChat,
   onOpenThread,
   onOpenProject,
@@ -380,9 +386,35 @@ export default function Sidebar({
                     <span>{project.name}</span>
                   </button>
                   <ul className="tree nested">
+                    {/* Bots first, and named as bots. A bot's conversation is
+                        also a chat, so listing it only as a chat would show
+                        the roster as an undifferentiated pile of transcripts
+                        — with the one status anybody has to act on, "waiting
+                        for you", nowhere to be seen. */}
+                    {bots
+                      .filter((bot) => bot.department === project.id)
+                      .map((bot) => (
+                        <li key={bot.id}>
+                          <button
+                            className={`tree-row bot${
+                              bot.threadId && bot.threadId === activeThreadId ? " active" : ""
+                            }`}
+                            onClick={() => onOpenBot(bot)}
+                            title={bot.job || bot.address}
+                          >
+                            <i className={`bot-dot ${bot.status}`} />
+                            <span>{bot.name}</span>
+                            {bot.status === "waitingForYou" ? (
+                              <em className="pill">{t("asking")}</em>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))}
                     {project.threadIds
                       .map((id) => byId.get(id))
                       .filter((thread): thread is ThreadSummary => thread !== undefined)
+                      // A bot's conversation is listed above, as the bot.
+                      .filter((thread) => !bots.some((bot) => bot.threadId === thread.id))
                       .map((thread) => (
                         <li key={thread.id}>
                           <button

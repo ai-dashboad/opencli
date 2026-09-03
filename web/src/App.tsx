@@ -22,6 +22,7 @@ import {
   type FileChange,
   type ModelOption,
   type Attachment,
+  type Bot,
   type ConnectorSummary,
   type Preferences,
   type Project,
@@ -342,6 +343,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
   const [taskList, setTaskList] = useState<ScheduledTask[]>([]);
   const [skillList, setSkillList] = useState<SkillSummary[]>([]);
   const [connectorList, setConnectorList] = useState<ConnectorSummary[]>([]);
+  const [botList, setBotList] = useState<Bot[]>([]);
   const [attachMenu, setAttachMenu] = useState(false);
   const [runs, setRuns] = useState<Run[]>([]);
   // Downloads in flight, kept in the shell so progress survives leaving the
@@ -558,13 +560,14 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
     if (!client) return;
     // Each list decorates the sidebar independently, so one failing should not
     // blank the others.
-    const [listed, projects, tasks, skills, connectors, recent] = await Promise.all([
+    const [listed, projects, tasks, skills, connectors, recent, roster] = await Promise.all([
       client.listThreads().catch(() => null),
       client.listProjects().catch(() => null),
       client.listTasks().catch(() => null),
       client.listSkills(cwdRef.current || ".").catch(() => null),
       client.listConnectors().catch(() => null),
       client.listRuns({ limit: 30 }).catch(() => null),
+      client.listBots().catch(() => null),
     ]);
     if (listed) setThreads(listed);
     if (projects) setProjectList(projects);
@@ -572,6 +575,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
     if (skills) setSkillList(skills);
     if (connectors) setConnectorList(connectors);
     if (recent) setRuns(recent);
+    if (roster) setBotList(roster);
   }, []);
 
   /**
@@ -981,7 +985,13 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
       setProject(owner);
       if (owner) setCwd(owner.cwd);
       try {
-        const restored = await client.resumeThread(id);
+        // A bot's job goes back in with the load; without it the agent has
+        // the transcript and no idea what it is for.
+        const hiredHere = botList.find((bot) => bot.threadId === id);
+        const restored = await client.resumeThread(
+          id,
+          hiredHere?.job ? { instructions: hiredHere.job } : {},
+        );
         setItems(restored);
         // What the agent wrote is part of the conversation, not part of this
         // window's session. Rebuilt from the transcript so the Artifacts panel
@@ -993,7 +1003,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [projectList],
+    [botList, go, projectList],
   );
 
   /**
@@ -1157,6 +1167,46 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
     [cwd, go, sendPrompt, startFreshThread],
   );
 
+  /**
+   * Open a bot's conversation, starting it if this is the first time.
+   *
+   * A bot can be hired before anyone talks to it — named, given a job, and
+   * left idle — so the first click is what gives it somewhere to work. The
+   * thread is then recorded against the bot, because next time it has to be
+   * the same conversation and not a fresh one that has forgotten the week.
+   */
+  const openBot = useCallback(
+    async (bot: Bot) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (bot.threadId) {
+        await openThread(bot.threadId);
+        return;
+      }
+      const department = projectList.find((row) => row.id === bot.department) ?? null;
+      go("chat");
+      setProject(department);
+      if (department) setCwd(department.cwd);
+      const started = await startFreshThread(
+        department?.cwd ?? cwd,
+        bot.job,
+        department?.id ?? null,
+      );
+      const threadId = started?.threadId;
+      if (!threadId) return;
+      try {
+        await client.updateBot(bot.id, { threadId });
+        void refreshThreads();
+      } catch (err) {
+        // The conversation is open and usable either way; what is lost is the
+        // link back to it, so say so rather than failing silently and letting
+        // the next click start a second one.
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [cwd, go, openThread, projectList, refreshThreads, startFreshThread],
+  );
+
   const answerApproval = useCallback(
     (decision: "approved" | "denied") => {
       if (!approval) return;
@@ -1235,6 +1285,8 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
         onNewChat={() => void newChat()}
         onOpenThread={(id) => void openThread(id)}
         onOpenProject={showProject}
+        bots={botList}
+        onOpenBot={(bot) => void openBot(bot)}
         onToggle={() => setSidebarOpen(false)}
         onBack={() => step(-1)}
         onForward={() => step(1)}

@@ -3495,3 +3495,31 @@ textarea:focus {
   color: var(--text-faint);
   font-size: 12px;
 }
+
+/* A bot in the roster: what it is called, and whether it needs you.
+   The dot is the only thing carrying status here, so the one status a person
+   has to act on gets a colour of its own and a word beside it. */
+.bot-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.bot-dot.working {
+  background: var(--accent);
+}
+
+.bot-dot.waitingForYou {
+  background: #d4a72c;
+}
+
+.bot-dot.errored {
+  background: #c0504d;
+}
+
+.tree-row.bot em.pill {
+  margin-left: auto;
+}

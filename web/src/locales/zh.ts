@@ -11,6 +11,7 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "asking": "待批",
   "Ways to use it": "能做什么",
   "Ask for it like this": "可以这样开口",
   "Start": "开始",
