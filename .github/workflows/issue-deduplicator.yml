@@ -17,7 +17,7 @@ jobs:
     outputs:
       opencli_output: ${{ steps.opencli.outputs.final-message }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Prepare OpenCLI inputs
         env:
@@ -87,7 +87,7 @@ jobs:
       issues: write
     steps:
       - name: Comment on issue
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           OPENCLI_OUTPUT: ${{ needs.gather-duplicates.outputs.opencli_output }}
         with:
