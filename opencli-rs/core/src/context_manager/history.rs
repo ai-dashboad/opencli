@@ -25,6 +25,23 @@ pub(crate) struct ContextManager {
     /// The oldest items are at the beginning of the vector.
     items: Vec<ResponseItem>,
     token_info: Option<TokenUsageInfo>,
+    /// What a request costs beyond the conversation itself, measured.
+    ///
+    /// Tool schemas, chiefly. They are not part of the history and so appear
+    /// in no estimate of it, but the provider charges for them on every
+    /// request, and with several connectors configured they are the larger
+    /// half of a small window: a session with four MCP servers on a
+    /// 31,129-token model measured 25,000 tokens a request against an
+    /// estimate of 14,986.
+    ///
+    /// That gap is not merely an inaccuracy. Compaction fires on the measured
+    /// figure and then resets the count to the estimate, so the estimate being
+    /// low by the size of the tool schemas meant compaction believed it had
+    /// worked, every time, while the next real request came back over the
+    /// limit again — summarising once per turn, for as long as the
+    /// conversation lasted. Learning the difference is what lets the two
+    /// numbers describe the same request.
+    request_overhead: Option<i64>,
 }
 
 /// Roughly how much of an item becomes tokens.
@@ -107,6 +124,7 @@ impl ContextManager {
         Self {
             items: Vec::new(),
             token_info: TokenUsageInfo::new_or_append(&None, &None, None),
+            request_overhead: None,
         }
     }
 
@@ -284,6 +302,30 @@ impl ContextManager {
         );
     }
 
+    /// Learn what this request carried beyond the conversation.
+    ///
+    /// `estimated_history` is what the history alone was reckoned to cost for
+    /// the request the provider has just billed; whatever it charged above
+    /// that is the fixed part every other request will carry too.
+    ///
+    /// The largest seen is kept rather than the latest. The overhead is close
+    /// to constant across a session, and the one thing that must not happen is
+    /// for it to be understated on the turn that decides whether to compact.
+    pub(crate) fn learn_request_overhead(&mut self, billed_input: i64, estimated_history: i64) {
+        let overhead = billed_input.saturating_sub(estimated_history);
+        if overhead <= 0 {
+            return;
+        }
+        self.request_overhead = Some(match self.request_overhead {
+            Some(known) => known.max(overhead),
+            None => overhead,
+        });
+    }
+
+    pub(crate) fn request_overhead(&self) -> i64 {
+        self.request_overhead.unwrap_or(0)
+    }
+
     fn get_non_last_reasoning_items_tokens(&self) -> usize {
         // get reasoning items excluding all the ones after the last user message
         let Some(last_user_index) = self
@@ -347,8 +389,11 @@ impl ContextManager {
     pub(crate) fn get_total_token_usage(&self, server_reasoning_included: bool) -> i64 {
         let Some(info) = self.token_info.as_ref() else {
             // Never sent anything, so nothing was counted. What is on hand is
-            // the history itself.
-            return self.estimated_token_usage();
+            // the history itself, plus whatever a request was last seen to
+            // carry on top of it.
+            return self
+                .estimated_token_usage()
+                .saturating_add(self.request_overhead());
         };
         let last_tokens = info.last_token_usage.total_tokens;
         // The recorded figure describes the request that was last sent, which
@@ -362,7 +407,14 @@ impl ContextManager {
         // and ran so far ahead of the truth that a conversation the model
         // reported as 17,000 tokens estimated past a 22,937 limit and
         // compacted after every few commands.
-        let last_tokens = last_tokens.max(self.estimated_token_usage());
+        // The estimate covers the conversation; the recorded figure covers the
+        // whole request. Comparing them without the overhead compares a
+        // conversation against a request, and the larger of the two is then
+        // whichever happens to have been measured most recently.
+        let last_tokens = last_tokens.max(
+            self.estimated_token_usage()
+                .saturating_add(self.request_overhead()),
+        );
         if server_reasoning_included {
             last_tokens
         } else {

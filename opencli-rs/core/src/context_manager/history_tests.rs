@@ -1113,3 +1113,48 @@ fn should_price_a_picture_at_what_is_actually_sent() {
         "a picture this size cannot look cheap, got {estimated}"
     );
 }
+
+#[test]
+fn should_count_what_a_request_carries_beyond_the_conversation() {
+    // The gap that made compaction run once a turn: the conversation was
+    // estimated at 14,986 tokens while the provider charged 25,000 for the
+    // request, the difference being the tool schemas of four connectors. The
+    // limit was 21,790, so one number was under it and the other over, and
+    // compacting swapped which one was being read.
+    let mut history = create_history_with_items(vec![user_msg(&"word ".repeat(2_000))]);
+    let conversation_only = history.get_total_token_usage(false);
+
+    history.learn_request_overhead(25_000, 14_986);
+
+    assert_eq!(history.request_overhead(), 25_000 - 14_986);
+    assert_eq!(
+        history.get_total_token_usage(false),
+        conversation_only + (25_000 - 14_986),
+        "the estimate has to describe the same request the provider billed"
+    );
+}
+
+#[test]
+fn should_keep_the_largest_overhead_seen_rather_than_the_latest() {
+    // A turn whose request happened to be cheap must not talk the session out
+    // of an overhead it has already paid, because the understated figure would
+    // land on exactly the turn that decides whether to compact.
+    let mut history = create_history_with_items(vec![user_msg("hello")]);
+
+    history.learn_request_overhead(25_000, 15_000);
+    history.learn_request_overhead(18_000, 15_000);
+
+    assert_eq!(history.request_overhead(), 10_000);
+}
+
+#[test]
+fn should_ignore_an_overhead_that_measures_as_negative() {
+    // The estimate is approximate and can overshoot the billed figure; that
+    // says nothing about the tool schemas and must not be recorded as a
+    // discount.
+    let mut history = create_history_with_items(vec![user_msg("hello")]);
+
+    history.learn_request_overhead(9_000, 12_000);
+
+    assert_eq!(history.request_overhead(), 0);
+}

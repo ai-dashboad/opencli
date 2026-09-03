@@ -11,6 +11,19 @@ use crate::protocol::TokenUsage;
 use crate::protocol::TokenUsageInfo;
 use crate::truncate::TruncationPolicy;
 
+/// What to do about a conversation that has reached its compaction limit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CompactionVerdict {
+    /// Still inside the limit.
+    NotNeeded,
+    /// Over it, with a conversation long enough that summarising will shorten
+    /// the request.
+    Compact,
+    /// Over it, but not because of the conversation. `overhead` is what every
+    /// request carries regardless — the tool schemas above all.
+    WontHelp { overhead: i64 },
+}
+
 /// Persistent, session-scoped state previously stored directly on `Session`.
 pub(crate) struct SessionState {
     pub(crate) session_configuration: SessionConfiguration,
@@ -24,6 +37,11 @@ pub(crate) struct SessionState {
     /// TODO(owen): This is a temporary solution to avoid updating a thread's updated_at
     /// timestamp when resuming a session. Remove this once SQLite is in place.
     pub(crate) initial_context_seeded: bool,
+    /// Where the last compaction left the count, and whether the reader has
+    /// been told that compacting is not what stands between them and a working
+    /// conversation. See `SessionState::compaction_verdict`.
+    compaction_floor: Option<i64>,
+    compaction_futility_reported: bool,
 }
 
 impl SessionState {
@@ -38,6 +56,8 @@ impl SessionState {
             dependency_env: HashMap::new(),
             mcp_dependency_prompted: HashSet::new(),
             initial_context_seeded: false,
+            compaction_floor: None,
+            compaction_futility_reported: false,
         }
     }
 
@@ -97,6 +117,54 @@ impl SessionState {
             .get_total_token_usage(server_reasoning_included)
     }
 
+    pub(crate) fn learn_request_overhead(&mut self, billed_input: i64, estimated_history: i64) {
+        self.history
+            .learn_request_overhead(billed_input, estimated_history);
+    }
+
+    pub(crate) fn request_overhead(&self) -> i64 {
+        self.history.request_overhead()
+    }
+
+    /// Remember where a compaction left the count, so the next one can be
+    /// judged on whether it has anything left to do.
+    pub(crate) fn record_compaction_floor(&mut self, total_tokens: i64) {
+        self.compaction_floor = Some(total_tokens);
+    }
+
+    /// Whether summarising the conversation now would accomplish anything.
+    ///
+    /// Being over the limit is not sufficient. A request carries the tool
+    /// schemas and the instructions as well as the conversation, and
+    /// compaction can only shorten the conversation — so when the fixed part
+    /// alone is near the limit, every compaction ends over the limit too, and
+    /// the next turn asks for another. That is not hypothetical: it summarised
+    /// once a turn for eleven turns straight, each one throwing away the
+    /// thread and telling the reader it had helped.
+    ///
+    /// So the question asked here is not "is it too long" but "has it grown
+    /// since the last time this was tried". If it has not, the length is not
+    /// coming from the conversation and no amount of summarising will reach
+    /// it.
+    pub(crate) fn compaction_verdict(&self, total_tokens: i64, limit: i64) -> CompactionVerdict {
+        compaction_verdict_for(
+            total_tokens,
+            limit,
+            self.compaction_floor,
+            self.request_overhead(),
+        )
+    }
+
+    /// True the first time, so the explanation is given once rather than every
+    /// turn for the rest of a conversation that will keep hitting this.
+    pub(crate) fn should_report_compaction_futility(&mut self) -> bool {
+        if self.compaction_futility_reported {
+            return false;
+        }
+        self.compaction_futility_reported = true;
+        true
+    }
+
     pub(crate) fn set_server_reasoning_included(&mut self, included: bool) {
         self.server_reasoning_included = included;
     }
@@ -127,6 +195,29 @@ impl SessionState {
     }
 }
 
+fn compaction_verdict_for(
+    total_tokens: i64,
+    limit: i64,
+    compaction_floor: Option<i64>,
+    overhead: i64,
+) -> CompactionVerdict {
+    if total_tokens < limit {
+        return CompactionVerdict::NotNeeded;
+    }
+    let Some(floor) = compaction_floor else {
+        return CompactionVerdict::Compact;
+    };
+    // A tenth of the limit: enough that a compaction earns back more than the
+    // request it costs, small enough that a conversation genuinely growing is
+    // still summarised well before it stops fitting.
+    let minimum_gain = (limit / 10).max(1);
+    if total_tokens > floor.saturating_add(minimum_gain) {
+        CompactionVerdict::Compact
+    } else {
+        CompactionVerdict::WontHelp { overhead }
+    }
+}
+
 // Sometimes new snapshots don't include credits or plan information.
 fn merge_rate_limit_fields(
     previous: Option<&RateLimitSnapshot>,
@@ -139,4 +230,62 @@ fn merge_rate_limit_fields(
         snapshot.plan_type = previous.and_then(|prior| prior.plan_type);
     }
     snapshot
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CompactionVerdict;
+    use super::compaction_verdict_for;
+
+    /// The numbers are the ones from the session that produced this code: a
+    /// 31,129-token window, so a 21,790-token compaction limit, and requests
+    /// arriving at around 25,000 because the tool schemas of four connectors
+    /// travel with each one.
+    const LIMIT: i64 = 21_790;
+
+    #[test]
+    fn should_not_compact_when_the_conversation_is_within_the_limit() {
+        assert_eq!(
+            compaction_verdict_for(14_986, LIMIT, None, 10_000),
+            CompactionVerdict::NotNeeded
+        );
+    }
+
+    #[test]
+    fn should_compact_when_over_the_limit_and_nothing_has_been_tried_yet() {
+        assert_eq!(
+            compaction_verdict_for(25_000, LIMIT, None, 0),
+            CompactionVerdict::Compact
+        );
+    }
+
+    #[test]
+    fn should_not_compact_again_when_the_last_one_left_it_here() {
+        // What happened: compaction ran, the request came back at 25,000 all
+        // the same, and the next turn asked for another compaction.
+        assert_eq!(
+            compaction_verdict_for(25_000, LIMIT, Some(24_800), 10_000),
+            CompactionVerdict::WontHelp { overhead: 10_000 }
+        );
+    }
+
+    #[test]
+    fn should_compact_when_the_conversation_has_grown_since_the_last_one() {
+        // A tenth of the limit past the floor is a real conversation getting
+        // longer, not accounting noise.
+        assert_eq!(
+            compaction_verdict_for(28_000, LIMIT, Some(24_800), 10_000),
+            CompactionVerdict::Compact
+        );
+    }
+
+    #[test]
+    fn should_report_the_overhead_that_compaction_cannot_reach() {
+        let CompactionVerdict::WontHelp { overhead } =
+            compaction_verdict_for(25_000, LIMIT, Some(24_900), 19_500)
+        else {
+            panic!("expected the verdict to be that compaction cannot help");
+        };
+        assert_eq!(overhead, 19_500);
+    }
 }

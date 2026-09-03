@@ -185,6 +185,7 @@ use crate::skills::injection::app_id_from_path;
 use crate::skills::injection::tool_kind_for_path;
 use crate::skills::resolve_skill_dependencies_for_turn;
 use crate::state::ActiveTurn;
+use crate::state::CompactionVerdict;
 use crate::state::SessionServices;
 use crate::state::SessionState;
 use crate::state_db;
@@ -1976,6 +1977,13 @@ impl Session {
         {
             let mut state = self.state.lock().await;
             if let Some(token_usage) = token_usage {
+                // What the provider charged for a request whose conversation
+                // we had just estimated: the difference is the tool schemas
+                // and everything else that rides along, and it is the only
+                // chance to find out what they cost.
+                if let Some(estimated_history) = state.history.estimate_token_count(turn_context) {
+                    state.learn_request_overhead(token_usage.input_tokens, estimated_history);
+                }
                 state.update_token_info_from_usage(
                     token_usage,
                     turn_context.client.get_model_context_window(),
@@ -2001,12 +2009,17 @@ impl Session {
                 model_context_window: None,
             });
 
+            // Plus what every request carries besides the conversation.
+            // Without it this replaces a measured figure with a smaller,
+            // differently-defined one, and compaction reads its own accounting
+            // change as a success.
+            let overhead = state.request_overhead();
             info.last_token_usage = TokenUsage {
                 input_tokens: 0,
                 cached_input_tokens: 0,
                 output_tokens: 0,
                 reasoning_output_tokens: 0,
-                total_tokens: estimated_total_tokens.max(0),
+                total_tokens: estimated_total_tokens.saturating_add(overhead).max(0),
             };
 
             if info.model_context_window.is_none() {
@@ -3373,9 +3386,7 @@ pub(crate) async fn run_turn(
         collaboration_mode_kind: turn_context.collaboration_mode.mode,
     });
     sess.send_event(&turn_context, event).await;
-    if total_usage_tokens >= auto_compact_limit {
-        run_auto_compact(&sess, &turn_context).await;
-    }
+    compact_if_it_would_help(&sess, &turn_context, total_usage_tokens, auto_compact_limit).await;
 
     let skills_outcome = Some(
         sess.services
@@ -3524,11 +3535,15 @@ pub(crate) async fn run_turn(
                     last_agent_message: sampling_request_last_agent_message,
                 } = sampling_request_output;
                 let total_usage_tokens = sess.get_total_token_usage().await;
-                let token_limit_reached = total_usage_tokens >= auto_compact_limit;
 
-                // as long as compaction works well in getting us way below the token limit, we shouldn't worry about being in an infinite loop.
-                if token_limit_reached && needs_follow_up {
-                    run_auto_compact(&sess, &turn_context).await;
+                if needs_follow_up {
+                    compact_if_it_would_help(
+                        &sess,
+                        &turn_context,
+                        total_usage_tokens,
+                        auto_compact_limit,
+                    )
+                    .await;
                     continue;
                 }
 
@@ -3662,6 +3677,62 @@ async fn run_auto_compact(sess: &Arc<Session>, turn_context: &Arc<TurnContext>) 
         run_inline_remote_auto_compact_task(Arc::clone(sess), Arc::clone(turn_context)).await;
     } else {
         run_inline_auto_compact_task(Arc::clone(sess), Arc::clone(turn_context)).await;
+    }
+    // Where it got to. The next turn judges a compaction by whether the
+    // conversation has grown past this, not by the limit alone.
+    let settled = sess.get_total_token_usage().await;
+    sess.state.lock().await.record_compaction_floor(settled);
+}
+
+/// Summarise the conversation if that is what the length is made of.
+///
+/// Returns whether a compaction ran. The first time it declines, it says why:
+/// a reader watching "Summarising the conversation…" appear before every
+/// answer has no way to tell that the conversation is not the problem, and the
+/// two things that would fix it — fewer connectors, or a model with a larger
+/// window — are both theirs to choose.
+async fn compact_if_it_would_help(
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
+    total_usage_tokens: i64,
+    auto_compact_limit: i64,
+) -> bool {
+    let verdict = {
+        let state = sess.state.lock().await;
+        state.compaction_verdict(total_usage_tokens, auto_compact_limit)
+    };
+    match verdict {
+        CompactionVerdict::NotNeeded => false,
+        CompactionVerdict::Compact => {
+            run_auto_compact(sess, turn_context).await;
+            true
+        }
+        CompactionVerdict::WontHelp { overhead } => {
+            let first_time = {
+                let mut state = sess.state.lock().await;
+                state.should_report_compaction_futility()
+            };
+            if first_time {
+                let window = turn_context
+                    .client
+                    .get_model_context_window()
+                    .unwrap_or(auto_compact_limit);
+                sess.send_event(
+                    turn_context,
+                    EventMsg::Warning(WarningEvent {
+                        message: format!(
+                            "Every message already carries about {overhead} tokens of tools and \
+                             instructions, against a {window}-token context window. Summarising \
+                             the conversation cannot get below that, so it will not be tried \
+                             again. Turn off some connectors, or use a model with a larger \
+                             window."
+                        ),
+                    }),
+                )
+                .await;
+            }
+            false
+        }
     }
 }
 

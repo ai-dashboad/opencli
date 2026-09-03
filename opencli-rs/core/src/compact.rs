@@ -43,6 +43,19 @@ pub(crate) fn should_use_remote_compact_task(
     provider.is_openai() && session.enabled(Feature::RemoteCompaction)
 }
 
+/// Shorter than this and it is not a summary of anything.
+///
+/// Deliberately a low bar. The job here is to tell a summary from an empty
+/// answer or a stray bracket, not to judge how good it is — a terse summary of
+/// a short exchange is still a summary, and refusing it would leave the
+/// conversation growing with no way to shorten it.
+const SHORTEST_USABLE_SUMMARY: usize = 40;
+
+fn is_usable_summary(summary: &str) -> bool {
+    let trimmed = summary.trim();
+    trimmed.chars().count() >= SHORTEST_USABLE_SUMMARY && trimmed.chars().any(char::is_alphanumeric)
+}
+
 /// How much of the window one summarising request may use.
 ///
 /// Half, not all: the request carries the conversation *and* the instruction
@@ -598,6 +611,29 @@ async fn run_compact_task_inner(
     let history_snapshot = sess.clone_history().await;
     let history_items = history_snapshot.raw_items();
     let summary_suffix = get_last_assistant_message_from_turn(history_items).unwrap_or_default();
+
+    // A model that answered but said nothing has not summarised anything, and
+    // replacing the conversation with what it said would destroy the
+    // conversation to no purpose. This is not a corner case: a local model
+    // asked to summarise a thread that had just been compacted returned the
+    // single character `)`, nine times running, and each time the thread was
+    // replaced by it.
+    if !is_usable_summary(&summary_suffix) {
+        warn!("compaction produced no usable summary; keeping the conversation as it stands");
+        sess.emit_turn_item_completed(&turn_context, compaction_item)
+            .await;
+        sess.send_event(
+            &turn_context,
+            EventMsg::Warning(WarningEvent {
+                message: "The model did not produce a summary, so the conversation was left as \
+                          it is."
+                    .to_string(),
+            }),
+        )
+        .await;
+        return;
+    }
+
     let summary_text = format!("{SUMMARY_PREFIX}\n{summary_suffix}");
     let user_messages = collect_user_messages(history_items);
 
@@ -790,6 +826,28 @@ async fn drain_to_completed(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn should_reject_a_summary_that_summarises_nothing() {
+        // A local model asked to summarise a thread that had just been
+        // compacted answered with a single closing bracket, nine times in a
+        // row. Each answer replaced the conversation.
+        assert!(!is_usable_summary(")"));
+        assert!(!is_usable_summary(""));
+        assert!(!is_usable_summary("   \n  "));
+        assert!(!is_usable_summary("Sure!"));
+    }
+
+    #[test]
+    fn should_accept_a_short_but_real_summary() {
+        assert!(is_usable_summary(
+            "The user asked for the build to be fixed; the icon path was wrong."
+        ));
+    }
+
+    #[test]
+    fn should_reject_punctuation_long_enough_to_pass_for_a_summary() {
+        assert!(!is_usable_summary(&"-".repeat(200)));
+    }
 
     use super::*;
     use crate::session_prefix::TURN_ABORTED_OPEN_TAG;
