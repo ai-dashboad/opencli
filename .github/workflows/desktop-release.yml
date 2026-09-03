@@ -29,16 +29,20 @@ jobs:
         include:
           - runner: macos-14
             platform: darwin-aarch64
+            target: aarch64-apple-darwin
             bundles: app,dmg
           # `macos-13` was retired; Intel builds run on `macos-15-intel`.
           - runner: macos-15-intel
             platform: darwin-x86_64
+            target: x86_64-apple-darwin
             bundles: app,dmg
           - runner: ubuntu-22.04
             platform: linux-x86_64
+            target: x86_64-unknown-linux-gnu
             bundles: appimage,deb
           - runner: windows-latest
             platform: windows-x86_64
+            target: x86_64-pc-windows-msvc
             bundles: msi,nsis
 
     steps:
@@ -95,12 +99,36 @@ jobs:
 
       # `beforeBuildCommand` runs `stage-sidecar.sh` and builds the frontend,
       # so the app cannot be bundled around a stale agent.
+      #
+      # The triple is given explicitly and passed to the staging script in the
+      # same breath. Tauri takes the sidecar's expected name from the
+      # architecture of the `cargo-tauri` binary itself, so leaving it implicit
+      # made the build depend on which prebuilt CLI `binstall` happened to
+      # pick: an x86_64 one on the arm64 macOS runner sent it looking for a
+      # sidecar nothing had staged.
       - name: Build the app
         working-directory: desktop
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: cargo tauri build --bundles ${{ matrix.bundles }}
+          OPENCLI_TARGET: ${{ matrix.target }}
+        run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      # What the build script actually asked the linker for.
+      #
+      # The Windows bundle dies in CVTRES with "duplicate resource,
+      # type:VERSION", and the link command shows the same generated
+      # `resource.lib` passed twice — which nothing in `embed-resource`, which
+      # emits it once, accounts for. This prints the build script's own output
+      # so the second one can be attributed rather than guessed at; it costs a
+      # few lines on a green run and is the whole diagnosis on a red one.
+      - if: ${{ always() && startsWith(matrix.runner, 'windows') }}
+        name: Show what the build script emitted
+        shell: bash
+        run: |
+          set -euo pipefail
+          find desktop/src-tauri/target -path '*opencli-desktop-*/output' -print \
+            -exec grep -n 'link-arg\|link-lib\|link-search' {} \; 2>/dev/null || true
 
       # Two kinds of file come out of here, and they are named differently on
       # purpose.
@@ -118,7 +146,9 @@ jobs:
           set -euo pipefail
           dest="dist-desktop/${{ matrix.platform }}"
           mkdir -p "$dest"
-          bundle="desktop/src-tauri/target/release/bundle"
+          # Building with an explicit `--target` puts the bundles under a
+          # directory named for it rather than straight under `release`.
+          bundle="desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
           arch="${{ matrix.platform }}"
           arch="${arch#*-}"
 

@@ -15,9 +15,19 @@
 # the same binary without the whole-program optimisation, minutes rather than
 # ten of them. Never use it for anything anyone else will run — which is why
 # the line it prints says which of the two went in.
+#
+# `OPENCLI_TARGET` names the triple to stage for, and must be whatever
+# `cargo tauri build` was given with `--target`. Tauri looks for the sidecar
+# under the triple *it* is building for, and it takes that from the CLI
+# binary's own architecture rather than from `rustc` — so an arm64 runner
+# whose `cargo-tauri` was installed as an x86_64 build looked for
+# `opencli-x86_64-apple-darwin`, found the `opencli-aarch64-apple-darwin` this
+# script had just staged, and failed after twenty-eight minutes of compiling.
+# Passing the triple to both is what keeps them talking about the same thing.
 set -euo pipefail
 
-target="$(rustc -vV | sed -n 's/^host: //p')"
+host="$(rustc -vV | sed -n 's/^host: //p')"
+target="${OPENCLI_TARGET:-$host}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 profile="${OPENCLI_QUICK:+quick}"
 profile="${profile:-release}"
@@ -30,10 +40,19 @@ case "$target" in
   *-windows-*) suffix=".exe" ;;
 esac
 
-cargo build --profile "$profile" --manifest-path "$root/opencli-rs/Cargo.toml" \
-  -p opencli-cli --bin opencli
+# Building for the host is the ordinary case and keeps the shared
+# `target/release` directory, which is most of why a rebuild here is quick.
+# An explicit target only costs its own directory when it differs.
+if [ "$target" = "$host" ]; then
+  cargo build --profile "$profile" --manifest-path "$root/opencli-rs/Cargo.toml" \
+    -p opencli-cli --bin opencli
+  built="$root/opencli-rs/target/$profile/opencli$suffix"
+else
+  cargo build --profile "$profile" --target "$target" \
+    --manifest-path "$root/opencli-rs/Cargo.toml" -p opencli-cli --bin opencli
+  built="$root/opencli-rs/target/$target/$profile/opencli$suffix"
+fi
 
 mkdir -p "$root/desktop/src-tauri/bin"
-cp -f "$root/opencli-rs/target/$profile/opencli$suffix" \
-  "$root/desktop/src-tauri/bin/opencli-$target$suffix"
+cp -f "$built" "$root/desktop/src-tauri/bin/opencli-$target$suffix"
 echo "staged opencli-$target$suffix from the $profile profile"
