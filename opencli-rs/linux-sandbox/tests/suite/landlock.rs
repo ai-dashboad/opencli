@@ -63,6 +63,7 @@ async fn run_cmd_output(
         sandbox_permissions: SandboxPermissions::UseDefault,
         windows_sandbox_level: WindowsSandboxLevel::Disabled,
         justification: None,
+        description: None,
         arg0: None,
     };
 
@@ -181,6 +182,7 @@ async fn assert_network_blocked(cmd: &[&str]) {
         sandbox_permissions: SandboxPermissions::UseDefault,
         windows_sandbox_level: WindowsSandboxLevel::Disabled,
         justification: None,
+        description: None,
         arg0: None,
     };
 
