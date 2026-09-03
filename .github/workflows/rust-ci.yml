@@ -17,7 +17,7 @@ jobs:
       opencli: ${{ steps.detect.outputs.opencli }}
       workflows: ${{ steps.detect.outputs.workflows }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect changed paths (no external action)
@@ -58,7 +58,7 @@ jobs:
       run:
         working-directory: opencli-rs
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.93
         with:
           components: rustfmt
@@ -76,7 +76,7 @@ jobs:
       run:
         working-directory: opencli-rs
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.93
       - uses: taiki-e/install-action@44c6d64aa62cd779e873306675c7a58e86d6d532 # v2
         with:
@@ -176,7 +176,7 @@ jobs:
               labels: opencli-windows-arm64
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install UBSan runtime (musl)
         if: ${{ matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-musl' }}
         shell: bash
@@ -503,7 +503,7 @@ jobs:
               labels: opencli-windows-arm64
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Some integration tests rely on DotSlash being installed.
       # See https://github.com/ai-dashboad/opencli/pull/7617.

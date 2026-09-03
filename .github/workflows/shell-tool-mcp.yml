@@ -91,7 +91,7 @@ jobs:
             install_musl: true
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install UBSan runtime (musl)
         if: ${{ matrix.install_musl }}
@@ -260,7 +260,7 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build patched Bash
         shell: bash
@@ -302,7 +302,7 @@ jobs:
             variant: macos-14
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build patched Bash
         shell: bash
@@ -339,7 +339,7 @@ jobs:
       PACKAGE_VERSION: ${{ needs.metadata.outputs.version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
