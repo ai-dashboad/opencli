@@ -1,9 +1,21 @@
 name: sdk
 
+# Scoped to the SDK's own files. It builds the agent from source to test
+# against, which is several minutes on every commit to a repository where most
+# commits do not touch it — and two of its tests fail for reasons that came
+# with the fork, so running it everywhere made every commit look broken.
+# Tracked in issue #12.
 on:
   push:
     branches: [main]
-  pull_request: {}
+    paths:
+      - "sdk/**"
+      - ".github/workflows/sdk.yml"
+  pull_request:
+    paths:
+      - "sdk/**"
+      - ".github/workflows/sdk.yml"
+  workflow_dispatch:
 
 jobs:
   sdks:
