@@ -169,13 +169,13 @@ def main() -> int:
     if not workflow_url:
         workflow_url = DEFAULT_WORKFLOW_URL
 
-    workflow_id = workflow_url.rstrip("/").split("/")[-1]
-    print(f"Downloading native artifacts from workflow {workflow_id}...")
+    repository, workflow_id = _split_workflow_url(workflow_url)
+    print(f"Downloading native artifacts from {repository} workflow {workflow_id}...")
 
     with _gha_group(f"Download native artifacts from workflow {workflow_id}"):
         with tempfile.TemporaryDirectory(prefix="opencli-native-artifacts-") as artifacts_dir_str:
             artifacts_dir = Path(artifacts_dir_str)
-            _download_artifacts(workflow_id, artifacts_dir)
+            _download_artifacts(repository, workflow_id, artifacts_dir)
             install_binary_components(
                 artifacts_dir,
                 vendor_dir,
@@ -259,7 +259,30 @@ def fetch_rg(
     return [results[target] for target in targets]
 
 
-def _download_artifacts(workflow_id: str, dest_dir: Path) -> None:
+def _split_workflow_url(workflow_url: str) -> tuple[str, str]:
+    """Read the repository and the run id out of a workflow run URL.
+
+    Both come from the same place because they describe the same run. The
+    repository used to be written in here as `openai/opencli`, from the
+    project this was forked from, so a release built in a fork asked GitHub
+    for artifacts belonging to somebody else's run -- and got a 404 after
+    every one of the twelve builds had already succeeded.
+    """
+    parts = workflow_url.rstrip("/").split("/")
+    try:
+        runs_at = len(parts) - 1 - parts[::-1].index("runs")
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{workflow_url!r} is not a workflow run URL; expected "
+            ".../<owner>/<repo>/actions/runs/<id>"
+        ) from exc
+    if runs_at < 3 or runs_at + 1 >= len(parts):
+        raise RuntimeError(f"{workflow_url!r} is not a workflow run URL.")
+    owner, repo = parts[runs_at - 3], parts[runs_at - 2]
+    return f"{owner}/{repo}", parts[runs_at + 1]
+
+
+def _download_artifacts(repository: str, workflow_id: str, dest_dir: Path) -> None:
     cmd = [
         "gh",
         "run",
@@ -267,7 +290,7 @@ def _download_artifacts(workflow_id: str, dest_dir: Path) -> None:
         "--dir",
         str(dest_dir),
         "--repo",
-        "openai/opencli",
+        repository,
         workflow_id,
     ]
     subprocess.check_call(cmd)

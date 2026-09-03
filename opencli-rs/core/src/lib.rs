@@ -26,6 +26,7 @@ pub mod connectors;
 mod context_manager;
 pub mod custom_prompts;
 pub mod dispatch;
+pub mod duties;
 pub mod env;
 mod environment_context;
 pub mod error;
