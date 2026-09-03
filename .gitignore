@@ -106,3 +106,15 @@ desktop/src-tauri/bin/
 
 # The site serves the installer from `scripts/`; the copy is made at build time.
 website/public/install.sh
+
+# A Bazel checkout, kept out of the repository — except for the one crate the
+# Cargo workspace resolves through a path dependency. Without it `cargo
+# metadata` cannot parse the workspace at all, so a fresh clone failed before
+# it got as far as compiling anything.
+vendor/
+!vendor/rules_rust/
+vendor/rules_rust/*
+!vendor/rules_rust/LICENSE.txt
+!vendor/rules_rust/rust/
+vendor/rules_rust/rust/*
+!vendor/rules_rust/rust/runfiles/
