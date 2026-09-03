@@ -20,6 +20,8 @@ import type {
   InstallTarget,
   ModelLocation,
   ModelOption,
+  Appearance,
+  TextSize,
   SecretStatus,
   ModelVariant,
   Project,
@@ -1785,6 +1787,31 @@ const POLICIES: { value: ApprovalPolicy; label: string; hint: string }[] = [
  * anyone who picks it expecting to be consulted, which is the wrong way for a
  * security setting to be wrong.
  */
+const APPEARANCES: { value: Appearance; label: string; hint: string }[] = [
+  { value: "system", label: "Follow the system", hint: "Changes when your computer does." },
+  { value: "dark", label: "Dark", hint: "Warm dark grey." },
+  { value: "light", label: "Light", hint: "Warm off-white." },
+];
+
+const TEXT_SIZES: { value: TextSize; label: string }[] = [
+  { value: "normal", label: "Normal" },
+  { value: "large", label: "Large" },
+  { value: "larger", label: "Larger" },
+];
+
+/**
+ * Customize: how the agent works with you, and how it looks.
+ *
+ * `on-request` is deliberately not offered as an approval policy. It leaves
+ * the decision to the model, which in practice almost never asks — so it reads
+ * as "never" to anyone who picks it expecting to be consulted, which is the
+ * wrong way for a security setting to be wrong.
+ *
+ * The toggles here are the same state the chat's own menus write to: this is
+ * the full list, those are shortcuts to the two or three worth reaching
+ * mid-conversation. They were only in the menus before, which meant a panel
+ * called Customize did not contain most of what could be customised.
+ */
 export function CustomizeView({
   preferences,
   onChange,
@@ -1801,9 +1828,44 @@ export function CustomizeView({
     <section className="panel">
       <h2>Customize</h2>
       <p className="hint">
-        Applies to chats you start from now on, except the effort, which applies to your next
-        message.
+        Kept on this computer. Most of it applies to chats you start from now on; the effort and
+        the appearance apply straight away.
       </p>
+
+      <h3>Appearance</h3>
+      <div className="choices">
+        {APPEARANCES.map((option) => (
+          <label key={option.value} className="choice">
+            <input
+              type="radio"
+              name="appearance"
+              checked={(preferences.appearance ?? "system") === option.value}
+              onChange={() => onChange({ ...preferences, appearance: option.value })}
+            />
+            <span>
+              <strong>{option.label}</strong>
+              <span className="hint">{option.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <h3>Text size</h3>
+      <div className="choices">
+        {TEXT_SIZES.map((option) => (
+          <label key={option.value} className="choice">
+            <input
+              type="radio"
+              name="text-size"
+              checked={(preferences.textSize ?? "normal") === option.value}
+              onChange={() => onChange({ ...preferences, textSize: option.value })}
+            />
+            <span>
+              <strong>{option.label}</strong>
+            </span>
+          </label>
+        ))}
+      </div>
 
       <h3>Tone</h3>
       <div className="choices">
@@ -1844,7 +1906,66 @@ export function CustomizeView({
         </div>
       )}
 
+      <h3>What to show</h3>
+      <ul className="rows">
+        <li>
+          <strong>Show the agent's thinking</strong>
+          <span>
+            Asks the model to summarise its reasoning. It thinks either way; turning this off
+            only stops the summary being requested.
+          </span>
+          <div className="actions">
+            <label className="scope">
+              <input
+                type="checkbox"
+                checked={preferences.showThinking !== false}
+                onChange={(e) => onChange({ ...preferences, showThinking: e.target.checked })}
+              />
+              Shown
+            </label>
+          </div>
+        </li>
+        <li>
+          <strong>Web search</strong>
+          <span>
+            Offers the model a search tool. The tool is run by the provider, not by OpenCLI, so
+            it does nothing for a provider that does not implement it.
+          </span>
+          <div className="actions">
+            <label className="scope">
+              <input
+                type="checkbox"
+                checked={preferences.webSearch ?? false}
+                onChange={(e) => onChange({ ...preferences, webSearch: e.target.checked })}
+              />
+              Offered
+            </label>
+          </div>
+        </li>
+        <li>
+          <strong>Research mode</strong>
+          <span>
+            Adds instructions asking for evidence and sources. Instructions, not a retrieval
+            pipeline — it is only as good as the tools the agent already has.
+          </span>
+          <div className="actions">
+            <label className="scope">
+              <input
+                type="checkbox"
+                checked={preferences.research ?? false}
+                onChange={(e) => onChange({ ...preferences, research: e.target.checked })}
+              />
+              On
+            </label>
+          </div>
+        </li>
+      </ul>
+
       <h3>When to ask permission</h3>
+      <p className="hint">
+        For chats started from here. The same setting lives in Settings, where it is written to
+        your configuration file and applies to every interface.
+      </p>
       <div className="choices">
         {POLICIES.map((option) => (
           <label key={option.value} className="choice">
@@ -1862,9 +1983,7 @@ export function CustomizeView({
         ))}
       </div>
       {preferences.approvalPolicy === "never" ? (
-        <p className="error">
-          The agent will run commands on this machine without asking.
-        </p>
+        <p className="error">The agent will run commands on this machine without asking.</p>
       ) : null}
     </section>
   );

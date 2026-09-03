@@ -51,6 +51,7 @@ import {
 import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./menus";
 import { chooseDirectory, chooseFiles, fromHost, isDesktop } from "./host";
 import { useUpdate } from "./update";
+import { applyAppearance, readPreferences, writePreferences } from "./preferences";
 import { Boot } from "./boot";
 import { Markdown } from "./markdown";
 import { shouldInterrupt, shouldSend } from "./composer";
@@ -339,7 +340,14 @@ export default function App() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [changes, setChanges] = useState<FileChange[]>([]);
-  const [preferences, setPreferences] = useState<Preferences>({ approvalPolicy: "untrusted" });
+  // Read once, written back on every change, and applied to the document —
+  // the palette and text size are preferences that have to be *shown*, not
+  // just remembered.
+  const [preferences, setPreferences] = useState<Preferences>(readPreferences);
+  useEffect(() => {
+    writePreferences(preferences);
+    applyAppearance(preferences);
+  }, [preferences]);
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**

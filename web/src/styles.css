@@ -43,6 +43,86 @@
   -webkit-font-smoothing: antialiased;
 }
 
+
+/*
+ * The same interface in daylight.
+ *
+ * Every surface here is mixed from a warm off-white rather than pure white,
+ * for the same reason the dark palette is warm grey rather than blue-grey: it
+ * is what makes a screen read as calm. The accent is darkened, because the
+ * terracotta that carries against near-black is too pale to read against
+ * paper.
+ *
+ * Applied by an attribute on the root element rather than by a media query
+ * alone, so "follow the system" is a choice among three rather than the only
+ * behaviour available.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #faf9f5;
+  --bg-sidebar: #f2f0e9;
+  --surface: #ffffff;
+  --surface-hover: #f0eee7;
+  --surface-active: #e8e5db;
+  --line: #ddd9cd;
+  --line-soft: #eae7dd;
+
+  --text: #2b2a27;
+  --text-dim: #625f57;
+  --text-faint: #8b877d;
+
+  --accent: #b4522f;
+  --accent-soft: #f6e6de;
+  --link: #2f5fbd;
+  --danger: #b4483a;
+  --added: #3f7f3f;
+  --code: #a8462f;
+}
+
+/* Follow the system when nothing has been chosen. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+
+    --bg: #faf9f5;
+    --bg-sidebar: #f2f0e9;
+    --surface: #ffffff;
+    --surface-hover: #f0eee7;
+    --surface-active: #e8e5db;
+    --line: #ddd9cd;
+    --line-soft: #eae7dd;
+
+    --text: #2b2a27;
+    --text-dim: #625f57;
+    --text-faint: #8b877d;
+
+    --accent: #b4522f;
+    --accent-soft: #f6e6de;
+    --link: #2f5fbd;
+    --danger: #b4483a;
+    --added: #3f7f3f;
+    --code: #a8462f;
+  }
+}
+
+/* Text scale, set from Customize. Everything sized in `px` stays put; the
+   parts that carry the conversation are the ones worth scaling. */
+:root[data-text="large"] {
+  --text-scale: 1.12;
+}
+
+:root[data-text="larger"] {
+  --text-scale: 1.25;
+}
+
+.markdown,
+.item .body,
+.composer textarea,
+.transcript {
+  font-size: calc(14.5px * var(--text-scale, 1));
+}
+
 * {
   box-sizing: border-box;
 }

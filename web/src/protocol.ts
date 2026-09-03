@@ -263,8 +263,15 @@ export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "
 export type ApprovalPolicy = "untrusted" | "on-failure" | "on-request" | "never";
 
 /** Per-thread preferences the user can change. */
+export type Appearance = "system" | "dark" | "light";
+export type TextSize = "normal" | "large" | "larger";
+
 export interface Preferences {
   personality?: Personality;
+  /** Which palette to use; "system" follows the operating system. */
+  appearance?: Appearance;
+  /** How large the conversation's text is. */
+  textSize?: TextSize;
   effort?: ReasoningEffort;
   approvalPolicy: ApprovalPolicy;
   /**
