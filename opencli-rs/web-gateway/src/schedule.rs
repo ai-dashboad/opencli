@@ -153,12 +153,12 @@ fn run_now(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     // schedule should keep measuring from the last scheduled one.
     dispatch::create(
         opencli_home,
-        task.name.clone(),
-        task.prompt.clone(),
-        task.cwd.clone(),
+        task.name,
+        task.prompt,
+        task.cwd,
         None,
         dispatch::RunSource::Scheduled,
-        Some(task.id.clone()),
+        Some(task.id),
     )
     .map_err(|err| format!("could not queue: {err}"))?;
     Ok(json!({}))
