@@ -1238,6 +1238,26 @@ textarea:focus {
   max-width: none;
 }
 
+/*
+ * A skill's description is the prose that tells the model when to use it, and
+ * runs to a paragraph. Shown whole it made the list unreadable: five rows
+ * filled a screen and the names — the thing being looked for — were lost among
+ * them. Two lines, and the row opens when it is clicked.
+ */
+.rows span.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The file a row came from: present, and not competing with the name. */
+.rows .source {
+  color: var(--text-faint);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
 /* An empty state is a sentence about the list, not one card in it. */
 .rows li.muted {
   grid-column: 1 / -1;
@@ -1274,13 +1294,68 @@ textarea:focus {
   margin-top: 8px;
 }
 
-.rows.settings .value {
-  color: var(--code);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
+/*
+ * The configuration, read back.
+ *
+ * This was a three-column grid of cards, one card per key, each repeating the
+ * same file path underneath a value — so a dozen settings from one file read
+ * as a dozen unrelated tiles, and the most repeated words on the screen were
+ * the reader's own home directory. It is a definition list now, grouped by
+ * section, with the key on the left and the value on the right: the shape the
+ * file itself has.
+ */
+.setting-group {
+  margin-bottom: 22px;
 }
 
-.rows.settings .source {
+.setting-group h4 {
+  margin: 0 0 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.setting-list {
+  margin: 0;
+  display: grid;
+  /* One column of names, one of values, both sized to their contents so the
+     values line up — the point of a list like this is scanning down it. */
+  grid-template-columns: minmax(160px, max-content) 1fr;
+  gap: 2px 20px;
+}
+
+.setting-list > div {
+  display: contents;
+}
+
+.setting-list dt {
+  padding: 3px 0;
+  color: var(--text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.setting-list dd {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  padding: 3px 0;
+  min-width: 0;
+}
+
+.setting-list code {
+  color: var(--code);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.setting-list .source {
+  flex: none;
+  color: var(--text-faint);
   font-size: 11px;
 }
 
@@ -1363,9 +1438,70 @@ textarea:focus {
 .scope {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--text-dim);
   font-size: 13px;
+  cursor: pointer;
+}
+
+/*
+ * A switch, not the operating system's checkbox.
+ *
+ * The native control paints itself in the system accent — a blue tick on a
+ * warm grey panel, which is the one element on screen that belongs to a
+ * different program. It is also a poor fit for what these actually mean: none
+ * of them select an item from a set, they all turn something on.
+ */
+.scope input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--surface-active);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.scope input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition:
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+.scope input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.scope input[type="checkbox"]:checked::after {
+  transform: translateX(12px);
+  background: #fff;
+}
+
+.scope input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scope input[type="checkbox"],
+  .scope input[type="checkbox"]::after {
+    transition: none;
+  }
 }
 
 /* Scoped to real action buttons. As `.panel button` this painted every button

@@ -61,6 +61,7 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [custom, setCustom] = useState({ name: "", source: "" });
 
   const reload = useCallback(async () => {
@@ -172,8 +173,18 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
           {shownSkills.map((skill) => (
             <li key={skill.path}>
               <strong>{skill.name}</strong>
-              <span>{skill.description}</span>
-              <span className="source">{skill.path}</span>
+              {/* Two lines unless opened. A skill's description is the prose
+                  that tells the model when to reach for it, and at full length
+                  five of them fill a screen — burying the names, which is what
+                  the list is for. */}
+              <span
+                className={expanded === skill.path ? undefined : "clamped"}
+                style={{ cursor: "pointer" }}
+                onClick={() => setExpanded(expanded === skill.path ? null : skill.path)}
+              >
+                {skill.description}
+              </span>
+              <span className="source">{shortPath(skill.path)}</span>
               <div className="actions">
                 <label className="scope">
                   <input
@@ -912,23 +923,39 @@ export function SettingsView({
         <>
           <h3>{t("Everything your files set")}</h3>
           <p className="hint">
-            {t("Read-only. Anything not listed uses the built-in default.")}
+            {t(
+              "Read-only. Anything not listed uses the built-in default. Values come from {file} unless another file is named.",
+              { file: "~/.opencli/config.toml" },
+            )}
           </p>
-          <ul className="rows settings">
-            {set.length === 0 ? (
-              <li className="muted">Nothing configured; all defaults are in use.</li>
-            ) : null}
-            {set.map(([path, value]) => {
-              const file = originFile(origins, path);
-              return (
-                <li key={path}>
-                  <strong>{path}</strong>
-                  <span className="value">{JSON.stringify(value)}</span>
-                  {file ? <span className="source">{file}</span> : null}
-                </li>
-              );
-            })}
-          </ul>
+          {set.length === 0 ? (
+            <p className="muted">{t("Nothing configured; all defaults are in use.")}</p>
+          ) : null}
+          {groupSettings(set).map(([section, rows]) => (
+            <div className="setting-group" key={section}>
+              <h4>{section === "" ? t("General") : section}</h4>
+              <dl className="setting-list">
+                {rows.map(([path, leaf, value]) => {
+                  const file = originFile(origins, path);
+                  return (
+                    <div key={path}>
+                      <dt>{leaf}</dt>
+                      <dd>
+                        <code>{JSON.stringify(value)}</code>
+                        {/* Named only when it is not the file the heading
+                            already said everything comes from. Repeating the
+                            same path under every value turned a settings list
+                            into a column of one path. */}
+                        {file && !isMainConfig(file) ? (
+                          <span className="source">{shortPath(file)}</span>
+                        ) : null}
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            </div>
+          ))}
 
           <button className="secondary" onClick={() => setShowAll(!showAll)}>
             {showAll ? t("Hide raw config") : t("Show raw config ({count} keys)", { count: entries.length })}
@@ -938,6 +965,53 @@ export function SettingsView({
       ) : null}
     </section>
   );
+}
+
+
+/**
+ * Group flattened settings by the section they belong to.
+ *
+ * `profiles.huihui.model_context_window` is unreadable as a row of its own and
+ * obvious under a heading that says `profiles.huihui`. Top-level keys — `model`,
+ * `approval_policy` — have no section and are collected first, because they are
+ * the ones anyone came here to look at.
+ *
+ * Returns `[section, [fullPath, leafKey, value]]`, keeping the full path so a
+ * row can still be traced back to its origin.
+ */
+function groupSettings(
+  entries: [string, unknown][],
+): [string, [string, string, unknown][]][] {
+  const groups = new Map<string, [string, string, unknown][]>();
+  for (const [path, value] of entries) {
+    const parts = path.split(".");
+    const leaf = parts.pop() ?? path;
+    const section = parts.join(".");
+    const rows = groups.get(section) ?? [];
+    rows.push([path, leaf, value]);
+    groups.set(section, rows);
+  }
+  // Top-level first, then sections in alphabetical order.
+  return [...groups.entries()].sort(([left], [right]) => {
+    if (left === "") return -1;
+    if (right === "") return 1;
+    return left.localeCompare(right);
+  });
+}
+
+/** Whether a value came from the config file the heading already named. */
+function isMainConfig(file: string): boolean {
+  return file.endsWith("/.opencli/config.toml") || file.endsWith("\\.opencli\\config.toml");
+}
+
+/**
+ * A path without the home directory in it.
+ *
+ * Both because it is shorter and because this panel ends up in screenshots,
+ * and a home directory is somebody's name.
+ */
+function shortPath(file: string): string {
+  return file.replace(/^\/(?:Users|home)\/[^/]+/, "~").replace(/^C:\\Users\\[^\\]+/i, "~");
 }
 
 /** Format an interval the way a user would type it. */
@@ -1609,14 +1683,18 @@ export function ArtifactsView({ changes }: { changes: FileChange[] }) {
         ) : null}
         {rows.map((change) => (
           <li key={change.path}>
-            <strong>{change.path}</strong>
+            <strong title={change.path}>{shortPath(change.path)}</strong>
             <span>{change.kind}</span>
             <div className="actions">
               <button
                 className="secondary"
                 onClick={() => setOpenPath(openPath === change.path ? null : change.path)}
               >
-                {openPath === change.path ? "Hide" : change.kind === "update" ? "Show diff" : "Show file"}
+                {openPath === change.path
+                  ? t("Hide")
+                  : change.kind === "update"
+                    ? t("Show diff")
+                    : t("Show file")}
               </button>
               {isDesktop() && change.kind !== "delete" ? (
                 <button className="secondary" onClick={() => revealPath(change.path)}>
