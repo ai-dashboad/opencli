@@ -69,6 +69,14 @@ jobs:
       - name: Typecheck the website
         run: pnpm --dir website exec tsc --noEmit
 
+      # Translations are keyed by the English sentence, so a missing one shows
+      # English rather than breaking — which is safe and silent. These say what
+      # is missing, and what an English edit has orphaned.
+      - name: Check the translations are complete
+        run: python3 scripts/i18n-check.py
+      - name: Check no interface text was left untranslatable
+        run: python3 scripts/i18n-untranslated.py
+
       # A workflow that names a runner GitHub retired, or reads a context it is
       # not allowed to, is rejected before a single job starts — reported only
       # as "this run likely failed because of a workflow file issue", with no

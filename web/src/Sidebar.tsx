@@ -22,6 +22,7 @@ import {
   SlidersIcon,
   WorkingDot,
 } from "./icons";
+import { t } from "./i18n";
 
 export type View =
   | "chat"
@@ -78,7 +79,7 @@ function UpdateLine({ update }: { update: UpdateState }) {
       <div className="update-line ready">
         <span>Version {update.version} is installed</span>
         <button className="link" onClick={update.restart}>
-          Restart
+          {t("Restart")}
         </button>
       </div>
     );
@@ -101,9 +102,9 @@ function UpdateLine({ update }: { update: UpdateState }) {
   if (update.stage === "failed") {
     return (
       <div className="update-line failed">
-        <span>{update.error ?? "The update could not be installed."}</span>
+        <span>{update.error ?? t("The update could not be installed.")}</span>
         <button className="link" onClick={update.install}>
-          Try again
+          {t("Try again")}
         </button>
       </div>
     );
@@ -113,9 +114,9 @@ function UpdateLine({ update }: { update: UpdateState }) {
     <div className="update-line">
       <span>Version {update.version} is available</span>
       <button className="link" onClick={update.install}>
-        Update
+        {t("Update")}
       </button>
-      <button className="dismiss" aria-label="Not now" onClick={update.dismiss}>
+      <button className="dismiss" aria-label={t("Not now")} onClick={update.dismiss}>
         ×
       </button>
     </div>
@@ -168,19 +169,19 @@ function summarize(thread: ThreadSummary): string {
 }
 
 const NAV: { id: View; label: string; icon: React.ReactNode; badge?: string }[] = [
-  { id: "projects", label: "Projects", icon: <ProjectIcon /> },
-  { id: "artifacts", label: "Artifacts", icon: <ArtifactIcon /> },
-  { id: "scheduled", label: "Scheduled", icon: <ClockIcon /> },
-  { id: "dispatch", label: "Dispatch", icon: <DispatchIcon />, badge: "Beta" },
-  { id: "memory", label: "Memory", icon: <MemoryIcon /> },
-  { id: "customize", label: "Customize", icon: <SlidersIcon /> },
+  { id: "projects", label: t("Projects"), icon: <ProjectIcon /> },
+  { id: "artifacts", label: t("Artifacts"), icon: <ArtifactIcon /> },
+  { id: "scheduled", label: t("Scheduled"), icon: <ClockIcon /> },
+  { id: "dispatch", label: t("Dispatch"), icon: <DispatchIcon />, badge: "Beta" },
+  { id: "memory", label: t("Memory"), icon: <MemoryIcon /> },
+  { id: "customize", label: t("Customize"), icon: <SlidersIcon /> },
 ];
 
 const SECONDARY: { id: View; label: string; icon: React.ReactNode }[] = [
-  { id: "skills", label: "Skills", icon: <SkillIcon /> },
-  { id: "connectors", label: "Connectors", icon: <ConnectorIcon /> },
-  { id: "models", label: "Models", icon: <ChipIcon /> },
-  { id: "settings", label: "Settings", icon: <SettingsIcon /> },
+  { id: "skills", label: t("Skills"), icon: <SkillIcon /> },
+  { id: "connectors", label: t("Connectors"), icon: <ConnectorIcon /> },
+  { id: "models", label: t("Models"), icon: <ChipIcon /> },
+  { id: "settings", label: t("Settings"), icon: <SettingsIcon /> },
 ];
 
 /** A collapsible group with a label and an optional action on the right. */
@@ -253,12 +254,12 @@ export default function Sidebar({
           is padded to clear them and made draggable to replace the title bar
           it stands in for. */}
       <div className="titlebar" data-tauri-drag-region>
-        <button className="icon-button sm" title="Hide sidebar" onClick={onToggle}>
+        <button className="icon-button sm" title={t("Hide sidebar")} onClick={onToggle}>
           <SidebarToggleIcon size={15} />
         </button>
         <button
           className="icon-button sm"
-          title="Back"
+          title={t("Back")}
           onClick={onBack}
           disabled={!canBack}
         >
@@ -266,7 +267,7 @@ export default function Sidebar({
         </button>
         <button
           className="icon-button sm"
-          title="Forward"
+          title={t("Forward")}
           onClick={onForward}
           disabled={!canForward}
         >
@@ -277,7 +278,7 @@ export default function Sidebar({
       <div className="sidebar-scroll">
         <button className="nav-row primary" onClick={onNewChat}>
           <PlusIcon />
-          <span>New</span>
+          <span>{t("New")}</span>
         </button>
 
         {NAV.map((item) => (
@@ -293,7 +294,7 @@ export default function Sidebar({
         ))}
 
         {active.length > 0 ? (
-          <Section label="Scheduled">
+          <Section label={t("Scheduled")}>
             <ul className="tree">
               {active.map((task) => {
                 const fresh = Math.max(0, task.runCount - (seen[task.id] ?? 0));
@@ -321,16 +322,16 @@ export default function Sidebar({
         ) : null}
 
         <Section
-          label="Projects"
+          label={t("Projects")}
           action={
-            <button aria-label="New project" onClick={() => onNavigate("projects")}>
+            <button aria-label={t("New project")} onClick={() => onNavigate("projects")}>
               <PlusIcon size={14} />
             </button>
           }
         >
           <ul className="tree">
             {projects.length === 0 ? (
-              <li className="empty">No projects yet</li>
+              <li className="empty">{t("No projects yet")}</li>
             ) : (
               projects.map((project) => (
                 <li key={project.id}>
@@ -378,10 +379,10 @@ export default function Sidebar({
         </Section>
 
         <Section
-          label="Chats and tasks"
+          label={t("Chats and tasks")}
           action={
             <button
-              aria-label="Search chats"
+              aria-label={t("Search chats")}
               className={searching ? "on" : ""}
               onClick={() => {
                 setSearching(!searching);
@@ -397,7 +398,7 @@ export default function Sidebar({
               className="tree-search"
               value={query}
               autoFocus
-              placeholder="Filter chats"
+              placeholder={t("Filter chats")}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
                 if (shouldDismiss({ ...event, isComposing: event.nativeEvent.isComposing })) {
@@ -427,7 +428,7 @@ export default function Sidebar({
                   <span className="row-actions">
                     <button
                       aria-label={`Rename ${summarize(thread)}`}
-                      title="Rename"
+                      title={t("Rename")}
                       onClick={() => {
                         const name = window.prompt("Name this chat", thread.name ?? "");
                         if (name?.trim()) onRenameThread(thread.id, name.trim());
@@ -437,7 +438,7 @@ export default function Sidebar({
                     </button>
                     <button
                       aria-label={`Archive ${summarize(thread)}`}
-                      title="Archive"
+                      title={t("Archive")}
                       onClick={() => onArchiveThread(thread.id)}
                     >
                       ×
@@ -466,7 +467,7 @@ export default function Sidebar({
           <span className="avatar">
             <OpenCliMark size={13} />
           </span>
-          <span className="who">OpenCLI</span>
+          <span className="who">{t("OpenCLI")}</span>
           <ChevronIcon size={14} />
         </div>
       </div>

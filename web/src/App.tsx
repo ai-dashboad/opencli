@@ -51,10 +51,12 @@ import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./
 import { chooseDirectory, chooseFiles, fromHost, isDesktop } from "./host";
 import { useUpdate } from "./update";
 import { applyAppearance, readPreferences, writePreferences } from "./preferences";
+import { getLocale, type Locale } from "./i18n";
 import { Boot } from "./boot";
 import { Markdown } from "./markdown";
 import { shouldInterrupt, shouldSend } from "./composer";
 import "./styles.css";
+import { t } from "./i18n";
 
 /**
  * The gateway prints a URL containing a one-time token. Accept it in the
@@ -77,7 +79,7 @@ function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error(`could not read ${file.name}`));
+    reader.onerror = () => reject(new Error(t("could not read {name}", { name: file.name })));
     reader.readAsDataURL(file);
   });
 }
@@ -133,26 +135,26 @@ function researchInstructions(preferences: Preferences): string {
  * were rendered at all, because narration was the only thing left in it.
  */
 /** How a background run's state reads on the landing screen. */
-const RUN_STATUS_WORD: Record<Run["status"], string> = {
-  queued: "queued",
-  running: "running",
-  done: "finished",
-  failed: "failed",
-  cancelled: "cancelled",
+const RUN_STATUS_WORD: Record<Run["status"], () => string> = {
+  queued: () => t("queued"),
+  running: () => t("running"),
+  done: () => t("finished"),
+  failed: () => t("failed"),
+  cancelled: () => t("cancelled"),
 };
 
-const KIND_LABEL: Record<ThreadItem["kind"], string> = {
-  user: "You",
-  agent: "",
-  command: "Ran a command",
-  reasoning: "Thinking",
-  fileChange: "Files",
-  other: "",
+const KIND_LABEL: Record<ThreadItem["kind"], () => string> = {
+  user: () => t("You"),
+  agent: () => "",
+  command: () => t("Ran a command"),
+  reasoning: () => t("Thinking"),
+  fileChange: () => t("Files"),
+  other: () => "",
   // Both are spans of a turn rather than things the agent produced, and both
   // are rendered on their own below.
-  wait: "",
-  total: "",
-  compaction: "",
+  wait: () => "",
+  total: () => "",
+  compaction: () => "",
 };
 
 /**
@@ -231,10 +233,10 @@ const TranscriptItem = memo(function TranscriptItem({
   if (item.kind === "wait" || item.kind === "total" || item.kind === "compaction") {
     const said =
       item.kind === "wait"
-        ? "Waited for the model"
+        ? t("Waited for the model")
         : item.kind === "total"
-          ? "Turn total"
-          : "Summarised the conversation";
+          ? t("Turn total")
+          : t("Summarised the conversation");
     return (
       <article className={`item span ${item.kind}`}>
         <span className="label">
@@ -251,8 +253,8 @@ const TranscriptItem = memo(function TranscriptItem({
         <button type="button" className="label thought" onClick={() => onToggleThought(item.id)}>
           <strong>
             {item.durationMs !== undefined
-              ? `Thought for ${formatDuration(item.durationMs)}`
-              : "Thinking…"}
+              ? t("Thought for {duration}", { duration: formatDuration(item.durationMs) })
+              : t("Thinking…")}
           </strong>
           {/*
             * While it thinks, the last of what it is thinking, on one line
@@ -271,9 +273,9 @@ const TranscriptItem = memo(function TranscriptItem({
           ) : null}
           {item.text ? <em>{open ? "hide" : "show"}</em> : null}
         </button>
-      ) : KIND_LABEL[item.kind] ? (
+      ) : KIND_LABEL[item.kind]() ? (
         <span className="label">
-          <strong>{item.tool ?? KIND_LABEL[item.kind]}</strong>
+          <strong>{item.tool ?? KIND_LABEL[item.kind]()}</strong>
           {item.summary ? <span className="what">{item.summary}</span> : null}
           {item.durationMs !== undefined ? <em>{formatDuration(item.durationMs)}</em> : null}
         </span>
@@ -297,7 +299,21 @@ const TranscriptItem = memo(function TranscriptItem({
   );
 });
 
+/**
+ * The whole interface, remounted when the language changes.
+ *
+ * `t()` reads the current locale at render time, so a language change has to
+ * re-render everything that called it — including rows memoised on their own
+ * props, which would otherwise keep the sentence they were built with. Keying
+ * the tree on the locale is the blunt way to guarantee that, and language is
+ * changed about once per install.
+ */
 export default function App() {
+  const [locale, setLocale] = useState(getLocale);
+  return <Interface key={locale} onLocaleChange={setLocale} />;
+}
+
+function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => void }) {
   const update = useUpdate();
   // What version is running. Only the desktop host knows; a browser build has
   // no version of its own to report.
@@ -355,7 +371,8 @@ export default function App() {
   useEffect(() => {
     writePreferences(preferences);
     applyAppearance(preferences);
-  }, [preferences]);
+    onLocaleChange(getLocale());
+  }, [onLocaleChange, preferences]);
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -810,10 +827,10 @@ export default function App() {
     if (ok.length > 0) setAttachments((prev) => [...prev, ...ok]);
     if (skipped.length > 0) {
       setError(
-        `Dropped files are inlined only when they are images. Skipped: ${skipped.join(", ")}. ` +
+        t("Dropped files are inlined only when they are images. Skipped: {names}.", { names: skipped.join(", ") }) + " " +
           (isDesktop()
-            ? "Use “Attach file” to reference one by path instead."
-            : "Name the file by path in your message — the agent can read it."),
+            ? t("Use “Attach file” to reference one by path instead.")
+            : t("Name the file by path in your message — the agent can read it.")),
       );
     }
   }, []);
@@ -1042,7 +1059,7 @@ export default function App() {
     const client = clientRef.current;
     if (!client) return;
     if (items.length === 0) {
-      setError("There is nothing to record yet — have the chat do something first.");
+      setError(t("There is nothing to record yet — have the chat do something first."));
       return;
     }
 
@@ -1064,7 +1081,7 @@ export default function App() {
       steps.length > 0 ? steps.join("\n") : "- (describe the steps here)",
       "",
       "## Notes",
-      `Recorded from a chat in ${cwd || "."}.`,
+      t("Recorded from a chat in {directory}.", { directory: cwd || "." }),
     ].join("\n");
 
     const body = window.prompt("Edit the steps before saving:", draft);
@@ -1106,22 +1123,21 @@ export default function App() {
   if (status !== "ready") {
     return (
       <main className="connect">
-        <h1>OpenCLI</h1>
+        <h1>{t("OpenCLI")}</h1>
         <p className="hint">
-          Start the gateway with <code>opencli serve</code> and paste the URL it prints. It
-          contains a one-time token.
+          {t("Start the gateway with {command} and paste the URL it prints. It contains a one-time token.", { command: "opencli serve" })}
         </p>
         <label>
-          Gateway URL
+          {t("Gateway URL")}
           <input value={url} onChange={(e) => setUrl(e.target.value)} />
         </label>
         <label>
-          Working directory
+          {t("Working directory")}
           <span className="path-input">
             <input
               value={cwd}
               onChange={(e) => setCwd(e.target.value)}
-              placeholder="/path/to/project"
+              placeholder={t("/path/to/project")}
             />
             {isDesktop() ? (
               <button
@@ -1131,16 +1147,16 @@ export default function App() {
                   void chooseDirectory(cwd).then((picked) => picked && setCwd(picked));
                 }}
               >
-                Browse…
+                {t("Browse…")}
               </button>
             ) : null}
           </span>
         </label>
         <button onClick={connect} disabled={status === "connecting"}>
-          {status === "connecting" ? "Connecting…" : "Connect"}
+          {status === "connecting" ? t("Connecting…") : t("Connect")}
         </button>
         {error ? <p className="error">{error}</p> : null}
-        <p className="warning">The agent runs commands on the machine hosting the gateway.</p>
+        <p className="warning">{t("The agent runs commands on the machine hosting the gateway.")}</p>
       </main>
     );
   }
@@ -1189,7 +1205,7 @@ export default function App() {
           {sidebarOpen ? null : (
             <button
               className="icon-button sm"
-              title="Show sidebar"
+              title={t("Show sidebar")}
               onClick={() => setSidebarOpen(true)}
             >
               <SidebarToggleIcon size={15} />
@@ -1216,7 +1232,7 @@ export default function App() {
 
           <button
             className={`icon-button sm${detailsOpen ? " on" : ""}`}
-            title={detailsOpen ? "Hide details" : "Show details"}
+            title={detailsOpen ? t("Hide details") : t("Show details")}
             onClick={() => setDetailsOpen(!detailsOpen)}
           >
             <PanelIcon size={15} />
@@ -1324,7 +1340,7 @@ export default function App() {
                   <div className="landing">
                     <h1>
                       <OpenCliMark size={30} />
-                      <span>Ready when you are</span>
+                      <span>{t("Ready when you are")}</span>
                     </h1>
                     {runs.length > 0 ? (
                       <section className="recent">
@@ -1338,8 +1354,8 @@ export default function App() {
                             {runs.some(
                               (run) => run.status === "running" || run.status === "queued",
                             )
-                              ? "Background runs"
-                              : "Recent background runs"}
+                              ? t("Background runs")
+                              : t("Recent background runs")}
                           </span>
                           <button
                             className="link"
@@ -1347,7 +1363,7 @@ export default function App() {
                               void clientRef.current?.clearRuns().then(refreshThreads);
                             }}
                           >
-                            Clear finished
+                            {t("Clear finished")}
                           </button>
                         </div>
                         <ul>
@@ -1364,7 +1380,7 @@ export default function App() {
                               >
                                 <strong>{run.title}</strong>
                                 <em>
-                                  {RUN_STATUS_WORD[run.status]} ·{" "}
+                                  {RUN_STATUS_WORD[run.status]()} ·{" "}
                                   {ago(run.finishedAt ?? run.startedAt)}
                                 </em>
                               </button>
@@ -1373,7 +1389,7 @@ export default function App() {
                         </ul>
                         {runs.length > 5 ? (
                           <button className="link more" onClick={() => setShowAllRuns(!showAllRuns)}>
-                            {showAllRuns ? "Show less" : "Show more"}
+                            {showAllRuns ? t("Show less") : t("Show more")}
                           </button>
                         ) : null}
                       </section>
@@ -1422,8 +1438,8 @@ export default function App() {
                         */}
                       <button type="button" className="stop-button" onClick={() => void interrupt()}>
                         <StopIcon size={12} />
-                        Stop
-                        <kbd>esc</kbd>
+                        {t("Stop")}
+                        <kbd>{t("esc")}</kbd>
                       </button>
                     </p>
                     {/*
@@ -1489,11 +1505,11 @@ export default function App() {
             </div>
 
             {approval && (!approval.threadId || approval.threadId === activeThreadId) ? (
-              <div className="approval" role="dialog" aria-label="Approval required">
+              <div className="approval" role="dialog" aria-label={t("Approval required")}>
                 <p>
                   {approval.kind === "fileChange"
-                    ? "The agent wants to write:"
-                    : "The agent wants to run:"}
+                    ? t("The agent wants to write:")
+                    : t("The agent wants to run:")}
                 </p>
                 {approval.kind === "fileChange" ? (
                   <ApprovalChanges changes={approval.changes ?? []} />
@@ -1502,9 +1518,9 @@ export default function App() {
                 )}
                 {approval.reason ? <p className="muted">{approval.reason}</p> : null}
                 <div className="actions">
-                  <button onClick={() => answerApproval("approved")}>Approve</button>
+                  <button onClick={() => answerApproval("approved")}>{t("Approve")}</button>
                   <button className="secondary" onClick={() => answerApproval("denied")}>
-                    Deny
+                    {t("Deny")}
                   </button>
                 </div>
               </div>
@@ -1548,8 +1564,8 @@ export default function App() {
                 }}
                 placeholder={
                   cowork
-                    ? "Describe the work; it will run on its own"
-                    : "Ask OpenCLI to do anything — paste or drop an image"
+                    ? t("Describe the work; it will run on its own")
+                    : t("Ask OpenCLI to do anything — paste or drop an image")
                 }
                 rows={3}
               />
@@ -1589,7 +1605,7 @@ export default function App() {
                   <button
                     type="button"
                     className={`icon-button${attachMenu ? " on" : ""}`}
-                    title="Add to this message"
+                    title={t("Add to this message")}
                     onClick={() => setAttachMenu(!attachMenu)}
                   >
                     <PlusIcon />
@@ -1671,22 +1687,22 @@ export default function App() {
                   }}
                 />
 
-                <span className="mode-toggle" role="group" aria-label="Send mode">
+                <span className="mode-toggle" role="group" aria-label={t("Send mode")}>
                   <button
                     type="button"
                     className={cowork ? "" : "on"}
                     onClick={() => setCowork(false)}
-                    title="Answer here, now"
+                    title={t("Answer here, now")}
                   >
-                    Chat
+                    {t("Chat")}
                   </button>
                   <button
                     type="button"
                     className={cowork ? "on" : ""}
                     onClick={() => setCowork(true)}
-                    title="Send it off to run on its own"
+                    title={t("Send it off to run on its own")}
                   >
-                    Cowork
+                    {t("Cowork")}
                   </button>
                 </span>
 
@@ -1697,13 +1713,13 @@ export default function App() {
                     type="button"
                     className={`model-button${modeMenu ? " on" : ""}`}
                     onClick={() => setModeMenu(!modeMenu)}
-                    title="When the agent stops to ask"
+                    title={t("When the agent stops to ask")}
                   >
                     <BoltIcon size={13} />
                     <span>
                       {APPROVAL_MODES.find(
                         (mode) => mode.value === (preferences.approvalPolicy ?? "untrusted"),
-                      )?.label ?? "Manual"}
+                      )?.label ?? t("Manual")}
                     </span>
                     <ChevronIcon size={13} />
                   </button>
@@ -1723,7 +1739,7 @@ export default function App() {
                     type="button"
                     className={`model-button${modelMenu ? " on" : ""}`}
                     onClick={() => setModelMenu(!modelMenu)}
-                    title="Model and effort"
+                    title={t("Model and effort")}
                   >
                     <span>
                       {models.find((option) => option.model === model)?.displayName ?? "No model"}
@@ -1756,7 +1772,7 @@ export default function App() {
                 <button
                   type="submit"
                   className="icon-button send"
-                  title="Send"
+                  title={t("Send")}
                   disabled={busy || (!draft.trim() && attachments.length === 0)}
                 >
                   <SendIcon />
@@ -1770,7 +1786,7 @@ export default function App() {
             <div className="composer-foot">
               <button
                 className="foot-button"
-                title="Change the working directory"
+                title={t("Change the working directory")}
                 onClick={() => {
                   if (isDesktop()) {
                     void chooseDirectory(cwd).then((picked) => picked && setCwd(picked));
@@ -1793,23 +1809,23 @@ export default function App() {
 
       {detailsOpen ? (
         <aside className="details">
-          <h3>This chat</h3>
+          <h3>{t("This chat")}</h3>
           <dl>
-            <dt>Directory</dt>
+            <dt>{t("Directory")}</dt>
             <dd>{cwd || "."}</dd>
-            <dt>Project</dt>
-            <dd>{project?.name ?? "None"}</dd>
-            <dt>Model</dt>
+            <dt>{t("Project")}</dt>
+            <dd>{project?.name ?? t("None")}</dd>
+            <dt>{t("Model")}</dt>
             <dd>{model || "default"}</dd>
-            <dt>Approvals</dt>
+            <dt>{t("Approvals")}</dt>
             <dd>{preferences.approvalPolicy}</dd>
-            <dt>Messages</dt>
+            <dt>{t("Messages")}</dt>
             <dd>{items.length}</dd>
           </dl>
 
-          <h3>Files changed</h3>
+          <h3>{t("Files changed")}</h3>
           {changes.length === 0 ? (
-            <p className="muted">Nothing written yet.</p>
+            <p className="muted">{t("Nothing written yet.")}</p>
           ) : (
             <ul className="details-files">
               {[...new Set(changes.map((change) => change.path))].map((path) => (
@@ -1821,7 +1837,7 @@ export default function App() {
           )}
           {changes.length > 0 ? (
             <button className="link" onClick={() => go("artifacts")}>
-              Open Artifacts
+              {t("Open Artifacts")}
             </button>
           ) : null}
         </aside>

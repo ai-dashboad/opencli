@@ -22,6 +22,7 @@ import {
   ProjectIcon,
   SkillIcon,
 } from "./icons";
+import { t } from "./i18n";
 
 /**
  * A popover anchored to its trigger.
@@ -243,24 +244,24 @@ export function AttachMenu({
     <>
       <MenuItem
         icon={<PaperclipIcon size={14} />}
-        label="Add files or photos"
+        label={t("Add files or photos")}
         shortcut="⌘U"
         onClick={onAddImages}
       />
       {canAddFile ? (
-        <MenuItem icon={<ProjectIcon size={14} />} label="Add files" onClick={onAddFile} />
+        <MenuItem icon={<ProjectIcon size={14} />} label={t("Add files")} onClick={onAddFile} />
       ) : null}
       <MenuItem
         icon={<GitHubIcon size={14} />}
-        label="Add from GitHub"
+        label={t("Add from GitHub")}
         onClick={onCloneRepo}
       />
       <MenuItem
         icon={<ProjectIcon size={14} />}
-        label="Add to project"
+        label={t("Add to project")}
         submenu={
           projects.length === 0 ? (
-            <MenuItem label="No projects yet" />
+            <MenuItem label={t("No projects yet")} />
           ) : (
             projects.map((project) => (
               <MenuItem
@@ -277,11 +278,11 @@ export function AttachMenu({
 
       <MenuItem
         icon={<SkillIcon size={14} />}
-        label="Skills"
+        label={t("Skills")}
         submenu={
           <>
             {skills.length === 0 ? (
-              <MenuItem label="None available here" />
+              <MenuItem label={t("None available here")} />
             ) : (
               skills
                 .filter((skill) => skill.enabled)
@@ -295,24 +296,24 @@ export function AttachMenu({
                 ))
             )}
             <MenuSeparator />
-            <MenuItem label="Record a skill" onClick={onRecordSkill} />
-            <MenuItem label="Manage skills" onClick={onManageSkills} />
-            <MenuItem label="Browse skills" onClick={onBrowsePlugins} />
+            <MenuItem label={t("Record a skill")} onClick={onRecordSkill} />
+            <MenuItem label={t("Manage skills")} onClick={onManageSkills} />
+            <MenuItem label={t("Browse skills")} onClick={onBrowsePlugins} />
           </>
         }
       />
       <MenuItem
         icon={<PlugIcon size={14} />}
-        label="Add plugins…"
+        label={t("Add plugins…")}
         onClick={onBrowsePlugins}
       />
       <MenuItem
         icon={<ConnectorIcon size={14} />}
-        label="Connectors"
+        label={t("Connectors")}
         submenu={
           <>
             {connectors.length === 0 ? (
-              <MenuItem label="None configured" />
+              <MenuItem label={t("None configured")} />
             ) : (
               connectors.map((connector) => (
                 <MenuItem
@@ -323,7 +324,7 @@ export function AttachMenu({
               ))
             )}
             <MenuSeparator />
-            <MenuItem label="Manage connectors" onClick={onManageConnectors} />
+            <MenuItem label={t("Manage connectors")} onClick={onManageConnectors} />
           </>
         }
       />
@@ -331,14 +332,14 @@ export function AttachMenu({
       <MenuSeparator />
 
       <MenuToggle
-        label="Research"
-        hint="Investigate thoroughly across sources before answering"
+        label={t("Research")}
+        hint={t("Investigate thoroughly across sources before answering")}
         checked={research}
         onChange={onToggleResearch}
       />
       <MenuToggle
-        label="Web search"
-        hint="Run by the model provider, not by OpenCLI"
+        label={t("Web search")}
+        hint={t("Run by the model provider, not by OpenCLI")}
         checked={webSearch}
         onChange={onToggleWebSearch}
       />
@@ -347,10 +348,10 @@ export function AttachMenu({
 }
 
 const EFFORTS: { value: ReasoningEffort; label: string; note?: string }[] = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium", note: "Default" },
-  { value: "high", label: "High" },
-  { value: "xhigh", label: "Max" },
+  { value: "low", label: t("Low") },
+  { value: "medium", label: t("Medium"), note: t("Default") },
+  { value: "high", label: t("High") },
+  { value: "xhigh", label: t("Max") },
 ];
 
 /**
@@ -384,20 +385,20 @@ export const APPROVAL_MODES: {
 }[] = [
   {
     value: "untrusted",
-    label: "Manual",
-    hint: "Every command that is not known-safe is shown to you first.",
+    label: t("Manual"),
+    hint: t("Every command that is not known-safe is shown to you first."),
     icon: () => <HandIcon size={16} />,
   },
   {
     value: "on-failure",
-    label: "Auto",
-    hint: "Commands run without asking. You are stopped only when one needs more access.",
+    label: t("Auto"),
+    hint: t("Commands run without asking. You are stopped only when one needs more access."),
     icon: () => <BoltIcon size={16} />,
   },
   {
     value: "never",
-    label: "Never ask",
-    hint: "Nothing is shown before it runs. For a directory you would let a script loose in.",
+    label: t("Never ask"),
+    hint: t("Nothing is shown before it runs. For a directory you would let a script loose in."),
     icon: () => <FastForwardIcon size={16} />,
   },
 ];
@@ -412,8 +413,8 @@ export function ApprovalMenu({
   return (
     <>
       <div className="menu-head">
-        <span>Modes</span>
-        <em>Applies from your next message</em>
+        <span>{t("Modes")}</span>
+        <em>{t("Applies from your next message")}</em>
       </div>
       {APPROVAL_MODES.map((mode) => (
         <MenuItem
@@ -474,11 +475,11 @@ export function ModelMenu({
   return (
     <>
       <div className="menu-head">
-        <span>Model</span>
-        <em>Applies from your next message</em>
+        <span>{t("Model")}</span>
+        <em>{t("Applies from your next message")}</em>
       </div>
       {models.length === 0 ? (
-        <MenuItem label="No models configured" hint="Add them in config.toml" />
+        <MenuItem label={t("No models configured")} hint={t("Add them in config.toml")} />
       ) : (
         primary.map(row)
       )}
@@ -487,16 +488,16 @@ export function ModelMenu({
         <>
           <MenuSeparator />
           <MenuItem
-            label="Effort"
+            label={t("Effort")}
             hint={effort}
             submenu={
               <>
                 <div className="menu-head">
-                  <span>Effort</span>
-                  <em>Applies to your next message</em>
+                  <span>{t("Effort")}</span>
+                  <em>{t("Applies to your next message")}</em>
                 </div>
                 <p className="menu-note">
-                  Higher effort means more thorough responses, but takes longer.
+                  {t("Higher effort means more thorough responses, but takes longer.")}
                 </p>
                 {allowed.map((option) => (
                   <MenuItem
@@ -509,8 +510,8 @@ export function ModelMenu({
                 ))}
                 <MenuSeparator />
                 <MenuToggle
-                  label="Show thinking"
-                  hint="Ask for a summary of the model's reasoning"
+                  label={t("Show thinking")}
+                  hint={t("Ask for a summary of the model's reasoning")}
                   checked={showThinking}
                   onChange={onToggleThinking}
                 />
@@ -523,7 +524,7 @@ export function ModelMenu({
       {rest.length > 0 ? (
         <>
           <MenuSeparator />
-          <MenuItem label="More models" submenu={<>{rest.map(row)}</>} />
+          <MenuItem label={t("More models")} submenu={<>{rest.map(row)}</>} />
         </>
       ) : null}
     </>
@@ -571,7 +572,7 @@ export function Dialog({
       >
         <div className="dialog-head">
           <h3>{title}</h3>
-          <button className="icon-button" aria-label="Close" onClick={onClose}>
+          <button className="icon-button" aria-label={t("Close")} onClick={onClose}>
             <CloseIcon size={15} />
           </button>
         </div>

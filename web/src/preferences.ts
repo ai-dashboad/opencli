@@ -13,6 +13,7 @@
  */
 
 import type { Preferences } from "./protocol";
+import { detectLocale, setLocale } from "./i18n";
 
 const STORE_KEY = "opencli.preferences";
 
@@ -21,6 +22,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   approvalPolicy: "untrusted",
   appearance: "system",
   textSize: "normal",
+  language: "system",
 };
 
 export function readPreferences(): Preferences {
@@ -46,7 +48,7 @@ export function writePreferences(preferences: Preferences): void {
 }
 
 /**
- * Put the two visual preferences on the document.
+ * Put the visual preferences and the language on the document.
  *
  * `system` removes the attribute rather than setting it, so the media query in
  * the stylesheet is what decides — one place makes the choice instead of two.
@@ -66,4 +68,7 @@ export function applyAppearance(preferences: Preferences): void {
   } else {
     root.setAttribute("data-text", size);
   }
+
+  const language = preferences.language ?? "system";
+  setLocale(language === "system" ? detectLocale() : language);
 }

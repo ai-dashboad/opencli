@@ -38,6 +38,7 @@ import type {
   SkillSummary,
   ThreadSummary,
 } from "./protocol";
+import { LOCALES, plural, t } from "./i18n";
 
 
 /**
@@ -110,7 +111,7 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
         const result = await client.installPlugin(name, source);
         setNote(
           result.loadable
-            ? `Installed ${result.name}. It is available in new chats.`
+            ? t("Installed {name}. It is available in new chats.", { name: result.name })
             : `Installed ${result.name}, but it has no SKILL.md at its root — it is a collection, not a skill the agent loads on its own.`,
         );
         setError(null);
@@ -135,38 +136,37 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Skills</h2>
+        <h2>{t("Skills")}</h2>
         <span className="grow" />
         <input
           className="panel-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search skills"
+          placeholder={t("Search skills")}
         />
       </div>
       <p className="hint">
-        Reusable instructions the agent draws on when a task calls for one. Changes apply to the
-        next chat you open.
+        {t("Reusable instructions the agent draws on when a task calls for one. Changes apply to the next chat you open.")}
       </p>
 
       <div className="tabs">
         <button className={tab === "yours" ? "on" : ""} onClick={() => setTab("yours")}>
-          Available here
+          {t("Available here")}
         </button>
         <button className={tab === "discover" ? "on" : ""} onClick={() => setTab("discover")}>
-          Add more
+          {t("Add more")}
         </button>
       </div>
 
       {error ? <p className="error">{error}</p> : null}
       {note ? <p className="field-note">{note}</p> : null}
-      {loading ? <p className="muted">Loading…</p> : null}
+      {loading ? <p className="muted">{t("Loading…")}</p> : null}
 
       {tab === "yours" ? (
         <ul className="rows wide">
           {!loading && shownSkills.length === 0 ? (
             <li className="muted">
-              {needle ? "Nothing matches." : `No skills are available in ${cwd}.`}
+              {needle ? t("Nothing matches.") : t("No skills are available in {directory}.", { directory: cwd })}
             </li>
           ) : null}
           {shownSkills.map((skill) => (
@@ -181,14 +181,14 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
                     checked={skill.enabled}
                     onChange={(e) => void toggle(skill, e.target.checked)}
                   />
-                  Enabled
+                  {t("Enabled")}
                 </label>
                 {installed.some((plugin) => plugin.name === skill.name) ? (
                   <button
                     className="secondary"
                     onClick={() => void client.removePlugin(skill.name).then(reload)}
                   >
-                    Uninstall
+                    {t("Uninstall")}
                   </button>
                 ) : null}
               </div>
@@ -220,21 +220,20 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
               })}
           </ul>
 
-          <h3>Install from a repository</h3>
+          <h3>{t("Install from a repository")}</h3>
           <p className="hint">
-            Cloned into <code>~/.opencli/skills</code>. There is no marketplace behind this — it
-            is a git clone, and the repository is whatever you point it at.
+            Cloned into <code>{t("~/.opencli/skills")}</code>{t(". There is no marketplace behind this — it is a git clone, and the repository is whatever you point it at.")}
           </p>
           <div className="task-form">
             <input
               value={custom.name}
               onChange={(e) => setCustom({ ...custom, name: e.target.value })}
-              placeholder="Name"
+              placeholder={t("Name")}
             />
             <input
               value={custom.source}
               onChange={(e) => setCustom({ ...custom, source: e.target.value })}
-              placeholder="https://github.com/owner/repo"
+              placeholder={t("https://github.com/owner/repo")}
             />
             <button
               disabled={!custom.name.trim() || !custom.source.trim() || busy !== null}
@@ -244,7 +243,7 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
                 );
               }}
             >
-              Install
+              {t("Install")}
             </button>
           </div>
         </>
@@ -373,21 +372,20 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Connectors</h2>
+        <h2>{t("Connectors")}</h2>
         <span className="grow" />
         <button className="secondary" disabled={testing} onClick={() => void test()}>
-          {testing ? "Starting them…" : "Test connections"}
+          {testing ? t("Starting them…") : t("Test connections")}
         </button>
       </div>
       <p className="hint">
-        MCP servers the agent can call tools through. Servers start with a chat, so a change here
-        applies to the next one you open.
+        {t("MCP servers the agent can call tools through. Servers start with a chat, so a change here applies to the next one you open.")}
       </p>
       {error ? <p className="error">{error}</p> : null}
 
-      <h3>Configured</h3>
+      <h3>{t("Configured")}</h3>
       <ul className="rows wide">
-        {configured.length === 0 ? <li className="muted">None yet.</li> : null}
+        {configured.length === 0 ? <li className="muted">{t("None yet.")}</li> : null}
         {configured.map((row) => {
           const live = status.find((entry) => entry.name === row.name);
           const needs = row.transport.envVars ?? [];
@@ -413,7 +411,7 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
 
               {live ? (
                 <span>
-                  {live.status} · {live.toolCount} tool{live.toolCount === 1 ? "" : "s"}
+                  {live.status} · {plural(live.toolCount, "{count} tool", "{count} tools")}
                   {live.tools.length > 0 ? (
                     <button
                       className="link"
@@ -424,7 +422,7 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                   ) : null}
                 </span>
               ) : tested ? (
-                <span className="muted-note">Did not answer.</span>
+                <span className="muted-note">{t("Did not answer.")}</span>
               ) : null}
 
               {expanded === row.name && live ? (
@@ -442,10 +440,10 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                       onChange={(e) => setKeyDraft(e.target.value)}
                     />
                     <button disabled={!keyDraft.trim()} onClick={() => void saveKey(name)}>
-                      Save
+                      {t("Save")}
                     </button>
                     <button className="secondary" onClick={() => setKeyFor(null)}>
-                      Cancel
+                      {t("Cancel")}
                     </button>
                   </div>
                 ) : null,
@@ -458,7 +456,7 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                     checked={row.enabled}
                     onChange={(e) => void run(client.setConnectorEnabled(row.name, e.target.checked))}
                   />
-                  Enabled
+                  {t("Enabled")}
                 </label>
                 {needs.map((name) => (
                   <button
@@ -473,7 +471,7 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                   </button>
                 ))}
                 <button className="secondary" onClick={() => void run(client.removeConnector(row.name))}>
-                  Remove
+                  {t("Remove")}
                 </button>
               </div>
             </li>
@@ -481,7 +479,7 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
         })}
       </ul>
 
-      <h3>Add a connector</h3>
+      <h3>{t("Add a connector")}</h3>
       <ul className="rows wide">
         {notYetAdded.map((offer) => (
           <li key={offer.id}>
@@ -494,7 +492,7 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                   void run(client.addConnector({ name: offer.id, transport: offer.transport }))
                 }
               >
-                Add
+                {t("Add")}
               </button>
             </div>
           </li>
@@ -506,7 +504,7 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
           <input
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            placeholder="Name (letters, digits, - and _)"
+            placeholder={t("Name (letters, digits, - and _)")}
           />
           <div className="choices">
             {(["stdio", "http"] as const).map((kind) => (
@@ -521,8 +519,8 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                   <strong>{kind === "stdio" ? "Local command" : "HTTP server"}</strong>
                   <span className="hint">
                     {kind === "stdio"
-                      ? "A program on this machine, started by OpenCLI."
-                      : "A server reachable over HTTP."}
+                      ? t("A program on this machine, started by OpenCLI.")
+                      : t("A server reachable over HTTP.")}
                   </span>
                 </span>
               </label>
@@ -533,18 +531,17 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
               <input
                 value={draft.command}
                 onChange={(e) => setDraft({ ...draft, command: e.target.value })}
-                placeholder="npx -y @modelcontextprotocol/server-github"
+                placeholder={t("npx -y @modelcontextprotocol/server-github")}
               />
               <label className="field">
-                Environment variables it needs
+                {t("Environment variables it needs")}
                 <input
                   value={draft.envVars}
                   onChange={(e) => setDraft({ ...draft, envVars: e.target.value })}
-                  placeholder="GITHUB_PERSONAL_ACCESS_TOKEN"
+                  placeholder={t("GITHUB_PERSONAL_ACCESS_TOKEN")}
                 />
                 <span className="field-note">
-                  Names only, separated by spaces. Values are set afterwards and kept with your
-                  other keys, not in the connector's configuration.
+                  {t("Names only, separated by spaces. Values are set afterwards and kept with your other keys, not in the connector's configuration.")}
                 </span>
               </label>
             </>
@@ -552,7 +549,7 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
             <input
               value={draft.url}
               onChange={(e) => setDraft({ ...draft, url: e.target.value })}
-              placeholder="https://example.com/mcp"
+              placeholder={t("https://example.com/mcp")}
             />
           )}
           <div className="actions">
@@ -563,16 +560,16 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                 (draft.kind === "stdio" ? !draft.command.trim() : !draft.url.trim())
               }
             >
-              Add
+              {t("Add")}
             </button>
             <button className="secondary" onClick={() => setAdding(false)}>
-              Cancel
+              {t("Cancel")}
             </button>
           </div>
         </div>
       ) : (
         <button className="secondary" onClick={() => setAdding(true)}>
-          Add another…
+          {t("Add another…")}
         </button>
       )}
     </section>
@@ -600,36 +597,36 @@ function originFile(origins: Record<string, unknown>, path: string): string | nu
 const APPROVAL_SETTINGS: { value: string; label: string; hint: string }[] = [
   {
     value: "untrusted",
-    label: "Ask before anything unfamiliar",
-    hint: "Every command that is not known-safe is shown to you first.",
+    label: t("Ask before anything unfamiliar"),
+    hint: t("Every command that is not known-safe is shown to you first."),
   },
   {
     value: "on-failure",
-    label: "Ask only after something fails",
-    hint: "Commands run unattended; you are asked when one needs more access.",
+    label: t("Ask only after something fails"),
+    hint: t("Commands run unattended; you are asked when one needs more access."),
   },
   {
     value: "never",
-    label: "Never ask",
-    hint: "The agent runs commands on this machine without stopping.",
+    label: t("Never ask"),
+    hint: t("The agent runs commands on this machine without stopping."),
   },
 ];
 
 const SANDBOX_SETTINGS: { value: string; label: string; hint: string }[] = [
   {
     value: "read-only",
-    label: "Read only",
-    hint: "The agent can look at files but not change them.",
+    label: t("Read only"),
+    hint: t("The agent can look at files but not change them."),
   },
   {
     value: "workspace-write",
-    label: "Write in the working directory",
-    hint: "Edits are confined to the folder the chat is open in.",
+    label: t("Write in the working directory"),
+    hint: t("Edits are confined to the folder the chat is open in."),
   },
   {
     value: "danger-full-access",
-    label: "No sandbox",
-    hint: "Anything your account can do, the agent can do.",
+    label: t("No sandbox"),
+    hint: t("Anything your account can do, the agent can do."),
   },
 ];
 
@@ -744,28 +741,28 @@ export function SettingsView({
 
   return (
     <section className="panel">
-      <h2>Settings</h2>
+      <h2>{t("Settings")}</h2>
       {error ? <p className="error">{error}</p> : null}
       {saved ? <p className="field-note">{saved}</p> : null}
-      {!result && !error ? <p className="muted">Loading…</p> : null}
+      {!result && !error ? <p className="muted">{t("Loading…")}</p> : null}
 
-      <h3>Default model</h3>
+      <h3>{t("Default model")}</h3>
       <p className="hint">
-        Used by new chats. A chat can still be switched to another model while it is open.
+        {t("Used by new chats. A chat can still be switched to another model while it is open.")}
       </p>
       {models.length === 0 ? (
         <p className="muted">
-          No models are configured yet. Add one under <strong>Models</strong>, or declare a
-          provider in <code>config.toml</code>.
+          No models are configured yet. Add one under <strong>{t("Models")}</strong>, or declare a
+          provider in <code>{t("config.toml")}</code>.
         </p>
       ) : (
         <label className="sort">
-          Model
+          {t("Model")}
           <select
             value={currentModel}
             onChange={(e) => void put("model", e.target.value, "Default model")}
           >
-            <option value="">Not set</option>
+            <option value="">{t("Not set")}</option>
             {models.map((model) => (
               <option key={model.id} value={model.model}>
                 {model.displayName || model.model}
@@ -775,13 +772,15 @@ export function SettingsView({
         </label>
       )}
 
-      <h3>API keys</h3>
+      <h3>{t("API keys")}</h3>
       <p className="hint">
-        Kept in <code>~/.opencli/.env</code>, not in <code>config.toml</code> — that file gets
-        shared and pasted into issues. Values are never shown again once saved.
+        {t(
+          "Kept in {file}, not in {other} — that file gets shared and pasted into issues. Values are never shown again once saved.",
+          { file: "~/.opencli/.env", other: "config.toml" },
+        )}
       </p>
       <ul className="rows">
-        {secrets.length === 0 ? <li className="muted">No keys set.</li> : null}
+        {secrets.length === 0 ? <li className="muted">{t("No keys set.")}</li> : null}
         {secrets.map((secret) => (
           <li key={secret.name}>
             <strong>{secret.name}</strong>
@@ -796,24 +795,24 @@ export function SettingsView({
                   type="password"
                   value={keyDraft}
                   autoFocus
-                  placeholder="Paste the new key"
+                  placeholder={t("Paste the new key")}
                   onChange={(e) => setKeyDraft(e.target.value)}
                 />
                 <button disabled={!keyDraft.trim()} onClick={() => void saveKey(secret.name, keyDraft)}>
-                  Save
+                  {t("Save")}
                 </button>
                 <button className="secondary" onClick={() => setEditingKey(null)}>
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             ) : (
               <div className="actions">
                 <button className="secondary" onClick={() => setEditingKey(secret.name)}>
-                  Replace
+                  {t("Replace")}
                 </button>
                 {secret.stored ? (
                   <button className="secondary" onClick={() => void saveKey(secret.name, null)}>
-                    Remove
+                    {t("Remove")}
                   </button>
                 ) : null}
               </div>
@@ -824,13 +823,13 @@ export function SettingsView({
       <div className="task-form">
         <input
           value={newKeyName}
-          placeholder="OPENAI_API_KEY"
+          placeholder={t("OPENAI_API_KEY")}
           onChange={(e) => setNewKeyName(e.target.value.toUpperCase())}
         />
         <input
           type="password"
           value={editingKey === null ? keyDraft : ""}
-          placeholder="Paste the key"
+          placeholder={t("Paste the key")}
           onChange={(e) => {
             setEditingKey(null);
             setKeyDraft(e.target.value);
@@ -840,11 +839,11 @@ export function SettingsView({
           disabled={!newKeyName.trim() || !keyDraft.trim()}
           onClick={() => void saveKey(newKeyName.trim(), keyDraft)}
         >
-          Add
+          {t("Add")}
         </button>
       </div>
 
-      <h3>When to ask permission</h3>
+      <h3>{t("When to ask permission")}</h3>
       <div className="choices">
         {APPROVAL_SETTINGS.map((option) => (
           <label key={option.value} className="choice">
@@ -862,7 +861,7 @@ export function SettingsView({
         ))}
       </div>
 
-      <h3>What it may change</h3>
+      <h3>{t("What it may change")}</h3>
       <div className="choices">
         {SANDBOX_SETTINGS.map((option) => (
           <label key={option.value} className="choice">
@@ -880,10 +879,10 @@ export function SettingsView({
         ))}
       </div>
 
-      <h3>About</h3>
+      <h3>{t("About")}</h3>
       <ul className="rows">
         <li>
-          <strong>Version</strong>
+          <strong>{t("Version")}</strong>
           <span>{version ?? "running in a browser"}</span>
           {update ? (
             <div className="actions">
@@ -894,26 +893,26 @@ export function SettingsView({
               ) : update.stage === "downloading" ? (
                 <span className="muted-note">Downloading {update.version}…</span>
               ) : (
-                <span className="muted-note">Up to date.</span>
+                <span className="muted-note">{t("Up to date.")}</span>
               )}
             </div>
           ) : null}
         </li>
         <li>
-          <strong>Configuration</strong>
-          <span>~/.opencli/config.toml</span>
+          <strong>{t("Configuration")}</strong>
+          <span>{t("~/.opencli/config.toml")}</span>
         </li>
         <li>
-          <strong>Logs</strong>
-          <span>~/.opencli/log</span>
+          <strong>{t("Logs")}</strong>
+          <span>{t("~/.opencli/log")}</span>
         </li>
       </ul>
 
       {result ? (
         <>
-          <h3>Everything your files set</h3>
+          <h3>{t("Everything your files set")}</h3>
           <p className="hint">
-            Read-only. Anything not listed uses the built-in default.
+            {t("Read-only. Anything not listed uses the built-in default.")}
           </p>
           <ul className="rows settings">
             {set.length === 0 ? (
@@ -932,7 +931,7 @@ export function SettingsView({
           </ul>
 
           <button className="secondary" onClick={() => setShowAll(!showAll)}>
-            {showAll ? "Hide raw config" : `Show raw config (${entries.length} keys)`}
+            {showAll ? t("Hide raw config") : t("Show raw config ({count} keys)", { count: entries.length })}
           </button>
           {showAll ? <pre className="config">{JSON.stringify(config, null, 2)}</pre> : null}
         </>
@@ -958,9 +957,9 @@ function describeWhen(unix: number | null): string {
 }
 
 const INTERVAL_UNITS: { value: string; label: string }[] = [
-  { value: "m", label: "minutes" },
-  { value: "h", label: "hours" },
-  { value: "d", label: "days" },
+  { value: "m", label: t("minutes") },
+  { value: "h", label: t("hours") },
+  { value: "d", label: t("days") },
 ];
 
 export function ScheduledView({
@@ -1015,7 +1014,7 @@ export function ScheduledView({
   const add = useCallback(async () => {
     const seconds = parseInterval(`${every}${unit}`);
     if (!seconds) {
-      setError("How often must be a whole number greater than zero.");
+      setError(t("How often must be a whole number greater than zero."));
       return;
     }
     try {
@@ -1035,10 +1034,9 @@ export function ScheduledView({
 
   return (
     <section className="panel">
-      <h2>Scheduled tasks</h2>
+      <h2>{t("Scheduled tasks")}</h2>
       <p className="hint">
-        Prompts that run on a repeat. They run only while OpenCLI is open — this is a local
-        agent, not a server.
+        {t("Prompts that run on a repeat. They run only while OpenCLI is open — this is a local agent, not a server.")}
       </p>
       {error ? <p className="error">{error}</p> : null}
 
@@ -1049,15 +1047,15 @@ export function ScheduledView({
             value={prompt}
             rows={2}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Check the build and summarise anything that broke"
+            placeholder={t("Check the build and summarise anything that broke")}
           />
         </label>
         <label className="field">
-          Name (optional)
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Build check" />
+          {t("Name (optional)")}
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Build check")} />
         </label>
         <label className="field">
-          How often
+          {t("How often")}
           <span className="path-input">
             <input
               className="interval"
@@ -1076,12 +1074,12 @@ export function ScheduledView({
           </span>
         </label>
         <label className="field">
-          Where to run
+          {t("Where to run")}
           <span className="path-input">
             <input
               value={directory}
               onChange={(e) => setDirectory(e.target.value)}
-              placeholder="/path/to/project"
+              placeholder={t("/path/to/project")}
             />
             {onBrowse ? (
               <button
@@ -1094,20 +1092,20 @@ export function ScheduledView({
                 }}
               >
                 <FolderPlusIcon size={14} />
-                Choose
+                {t("Choose")}
               </button>
             ) : null}
           </span>
         </label>
         <div className="actions">
           <button onClick={() => void add()} disabled={!prompt.trim()}>
-            Add task
+            {t("Add task")}
           </button>
         </div>
       </div>
 
       <ul className="rows wide">
-        {tasks.length === 0 ? <li className="muted">No tasks yet.</li> : null}
+        {tasks.length === 0 ? <li className="muted">{t("No tasks yet.")}</li> : null}
         {tasks.map((task) => {
           const history = runs.filter((run) => run.taskId === task.id);
           const last = history[0];
@@ -1118,7 +1116,7 @@ export function ScheduledView({
               <span>
                 {describeInterval(task.intervalSeconds)} · next {describeWhen(task.nextRun)} ·{" "}
                 {task.enabled ? "active" : "paused"}
-                {last ? ` · last run ${STATUS_LABEL[last.status].toLowerCase()}` : " · never run"}
+                {last ? ` · ${t("last run {status}", { status: STATUS_LABEL[last.status]().toLowerCase() })}` : " · never run"}
               </span>
               <div className="actions">
                 <button
@@ -1132,7 +1130,7 @@ export function ScheduledView({
                       );
                   }}
                 >
-                  Run now
+                  {t("Run now")}
                 </button>
                 <button
                   className="secondary"
@@ -1140,7 +1138,7 @@ export function ScheduledView({
                     void client.setTaskEnabled(task.id, !task.enabled).then(reload);
                   }}
                 >
-                  {task.enabled ? "Pause" : "Resume"}
+                  {task.enabled ? t("Pause") : t("Resume")}
                 </button>
                 {history.length > 0 ? (
                   <button
@@ -1156,7 +1154,7 @@ export function ScheduledView({
                     void client.deleteTask(task.id).then(reload);
                   }}
                 >
-                  Delete
+                  {t("Delete")}
                 </button>
               </div>
 
@@ -1165,7 +1163,7 @@ export function ScheduledView({
                   {history.map((run) => (
                     <li key={run.id}>
                       <strong>
-                        {STATUS_LABEL[run.status]} · {ago(run.finishedAt ?? run.startedAt)}
+                        {STATUS_LABEL[run.status]()} · {ago(run.finishedAt ?? run.startedAt)}
                       </strong>
                       {run.output ? <pre className="run-output">{run.output}</pre> : null}
                     </li>
@@ -1203,9 +1201,9 @@ export function parseInterval(raw: string): number | null {
 type ProjectSort = "updated" | "created" | "name";
 
 const SORTS: { value: ProjectSort; label: string }[] = [
-  { value: "updated", label: "Last updated" },
-  { value: "created", label: "Date created" },
-  { value: "name", label: "Name" },
+  { value: "updated", label: t("Last updated") },
+  { value: "created", label: t("Date created") },
+  { value: "name", label: t("Name") },
 ];
 
 /** The last part of a path, which is what identifies a folder at a glance. */
@@ -1343,14 +1341,14 @@ export function ProjectsView({
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2 className="display">Projects</h2>
+        <h2 className="display">{t("Projects")}</h2>
         <span className="grow" />
         {searching ? (
           <input
             className="panel-search"
             value={query}
             autoFocus
-            placeholder="Search projects"
+            placeholder={t("Search projects")}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               if (shouldDismiss({ ...e, isComposing: e.nativeEvent.isComposing })) {
@@ -1362,14 +1360,14 @@ export function ProjectsView({
         ) : (
           <button
             className="icon-button"
-            aria-label="Search projects"
+            aria-label={t("Search projects")}
             onClick={() => setSearching(true)}
           >
             <SearchIcon size={15} />
           </button>
         )}
         <label className="sort">
-          Sort by
+          {t("Sort by")}
           <select value={sort} onChange={(e) => setSort(e.target.value as ProjectSort)}>
             {SORTS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -1379,7 +1377,7 @@ export function ProjectsView({
           </select>
         </label>
         <button className="filled" onClick={() => setComposing(true)}>
-          New project
+          {t("New project")}
         </button>
       </div>
 
@@ -1387,15 +1385,15 @@ export function ProjectsView({
 
       <Dialog
         open={composing}
-        title={editing ? "Edit project" : "Create a project"}
+        title={editing ? t("Edit project") : t("Create a project")}
         onClose={close}
         footer={
           <>
             <button className="secondary" onClick={close}>
-              Cancel
+              {t("Cancel")}
             </button>
             <button className="filled" onClick={() => void save()} disabled={!canSave}>
-              {editing ? "Save changes" : "Create project"}
+              {editing ? t("Save changes") : t("Create project")}
             </button>
           </>
         }
@@ -1415,7 +1413,7 @@ export function ProjectsView({
                 cwd: pathTouched || !root ? draft.cwd : folder ? `${root}/${folder}` : "",
               });
             }}
-            placeholder="Name your project"
+            placeholder={t("Name your project")}
           />
         </label>
 
@@ -1424,7 +1422,7 @@ export function ProjectsView({
           <textarea
             value={draft.description}
             onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            placeholder="Describe your project, goals, subject…"
+            placeholder={t("Describe your project, goals, subject…")}
             rows={4}
           />
         </label>
@@ -1438,7 +1436,7 @@ export function ProjectsView({
                 setPathTouched(true);
                 setDraft({ ...draft, cwd: e.target.value });
               }}
-              placeholder="/path/to/project"
+              placeholder={t("/path/to/project")}
             />
             {onBrowse ? (
               <button
@@ -1453,22 +1451,21 @@ export function ProjectsView({
                 }}
               >
                 <FolderPlusIcon size={14} />
-                Use a folder
+                {t("Use a folder")}
               </button>
             ) : null}
           </span>
           {!editing && draft.cwd && !pathTouched ? (
             <span className="field-note">
-              This folder will be created if it does not exist.
+              {t("This folder will be created if it does not exist.")}
             </span>
           ) : null}
         </label>
 
         <details className="more-field">
-          <summary>Standing instructions (optional)</summary>
+          <summary>{t("Standing instructions (optional)")}</summary>
           <p className="hint">
-            Given to the agent in every chat here — how to build it, what not to touch. Separate
-            from the description above, which only you read.
+            {t("Given to the agent in every chat here — how to build it, what not to touch. Separate from the description above, which only you read.")}
           </p>
           <textarea
             value={draft.instructions}
@@ -1480,7 +1477,7 @@ export function ProjectsView({
 
       {shown.length === 0 ? (
         <p className="muted empty-note">
-          {query ? "Nothing matches." : "No projects yet. Create one to group chats by directory."}
+          {query ? t("Nothing matches.") : t("No projects yet. Create one to group chats by directory.")}
         </p>
       ) : null}
 
@@ -1494,8 +1491,8 @@ export function ProjectsView({
               </button>
               <button
                 className={`pin${project.pinned ? " on" : ""}`}
-                aria-label={project.pinned ? "Unpin" : "Pin"}
-                title={project.pinned ? "Unpin" : "Pin to the top"}
+                aria-label={project.pinned ? t("Unpin") : t("Pin")}
+                title={project.pinned ? t("Unpin") : t("Pin to the top")}
                 onClick={() => {
                   void client
                     .updateProject(project.id, { pinned: !project.pinned })
@@ -1515,13 +1512,13 @@ export function ProjectsView({
                 {folderName(project.cwd)}
               </span>
               <span className="chip-plain">
-                {project.threadIds.length} chat{project.threadIds.length === 1 ? "" : "s"}
+                {plural(project.threadIds.length, "{count} chat", "{count} chats")}
               </span>
             </div>
 
             <div className="card-hover">
               <button className="secondary" onClick={() => edit(project)}>
-                Edit
+                {t("Edit")}
               </button>
               <button
                 className="secondary"
@@ -1529,7 +1526,7 @@ export function ProjectsView({
                   void client.deleteProject(project.id).then(written);
                 }}
               >
-                Delete
+                {t("Delete")}
               </button>
             </div>
           </li>
@@ -1591,23 +1588,22 @@ export function ArtifactsView({ changes }: { changes: FileChange[] }) {
 
   return (
     <section className="panel">
-      <h2>Artifacts</h2>
+      <h2>{t("Artifacts")}</h2>
       <p className="hint">
-        Files the agent edited in this conversation. The changes are already on disk — this is
-        here so you can check them without leaving.
+        {t("Files the agent edited in this conversation. The changes are already on disk — this is here so you can check them without leaving.")}
       </p>
       <ul className="rows wide">
         {rows.length === 0 ? (
           <li className="muted">
-            <p style={{ margin: 0 }}>Nothing edited in this conversation.</p>
+            <p style={{ margin: 0 }}>{t("Nothing edited in this conversation.")}</p>
             {/* Said plainly rather than left as a puzzle: a model that writes
                 files by running `cat > file` has still written them, and an
                 empty panel after watching it do that reads as a broken panel
                 rather than as a limit of what is recorded. */}
             <p className="hint" style={{ marginBottom: 0 }}>
-              Only edits made with the agent's file-editing tool are listed here. Files written by
-              a shell command it ran — a heredoc, a script, <code>git checkout</code> — are not
-              tracked, and will not appear.
+              {t(
+                "Only edits made with the agent's file-editing tool are listed here. Files written by a shell command it ran — a heredoc, a script, git checkout — are not tracked, and will not appear.",
+              )}
             </p>
           </li>
         ) : null}
@@ -1624,7 +1620,7 @@ export function ArtifactsView({ changes }: { changes: FileChange[] }) {
               </button>
               {isDesktop() && change.kind !== "delete" ? (
                 <button className="secondary" onClick={() => revealPath(change.path)}>
-                  Show in {onMac() ? "Finder" : "folder"}
+                  Show in {onMac() ? t("Finder") : "folder"}
                 </button>
               ) : null}
             </div>
@@ -1732,10 +1728,10 @@ export function MemoryView({
           />
           <div className="actions">
             <button disabled={!draft.trim()} onClick={() => void save(memory.id)}>
-              Save
+              {t("Save")}
             </button>
             <button className="secondary" onClick={() => setEditing(null)}>
-              Cancel
+              {t("Cancel")}
             </button>
           </div>
         </>
@@ -1751,7 +1747,7 @@ export function MemoryView({
                 setDraft(memory.text);
               }}
             >
-              Edit
+              {t("Edit")}
             </button>
             <button
               className="secondary"
@@ -1759,7 +1755,7 @@ export function MemoryView({
                 void client.deleteMemory(memory.id).then(reload);
               }}
             >
-              Forget
+              {t("Forget")}
             </button>
           </div>
         </>
@@ -1770,13 +1766,13 @@ export function MemoryView({
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Memory</h2>
+        <h2>{t("Memory")}</h2>
         <span className="grow" />
         {memories.length > 3 ? (
           <input
             className="panel-search"
             value={query}
-            placeholder="Search memories"
+            placeholder={t("Search memories")}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               if (shouldDismiss({ ...e, isComposing: e.nativeEvent.isComposing })) setQuery("");
@@ -1785,8 +1781,7 @@ export function MemoryView({
         ) : null}
       </div>
       <p className="hint">
-        Facts the agent should always know. They are added to the context of every new chat, so
-        keep the list short — each one costs tokens in every conversation.
+        {t("Facts the agent should always know. They are added to the context of every new chat, so keep the list short — each one costs tokens in every conversation.")}
       </p>
       {error ? <p className="error">{error}</p> : null}
 
@@ -1794,7 +1789,7 @@ export function MemoryView({
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. Deploy with `just ship`, never with npm"
+          placeholder={t("e.g. Deploy with `just ship`, never with npm")}
         />
         {project ? (
           <label className="scope">
@@ -1807,11 +1802,11 @@ export function MemoryView({
           </label>
         ) : null}
         <button onClick={() => void add()} disabled={!text.trim()}>
-          Remember
+          {t("Remember")}
         </button>
       </div>
 
-      <h3>In every conversation</h3>
+      <h3>{t("In every conversation")}</h3>
       <ul className="rows wide">
         {everywhere.length === 0 ? (
           <li className="muted">{needle ? "Nothing matches." : "Nothing remembered yet."}</li>
@@ -1821,7 +1816,7 @@ export function MemoryView({
 
       {scopedToProjects.length > 0 ? (
         <>
-          <h3>In one project only</h3>
+          <h3>{t("In one project only")}</h3>
           <ul className="rows wide">{scopedToProjects.map(row)}</ul>
         </>
       ) : null}
@@ -1850,7 +1845,7 @@ export function ApprovalChanges({ changes }: { changes: FileChange[] }) {
   if (changes.length === 0) {
     // The contents ride on an earlier notification; if that was missed, say so
     // rather than implying the write is harmless.
-    return <p className="error">The contents of this change could not be read.</p>;
+    return <p className="error">{t("The contents of this change could not be read.")}</p>;
   }
   return (
     <div className="approval-changes">
@@ -1867,33 +1862,33 @@ export function ApprovalChanges({ changes }: { changes: FileChange[] }) {
 }
 
 const PERSONALITIES: { value: Personality; label: string; hint: string }[] = [
-  { value: "pragmatic", label: "Pragmatic", hint: "Terse. Answers, not commentary." },
-  { value: "friendly", label: "Friendly", hint: "Warmer, more explanatory." },
+  { value: "pragmatic", label: t("Pragmatic"), hint: t("Terse. Answers, not commentary.") },
+  { value: "friendly", label: t("Friendly"), hint: t("Warmer, more explanatory.") },
 ];
 
 const EFFORTS: { value: ReasoningEffort; label: string }[] = [
-  { value: "minimal", label: "Minimal" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "xhigh", label: "Highest" },
+  { value: "minimal", label: t("Minimal") },
+  { value: "low", label: t("Low") },
+  { value: "medium", label: t("Medium") },
+  { value: "high", label: t("High") },
+  { value: "xhigh", label: t("Highest") },
 ];
 
 const POLICIES: { value: ApprovalPolicy; label: string; hint: string }[] = [
   {
     value: "untrusted",
-    label: "Ask before anything unfamiliar",
-    hint: "Every command that is not known-safe is shown to you first.",
+    label: t("Ask before anything unfamiliar"),
+    hint: t("Every command that is not known-safe is shown to you first."),
   },
   {
     value: "on-failure",
-    label: "Ask only after something fails",
-    hint: "Commands run unattended; you are asked when one needs to retry with more access.",
+    label: t("Ask only after something fails"),
+    hint: t("Commands run unattended; you are asked when one needs to retry with more access."),
   },
   {
     value: "never",
-    label: "Never ask",
-    hint: "The agent runs commands on this machine without stopping. Only for a directory you would let a script loose in.",
+    label: t("Never ask"),
+    hint: t("The agent runs commands on this machine without stopping. Only for a directory you would let a script loose in."),
   },
 ];
 
@@ -1907,15 +1902,15 @@ const POLICIES: { value: ApprovalPolicy; label: string; hint: string }[] = [
  * security setting to be wrong.
  */
 const APPEARANCES: { value: Appearance; label: string; hint: string }[] = [
-  { value: "system", label: "Follow the system", hint: "Changes when your computer does." },
-  { value: "dark", label: "Dark", hint: "Warm dark grey." },
-  { value: "light", label: "Light", hint: "Warm off-white." },
+  { value: "system", label: t("Follow the system"), hint: t("Changes when your computer does.") },
+  { value: "dark", label: t("Dark"), hint: t("Warm dark grey.") },
+  { value: "light", label: t("Light"), hint: t("Warm off-white.") },
 ];
 
 const TEXT_SIZES: { value: TextSize; label: string }[] = [
-  { value: "normal", label: "Normal" },
-  { value: "large", label: "Large" },
-  { value: "larger", label: "Larger" },
+  { value: "normal", label: t("Normal") },
+  { value: "large", label: t("Large") },
+  { value: "larger", label: t("Larger") },
 ];
 
 /**
@@ -1945,13 +1940,13 @@ export function CustomizeView({
 
   return (
     <section className="panel">
-      <h2>Customize</h2>
+      <h2>{t("Customize")}</h2>
       <p className="hint">
         Kept on this computer. Most of it applies to chats you start from now on; the effort and
         the appearance apply straight away.
       </p>
 
-      <h3>Appearance</h3>
+      <h3>{t("Appearance")}</h3>
       <div className="choices">
         {APPEARANCES.map((option) => (
           <label key={option.value} className="choice">
@@ -1969,7 +1964,39 @@ export function CustomizeView({
         ))}
       </div>
 
-      <h3>Text size</h3>
+      <h3>{t("Language")}</h3>
+      <div className="choices">
+        {/* Each language is named in itself, untranslated, so somebody who
+            cannot read the language currently on screen can still find their
+            own. Only "follow the system" is translated. */}
+        <label className="choice">
+          <input
+            type="radio"
+            name="language"
+            checked={(preferences.language ?? "system") === "system"}
+            onChange={() => onChange({ ...preferences, language: "system" })}
+          />
+          <span>
+            <strong>{t("Follow the system")}</strong>
+            <span className="hint">{t("Uses your browser's language.")}</span>
+          </span>
+        </label>
+        {LOCALES.map((locale) => (
+          <label key={locale.value} className="choice">
+            <input
+              type="radio"
+              name="language"
+              checked={preferences.language === locale.value}
+              onChange={() => onChange({ ...preferences, language: locale.value })}
+            />
+            <span>
+              <strong>{locale.label}</strong>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <h3>{t("Text size")}</h3>
       <div className="choices">
         {TEXT_SIZES.map((option) => (
           <label key={option.value} className="choice">
@@ -1986,7 +2013,7 @@ export function CustomizeView({
         ))}
       </div>
 
-      <h3>Tone</h3>
+      <h3>{t("Tone")}</h3>
       <div className="choices">
         {PERSONALITIES.map((option) => (
           <label key={option.value} className="choice">
@@ -2004,9 +2031,9 @@ export function CustomizeView({
         ))}
       </div>
 
-      <h3>Thinking effort</h3>
+      <h3>{t("Thinking effort")}</h3>
       {available.length === 0 ? (
-        <p className="muted">The selected model does not take an effort setting.</p>
+        <p className="muted">{t("The selected model does not take an effort setting.")}</p>
       ) : (
         <div className="choices">
           {available.map((option) => (
@@ -2025,10 +2052,10 @@ export function CustomizeView({
         </div>
       )}
 
-      <h3>What to show</h3>
+      <h3>{t("What to show")}</h3>
       <ul className="rows">
         <li>
-          <strong>Show the agent's thinking</strong>
+          <strong>{t("Show the agent's thinking")}</strong>
           <span>
             Asks the model to summarise its reasoning. It thinks either way; turning this off
             only stops the summary being requested.
@@ -2040,15 +2067,14 @@ export function CustomizeView({
                 checked={preferences.showThinking !== false}
                 onChange={(e) => onChange({ ...preferences, showThinking: e.target.checked })}
               />
-              Shown
+              {t("Shown")}
             </label>
           </div>
         </li>
         <li>
-          <strong>Web search</strong>
+          <strong>{t("Web search")}</strong>
           <span>
-            Offers the model a search tool. The tool is run by the provider, not by OpenCLI, so
-            it does nothing for a provider that does not implement it.
+            {t("Offers the model a search tool. The tool is run by the provider, not by OpenCLI, so it does nothing for a provider that does not implement it.")}
           </span>
           <div className="actions">
             <label className="scope">
@@ -2057,15 +2083,14 @@ export function CustomizeView({
                 checked={preferences.webSearch ?? false}
                 onChange={(e) => onChange({ ...preferences, webSearch: e.target.checked })}
               />
-              Offered
+              {t("Offered")}
             </label>
           </div>
         </li>
         <li>
-          <strong>Research mode</strong>
+          <strong>{t("Research mode")}</strong>
           <span>
-            Adds instructions asking for evidence and sources. Instructions, not a retrieval
-            pipeline — it is only as good as the tools the agent already has.
+            {t("Adds instructions asking for evidence and sources. Instructions, not a retrieval pipeline — it is only as good as the tools the agent already has.")}
           </span>
           <div className="actions">
             <label className="scope">
@@ -2074,16 +2099,15 @@ export function CustomizeView({
                 checked={preferences.research ?? false}
                 onChange={(e) => onChange({ ...preferences, research: e.target.checked })}
               />
-              On
+              {t("On")}
             </label>
           </div>
         </li>
       </ul>
 
-      <h3>When to ask permission</h3>
+      <h3>{t("When to ask permission")}</h3>
       <p className="hint">
-        For chats started from here. The same setting lives in Settings, where it is written to
-        your configuration file and applies to every interface.
+        {t("For chats started from here. The same setting lives in Settings, where it is written to your configuration file and applies to every interface.")}
       </p>
       <div className="choices">
         {POLICIES.map((option) => (
@@ -2102,7 +2126,7 @@ export function CustomizeView({
         ))}
       </div>
       {preferences.approvalPolicy === "never" ? (
-        <p className="error">The agent will run commands on this machine without asking.</p>
+        <p className="error">{t("The agent will run commands on this machine without asking.")}</p>
       ) : null}
     </section>
   );
@@ -2122,12 +2146,12 @@ export function ago(unix: number | null): string {
   return `${days} days ago`;
 }
 
-const STATUS_LABEL: Record<RunStatus, string> = {
-  queued: "Queued",
-  running: "Running",
-  done: "Done",
-  failed: "Failed",
-  cancelled: "Cancelled",
+const STATUS_LABEL: Record<RunStatus, () => string> = {
+  queued: () => t("Queued"),
+  running: () => t("Running"),
+  done: () => t("Done"),
+  failed: () => t("Failed"),
+  cancelled: () => t("Cancelled"),
 };
 
 /** One run, expandable to show what it printed. */
@@ -2161,27 +2185,27 @@ function RunRow({
         <span className="run-what">
           <strong>{run.title}</strong>
           <em>
-            {STATUS_LABEL[run.status]} · {ago(run.finishedAt ?? run.startedAt)} · {run.source}
+            {STATUS_LABEL[run.status]()} · {ago(run.finishedAt ?? run.startedAt)} · {run.source}
           </em>
         </span>
         <span className="actions">
           {run.output ? (
             <button className="secondary" onClick={() => setOpen(!open)}>
-              {open ? "Hide" : "Output"}
+              {open ? t("Hide") : t("Output")}
             </button>
           ) : null}
           {finished && onOpenAsChat ? (
             <button className="secondary" onClick={() => onOpenAsChat(run)}>
-              Continue in a chat
+              {t("Continue in a chat")}
             </button>
           ) : null}
           {finished ? (
             <button className="secondary" onClick={() => onDelete(run.id)}>
-              Remove
+              {t("Remove")}
             </button>
           ) : (
             <button className="secondary" onClick={() => onCancel(run.id)}>
-              Cancel
+              {t("Cancel")}
             </button>
           )}
         </span>
@@ -2257,10 +2281,9 @@ export function DispatchView({
 
   return (
     <section className="panel">
-      <h2>Dispatch</h2>
+      <h2>{t("Dispatch")}</h2>
       <p className="hint">
-        Send work off to run on its own. Each run is a separate agent in its own directory, so it
-        keeps going after you close the chat that started it. Three run at a time.
+        {t("Send work off to run on its own. Each run is a separate agent in its own directory, so it keeps going after you close the chat that started it. Three run at a time.")}
       </p>
       {error ? <p className="error">{error}</p> : null}
 
@@ -2268,26 +2291,26 @@ export function DispatchView({
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="What should it do?"
+          placeholder={t("What should it do?")}
           rows={3}
         />
         <span className="path-input">
           <input
             value={directory}
             onChange={(e) => setDirectory(e.target.value)}
-            placeholder="/path/to/work/in"
+            placeholder={t("/path/to/work/in")}
           />
         </span>
         <div className="actions">
           <button onClick={() => void dispatch()} disabled={!prompt.trim()}>
-            Dispatch
+            {t("Dispatch")}
           </button>
         </div>
       </div>
 
-      <h3>Active</h3>
+      <h3>{t("Active")}</h3>
       <ul className="rows wide">
-        {active.length === 0 ? <li className="muted">Nothing running.</li> : null}
+        {active.length === 0 ? <li className="muted">{t("Nothing running.")}</li> : null}
         {active.map((run) => (
           <RunRow
             key={run.id}
@@ -2300,15 +2323,15 @@ export function DispatchView({
       </ul>
 
       <h3>
-        Finished
+        {t("Finished")}
         {past.length > 0 ? (
           <button className="link clear" onClick={() => void client.clearRuns().then(reload)}>
-            Clear
+            {t("Clear")}
           </button>
         ) : null}
       </h3>
       <ul className="rows wide">
-        {past.length === 0 ? <li className="muted">Nothing has run yet.</li> : null}
+        {past.length === 0 ? <li className="muted">{t("Nothing has run yet.")}</li> : null}
         {past.map((run) => (
           <RunRow
             key={run.id}
@@ -2403,7 +2426,7 @@ export function ProjectDetailView({
     <section className="panel">
       <div className="panel-head">
         <button className="link back" onClick={onBack}>
-          ← Projects
+          {t("← Projects")}
         </button>
       </div>
 
@@ -2411,7 +2434,7 @@ export function ProjectDetailView({
         <h2 className="display">{project.name}</h2>
         <span className="grow" />
         <button className="filled" onClick={onNewChat}>
-          New chat
+          {t("New chat")}
         </button>
       </div>
       <p className="hint">
@@ -2424,7 +2447,7 @@ export function ProjectDetailView({
         <textarea
           value={prompt}
           rows={2}
-          placeholder={`Start a new chat in ${project.name}…`}
+          placeholder={t("Start a new chat in {project}…", { project: project.name })}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
             if (shouldSend({ ...e, isComposing: e.nativeEvent.isComposing })) {
@@ -2438,10 +2461,10 @@ export function ProjectDetailView({
         </button>
       </div>
 
-      <h3>Chats</h3>
+      <h3>{t("Chats")}</h3>
       <ul className="rows">
         {own.length === 0 ? (
-          <li className="muted">No chats here yet. Start one and it will be grouped here.</li>
+          <li className="muted">{t("No chats here yet. Start one and it will be grouped here.")}</li>
         ) : null}
         {own.map((thread) => (
           <li key={thread.id}>
@@ -2449,17 +2472,17 @@ export function ProjectDetailView({
             <span>{ago(thread.updatedAt)}</span>
             <div className="actions">
               <button className="secondary" onClick={() => onOpenThread(thread.id)}>
-                Open
+                {t("Open")}
               </button>
             </div>
           </li>
         ))}
       </ul>
 
-      <h3>In this folder</h3>
+      <h3>{t("In this folder")}</h3>
       {filesError ? <p className="error">{filesError}</p> : null}
       <ul className="rows files">
-        {!filesError && files.length === 0 ? <li className="muted">Empty.</li> : null}
+        {!filesError && files.length === 0 ? <li className="muted">{t("Empty.")}</li> : null}
         {files.map((file) => (
           <li key={file.name}>
             <strong>
@@ -2471,10 +2494,9 @@ export function ProjectDetailView({
         ))}
       </ul>
 
-      <h3>Standing instructions</h3>
+      <h3>{t("Standing instructions")}</h3>
       <p className="hint">
-        Given to the agent in every chat opened here. Changes apply to the next chat, not the one
-        already open.
+        {t("Given to the agent in every chat opened here. Changes apply to the next chat, not the one already open.")}
       </p>
       <div className="project-form">
         <textarea
@@ -2484,7 +2506,7 @@ export function ProjectDetailView({
             setSaved(false);
           }}
           rows={5}
-          placeholder="How to build it, what not to touch…"
+          placeholder={t("How to build it, what not to touch…")}
         />
         <div className="actions">
           <button
@@ -2498,9 +2520,9 @@ export function ProjectDetailView({
                 });
             }}
           >
-            Save
+            {t("Save")}
           </button>
-          {saved ? <span className="field-note">Saved.</span> : null}
+          {saved ? <span className="field-note">{t("Saved.")}</span> : null}
         </div>
       </div>
     </section>
@@ -2754,10 +2776,10 @@ export function ModelsView({
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2 className="display">Models</h2>
+        <h2 className="display">{t("Models")}</h2>
         <span className="grow" />
         <button className="secondary" onClick={() => setManaging(true)}>
-          Machines…
+          {t("Machines…")}
         </button>
       </div>
 
@@ -2766,7 +2788,7 @@ export function ModelsView({
           Installed{installed.length > 0 ? ` (${installed.length})` : ""}
         </button>
         <button className={tab === "browse" ? "on" : ""} onClick={() => setTab("browse")}>
-          Browse
+          {t("Browse")}
         </button>
       </div>
 
@@ -2811,10 +2833,10 @@ export function ModelsView({
 
       {tab === "installed" ? (
         <>
-          {loading ? <p className="muted">Looking on every machine…</p> : null}
+          {loading ? <p className="muted">{t("Looking on every machine…")}</p> : null}
           {!loading && installed.length === 0 ? (
             <p className="muted">
-              Nothing installed anywhere yet. Open Browse to add one.
+              {t("Nothing installed anywhere yet. Open Browse to add one.")}
             </p>
           ) : null}
           <ul className="rows">
@@ -2838,25 +2860,25 @@ export function ModelsView({
                 {row.capabilities ? (
                   <span className={row.capabilities.supportsTools ? "" : "warn"}>
                     {row.capabilities.supportsTools
-                      ? "Calls tools"
-                      : "Does not call tools — of little use for agent work here"}
+                      ? t("Calls tools")
+                      : t("Does not call tools — of little use for agent work here")}
                   </span>
                 ) : (
-                  <span className="muted-note">Checking what it can do…</span>
+                  <span className="muted-note">{t("Checking what it can do…")}</span>
                 )}
                 {said[key] ? (
                   <span className="done">{said[key]}</span>
                 ) : usable ? (
-                  <span className="done">In the chat model picker</span>
+                  <span className="done">{t("In the chat model picker")}</span>
                 ) : (
                   <span className="muted-note">
-                    Not in the chat picker yet — installed here, but chats cannot select it.
+                    {t("Not in the chat picker yet — installed here, but chats cannot select it.")}
                   </span>
                 )}
                 <div className="actions">
                   <button
                     className="secondary"
-                    title="Add it to the model picker"
+                    title={t("Add it to the model picker")}
                     disabled={!!busy || usable}
                     onClick={() => {
                       setWorking((prev) => ({ ...prev, [key]: "adding" }));
@@ -2875,8 +2897,8 @@ export function ModelsView({
                           setSaid((prev) => ({
                             ...prev,
                             [key]: result.added
-                              ? "Added to the picker — start a new chat to use it."
-                              : "Already in the picker.",
+                              ? t("Added to the picker — start a new chat to use it.")
+                              : t("Already in the picker."),
                           }));
                           setInPicker((prev) => ({
                             ...prev,
@@ -2947,31 +2969,32 @@ export function ModelsView({
               onKeyDown={(e) => {
                 if (shouldDismiss({ ...e, isComposing: e.nativeEvent.isComposing })) setQuery("");
               }}
-              placeholder="Narrow the list, or paste a tag like hf.co/owner/repo"
+              placeholder={t("Narrow the list, or paste a tag like hf.co/owner/repo")}
             />
             {query ? (
               <button className="secondary" onClick={() => setQuery("")}>
-                Clear
+                {t("Clear")}
               </button>
             ) : null}
           </div>
           <p className="hint">
             Anything installable can also be pasted straight in — an Ollama tag, an{" "}
-            <code>hf.co/owner/repo</code>, or a <code>modelscope.cn/owner/repo</code>.
+            <code>{t("hf.co/owner/repo")}</code>
+            {t(", or a")} <code>{t("modelscope.cn/owner/repo")}</code>.
           </p>
 
           {typedTag ? (
             <ul className="rows">
               <li>
                 <strong>{typedTag}</strong>
-                <span>Install this exactly as typed.</span>
+                <span>{t("Install this exactly as typed.")}</span>
                 <div className="actions">
                   <button
                     onClick={() =>
                       setInstalling({ source: "ollama", tag: typedTag, name: typedTag, tools: null })
                     }
                   >
-                    Install
+                    {t("Install")}
                   </button>
                 </div>
               </li>
@@ -2990,18 +3013,18 @@ export function ModelsView({
           ) : null}
 
           <h3>
-            {found ? "On Hugging Face" : "Popular on Hugging Face"}
+            {found ? t("On Hugging Face") : t("Popular on Hugging Face")}
             {searching ? " · searching…" : fromHub.length > 0 ? ` · ${fromHub.length}` : ""}
           </h3>
           {!found && popularStale ? (
-            <p className="hint">These rankings are from an earlier session, and are refreshing.</p>
+            <p className="hint">{t("These rankings are from an earlier session, and are refreshing.")}</p>
           ) : null}
           <ul className="rows">
             {fromHub.length === 0 && !searching ? (
               <li className="muted">
                 {found
-                  ? "Nothing on Hugging Face matched that."
-                  : "The list of popular models could not be fetched. Anything above still installs."}
+                  ? t("Nothing on Hugging Face matched that.")
+                  : t("The list of popular models could not be fetched. Anything above still installs.")}
               </li>
             ) : null}
             {fromHub.map((offer) => (
@@ -3015,7 +3038,7 @@ export function ModelsView({
           </ul>
           {!found && popular.length > 0 && popular.length < popularTotal ? (
             <button className="secondary" onClick={showMore}>
-              Show more
+              {t("Show more")}
             </button>
           ) : null}
         </>
@@ -3078,14 +3101,14 @@ function OfferRow({
         <span className="warn">Does not call tools — cannot drive the agent&apos;s own work</span>
       ) : null}
       {offer.tools === null && offer.source === "huggingface" ? (
-        <span>Whether it calls tools is only known once installed.</span>
+        <span>{t("Whether it calls tools is only known once installed.")}</span>
       ) : null}
       {where.length > 0 ? (
         <span className="chip-plain">Already on {where.join(", ")}</span>
       ) : null}
       <div className="actions">
         <button onClick={onInstall}>
-          {where.length > 0 ? "Install elsewhere" : "Install"}
+          {where.length > 0 ? t("Install elsewhere") : t("Install")}
         </button>
       </div>
     </li>
@@ -3103,9 +3126,9 @@ function PurposeGroups({
   onInstall: (offer: Offer) => void;
 }) {
   const groups: { id: string; label: string }[] = [
-    { id: "coding", label: "Coding" },
-    { id: "general", label: "General purpose" },
-    { id: "small", label: "Small and fast" },
+    { id: "coding", label: t("Coding") },
+    { id: "general", label: t("General purpose") },
+    { id: "small", label: t("Small and fast") },
   ];
 
   return (
@@ -3228,14 +3251,14 @@ function InstallDialog({
       footer={
         <>
           <button className="secondary" onClick={onClose}>
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             className="filled"
             disabled={!chosen || !tag || already || targetsLoading}
             onClick={() => onInstall(chosen, tag)}
           >
-            {targetsLoading ? "Looking…" : already ? "Already there" : "Install"}
+            {targetsLoading ? t("Looking…") : already ? t("Already there") : t("Install")}
           </button>
         </>
       }
@@ -3247,8 +3270,8 @@ function InstallDialog({
         {targets.length === 0 ? (
           <span className="field-note">
             {targetsLoading
-              ? "Looking for machines…"
-              : "No machine found. Open Machines… to add one, or install Ollama on this computer."}
+              ? t("Looking for machines…")
+              : t("No machine found. Open Machines… to add one, or install Ollama on this computer.")}
           </span>
         ) : null}
         <select value={chosen} onChange={(e) => setChosen(e.target.value)}>
@@ -3262,21 +3285,19 @@ function InstallDialog({
         </select>
         {target && fits === false ? (
           <span className="field-note warn">
-            This is larger than the memory on that machine. It will download, and may fail to
-            load.
+            {t("This is larger than the memory on that machine. It will download, and may fail to load.")}
           </span>
         ) : null}
         {reading ? (
-          <span className="field-note">Checking how much memory it has…</span>
+          <span className="field-note">{t("Checking how much memory it has…")}</span>
         ) : null}
         {target && known && chosenMemory == null ? (
           <span className="field-note">
-            How much memory that machine has cannot be read from here, so whether it fits is not
-            known. Adding an SSH alias in Machines… would let it be checked.
+            {t("How much memory that machine has cannot be read from here, so whether it fits is not known. Adding an SSH alias in Machines… would let it be checked.")}
           </span>
         ) : null}
         {already ? (
-          <span className="field-note">It is already installed there.</span>
+          <span className="field-note">{t("It is already installed there.")}</span>
         ) : null}
       </label>
 
@@ -3290,11 +3311,11 @@ function InstallDialog({
                 {chosenVariant.sizeGb.toFixed(1)} GB · {chosenVariant.note}
               </span>
               <button className="link" onClick={() => setShowVariants(!showVariants)}>
-                {showVariants ? "Keep this one" : "Choose a different one"}
+                {showVariants ? t("Keep this one") : t("Choose a different one")}
               </button>
             </div>
           ) : (
-            <span className="field-note">Reading the available versions…</span>
+            <span className="field-note">{t("Reading the available versions…")}</span>
           )}
 
           {showVariants ? (
@@ -3377,12 +3398,12 @@ function MachinesDialog({
   );
 
   return (
-    <Dialog open={open} title="Machines" onClose={onClose}>
+    <Dialog open={open} title={t("Machines")} onClose={onClose}>
       {error ? <p className="error">{error}</p> : null}
 
       {unsaved.length > 0 ? (
         <>
-          <h3>Found on this machine</h3>
+          <h3>{t("Found on this machine")}</h3>
           <ul className="rows">
             {unsaved.map((runtime) => (
               <li key={runtime.baseUrl}>
@@ -3403,7 +3424,7 @@ function MachinesDialog({
                         );
                     }}
                   >
-                    Save it
+                    {t("Save it")}
                   </button>
                 </div>
               </li>
@@ -3412,9 +3433,9 @@ function MachinesDialog({
         </>
       ) : null}
 
-      <h3>Saved</h3>
+      <h3>{t("Saved")}</h3>
       <ul className="rows">
-        {servers.length === 0 ? <li className="muted">None saved.</li> : null}
+        {servers.length === 0 ? <li className="muted">{t("None saved.")}</li> : null}
         {servers.map((server) => {
           const report = reports[server.id];
           return (
@@ -3423,32 +3444,32 @@ function MachinesDialog({
               <span>{server.baseUrl}</span>
               <span>
                 {server.sshAlias
-                  ? `SSH: ${server.sshAlias} — can be inspected and repaired`
-                  : "No SSH — models only"}
+                  ? t("SSH: {alias} — can be inspected and repaired", { alias: server.sshAlias })
+                  : t("No SSH — models only")}
               </span>
 
               {report ? (
                 <div className="report">
                   {report.shell ? (
                     <dl>
-                      <dt>Runtime</dt>
+                      <dt>{t("Runtime")}</dt>
                       <dd>
                         {report.http.reachable
                           ? `answering, ${report.http.version}`
                           : "not answering"}
                       </dd>
-                      <dt>Service</dt>
+                      <dt>{t("Service")}</dt>
                       <dd>
                         {report.shell.service || "none"}
                         {report.shell.restarts > 0 ? ` · ${report.shell.restarts} restarts` : ""}
                       </dd>
-                      <dt>Models on disk</dt>
+                      <dt>{t("Models on disk")}</dt>
                       <dd>{report.shell.modelsOnDisk || "unknown"}</dd>
-                      <dt>Disk free</dt>
+                      <dt>{t("Disk free")}</dt>
                       <dd>{report.shell.diskFree || "unknown"}</dd>
                       {report.shell.gpu ? (
                         <>
-                          <dt>GPU</dt>
+                          <dt>{t("GPU")}</dt>
                           <dd>{report.shell.gpu}</dd>
                         </>
                       ) : null}
@@ -3484,7 +3505,7 @@ function MachinesDialog({
                     void client.removeServer(server.id).then(reload);
                   }}
                 >
-                  Remove
+                  {t("Remove")}
                 </button>
               </div>
             </li>
@@ -3500,7 +3521,7 @@ function MachinesDialog({
               value={draft.name}
               autoFocus
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              placeholder="GPU Box"
+              placeholder={t("GPU Box")}
             />
           </label>
           <label className="field">
@@ -3508,7 +3529,7 @@ function MachinesDialog({
             <input
               value={draft.baseUrl}
               onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
-              placeholder="https://llm.example.com or http://192.168.1.20:11434"
+              placeholder={t("https://llm.example.com or http://192.168.1.20:11434")}
             />
           </label>
           <label className="field">
@@ -3517,7 +3538,7 @@ function MachinesDialog({
               value={draft.sshAlias}
               onChange={(e) => setDraft({ ...draft, sshAlias: e.target.value })}
             >
-              <option value="">No — manage models only</option>
+              <option value="">{t("No — manage models only")}</option>
               {aliases.map((host) => (
                 <option key={host.alias} value={host.alias}>
                   {host.alias} — {host.user ? `${host.user}@` : ""}
@@ -3527,8 +3548,8 @@ function MachinesDialog({
             </select>
             <span className="field-note">
               {aliases.length === 0
-                ? "No hosts in ~/.ssh/config. Add one there and it will appear here."
-                : "Read from your own ~/.ssh/config. No key or password is stored."}
+                ? t("No hosts in ~/.ssh/config. Add one there and it will appear here.")
+                : t("Read from your own ~/.ssh/config. No key or password is stored.")}
             </span>
           </label>
           <div className="actions">
@@ -3551,16 +3572,16 @@ function MachinesDialog({
                   );
               }}
             >
-              Add
+              {t("Add")}
             </button>
             <button className="secondary" onClick={() => setAdding(false)}>
-              Cancel
+              {t("Cancel")}
             </button>
           </div>
         </div>
       ) : (
         <button className="secondary" onClick={() => setAdding(true)}>
-          Add a server elsewhere…
+          {t("Add a server elsewhere…")}
         </button>
       )}
     </Dialog>

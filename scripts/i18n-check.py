@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Compare the strings the interface uses against each translation.
+
+Keying translations by the English sentence makes a missing entry harmless —
+the English is shown — and makes an *edited* English sentence silently orphan
+its translation. This is the thing that notices.
+
+Exits non-zero when a translation is incomplete, so CI can say so before the
+interface quietly reverts to English in the middle of a panel.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+# A word boundary before `t(`, or this also matches `get("…")` and every other
+# identifier that happens to end in t.
+CALL = re.compile(r'(?<![A-Za-z0-9_$.])t\(\s*"((?:[^"\\]|\\.)*)"')
+ENTRY = re.compile(r'^  "((?:[^"\\]|\\.)*)":', re.M)
+
+
+def main() -> int:
+    root = Path(__file__).resolve().parent.parent / "web" / "src"
+
+    used: set[str] = set()
+    for path in root.rglob("*.ts*"):
+        if "locales" in str(path) or path.name == "i18n.ts":
+            continue
+        used |= {match.group(1) for match in CALL.finditer(path.read_text(encoding="utf-8"))}
+
+    failed = False
+    for locale in sorted((root / "locales").glob("*.ts")):
+        have = set(ENTRY.findall(locale.read_text(encoding="utf-8")))
+        missing = sorted(used - have)
+        orphaned = sorted(have - used)
+        print(f"{locale.stem}: {len(have)} of {len(used)} translated")
+        for text in missing:
+            print(f"  missing:  {text}")
+            failed = True
+        for text in orphaned:
+            # Not a failure: an orphan is dead weight, not a hole on screen.
+            print(f"  orphaned: {text}")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

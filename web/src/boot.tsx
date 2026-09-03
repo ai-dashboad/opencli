@@ -12,6 +12,7 @@
  */
 
 import { OpenCliMark } from "./icons";
+import { t } from "./i18n";
 
 export function Boot({ failed, detail }: { failed: boolean; detail?: string | null }) {
   return (
@@ -44,9 +45,9 @@ export function Boot({ failed, detail }: { failed: boolean; detail?: string | nu
         </svg>
       </div>
 
-      <h1 className="boot-word">OpenCLI</h1>
+      <h1 className="boot-word">{t("OpenCLI")}</h1>
       <p className="boot-note">
-        {failed ? "The agent could not be started." : "Starting the agent…"}
+        {failed ? t("The agent could not be started.") : t("Starting the agent…")}
       </p>
       <div className="boot-line" role="presentation">
         <span />

@@ -264,6 +264,8 @@ export type ApprovalPolicy = "untrusted" | "on-failure" | "on-request" | "never"
 
 /** Per-thread preferences the user can change. */
 export type Appearance = "system" | "dark" | "light";
+/** `null` follows the browser's language list. */
+export type LanguageChoice = "system" | "en" | "zh";
 export type TextSize = "normal" | "large" | "larger";
 
 export interface Preferences {
@@ -272,6 +274,8 @@ export interface Preferences {
   appearance?: Appearance;
   /** How large the conversation's text is. */
   textSize?: TextSize;
+  /** Which language the interface is in. */
+  language?: LanguageChoice;
   effort?: ReasoningEffort;
   approvalPolicy: ApprovalPolicy;
   /**
