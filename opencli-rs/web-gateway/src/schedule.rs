@@ -37,6 +37,7 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
         "schedule/create" => create(opencli_home, &params),
         "schedule/delete" => delete(opencli_home, &params),
         "schedule/setEnabled" => set_enabled(opencli_home, &params),
+        "schedule/runNow" => run_now(opencli_home, &params),
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -130,6 +131,36 @@ fn set_enabled(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     if !found {
         return Err(format!("no task with id `{id}`"));
     }
+    Ok(json!({}))
+}
+
+/// Run a task now, without waiting for its next turn.
+///
+/// Queued through the same worker as a scheduled run, so it obeys the same
+/// limit and appears in the same list. Creating a task and then having to wait
+/// an hour to find out whether the prompt was right is not a way to write one.
+fn run_now(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let id = params
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or("id is required")?;
+    let task = scheduled::load(opencli_home)
+        .into_iter()
+        .find(|task| task.id == id)
+        .ok_or_else(|| format!("no task with id `{id}`"))?;
+
+    // Deliberately not marked as having run: this is an extra run, and the
+    // schedule should keep measuring from the last scheduled one.
+    dispatch::create(
+        opencli_home,
+        task.name.clone(),
+        task.prompt.clone(),
+        task.cwd.clone(),
+        None,
+        dispatch::RunSource::Scheduled,
+        Some(task.id.clone()),
+    )
+    .map_err(|err| format!("could not queue: {err}"))?;
     Ok(json!({}))
 }
 

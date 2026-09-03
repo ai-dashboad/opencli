@@ -836,16 +836,40 @@ function describeWhen(unix: number | null): string {
   return mins < 1 ? "just now" : `${mins}m ago`;
 }
 
-export function ScheduledView({ client, cwd }: { client: OpenCliClient; cwd: string }) {
+const INTERVAL_UNITS: { value: string; label: string }[] = [
+  { value: "m", label: "minutes" },
+  { value: "h", label: "hours" },
+  { value: "d", label: "days" },
+];
+
+export function ScheduledView({
+  client,
+  cwd,
+  onBrowse,
+}: {
+  client: OpenCliClient;
+  cwd: string;
+  /** Opens the platform folder chooser; absent in the browser build. */
+  onBrowse?: (start: string) => Promise<string | null>;
+}) {
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
+  const [runs, setRuns] = useState<Run[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [every, setEvery] = useState("1h");
+  const [every, setEvery] = useState("1");
+  const [unit, setUnit] = useState("h");
+  const [directory, setDirectory] = useState(cwd);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      setTasks(await client.listTasks());
+      const [listed, recent] = await Promise.all([
+        client.listTasks(),
+        client.listRuns({ limit: 100 }).catch(() => [] as Run[]),
+      ]);
+      setTasks(listed);
+      setRuns(recent);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -856,10 +880,21 @@ export function ScheduledView({ client, cwd }: { client: OpenCliClient; cwd: str
     void reload();
   }, [reload]);
 
+  // A task that was just told to run appears in the list seconds later, so the
+  // panel keeps looking while it is open.
+  useEffect(() => {
+    const timer = setInterval(() => void reload(), 6000);
+    return () => clearInterval(timer);
+  }, [reload]);
+
+  useEffect(() => {
+    setDirectory((current) => current || cwd);
+  }, [cwd]);
+
   const add = useCallback(async () => {
-    const seconds = parseInterval(every);
+    const seconds = parseInterval(`${every}${unit}`);
     if (!seconds) {
-      setError("interval must look like 30s, 15m, 2h, or 1d");
+      setError("How often must be a whole number greater than zero.");
       return;
     }
     try {
@@ -867,7 +902,7 @@ export function ScheduledView({ client, cwd }: { client: OpenCliClient; cwd: str
         name: name.trim() || prompt.trim().slice(0, 40),
         prompt: prompt.trim(),
         intervalSeconds: seconds,
-        cwd,
+        cwd: directory || cwd,
       });
       setName("");
       setPrompt("");
@@ -875,7 +910,7 @@ export function ScheduledView({ client, cwd }: { client: OpenCliClient; cwd: str
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [client, cwd, every, name, prompt, reload]);
+  }, [client, cwd, directory, every, name, prompt, reload, unit]);
 
   return (
     <section className="panel">
@@ -886,58 +921,139 @@ export function ScheduledView({ client, cwd }: { client: OpenCliClient; cwd: str
       </p>
       {error ? <p className="error">{error}</p> : null}
 
-      <div className="task-form">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Name (optional)"
-        />
-        <input
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="What should it do?"
-        />
-        <input
-          className="interval"
-          value={every}
-          onChange={(e) => setEvery(e.target.value)}
-          placeholder="1h"
-        />
-        <button onClick={() => void add()} disabled={!prompt.trim()}>
-          Add
-        </button>
+      <div className="project-form">
+        <label className="field">
+          What should it do?
+          <textarea
+            value={prompt}
+            rows={2}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Check the build and summarise anything that broke"
+          />
+        </label>
+        <label className="field">
+          Name (optional)
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Build check" />
+        </label>
+        <label className="field">
+          How often
+          <span className="path-input">
+            <input
+              className="interval"
+              type="number"
+              min="1"
+              value={every}
+              onChange={(e) => setEvery(e.target.value)}
+            />
+            <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+              {INTERVAL_UNITS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </span>
+        </label>
+        <label className="field">
+          Where to run
+          <span className="path-input">
+            <input
+              value={directory}
+              onChange={(e) => setDirectory(e.target.value)}
+              placeholder="/path/to/project"
+            />
+            {onBrowse ? (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  void onBrowse(directory || cwd).then((picked) => {
+                    if (picked) setDirectory(picked);
+                  });
+                }}
+              >
+                <FolderPlusIcon size={14} />
+                Choose
+              </button>
+            ) : null}
+          </span>
+        </label>
+        <div className="actions">
+          <button onClick={() => void add()} disabled={!prompt.trim()}>
+            Add task
+          </button>
+        </div>
       </div>
 
-      <ul className="rows">
+      <ul className="rows wide">
         {tasks.length === 0 ? <li className="muted">No tasks yet.</li> : null}
-        {tasks.map((task) => (
-          <li key={task.id}>
-            <strong>{task.name}</strong>
-            <span>{task.prompt}</span>
-            <span>
-              {describeInterval(task.intervalSeconds)} · next {describeWhen(task.nextRun)} ·{" "}
-              {task.enabled ? "active" : "paused"}
-            </span>
-            <div className="actions">
-              <button
-                className="secondary"
-                onClick={() => {
-                  void client.setTaskEnabled(task.id, !task.enabled).then(reload);
-                }}
-              >
-                {task.enabled ? "Pause" : "Resume"}
-              </button>
-              <button
-                className="secondary"
-                onClick={() => {
-                  void client.deleteTask(task.id).then(reload);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </li>
-        ))}
+        {tasks.map((task) => {
+          const history = runs.filter((run) => run.taskId === task.id);
+          const last = history[0];
+          return (
+            <li key={task.id}>
+              <strong>{task.name}</strong>
+              <span>{task.prompt}</span>
+              <span>
+                {describeInterval(task.intervalSeconds)} · next {describeWhen(task.nextRun)} ·{" "}
+                {task.enabled ? "active" : "paused"}
+                {last ? ` · last run ${STATUS_LABEL[last.status].toLowerCase()}` : " · never run"}
+              </span>
+              <div className="actions">
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    void client
+                      .runTaskNow(task.id)
+                      .then(reload)
+                      .catch((err: unknown) =>
+                        setError(err instanceof Error ? err.message : String(err)),
+                      );
+                  }}
+                >
+                  Run now
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    void client.setTaskEnabled(task.id, !task.enabled).then(reload);
+                  }}
+                >
+                  {task.enabled ? "Pause" : "Resume"}
+                </button>
+                {history.length > 0 ? (
+                  <button
+                    className="secondary"
+                    onClick={() => setExpanded(expanded === task.id ? null : task.id)}
+                  >
+                    {expanded === task.id ? "Hide runs" : `Runs (${history.length})`}
+                  </button>
+                ) : null}
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    void client.deleteTask(task.id).then(reload);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+
+              {expanded === task.id ? (
+                <ul className="rows">
+                  {history.map((run) => (
+                    <li key={run.id}>
+                      <strong>
+                        {STATUS_LABEL[run.status]} · {ago(run.finishedAt ?? run.startedAt)}
+                      </strong>
+                      {run.output ? <pre className="run-output">{run.output}</pre> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

@@ -1229,7 +1229,11 @@ export default function App() {
             onBrowse={isDesktop() ? chooseDirectory : undefined}
           />
         ) : view === "scheduled" && client ? (
-          <ScheduledView client={client} cwd={cwd || "."} />
+          <ScheduledView
+            client={client}
+            cwd={cwd || "."}
+            onBrowse={isDesktop() ? chooseDirectory : undefined}
+          />
         ) : view === "skills" && client ? (
           <SkillsView client={client} cwd={cwd || "."} />
         ) : view === "connectors" && client ? (

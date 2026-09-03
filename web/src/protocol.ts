@@ -1628,6 +1628,11 @@ export class OpenCliClient {
     await this.request("schedule/delete", { id });
   }
 
+  /** Run a task now, without waiting for its next turn. */
+  async runTaskNow(id: string): Promise<void> {
+    await this.request("schedule/runNow", { id });
+  }
+
   async setTaskEnabled(id: string, enabled: boolean): Promise<void> {
     await this.request("schedule/setEnabled", { id, enabled });
   }
