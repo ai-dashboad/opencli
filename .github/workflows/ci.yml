@@ -74,9 +74,14 @@ jobs:
       - name: Check root README ToC
         run: python3 scripts/readme_toc.py README.md
 
+      # `opencli-cli/README.md` is gitignored — it is written during npm
+      # packaging, not kept in the repository — so these checked a file that
+      # only exists on a machine that has published.
       - name: Ensure opencli-cli/README.md contains only ASCII and certain Unicode code points
+        if: ${{ hashFiles('opencli-cli/README.md') != '' }}
         run: ./scripts/asciicheck.py opencli-cli/README.md
       - name: Check opencli-cli/README ToC
+        if: ${{ hashFiles('opencli-cli/README.md') != '' }}
         run: python3 scripts/readme_toc.py opencli-cli/README.md
 
       - name: Prettier (run `pnpm run format:fix` to fix)

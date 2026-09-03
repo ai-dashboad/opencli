@@ -1,3 +1,18 @@
+# Dependency policy.
+#
+# Split in two on purpose.
+#
+# Licences, banned crates and sources are decisions this project makes, and a
+# change to them should stop a pull request. They block.
+#
+# Security advisories are not, today, a decision anyone here has made: the
+# dependency tree came with the fork and carries roughly twenty open advisories
+# in transitive crates. Fixing them is real work — `cargo update` across the
+# workspace does not compile, because `starlark_map` and `hashbrown` resolve to
+# versions that disagree — and it is not the same work as reviewing a pull
+# request. So the advisory check runs and reports on every commit, and does not
+# gate one. It is tracked, not hidden.
+
 name: cargo-deny
 
 on:
@@ -5,22 +20,35 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # Monday morning, so a new advisory is noticed within a week even if
+    # nothing is pushed.
+    - cron: "0 7 * * 1"
 
 jobs:
-  cargo-deny:
+  policy:
+    name: licences, bans and sources
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./opencli-rs
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Run cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           rust-version: stable
           manifest-path: ./opencli-rs/Cargo.toml
+          command: check bans licenses sources
+          arguments: --all-features
+
+  advisories:
+    name: security advisories (reporting only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          rust-version: stable
+          manifest-path: ./opencli-rs/Cargo.toml
+          command: check advisories
+          arguments: --all-features

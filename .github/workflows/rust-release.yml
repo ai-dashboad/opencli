@@ -67,6 +67,13 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    # Whether a signing certificate is configured, decided once here. The
+    # `secrets` context cannot be read from a step's `if:` — a workflow that
+    # tries is rejected outright, with no job and no error beyond "workflow file
+    # issue" — but a job-level `env` can hold the answer.
+    env:
+      HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_P12 != '' }}
+      HAS_WINDOWS_CERTIFICATE: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID != '' }}
     defaults:
       run:
         working-directory: opencli-rs
@@ -215,7 +222,7 @@ jobs:
       # Skipped when no certificate is configured, which is the normal case:
       # releases are unsigned, and the download page says so. A missing secret
       # must not fail the build that everyone gets.
-      - if: ${{ contains(matrix.target, 'windows') && secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID != '' }}
+      - if: ${{ contains(matrix.target, 'windows') && env.HAS_WINDOWS_CERTIFICATE == 'true' }}
         name: Sign Windows binaries with Azure Trusted Signing
         uses: ./.github/actions/windows-code-sign
         with:
@@ -227,7 +234,7 @@ jobs:
           account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
           certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
 
-      - if: ${{ runner.os == 'macOS' && secrets.APPLE_CERTIFICATE_P12 != '' }}
+      - if: ${{ runner.os == 'macOS' && env.HAS_APPLE_CERTIFICATE == 'true' }}
         name: MacOS code signing (binaries)
         uses: ./.github/actions/macos-code-sign
         with:
@@ -286,7 +293,7 @@ jobs:
             exit 1
           fi
 
-      - if: ${{ runner.os == 'macOS' && secrets.APPLE_CERTIFICATE_P12 != '' }}
+      - if: ${{ runner.os == 'macOS' && env.HAS_APPLE_CERTIFICATE == 'true' }}
         name: MacOS code signing (dmg)
         uses: ./.github/actions/macos-code-sign
         with:
