@@ -286,7 +286,8 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             .or_else(|| memory::handle(&text, &state.opencli_home))
             .or_else(|| dispatch::handle(&text, &state.opencli_home))
             .or_else(|| connector::handle(&text, &state.opencli_home))
-            .or_else(|| plugin::handle(&text, &state.opencli_home));
+            .or_else(|| plugin::handle(&text, &state.opencli_home))
+            .or_else(|| secrets::handle(&text, &state.opencli_home));
         if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -356,6 +357,7 @@ mod project;
 mod register;
 mod runtime;
 mod schedule;
+mod secrets;
 mod server;
 
 mod futures_lite_split {

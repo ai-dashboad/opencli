@@ -591,6 +591,14 @@ fn main() -> anyhow::Result<()> {
 }
 
 async fn cli_main(opencli_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<()> {
+    // Before anything reads a provider's key. An app launched from a dock icon
+    // inherits no shell and therefore no exported variables, so `$OPENCLI_HOME/.env`
+    // is the only way a desktop user can supply one. Safe here because nothing
+    // has been spawned yet — this is the first statement of the program.
+    if let Ok(home) = opencli_core::config::find_opencli_home() {
+        unsafe { opencli_core::secrets::load_into_env(&home) };
+    }
+
     let MultitoolCli {
         config_overrides: mut root_config_overrides,
         feature_toggles,

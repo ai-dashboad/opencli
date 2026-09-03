@@ -290,6 +290,12 @@ const TranscriptItem = memo(function TranscriptItem({
 
 export default function App() {
   const update = useUpdate();
+  // What version is running. Only the desktop host knows; a browser build has
+  // no version of its own to report.
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  useEffect(() => {
+    void fromHost("app_version").then(setAppVersion);
+  }, []);
   const [url, setUrl] = useState(gatewayUrlFromLocation);
   const [cwd, setCwd] = useState("");
   const [status, setStatus] = useState<ConnectionStatus | "idle">("idle");
@@ -1273,7 +1279,7 @@ export default function App() {
         ) : view === "plugins" && client ? (
           <PluginsView client={client} />
         ) : view === "settings" && client ? (
-          <SettingsView client={client} />
+          <SettingsView client={client} version={appVersion} update={update} />
         ) : (
           <>
             <div className="transcript" ref={transcriptRef}>

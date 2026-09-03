@@ -3,6 +3,7 @@ import { FolderIcon, FolderPlusIcon, PinIcon, SearchIcon, SendIcon } from "./ico
 import { Dialog } from "./menus";
 import { shouldDismiss, shouldSend } from "./composer";
 import { isDesktop, revealPath } from "./host";
+import type { UpdateState } from "./update";
 import type {
   ApprovalPolicy,
   ConnectorConfig,
@@ -18,6 +19,8 @@ import type {
   PluginOffer,
   InstallTarget,
   ModelLocation,
+  ModelOption,
+  SecretStatus,
   ModelVariant,
   Project,
   ProjectFile,
@@ -353,25 +356,95 @@ function originFile(origins: Record<string, unknown>, path: string): string | nu
   return typeof file === "string" ? file : null;
 }
 
-export function SettingsView({ client }: { client: OpenCliClient }) {
+/** The permission choices, worded as consequences rather than as settings. */
+const APPROVAL_SETTINGS: { value: string; label: string; hint: string }[] = [
+  {
+    value: "untrusted",
+    label: "Ask before anything unfamiliar",
+    hint: "Every command that is not known-safe is shown to you first.",
+  },
+  {
+    value: "on-failure",
+    label: "Ask only after something fails",
+    hint: "Commands run unattended; you are asked when one needs more access.",
+  },
+  {
+    value: "never",
+    label: "Never ask",
+    hint: "The agent runs commands on this machine without stopping.",
+  },
+];
+
+const SANDBOX_SETTINGS: { value: string; label: string; hint: string }[] = [
+  {
+    value: "read-only",
+    label: "Read only",
+    hint: "The agent can look at files but not change them.",
+  },
+  {
+    value: "workspace-write",
+    label: "Write in the working directory",
+    hint: "Edits are confined to the folder the chat is open in.",
+  },
+  {
+    value: "danger-full-access",
+    label: "No sandbox",
+    hint: "Anything your account can do, the agent can do.",
+  },
+];
+
+/**
+ * Settings: the handful of things worth changing, and the file underneath.
+ *
+ * It used to be read-only — a flattened dump of the configuration with a line
+ * at the bottom saying to edit `config.toml` by hand. That is a fine answer for
+ * someone who already has a terminal open and a model configured, and no answer
+ * at all for the person this panel exists for: an app opened from a dock icon,
+ * with no provider set up and nowhere to put a key.
+ *
+ * So: the settings that decide whether the thing works at all, edited here; and
+ * the rest still shown, still read-only, still saying which file set it.
+ */
+export function SettingsView({
+  client,
+  version,
+  update,
+}: {
+  client: OpenCliClient;
+  /** The running app's version; absent in the browser build. */
+  version: string | null;
+  /** Present only in the desktop build, which is the only one that updates. */
+  update?: UpdateState;
+}) {
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [secrets, setSecrets] = useState<SecretStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [keyDraft, setKeyDraft] = useState("");
+  const [newKeyName, setNewKeyName] = useState("");
+
+  const reload = useCallback(async () => {
+    try {
+      const [config, available, keys] = await Promise.all([
+        client.readConfig(),
+        client.listModels().catch(() => [] as ModelOption[]),
+        client.listSecrets().catch(() => [] as SecretStatus[]),
+      ]);
+      setResult(config);
+      setModels(available);
+      setSecrets(keys);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [client]);
 
   useEffect(() => {
-    let cancelled = false;
-    client
-      .readConfig()
-      .then((value) => {
-        if (!cancelled) setResult(value);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client]);
+    void reload();
+  }, [reload]);
 
   const config = (result?.config ?? {}) as Record<string, unknown>;
   const origins = (result?.origins ?? {}) as Record<string, unknown>;
@@ -381,18 +454,217 @@ export function SettingsView({ client }: { client: OpenCliClient }) {
   // were actually configured.
   const set = entries.filter(([, value]) => value !== null && value !== undefined);
 
+  /** Write one value and say so, briefly. */
+  const put = useCallback(
+    async (keyPath: string, value: unknown, what: string) => {
+      try {
+        await client.writeConfigValue(keyPath, value);
+        setSaved(`${what} saved. It applies to the next chat you open.`);
+        setError(null);
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [client, reload],
+  );
+
+  const saveKey = useCallback(
+    async (name: string, value: string | null) => {
+      try {
+        await client.writeSecret(name, value);
+        setEditingKey(null);
+        setKeyDraft("");
+        setNewKeyName("");
+        setSaved(value === null ? `${name} removed.` : `${name} saved.`);
+        setError(null);
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [client, reload],
+  );
+
+  const currentModel = typeof config.model === "string" ? config.model : "";
+  const currentApproval =
+    typeof config.approval_policy === "string" ? config.approval_policy : "untrusted";
+  const currentSandbox =
+    typeof config.sandbox_mode === "string" ? config.sandbox_mode : "workspace-write";
+
   return (
     <section className="panel">
       <h2>Settings</h2>
-      <p className="hint">
-        What your configuration files set, and which file set it. Anything not listed uses the
-        built-in default. Edit <code>~/.opencli/config.toml</code> to change it.
-      </p>
       {error ? <p className="error">{error}</p> : null}
+      {saved ? <p className="field-note">{saved}</p> : null}
       {!result && !error ? <p className="muted">Loading…</p> : null}
+
+      <h3>Default model</h3>
+      <p className="hint">
+        Used by new chats. A chat can still be switched to another model while it is open.
+      </p>
+      {models.length === 0 ? (
+        <p className="muted">
+          No models are configured yet. Add one under <strong>Models</strong>, or declare a
+          provider in <code>config.toml</code>.
+        </p>
+      ) : (
+        <label className="sort">
+          Model
+          <select
+            value={currentModel}
+            onChange={(e) => void put("model", e.target.value, "Default model")}
+          >
+            <option value="">Not set</option>
+            {models.map((model) => (
+              <option key={model.id} value={model.model}>
+                {model.displayName || model.model}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      <h3>API keys</h3>
+      <p className="hint">
+        Kept in <code>~/.opencli/.env</code>, not in <code>config.toml</code> — that file gets
+        shared and pasted into issues. Values are never shown again once saved.
+      </p>
+      <ul className="rows">
+        {secrets.length === 0 ? <li className="muted">No keys set.</li> : null}
+        {secrets.map((secret) => (
+          <li key={secret.name}>
+            <strong>{secret.name}</strong>
+            <span>
+              {secret.fromEnvironment
+                ? "set in your shell environment, which takes precedence"
+                : "•••••••• stored"}
+            </span>
+            {editingKey === secret.name ? (
+              <div className="actions">
+                <input
+                  type="password"
+                  value={keyDraft}
+                  autoFocus
+                  placeholder="Paste the new key"
+                  onChange={(e) => setKeyDraft(e.target.value)}
+                />
+                <button disabled={!keyDraft.trim()} onClick={() => void saveKey(secret.name, keyDraft)}>
+                  Save
+                </button>
+                <button className="secondary" onClick={() => setEditingKey(null)}>
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="actions">
+                <button className="secondary" onClick={() => setEditingKey(secret.name)}>
+                  Replace
+                </button>
+                {secret.stored ? (
+                  <button className="secondary" onClick={() => void saveKey(secret.name, null)}>
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="task-form">
+        <input
+          value={newKeyName}
+          placeholder="OPENAI_API_KEY"
+          onChange={(e) => setNewKeyName(e.target.value.toUpperCase())}
+        />
+        <input
+          type="password"
+          value={editingKey === null ? keyDraft : ""}
+          placeholder="Paste the key"
+          onChange={(e) => {
+            setEditingKey(null);
+            setKeyDraft(e.target.value);
+          }}
+        />
+        <button
+          disabled={!newKeyName.trim() || !keyDraft.trim()}
+          onClick={() => void saveKey(newKeyName.trim(), keyDraft)}
+        >
+          Add
+        </button>
+      </div>
+
+      <h3>When to ask permission</h3>
+      <div className="choices">
+        {APPROVAL_SETTINGS.map((option) => (
+          <label key={option.value} className="choice">
+            <input
+              type="radio"
+              name="approval-setting"
+              checked={currentApproval === option.value}
+              onChange={() => void put("approval_policy", option.value, "Permission setting")}
+            />
+            <span>
+              <strong>{option.label}</strong>
+              <span className="hint">{option.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <h3>What it may change</h3>
+      <div className="choices">
+        {SANDBOX_SETTINGS.map((option) => (
+          <label key={option.value} className="choice">
+            <input
+              type="radio"
+              name="sandbox-setting"
+              checked={currentSandbox === option.value}
+              onChange={() => void put("sandbox_mode", option.value, "Sandbox setting")}
+            />
+            <span>
+              <strong>{option.label}</strong>
+              <span className="hint">{option.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <h3>About</h3>
+      <ul className="rows">
+        <li>
+          <strong>Version</strong>
+          <span>{version ?? "running in a browser"}</span>
+          {update ? (
+            <div className="actions">
+              {update.stage === "available" ? (
+                <button onClick={update.install}>Update to {update.version}</button>
+              ) : update.stage === "ready" ? (
+                <button onClick={update.restart}>Restart into {update.version}</button>
+              ) : update.stage === "downloading" ? (
+                <span className="muted-note">Downloading {update.version}…</span>
+              ) : (
+                <span className="muted-note">Up to date.</span>
+              )}
+            </div>
+          ) : null}
+        </li>
+        <li>
+          <strong>Configuration</strong>
+          <span>~/.opencli/config.toml</span>
+        </li>
+        <li>
+          <strong>Logs</strong>
+          <span>~/.opencli/log</span>
+        </li>
+      </ul>
 
       {result ? (
         <>
+          <h3>Everything your files set</h3>
+          <p className="hint">
+            Read-only. Anything not listed uses the built-in default.
+          </p>
           <ul className="rows settings">
             {set.length === 0 ? (
               <li className="muted">Nothing configured; all defaults are in use.</li>

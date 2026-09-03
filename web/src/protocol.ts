@@ -138,6 +138,17 @@ export interface ModelOption {
   reasoningEfforts: string[];
 }
 
+
+/** A credential the agent can use, described without ever carrying its value. */
+export interface SecretStatus {
+  /** The environment variable's name, e.g. `OPENAI_API_KEY`. */
+  name: string;
+  /** Whether OpenCLI has it written down. */
+  stored: boolean;
+  /** Whether the surrounding environment already exports it, which wins. */
+  fromEnvironment: boolean;
+}
+
 /** A stored conversation, as listed in the sidebar. */
 export interface ThreadSummary {
   id: string;
@@ -2130,6 +2141,36 @@ export class OpenCliClient {
   async readConfig(): Promise<Record<string, unknown>> {
     const result = (await this.request("config/read", {})) as Record<string, unknown>;
     return result;
+  }
+
+  /**
+   * Which API keys are set.
+   *
+   * Names and whether each has a value — never the values themselves. A key on
+   * screen is a key in a screenshot.
+   */
+  async listSecrets(): Promise<SecretStatus[]> {
+    const result = (await this.request("secret/list", {})) as { secrets?: SecretStatus[] };
+    return result.secrets ?? [];
+  }
+
+  /** Set an API key, or clear it by passing `null`. */
+  async writeSecret(name: string, value: string | null): Promise<void> {
+    await this.request("secret/write", { name, ...(value === null ? {} : { value }) });
+  }
+
+  /**
+   * Write one setting into `config.toml`.
+   *
+   * `keyPath` is dotted — `model`, `approval_policy` — and the server keeps the
+   * file's comments and formatting as it edits.
+   */
+  async writeConfigValue(keyPath: string, value: unknown): Promise<void> {
+    await this.request("config/value/write", {
+      keyPath,
+      value,
+      mergeStrategy: "replace",
+    });
   }
 
   close(): void {
