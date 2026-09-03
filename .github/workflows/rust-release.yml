@@ -566,8 +566,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Pointed at this run, rather than left to find it.
+          #
+          # Without the override the script searches for a run on a branch
+          # named `rust-v<version>` — the tag convention this was forked from,
+          # where releases were `rust-v0.1.2` and ours are `v0.1.2`. It
+          # searched, found nothing, and failed after every one of the twelve
+          # builds had succeeded.
+          #
+          # The run it was looking for is the one it is running in, so there is
+          # nothing to look up: adapting the search to our tag names would have
+          # kept a lookup that never needed to exist.
           ./scripts/stage_npm_packages.py \
             --release-version "${{ steps.release_name.outputs.name }}" \
+            --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --package opencli \
             --package opencli-responses-api-proxy \
             --package opencli-sdk
