@@ -12,7 +12,6 @@ import {
   ProjectsView,
   ScheduledView,
   SettingsView,
-  PluginsView,
   SkillsView,
   ago,
 } from "./views";
@@ -1306,8 +1305,6 @@ export default function App() {
               );
             }}
           />
-        ) : view === "plugins" && client ? (
-          <PluginsView client={client} />
         ) : view === "settings" && client ? (
           <SettingsView client={client} version={appVersion} update={update} />
         ) : (
@@ -1624,7 +1621,7 @@ export default function App() {
                       }}
                       onBrowsePlugins={() => {
                         setAttachMenu(false);
-                        go("plugins");
+                        go("skills");
                       }}
                       onCloneRepo={() => {
                         setAttachMenu(false);

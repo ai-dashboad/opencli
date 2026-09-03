@@ -40,49 +40,38 @@ import type {
 } from "./protocol";
 
 
-function Panel({
-  title,
-  subtitle,
-  loading,
-  error,
-  empty,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  loading: boolean;
-  error: string | null;
-  empty: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="panel">
-      <h2>{title}</h2>
-      <p className="hint">{subtitle}</p>
-      {loading ? <p className="muted">Loading…</p> : null}
-      {error ? <p className="error">{error}</p> : null}
-      {!loading && !error && empty ? <p className="muted">Nothing configured.</p> : null}
-      {children}
-    </section>
-  );
-}
-
 /**
- * Skills: what the agent knows how to do here.
+ * Skills: what the agent knows how to do here, and what else it could.
  *
- * A skill is a directory with instructions in it, read when a task calls for
- * one. The list was read-only — which meant the `enabled` flag each skill
- * carries had no way to be changed, and a skill that fired when it should not
- * could only be turned off by moving the folder.
+ * This used to be two panels. "Skills" listed what was available in the
+ * current directory and could not change any of it; "Plugins" installed the
+ * same things from a short catalogue and called them something else. They are
+ * one thing — a directory with instructions in it, read when a task calls for
+ * one — and a person looking for "the thing that adds abilities" had to know
+ * which of two words this project had chosen for which half.
  */
 export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string }) {
   const [rows, setRows] = useState<SkillSummary[]>([]);
+  const [installed, setInstalled] = useState<InstalledPlugin[]>([]);
+  const [offers, setOffers] = useState<PluginOffer[]>([]);
+  const [tab, setTab] = useState<"yours" | "discover">("yours");
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [custom, setCustom] = useState({ name: "", source: "" });
 
   const reload = useCallback(async () => {
     try {
-      setRows(await client.listSkills(cwd));
+      const [skills, plugins, catalogued] = await Promise.all([
+        client.listSkills(cwd),
+        client.listPlugins().catch(() => [] as InstalledPlugin[]),
+        client.pluginCatalog().catch(() => [] as PluginOffer[]),
+      ]);
+      setRows(skills);
+      setInstalled(plugins);
+      setOffers(catalogued);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -113,34 +102,154 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
     [client, reload],
   );
 
+  const install = useCallback(
+    async (name: string, source: string) => {
+      setBusy(name);
+      setNote(null);
+      try {
+        const result = await client.installPlugin(name, source);
+        setNote(
+          result.loadable
+            ? `Installed ${result.name}. It is available in new chats.`
+            : `Installed ${result.name}, but it has no SKILL.md at its root — it is a collection, not a skill the agent loads on its own.`,
+        );
+        setError(null);
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [client, reload],
+  );
+
+  const needle = query.trim().toLowerCase();
+  const matches = (name: string, description: string) =>
+    !needle ||
+    name.toLowerCase().includes(needle) ||
+    description.toLowerCase().includes(needle);
+
+  const shownSkills = rows.filter((skill) => matches(skill.name, skill.description));
+
   return (
-    <Panel
-      title="Skills"
-      subtitle={`Reusable instructions the agent can draw on in ${cwd}. Changes apply to the next chat you open.`}
-      loading={loading}
-      error={error}
-      empty={rows.length === 0}
-    >
-      <ul className="rows wide">
-        {rows.map((skill) => (
-          <li key={skill.path}>
-            <strong>{skill.name}</strong>
-            <span>{skill.description}</span>
-            <span className="source">{skill.path}</span>
-            <div className="actions">
-              <label className="scope">
-                <input
-                  type="checkbox"
-                  checked={skill.enabled}
-                  onChange={(e) => void toggle(skill, e.target.checked)}
-                />
-                Enabled
-              </label>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Panel>
+    <section className="panel">
+      <div className="panel-head">
+        <h2>Skills</h2>
+        <span className="grow" />
+        <input
+          className="panel-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search skills"
+        />
+      </div>
+      <p className="hint">
+        Reusable instructions the agent draws on when a task calls for one. Changes apply to the
+        next chat you open.
+      </p>
+
+      <div className="tabs">
+        <button className={tab === "yours" ? "on" : ""} onClick={() => setTab("yours")}>
+          Available here
+        </button>
+        <button className={tab === "discover" ? "on" : ""} onClick={() => setTab("discover")}>
+          Add more
+        </button>
+      </div>
+
+      {error ? <p className="error">{error}</p> : null}
+      {note ? <p className="field-note">{note}</p> : null}
+      {loading ? <p className="muted">Loading…</p> : null}
+
+      {tab === "yours" ? (
+        <ul className="rows wide">
+          {!loading && shownSkills.length === 0 ? (
+            <li className="muted">
+              {needle ? "Nothing matches." : `No skills are available in ${cwd}.`}
+            </li>
+          ) : null}
+          {shownSkills.map((skill) => (
+            <li key={skill.path}>
+              <strong>{skill.name}</strong>
+              <span>{skill.description}</span>
+              <span className="source">{skill.path}</span>
+              <div className="actions">
+                <label className="scope">
+                  <input
+                    type="checkbox"
+                    checked={skill.enabled}
+                    onChange={(e) => void toggle(skill, e.target.checked)}
+                  />
+                  Enabled
+                </label>
+                {installed.some((plugin) => plugin.name === skill.name) ? (
+                  <button
+                    className="secondary"
+                    onClick={() => void client.removePlugin(skill.name).then(reload)}
+                  >
+                    Uninstall
+                  </button>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          <ul className="cards">
+            {offers
+              .filter((offer) => matches(offer.name, offer.description))
+              .map((offer) => {
+                const already = installed.some((plugin) => plugin.name === offer.id);
+                return (
+                  <li key={offer.id}>
+                    <strong>{offer.name}</strong>
+                    <span>{offer.description}</span>
+                    {offer.note ? <span className="muted">{offer.note}</span> : null}
+                    <div className="actions">
+                      <button
+                        disabled={already || busy === offer.id}
+                        onClick={() => void install(offer.id, offer.source)}
+                      >
+                        {already ? "Installed" : busy === offer.id ? "Installing…" : "Add"}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+          </ul>
+
+          <h3>Install from a repository</h3>
+          <p className="hint">
+            Cloned into <code>~/.opencli/skills</code>. There is no marketplace behind this — it
+            is a git clone, and the repository is whatever you point it at.
+          </p>
+          <div className="task-form">
+            <input
+              value={custom.name}
+              onChange={(e) => setCustom({ ...custom, name: e.target.value })}
+              placeholder="Name"
+            />
+            <input
+              value={custom.source}
+              onChange={(e) => setCustom({ ...custom, source: e.target.value })}
+              placeholder="https://github.com/owner/repo"
+            />
+            <button
+              disabled={!custom.name.trim() || !custom.source.trim() || busy !== null}
+              onClick={() => {
+                void install(custom.name.trim(), custom.source.trim()).then(() =>
+                  setCustom({ name: "", source: "" }),
+                );
+              }}
+            >
+              Install
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -2200,163 +2309,6 @@ export function DispatchView({
           />
         ))}
       </ul>
-    </section>
-  );
-}
-
-/**
- * Plugins: the skills installed on this machine, and the ones on offer.
- *
- * A skill is a directory the agent reads when a task calls for it, so
- * installing one is a clone and removing one is a delete. There is no hosted
- * marketplace behind this — the catalogue is a short list of repositories that
- * exist, plus a field for any other.
- */
-export function PluginsView({ client }: { client: OpenCliClient }) {
-  const [installed, setInstalled] = useState<InstalledPlugin[]>([]);
-  const [offers, setOffers] = useState<PluginOffer[]>([]);
-  const [tab, setTab] = useState<"yours" | "discover">("discover");
-  const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [custom, setCustom] = useState({ name: "", source: "" });
-
-  const reload = useCallback(async () => {
-    try {
-      const [rows, catalogued] = await Promise.all([client.listPlugins(), client.pluginCatalog()]);
-      setInstalled(rows);
-      setOffers(catalogued);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [client]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const install = useCallback(
-    async (name: string, source: string) => {
-      setBusy(name);
-      setNote(null);
-      try {
-        const result = await client.installPlugin(name, source);
-        setNote(
-          result.loadable
-            ? `Installed ${result.name}. It is available in new chats.`
-            : `Installed ${result.name}, but it has no SKILL.md at its root — it is a collection, not a skill the agent loads on its own.`,
-        );
-        setError(null);
-        await reload();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setBusy(null);
-      }
-    },
-    [client, reload],
-  );
-
-  const needle = query.trim().toLowerCase();
-  const matches = <T extends { name: string; description: string }>(row: T) =>
-    !needle ||
-    row.name.toLowerCase().includes(needle) ||
-    row.description.toLowerCase().includes(needle);
-
-  return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2>Plugins</h2>
-        <input
-          className="panel-search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search skills and plugins"
-        />
-      </div>
-
-      <div className="tabs">
-        <button className={tab === "yours" ? "on" : ""} onClick={() => setTab("yours")}>
-          Your plugins
-        </button>
-        <button className={tab === "discover" ? "on" : ""} onClick={() => setTab("discover")}>
-          Discover
-        </button>
-      </div>
-
-      {error ? <p className="error">{error}</p> : null}
-      {note ? <p className="hint">{note}</p> : null}
-
-      {tab === "yours" ? (
-        <ul className="cards">
-          {installed.filter(matches).length === 0 ? (
-            <li className="muted">Nothing installed yet.</li>
-          ) : null}
-          {installed.filter(matches).map((plugin) => (
-            <li key={plugin.name}>
-              <strong>{plugin.name}</strong>
-              <span>{plugin.description || "No description."}</span>
-              <div className="actions">
-                <button
-                  className="secondary"
-                  onClick={() => void client.removePlugin(plugin.name).then(reload)}
-                >
-                  Remove
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <>
-          <ul className="cards">
-            {offers.filter(matches).map((offer) => {
-              const already = installed.some((plugin) => plugin.name === offer.id);
-              return (
-                <li key={offer.id}>
-                  <strong>{offer.name}</strong>
-                  <span>{offer.description}</span>
-                  {offer.note ? <span className="muted">{offer.note}</span> : null}
-                  <div className="actions">
-                    <button
-                      disabled={already || busy === offer.id}
-                      onClick={() => void install(offer.id, offer.source)}
-                    >
-                      {already ? "Installed" : busy === offer.id ? "Installing…" : "Add"}
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-
-          <h3>Install from a repository</h3>
-          <div className="task-form">
-            <input
-              value={custom.name}
-              onChange={(e) => setCustom({ ...custom, name: e.target.value })}
-              placeholder="Name"
-            />
-            <input
-              value={custom.source}
-              onChange={(e) => setCustom({ ...custom, source: e.target.value })}
-              placeholder="https://github.com/owner/repo"
-            />
-            <button
-              disabled={!custom.name.trim() || !custom.source.trim() || busy !== null}
-              onClick={() => {
-                void install(custom.name.trim(), custom.source.trim()).then(() =>
-                  setCustom({ name: "", source: "" }),
-                );
-              }}
-            >
-              Install
-            </button>
-          </div>
-        </>
-      )}
     </section>
   );
 }
