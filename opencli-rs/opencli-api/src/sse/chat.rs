@@ -433,6 +433,30 @@ async fn append_reasoning_text(
     }
 }
 
+/// Read a Chat Completions `usage` object.
+///
+/// The field names are the Chat API's, not this codebase's: `prompt_tokens`
+/// and `completion_tokens` rather than input and output. Cached input is
+/// nested and often absent, and reasoning tokens are not reported by this API
+/// at all, so both default to nothing rather than being guessed at.
+fn parse_usage(value: &serde_json::Value) -> Option<TokenUsage> {
+    let number = |key: &str| value.get(key).and_then(serde_json::Value::as_i64);
+    let input = number("prompt_tokens")?;
+    let output = number("completion_tokens").unwrap_or(0);
+    let cached = value
+        .get("prompt_tokens_details")
+        .and_then(|details| details.get("cached_tokens"))
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    Some(TokenUsage {
+        input_tokens: input,
+        cached_input_tokens: cached,
+        output_tokens: output,
+        reasoning_output_tokens: 0,
+        total_tokens: number("total_tokens").unwrap_or(input + output),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -893,28 +917,4 @@ mod tests {
         }));
         assert_matches!(events.last(), Some(ResponseEvent::Completed { .. }));
     }
-}
-
-/// Read a Chat Completions `usage` object.
-///
-/// The field names are the Chat API's, not this codebase's: `prompt_tokens`
-/// and `completion_tokens` rather than input and output. Cached input is
-/// nested and often absent, and reasoning tokens are not reported by this API
-/// at all, so both default to nothing rather than being guessed at.
-fn parse_usage(value: &serde_json::Value) -> Option<TokenUsage> {
-    let number = |key: &str| value.get(key).and_then(serde_json::Value::as_i64);
-    let input = number("prompt_tokens")?;
-    let output = number("completion_tokens").unwrap_or(0);
-    let cached = value
-        .get("prompt_tokens_details")
-        .and_then(|details| details.get("cached_tokens"))
-        .and_then(serde_json::Value::as_i64)
-        .unwrap_or(0);
-    Some(TokenUsage {
-        input_tokens: input,
-        cached_input_tokens: cached,
-        output_tokens: output,
-        reasoning_output_tokens: 0,
-        total_tokens: number("total_tokens").unwrap_or(input + output),
-    })
 }

@@ -156,51 +156,49 @@ async fn probe(params: &Value) -> Result<Value, String> {
 /// silence there reads as "nothing found" when the truth is "something else is
 /// using it".
 async fn discover() -> Value {
-    let candidates: Vec<(&str, &str, u16)> = runtimes::RUNTIMES
+    let checks = runtimes::RUNTIMES
         .iter()
         .map(|runtime| (runtime.id, runtime.name, runtime.default_port))
-        .collect();
+        .map(|(id, name, port)| async move {
+            let base = format!("http://localhost:{port}");
+            // Short: this runs on every visit to the panel, and a runtime on this
+            // machine answers immediately or not at all.
+            let client = match reqwest::Client::builder()
+                .timeout(Duration::from_millis(1200))
+                .build()
+            {
+                Ok(client) => client,
+                Err(_) => return None,
+            };
 
-    let checks = candidates.into_iter().map(|(id, name, port)| async move {
-        let base = format!("http://localhost:{port}");
-        // Short: this runs on every visit to the panel, and a runtime on this
-        // machine answers immediately or not at all.
-        let client = match reqwest::Client::builder()
-            .timeout(Duration::from_millis(1200))
-            .build()
-        {
-            Ok(client) => client,
-            Err(_) => return None,
-        };
+            // Ollama says its version here; the others only speak the OpenAI
+            // surface, so both are tried before deciding nothing is there.
+            if let Ok(response) = client.get(format!("{base}/api/version")).send().await
+                && response.status().is_success()
+                && let Ok(body) = response.json::<Value>().await
+                && let Some(version) = body.get("version").and_then(Value::as_str)
+            {
+                return Some(json!({
+                    "runtime": id,
+                    "name": name,
+                    "baseUrl": base,
+                    "version": version,
+                    "manageable": true,
+                }));
+            }
 
-        // Ollama says its version here; the others only speak the OpenAI
-        // surface, so both are tried before deciding nothing is there.
-        if let Ok(response) = client.get(format!("{base}/api/version")).send().await
-            && response.status().is_success()
-            && let Ok(body) = response.json::<Value>().await
-            && let Some(version) = body.get("version").and_then(Value::as_str)
-        {
-            return Some(json!({
-                "runtime": id,
-                "name": name,
-                "baseUrl": base,
-                "version": version,
-                "manageable": true,
-            }));
-        }
-
-        match client.get(format!("{base}/v1/models")).send().await {
-            Ok(response) if response.status().is_success() => Some(json!({
-                "runtime": id,
-                "name": name,
-                "baseUrl": base,
-                "version": Value::Null,
-                // It serves models but cannot be told to fetch them.
-                "manageable": false,
-            })),
-            _ => None,
-        }
-    });
+            match client.get(format!("{base}/v1/models")).send().await {
+                Ok(response) if response.status().is_success() => Some(json!({
+                    "runtime": id,
+                    "name": name,
+                    "baseUrl": base,
+                    "version": Value::Null,
+                    // It serves models but cannot be told to fetch them.
+                    "manageable": false,
+                })),
+                _ => None,
+            }
+        });
 
     let found: Vec<Value> = futures::future::join_all(checks)
         .await
@@ -285,10 +283,10 @@ async fn show(params: &Value) -> Result<Value, String> {
         .ok_or("model is required")?;
 
     let key = capability_key(&root, model);
-    if let Ok(cache) = CAPABILITIES.lock() {
-        if let Some(known) = cache.get(&key) {
-            return Ok(known.clone());
-        }
+    if let Ok(cache) = CAPABILITIES.lock()
+        && let Some(known) = cache.get(&key)
+    {
+        return Ok(known.clone());
     }
 
     let response = client()

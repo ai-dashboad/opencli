@@ -120,8 +120,12 @@ fn classify_transport_error(err: TransportError) -> ApiError {
         if is_context {
             let context_limit = error
                 .get("context_limit_tokens")
-                .and_then(|v| v.as_u64())
-                .or_else(|| value.get("context_limit_tokens").and_then(|v| v.as_u64()))
+                .and_then(serde_json::Value::as_u64)
+                .or_else(|| {
+                    value
+                        .get("context_limit_tokens")
+                        .and_then(serde_json::Value::as_u64)
+                })
                 .or_else(|| limit_from_message(message));
             return ApiError::ContextWindowExceeded { context_limit };
         }

@@ -5,6 +5,8 @@
 //! move newline-delimited JSON in both directions, and that is what is asserted
 //! here.
 
+#![allow(clippy::expect_used)]
+
 use opencli_web_gateway::ServeConfig;
 use opencli_web_gateway::serve_with_listener;
 use std::net::SocketAddr;

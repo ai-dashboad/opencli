@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use std::time::Duration;
 
 use anyhow::Result;

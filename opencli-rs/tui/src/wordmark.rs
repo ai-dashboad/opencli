@@ -18,6 +18,14 @@ const STOPS: &[(u8, u8, u8)] = &[
 ];
 
 /// Color at position `t` in `[0.0, 1.0)` along the looping gradient.
+///
+/// True colour, against the project's own rule. The rule is right for interface
+/// text — an ANSI colour follows the reader's theme, and a hardcoded one can
+/// come out unreadable against it. A gradient is not interface text: it is the
+/// mark, it appears once on a screen that is otherwise empty, and there are no
+/// ANSI colours to interpolate between. A terminal without true-colour support
+/// approximates it, which is the worst that happens here.
+#[allow(clippy::disallowed_methods)]
 fn color_at(t: f32) -> Color {
     let t = t.rem_euclid(1.0);
     let segments = STOPS.len() - 1;

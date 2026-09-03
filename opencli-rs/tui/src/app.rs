@@ -66,7 +66,6 @@ use opencli_protocol::config_types::Personality;
 #[cfg(target_os = "windows")]
 use opencli_protocol::config_types::WindowsSandboxLevel;
 use opencli_protocol::items::TurnItem;
-use opencli_protocol::openai_models::ModelPreset;
 use opencli_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use opencli_protocol::protocol::SessionConfiguredEvent;
 use opencli_utils_absolute_path::AbsolutePathBuf;

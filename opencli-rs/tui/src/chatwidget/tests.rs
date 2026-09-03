@@ -1542,6 +1542,7 @@ fn begin_exec_with_source(
         parsed_cmd,
         source,
         interaction_input,
+        description: None,
     };
     chat.handle_opencli_event(Event {
         id: call_id.to_string(),
@@ -1567,6 +1568,7 @@ fn begin_unified_exec_startup(
         parsed_cmd: Vec::new(),
         source: ExecCommandSource::UnifiedExecStartup,
         interaction_input: None,
+        description: None,
     };
     chat.handle_opencli_event(Event {
         id: call_id.to_string(),
@@ -1611,6 +1613,7 @@ fn end_exec(
         source,
         interaction_input,
         process_id,
+        description,
     } = begin_event;
     chat.handle_opencli_event(Event {
         id: call_id.clone(),
@@ -4845,6 +4848,7 @@ async fn chatwidget_exec_and_status_layout_vt100_snapshot() {
             parsed_cmd: parsed_cmd.clone(),
             source: ExecCommandSource::Agent,
             interaction_input: None,
+            description: None,
         }),
     });
     chat.handle_opencli_event(Event {

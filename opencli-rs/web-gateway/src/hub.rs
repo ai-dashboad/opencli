@@ -607,8 +607,7 @@ fn modelscope_hint(query: &str) -> Value {
 fn recommend(data: &[Value], memory_is_known: bool) -> Option<String> {
     let chosen = if memory_is_known {
         data.iter()
-            .filter(|entry| entry["fits"].as_bool().unwrap_or(false))
-            .next_back()
+            .rfind(|entry| entry["fits"].as_bool().unwrap_or(false))
             .or_else(|| data.first())
     } else {
         data.iter()

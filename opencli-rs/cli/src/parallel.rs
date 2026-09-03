@@ -88,7 +88,12 @@ pub async fn run_main(args: ParallelArgs) -> Result<()> {
         .map(|task| {
             let permits = std::sync::Arc::clone(&permits);
             tokio::spawn(async move {
-                let _permit = permits.acquire().await.expect("semaphore not closed");
+                // The semaphore outlives this loop, so acquiring can only fail
+                // if it has been closed — which nothing here does. Reported as
+                // a task error rather than assumed away.
+                let _permit = permits.acquire().await.map_err(|_| {
+                    anyhow::anyhow!("the job limiter was closed before this task ran")
+                })?;
                 run_task(task).await
             })
         })

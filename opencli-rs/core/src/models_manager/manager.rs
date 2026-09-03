@@ -288,7 +288,7 @@ impl ModelsManager {
         mut remote_models: Vec<ModelInfo>,
         config: &Config,
     ) -> Vec<ModelPreset> {
-        remote_models.sort_by(|a, b| a.priority.cmp(&b.priority));
+        remote_models.sort_by_key(|model| model.priority);
 
         let remote_presets: Vec<ModelPreset> = remote_models.into_iter().map(Into::into).collect();
         // Fold in `[[models]]` from config.toml so adding a model does not

@@ -103,7 +103,8 @@ pub fn load(opencli_home: &Path) -> Vec<Run> {
         .ok()
         .and_then(|contents| serde_json::from_str(&contents).ok())
         .unwrap_or_default();
-    runs.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+    // Newest first, which is the order the list is read in.
+    runs.sort_by_key(|run| std::cmp::Reverse(run.started_at));
     runs
 }
 

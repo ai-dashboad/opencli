@@ -236,7 +236,9 @@ fn add(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     );
     write_servers(opencli_home, &servers)?;
 
-    let added = servers.get(&name).expect("just inserted");
+    let added = servers
+        .get(&name)
+        .ok_or_else(|| format!("{name} was written but could not be read back"))?;
     Ok(server_json(&name, added))
 }
 

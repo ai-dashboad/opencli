@@ -705,7 +705,7 @@ mod tests {
             .into_iter()
             .enumerate()
             .map(|(at, item)| RolloutLine {
-                timestamp: format!("2026-09-01T09:28:{:02}.000Z", at),
+                timestamp: format!("2026-09-01T09:28:{at:02}.000Z"),
                 item,
             })
             .collect()
@@ -743,7 +743,7 @@ mod tests {
             }),
         ];
 
-        let turns = build_turns_from_rollout(&recorded(items.clone()));
+        let turns = build_turns_from_rollout(&recorded(items));
         let found = turns
             .iter()
             .flat_map(|turn| turn.items.iter())
@@ -780,7 +780,7 @@ mod tests {
             encrypted_content: None,
         })];
 
-        let turns = build_turns_from_rollout(&recorded(items.clone()));
+        let turns = build_turns_from_rollout(&recorded(items));
         let thought = turns
             .iter()
             .flat_map(|turn| turn.items.iter())
@@ -802,7 +802,7 @@ mod tests {
             call_id: "call-1".to_string(),
         })];
 
-        let turns = build_turns_from_rollout(&recorded(items.clone()));
+        let turns = build_turns_from_rollout(&recorded(items));
         let output = turns
             .iter()
             .flat_map(|turn| turn.items.iter())
@@ -1073,7 +1073,7 @@ mod tests {
             encrypted_content: None,
         })];
 
-        let thought = build_turns_from_rollout(&recorded(items.clone()))
+        let thought = build_turns_from_rollout(&recorded(items))
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {
@@ -1102,7 +1102,7 @@ mod tests {
             encrypted_content: None,
         })];
 
-        let thought = build_turns_from_rollout(&recorded(items.clone()))
+        let thought = build_turns_from_rollout(&recorded(items))
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {
@@ -1380,7 +1380,7 @@ mod tests {
             call_id: "call-1".to_string(),
         })];
 
-        let tool = build_turns_from_rollout(&recorded(items.clone()))
+        let tool = build_turns_from_rollout(&recorded(items))
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {
@@ -1402,7 +1402,7 @@ mod tests {
             call_id: "call-1".to_string(),
         })];
 
-        let tool = build_turns_from_rollout(&recorded(items.clone()))
+        let tool = build_turns_from_rollout(&recorded(items))
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {

@@ -363,7 +363,7 @@ fn default_complex_keywords() -> Vec<String> {
         "migrate",
     ]
     .iter()
-    .map(|keyword| keyword.to_string())
+    .map(|keyword| (*keyword).to_string())
     .collect()
 }
 

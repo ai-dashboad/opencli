@@ -197,28 +197,28 @@ impl Session {
     async fn authenticate(&mut self, settings: &HostSettings, user: &str) -> Result<(), Failure> {
         let mut tried = Vec::new();
 
-        if let Ok(mut agent) = russh::keys::agent::client::AgentClient::connect_env().await {
-            if let Ok(identities) = agent.request_identities().await {
-                for key in identities {
-                    let fingerprint = key.fingerprint(Default::default()).to_string();
-                    match self
-                        .handle
-                        .authenticate_publickey_with(
-                            user,
-                            key,
-                            self.handle
-                                .best_supported_rsa_hash()
-                                .await
-                                .ok()
-                                .flatten()
-                                .flatten(),
-                            &mut agent,
-                        )
-                        .await
-                    {
-                        Ok(result) if result.success() => return Ok(()),
-                        _ => tried.push(format!("agent key {fingerprint}")),
-                    }
+        if let Ok(mut agent) = russh::keys::agent::client::AgentClient::connect_env().await
+            && let Ok(identities) = agent.request_identities().await
+        {
+            for key in identities {
+                let fingerprint = key.fingerprint(Default::default()).to_string();
+                match self
+                    .handle
+                    .authenticate_publickey_with(
+                        user,
+                        key,
+                        self.handle
+                            .best_supported_rsa_hash()
+                            .await
+                            .ok()
+                            .flatten()
+                            .flatten(),
+                        &mut agent,
+                    )
+                    .await
+                {
+                    Ok(result) if result.success() => return Ok(()),
+                    _ => tried.push(format!("agent key {fingerprint}")),
                 }
             }
         }
