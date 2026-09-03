@@ -1,12 +1,12 @@
 #![allow(clippy::unwrap_used)]
 
-use opencli_core::features::Feature;
-use opencli_protocol::config_types::WebSearchMode;
 use core_test_support::load_sse_fixture_with_id;
 use core_test_support::responses;
 use core_test_support::responses::start_mock_server;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::test_opencli;
+use opencli_core::features::Feature;
+use opencli_protocol::config_types::WebSearchMode;
 
 fn sse_completed(id: &str) -> String {
     load_sse_fixture_with_id("../fixtures/completed_template.json", id)

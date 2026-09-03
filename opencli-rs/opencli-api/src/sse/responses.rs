@@ -3,14 +3,14 @@ use crate::common::ResponseStream;
 use crate::error::ApiError;
 use crate::rate_limits::parse_rate_limit;
 use crate::telemetry::SseTelemetry;
+use eventsource_stream::Eventsource;
+use futures::StreamExt;
+use futures::TryStreamExt;
 use opencli_client::ByteStream;
 use opencli_client::StreamResponse;
 use opencli_client::TransportError;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::TokenUsage;
-use eventsource_stream::Eventsource;
-use futures::StreamExt;
-use futures::TryStreamExt;
 use serde::Deserialize;
 use serde_json::Value;
 use std::io::BufRead;
@@ -223,7 +223,9 @@ pub fn process_responses_event(
                     && let Ok(error) = serde_json::from_value::<Error>(error.clone())
                 {
                     if is_context_window_error(&error) {
-                        response_error = ApiError::ContextWindowExceeded { context_limit: None };
+                        response_error = ApiError::ContextWindowExceeded {
+                            context_limit: None,
+                        };
                     } else if is_quota_exceeded_error(&error) {
                         response_error = ApiError::QuotaExceeded;
                     } else if is_usage_not_included(&error) {
@@ -429,8 +431,8 @@ mod tests {
     use super::*;
     use assert_matches::assert_matches;
     use bytes::Bytes;
-    use opencli_protocol::models::ResponseItem;
     use futures::stream;
+    use opencli_protocol::models::ResponseItem;
     use pretty_assertions::assert_eq;
     use serde_json::json;
     use tokio::sync::mpsc;
@@ -702,7 +704,12 @@ mod tests {
 
         assert_eq!(events.len(), 1);
 
-        assert_matches!(events[0], Err(ApiError::ContextWindowExceeded { context_limit: None }));
+        assert_matches!(
+            events[0],
+            Err(ApiError::ContextWindowExceeded {
+                context_limit: None
+            })
+        );
     }
 
     #[tokio::test]
@@ -715,7 +722,12 @@ mod tests {
 
         assert_eq!(events.len(), 1);
 
-        assert_matches!(events[0], Err(ApiError::ContextWindowExceeded { context_limit: None }));
+        assert_matches!(
+            events[0],
+            Err(ApiError::ContextWindowExceeded {
+                context_limit: None
+            })
+        );
     }
 
     #[tokio::test]

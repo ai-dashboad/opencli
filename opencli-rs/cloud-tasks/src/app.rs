@@ -449,7 +449,8 @@ mod tests {
             &self,
             _task: TaskId,
             _turn_id: String,
-        ) -> opencli_cloud_tasks_client::Result<Vec<opencli_cloud_tasks_client::TurnAttempt>> {
+        ) -> opencli_cloud_tasks_client::Result<Vec<opencli_cloud_tasks_client::TurnAttempt>>
+        {
             Ok(Vec::new())
         }
 

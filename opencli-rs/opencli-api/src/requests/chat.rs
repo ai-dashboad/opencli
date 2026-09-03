@@ -3,12 +3,12 @@ use crate::provider::Provider;
 use crate::requests::headers::build_conversation_headers;
 use crate::requests::headers::insert_header;
 use crate::requests::headers::subagent_header;
+use http::HeaderMap;
 use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::FunctionCallOutputContentItem;
 use opencli_protocol::models::ReasoningItemContent;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::SessionSource;
-use http::HeaderMap;
 use serde_json::Value;
 use serde_json::json;
 use std::collections::HashMap;
@@ -358,10 +358,10 @@ mod tests {
     use super::*;
     use crate::provider::RetryConfig;
     use crate::provider::WireApi;
+    use http::HeaderValue;
     use opencli_protocol::models::FunctionCallOutputPayload;
     use opencli_protocol::protocol::SessionSource;
     use opencli_protocol::protocol::SubAgentSource;
-    use http::HeaderValue;
     use pretty_assertions::assert_eq;
     use std::time::Duration;
 

@@ -13,6 +13,8 @@ pub mod exec_events;
 pub use cli::Cli;
 pub use cli::Command;
 pub use cli::ReviewArgs;
+use event_processor_with_human_output::EventProcessorWithHumanOutput;
+use event_processor_with_jsonl_output::EventProcessorWithJsonOutput;
 use opencli_cloud_requirements::cloud_requirements_loader;
 use opencli_common::oss::ensure_oss_provider_ready;
 use opencli_common::oss::get_default_model_for_oss_provider;
@@ -45,8 +47,6 @@ use opencli_protocol::approvals::ElicitationAction;
 use opencli_protocol::config_types::SandboxMode;
 use opencli_protocol::user_input::UserInput;
 use opencli_utils_absolute_path::AbsolutePathBuf;
-use event_processor_with_human_output::EventProcessorWithHumanOutput;
-use event_processor_with_jsonl_output::EventProcessorWithJsonOutput;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::io::IsTerminal;
@@ -64,8 +64,8 @@ use tracing_subscriber::prelude::*;
 use uuid::Uuid;
 
 use crate::cli::Command as ExecCommand;
-use crate::event_processor::OpenCLIStatus;
 use crate::event_processor::EventProcessor;
+use crate::event_processor::OpenCLIStatus;
 use opencli_core::default_client::set_default_client_residency_requirement;
 use opencli_core::default_client::set_default_originator;
 use opencli_core::find_thread_path_by_id_str;
@@ -90,7 +90,10 @@ struct ThreadEventEnvelope {
 
 pub async fn run_main(cli: Cli, opencli_linux_sandbox_exe: Option<PathBuf>) -> anyhow::Result<()> {
     if let Err(err) = set_default_originator("opencli_exec".to_string()) {
-        tracing::warn!(?err, "Failed to set opencli exec originator override {err:?}");
+        tracing::warn!(
+            ?err,
+            "Failed to set opencli exec originator override {err:?}"
+        );
     }
 
     let Cli {

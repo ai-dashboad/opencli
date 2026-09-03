@@ -7,10 +7,6 @@ use std::time::Instant;
 
 use anyhow::Context;
 use anyhow::Result;
-use opencli_core::features::Feature;
-use opencli_core::protocol::AskForApproval;
-use opencli_core::protocol::SandboxPolicy;
-use opencli_core::sandboxing::SandboxPermissions;
 use core_test_support::assert_regex_match;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
@@ -23,6 +19,10 @@ use core_test_support::responses::sse;
 use core_test_support::responses::start_mock_server;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::test_opencli;
+use opencli_core::features::Feature;
+use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::SandboxPolicy;
+use opencli_core::sandboxing::SandboxPermissions;
 use regex_lite::Regex;
 use serde_json::Value;
 use serde_json::json;
@@ -117,11 +117,7 @@ async fn shell_escalated_permissions_rejected_then_ok() -> Result<()> {
         &server,
         sse(vec![
             ev_response_created("resp-1"),
-            ev_function_call(
-                call_id_blocked,
-                "run",
-                &serde_json::to_string(&first_args)?,
-            ),
+            ev_function_call(call_id_blocked, "run", &serde_json::to_string(&first_args)?),
             ev_completed("resp-1"),
         ]),
     )

@@ -4,9 +4,9 @@
 //! `ApprovalCtx`, `Approvable`) together with the sandbox orchestration traits
 //! and helpers (`Sandboxable`, `ToolRuntime`, `SandboxAttempt`, etc.).
 
+use crate::error::OpenCLIErr;
 use crate::opencli::Session;
 use crate::opencli::TurnContext;
-use crate::error::OpenCLIErr;
 use crate::protocol::SandboxPolicy;
 use crate::sandboxing::CommandSpec;
 use crate::sandboxing::SandboxManager;

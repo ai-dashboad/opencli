@@ -29,6 +29,11 @@ use crate::resume_picker::SessionSelection;
 use crate::tui;
 use crate::tui::TuiEvent;
 use crate::update_action::UpdateAction;
+use color_eyre::eyre::Result;
+use color_eyre::eyre::WrapErr;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyEventKind;
 use opencli_ansi_escape::ansi_escape_line;
 use opencli_app_server_protocol::ConfigLayerSource;
 use opencli_core::AuthManager;
@@ -65,11 +70,6 @@ use opencli_protocol::openai_models::ModelPreset;
 use opencli_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use opencli_protocol::protocol::SessionConfiguredEvent;
 use opencli_utils_absolute_path::AbsolutePathBuf;
-use color_eyre::eyre::Result;
-use color_eyre::eyre::WrapErr;
-use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
-use crossterm::event::KeyEventKind;
 use ratatui::style::Stylize;
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
@@ -350,10 +350,6 @@ impl ThreadEventChannel {
         }
     }
 }
-
-
-
-
 
 pub(crate) struct App {
     pub(crate) server: Arc<ThreadManager>,
@@ -1496,8 +1492,9 @@ impl App {
 
                     // If the elevated setup already ran on this machine, don't prompt for
                     // elevation again - just flip the config to use the elevated path.
-                    if opencli_core::windows_sandbox::sandbox_setup_is_complete(opencli_home.as_path())
-                    {
+                    if opencli_core::windows_sandbox::sandbox_setup_is_complete(
+                        opencli_home.as_path(),
+                    ) {
                         tx.send(AppEvent::EnableWindowsSandboxForAgentMode {
                             preset,
                             mode: WindowsSandboxEnableMode::Elevated,

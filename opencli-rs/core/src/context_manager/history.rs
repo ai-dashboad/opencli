@@ -1,7 +1,7 @@
-use crate::opencli::TurnContext;
 use crate::context_manager::normalize;
 use crate::instructions::SkillInstructions;
 use crate::instructions::UserInstructions;
+use crate::opencli::TurnContext;
 use crate::session_prefix::is_session_prefix;
 use crate::truncate::TruncationPolicy;
 use crate::truncate::approx_token_count;
@@ -26,7 +26,6 @@ pub(crate) struct ContextManager {
     items: Vec<ResponseItem>,
     token_info: Option<TokenUsageInfo>,
 }
-
 
 /// Roughly how much of an item becomes tokens.
 ///
@@ -97,7 +96,9 @@ fn text_bytes_of(item: &ResponseItem) -> usize {
             .unwrap_or_else(|| output.content.len()),
         // Anything else is small enough that guessing at its shape would cost
         // more than counting it wrongly.
-        other => serde_json::to_string(other).map(|text| text.len()).unwrap_or(0),
+        other => serde_json::to_string(other)
+            .map(|text| text.len())
+            .unwrap_or(0),
     }
 }
 

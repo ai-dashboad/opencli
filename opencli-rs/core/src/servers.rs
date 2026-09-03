@@ -57,7 +57,10 @@ pub fn load(opencli_home: &Path) -> Vec<Server> {
 }
 
 pub fn save(opencli_home: &Path, servers: &[Server]) -> std::io::Result<()> {
-    std::fs::write(store_path(opencli_home), serde_json::to_string_pretty(servers)?)
+    std::fs::write(
+        store_path(opencli_home),
+        serde_json::to_string_pretty(servers)?,
+    )
 }
 
 pub fn create(
@@ -82,7 +85,9 @@ pub fn create(
 }
 
 pub fn get(opencli_home: &Path, id: &str) -> Option<Server> {
-    load(opencli_home).into_iter().find(|server| server.id == id)
+    load(opencli_home)
+        .into_iter()
+        .find(|server| server.id == id)
 }
 
 pub fn update(
@@ -125,7 +130,10 @@ pub fn delete(opencli_home: &Path, id: &str) -> std::io::Result<bool> {
 fn rand_suffix() -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::BuildHasher;
-    format!("{:x}", RandomState::new().hash_one(now_seconds()) & 0xffffff)
+    format!(
+        "{:x}",
+        RandomState::new().hash_one(now_seconds()) & 0xffffff
+    )
 }
 
 #[cfg(test)]
@@ -198,7 +206,11 @@ mod tests {
     #[test]
     fn should_report_an_unknown_id_rather_than_creating_one() {
         let dir = tempdir().expect("tempdir");
-        assert!(update(dir.path(), "nope", None, None, None).expect("update").is_none());
+        assert!(
+            update(dir.path(), "nope", None, None, None)
+                .expect("update")
+                .is_none()
+        );
         assert!(!delete(dir.path(), "nope").expect("delete"));
     }
 

@@ -31,6 +31,12 @@ use opencli_api::error::ApiError;
 use opencli_api::requests::responses::Compression;
 use opencli_otel::OtelManager;
 
+use eventsource_stream::Event;
+use eventsource_stream::EventStreamError;
+use futures::StreamExt;
+use http::HeaderMap as ApiHeaderMap;
+use http::HeaderValue;
+use http::StatusCode as HttpStatusCode;
 use opencli_protocol::ThreadId;
 use opencli_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use opencli_protocol::config_types::WebSearchMode;
@@ -38,12 +44,6 @@ use opencli_protocol::models::ResponseItem;
 use opencli_protocol::openai_models::ModelInfo;
 use opencli_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use opencli_protocol::protocol::SessionSource;
-use eventsource_stream::Event;
-use eventsource_stream::EventStreamError;
-use futures::StreamExt;
-use http::HeaderMap as ApiHeaderMap;
-use http::HeaderValue;
-use http::StatusCode as HttpStatusCode;
 use reqwest::StatusCode;
 use serde_json::Value;
 use std::time::Duration;
@@ -474,7 +474,10 @@ impl ModelClientSession {
         ))
     }
 
-    fn responses_request_compression(&self, auth: Option<&crate::auth::OpenCLIAuth>) -> Compression {
+    fn responses_request_compression(
+        &self,
+        auth: Option<&crate::auth::OpenCLIAuth>,
+    ) -> Compression {
         if self
             .state
             .config
@@ -595,10 +598,7 @@ impl ModelClientSession {
 
             match stream_result {
                 Ok(stream) => {
-                    return Ok(map_response_stream(
-                        stream,
-                        self.state.otel_manager.clone(),
-                    ));
+                    return Ok(map_response_stream(stream, self.state.otel_manager.clone()));
                 }
                 Err(ApiError::Transport(TransportError::Http { status, .. }))
                     if status == StatusCode::UNAUTHORIZED =>
@@ -874,7 +874,9 @@ async fn handle_unauthorized(
     {
         return match recovery.next().await {
             Ok(_) => Ok(()),
-            Err(RefreshTokenError::Permanent(failed)) => Err(OpenCLIErr::RefreshTokenFailed(failed)),
+            Err(RefreshTokenError::Permanent(failed)) => {
+                Err(OpenCLIErr::RefreshTokenFailed(failed))
+            }
             Err(RefreshTokenError::Transient(other)) => Err(OpenCLIErr::Io(other)),
         };
     }

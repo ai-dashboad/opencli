@@ -19,13 +19,13 @@ use crate::config::deserialize_config_toml_with_base;
 use crate::config_loader::config_requirements::ConfigRequirementsWithSources;
 use crate::config_loader::layer_io::LoadedConfigLayers;
 use crate::git_info::resolve_root_git_project_for_trust;
+use dunce::canonicalize as normalize_path;
 use opencli_app_server_protocol::ConfigLayerSource;
 use opencli_protocol::config_types::SandboxMode;
 use opencli_protocol::config_types::TrustLevel;
 use opencli_protocol::protocol::AskForApproval;
 use opencli_utils_absolute_path::AbsolutePathBuf;
 use opencli_utils_absolute_path::AbsolutePathBufGuard;
-use dunce::canonicalize as normalize_path;
 use serde::Deserialize;
 use std::io;
 use std::path::Path;
@@ -131,7 +131,8 @@ pub async fn load_config_layers_state(
 
     // Make a best-effort to support the legacy `managed_config.toml` as a
     // requirements specification.
-    let loaded_config_layers = layer_io::load_config_layers_internal(opencli_home, overrides).await?;
+    let loaded_config_layers =
+        layer_io::load_config_layers_internal(opencli_home, overrides).await?;
     load_requirements_from_legacy_scheme(
         &mut config_requirements_toml,
         loaded_config_layers.clone(),
@@ -677,8 +678,8 @@ async fn load_project_layers(
     opencli_home: &Path,
 ) -> io::Result<Vec<ConfigLayerEntry>> {
     let opencli_home_abs = AbsolutePathBuf::from_absolute_path(opencli_home)?;
-    let opencli_home_normalized =
-        normalize_path(opencli_home_abs.as_path()).unwrap_or_else(|_| opencli_home_abs.to_path_buf());
+    let opencli_home_normalized = normalize_path(opencli_home_abs.as_path())
+        .unwrap_or_else(|_| opencli_home_abs.to_path_buf());
     let mut dirs = cwd
         .as_path()
         .ancestors()
@@ -709,9 +710,10 @@ async fn load_project_layers(
         let layer_dir = AbsolutePathBuf::from_absolute_path(dir)?;
         let decision = trust_context.decision_for_dir(&layer_dir);
         let dot_opencli_abs = AbsolutePathBuf::from_absolute_path(&dot_opencli)?;
-        let dot_opencli_normalized =
-            normalize_path(dot_opencli_abs.as_path()).unwrap_or_else(|_| dot_opencli_abs.to_path_buf());
-        if dot_opencli_abs == opencli_home_abs || dot_opencli_normalized == opencli_home_normalized {
+        let dot_opencli_normalized = normalize_path(dot_opencli_abs.as_path())
+            .unwrap_or_else(|_| dot_opencli_abs.to_path_buf());
+        if dot_opencli_abs == opencli_home_abs || dot_opencli_normalized == opencli_home_normalized
+        {
             continue;
         }
         let config_file = dot_opencli_abs.join(CONFIG_TOML_FILE)?;

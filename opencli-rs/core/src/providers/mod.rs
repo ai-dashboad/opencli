@@ -105,7 +105,9 @@ mod tests {
             .position(|p| !p.is_local())
             .expect("catalog should contain hosted providers");
         assert!(
-            providers[..first_hosted].iter().all(CatalogProvider::is_local),
+            providers[..first_hosted]
+                .iter()
+                .all(CatalogProvider::is_local),
             "local runtimes should be listed first"
         );
     }

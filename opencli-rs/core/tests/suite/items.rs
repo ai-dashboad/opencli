@@ -1,19 +1,6 @@
 #![cfg(not(target_os = "windows"))]
 
 use anyhow::Ok;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::ItemCompletedEvent;
-use opencli_core::protocol::ItemStartedEvent;
-use opencli_core::protocol::Op;
-use opencli_protocol::config_types::CollaborationMode;
-use opencli_protocol::config_types::ModeKind;
-use opencli_protocol::config_types::Settings;
-use opencli_protocol::items::AgentMessageContent;
-use opencli_protocol::items::TurnItem;
-use opencli_protocol::models::WebSearchAction;
-use opencli_protocol::user_input::ByteRange;
-use opencli_protocol::user_input::TextElement;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_message_item_added;
@@ -33,6 +20,19 @@ use core_test_support::test_opencli::TestOpenCLI;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
 use core_test_support::wait_for_event_match;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::ItemCompletedEvent;
+use opencli_core::protocol::ItemStartedEvent;
+use opencli_core::protocol::Op;
+use opencli_protocol::config_types::CollaborationMode;
+use opencli_protocol::config_types::ModeKind;
+use opencli_protocol::config_types::Settings;
+use opencli_protocol::items::AgentMessageContent;
+use opencli_protocol::items::TurnItem;
+use opencli_protocol::models::WebSearchAction;
+use opencli_protocol::user_input::ByteRange;
+use opencli_protocol::user_input::TextElement;
+use opencli_protocol::user_input::UserInput;
 use pretty_assertions::assert_eq;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -136,7 +136,8 @@ async fn assistant_message_item_is_emitted() -> anyhow::Result<()> {
     .await;
 
     assert_eq!(started.id, completed.id);
-    let Some(opencli_protocol::items::AgentMessageContent::Text { text }) = completed.content.first()
+    let Some(opencli_protocol::items::AgentMessageContent::Text { text }) =
+        completed.content.first()
     else {
         panic!("expected agent message text content");
     };

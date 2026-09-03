@@ -1544,10 +1544,15 @@ mod tests {
     #[tokio::test]
     async fn enforce_login_restrictions_logs_out_for_method_mismatch() {
         let opencli_home = tempdir().unwrap();
-        login_with_api_key(opencli_home.path(), "sk-test", AuthCredentialsStoreMode::File)
-            .expect("seed api key");
+        login_with_api_key(
+            opencli_home.path(),
+            "sk-test",
+            AuthCredentialsStoreMode::File,
+        )
+        .expect("seed api key");
 
-        let config = build_config(opencli_home.path(), Some(ForcedLoginMethod::Chatgpt), None).await;
+        let config =
+            build_config(opencli_home.path(), Some(ForcedLoginMethod::Chatgpt), None).await;
 
         let err = super::enforce_login_restrictions(&config)
             .expect_err("expected method mismatch to error");
@@ -1610,8 +1615,12 @@ mod tests {
     async fn enforce_login_restrictions_allows_api_key_if_login_method_not_set_but_forced_chatgpt_workspace_id_is_set()
      {
         let opencli_home = tempdir().unwrap();
-        login_with_api_key(opencli_home.path(), "sk-test", AuthCredentialsStoreMode::File)
-            .expect("seed api key");
+        login_with_api_key(
+            opencli_home.path(),
+            "sk-test",
+            AuthCredentialsStoreMode::File,
+        )
+        .expect("seed api key");
 
         let config = build_config(opencli_home.path(), None, Some("org_mine".to_string())).await;
 
@@ -1628,7 +1637,8 @@ mod tests {
         let _guard = EnvVarGuard::set(OPENCLI_API_KEY_ENV_VAR, "sk-env");
         let opencli_home = tempdir().unwrap();
 
-        let config = build_config(opencli_home.path(), Some(ForcedLoginMethod::Chatgpt), None).await;
+        let config =
+            build_config(opencli_home.path(), Some(ForcedLoginMethod::Chatgpt), None).await;
 
         let err = super::enforce_login_restrictions(&config)
             .expect_err("environment API key should not satisfy forced ChatGPT login");

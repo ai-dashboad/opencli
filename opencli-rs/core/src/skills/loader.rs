@@ -11,9 +11,9 @@ use crate::skills::model::SkillLoadOutcome;
 use crate::skills::model::SkillMetadata;
 use crate::skills::model::SkillToolDependency;
 use crate::skills::system::system_cache_root_dir;
+use dunce::canonicalize as canonicalize_path;
 use opencli_app_server_protocol::ConfigLayerSource;
 use opencli_protocol::protocol::SkillScope;
-use dunce::canonicalize as canonicalize_path;
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -1545,7 +1545,12 @@ interface:
     #[tokio::test]
     async fn loads_valid_skill() {
         let opencli_home = tempfile::tempdir().expect("tempdir");
-        let skill_path = write_skill(&opencli_home, "demo", "demo-skill", "does things\ncarefully");
+        let skill_path = write_skill(
+            &opencli_home,
+            "demo",
+            "demo-skill",
+            "does things\ncarefully",
+        );
         let cfg = make_config(&opencli_home).await;
 
         let outcome = load_skills(&cfg);

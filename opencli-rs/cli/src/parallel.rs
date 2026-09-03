@@ -197,7 +197,11 @@ fn report(results: &[TaskResult]) {
     println!("\nResults:");
     for result in results {
         let mark = if result.success { "ok" } else { "FAILED" };
-        println!("  [{mark}] {}  ({})", result.branch, result.worktree.display());
+        println!(
+            "  [{mark}] {}  ({})",
+            result.branch,
+            result.worktree.display()
+        );
     }
     println!("\nReview a branch with `git diff {}..<branch>`.", "HEAD");
 }
@@ -287,7 +291,10 @@ mod tests {
     fn should_parse_valid_task_specs() {
         let dir = PathBuf::from("/tmp/wt");
         let tasks = parse_tasks(
-            &["fix-auth=fix the login bug".to_string(), "docs=write docs".to_string()],
+            &[
+                "fix-auth=fix the login bug".to_string(),
+                "docs=write docs".to_string(),
+            ],
             &dir,
         )
         .expect("parse");

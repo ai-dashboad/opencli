@@ -58,12 +58,18 @@ fn test_presets() -> Vec<ModelPreset> {
     };
     let efforts = || {
         vec![
-            effort(ReasoningEffort::Low, "Fast responses with lighter reasoning"),
+            effort(
+                ReasoningEffort::Low,
+                "Fast responses with lighter reasoning",
+            ),
             effort(
                 ReasoningEffort::Medium,
                 "Balances speed and reasoning depth for everyday tasks",
             ),
-            effort(ReasoningEffort::High, "Greater reasoning depth for complex problems"),
+            effort(
+                ReasoningEffort::High,
+                "Greater reasoning depth for complex problems",
+            ),
             effort(
                 ReasoningEffort::XHigh,
                 "Extra high reasoning depth for complex problems",

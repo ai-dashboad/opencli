@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
+use core_test_support::load_default_config_for_test;
+use core_test_support::responses;
+use core_test_support::test_opencli::test_opencli;
+use futures::StreamExt;
 use opencli_app_server_protocol::AuthMode;
 use opencli_core::AuthManager;
-use opencli_core::OpenCLIAuth;
 use opencli_core::ContentItem;
 use opencli_core::ModelClient;
 use opencli_core::ModelProviderInfo;
+use opencli_core::OpenCLIAuth;
 use opencli_core::Prompt;
 use opencli_core::ResponseEvent;
 use opencli_core::ResponseItem;
@@ -19,10 +23,6 @@ use opencli_protocol::config_types::ReasoningSummary;
 use opencli_protocol::config_types::WebSearchMode;
 use opencli_protocol::protocol::SessionSource;
 use opencli_protocol::protocol::SubAgentSource;
-use core_test_support::load_default_config_for_test;
-use core_test_support::responses;
-use core_test_support::test_opencli::test_opencli;
-use futures::StreamExt;
 use tempfile::TempDir;
 use wiremock::matchers::header;
 
@@ -240,7 +240,10 @@ async fn responses_stream_includes_web_search_eligible_header_true_by_default() 
     )
     .await;
 
-    let test = test_opencli().build(&server).await.expect("build test opencli");
+    let test = test_opencli()
+        .build(&server)
+        .await
+        .expect("build test opencli");
     test.submit_turn("hello").await.expect("submit test prompt");
 
     let request = request_recorder.single_request();
@@ -325,8 +328,8 @@ async fn responses_respects_model_info_overrides_from_config() {
     let config = Arc::new(config);
 
     let conversation_id = ThreadId::new();
-    let auth_mode =
-        AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key")).get_auth_mode();
+    let auth_mode = AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"))
+        .get_auth_mode();
     let session_source =
         SessionSource::SubAgent(SubAgentSource::Other("override-check".to_string()));
     let model_info = ModelsManager::construct_model_info_offline(model.as_str(), &config);

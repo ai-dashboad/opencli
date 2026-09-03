@@ -929,7 +929,8 @@ profiles = { fast = { model = "gpt-4o", sandbox_mode = "strict" } }
         )
         .expect("persist");
 
-        let raw = std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
+        let raw =
+            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
         let value: TomlValue = toml::from_str(&raw).expect("parse config");
 
         // Ensure sandbox_mode is preserved under profiles.fast and model updated.
@@ -1303,7 +1304,8 @@ hide_rate_limit_model_nudge = true
         )
         .expect("persist");
 
-        let raw = std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
+        let raw =
+            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
         let expected = "\
 [mcp_servers.http]
 url = \"https://example.com\"
@@ -1362,8 +1364,12 @@ foo = { command = "cmd" }
             },
         );
 
-        apply_blocking(opencli_home, None, &[ConfigEdit::ReplaceMcpServers(servers)])
-            .expect("persist");
+        apply_blocking(
+            opencli_home,
+            None,
+            &[ConfigEdit::ReplaceMcpServers(servers)],
+        )
+        .expect("persist");
 
         let contents =
             std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
@@ -1407,8 +1413,12 @@ foo = { command = "cmd" } # keep me
             },
         );
 
-        apply_blocking(opencli_home, None, &[ConfigEdit::ReplaceMcpServers(servers)])
-            .expect("persist");
+        apply_blocking(
+            opencli_home,
+            None,
+            &[ConfigEdit::ReplaceMcpServers(servers)],
+        )
+        .expect("persist");
 
         let contents =
             std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
@@ -1451,8 +1461,12 @@ foo = { command = "cmd", args = ["--flag"] } # keep me
             },
         );
 
-        apply_blocking(opencli_home, None, &[ConfigEdit::ReplaceMcpServers(servers)])
-            .expect("persist");
+        apply_blocking(
+            opencli_home,
+            None,
+            &[ConfigEdit::ReplaceMcpServers(servers)],
+        )
+        .expect("persist");
 
         let contents =
             std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
@@ -1496,8 +1510,12 @@ foo = { command = "cmd" }
             },
         );
 
-        apply_blocking(opencli_home, None, &[ConfigEdit::ReplaceMcpServers(servers)])
-            .expect("persist");
+        apply_blocking(
+            opencli_home,
+            None,
+            &[ConfigEdit::ReplaceMcpServers(servers)],
+        )
+        .expect("persist");
 
         let contents =
             std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
@@ -1544,7 +1562,8 @@ foo = { command = "cmd" , enabled = false }
         )
         .expect("apply");
 
-        let raw = std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
+        let raw =
+            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
         let config: TomlValue = toml::from_str(&raw).expect("parse config");
         let notifications = config
             .get("tui")
@@ -1596,14 +1615,16 @@ model_reasoning_effort = "high"
             .set_model(Some("test-model"), Some(ReasoningEffort::High))
             .apply_blocking()
             .expect("persist update");
-        contents = std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
+        contents =
+            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
         assert_eq!(contents, updated_expected);
 
         ConfigEditsBuilder::new(opencli_home)
             .set_model(Some("o4-mini"), Some(ReasoningEffort::Low))
             .apply_blocking()
             .expect("persist revert");
-        contents = std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
+        contents =
+            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
         assert_eq!(contents, initial_expected);
     }
 
@@ -1618,7 +1639,8 @@ model_reasoning_effort = "high"
             .await
             .expect("persist");
 
-        let raw = std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
+        let raw =
+            std::fs::read_to_string(opencli_home.join(CONFIG_TOML_FILE)).expect("read config");
         let notice = toml::from_str::<TomlValue>(&raw)
             .expect("parse config")
             .get("notice")

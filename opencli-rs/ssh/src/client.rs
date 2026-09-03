@@ -158,27 +158,31 @@ pub async fn connect(
         ..client::Config::default()
     });
 
-    let handle = client::connect(config, (settings.hostname.as_str(), settings.port), verifier)
-        .await
-        .map_err(|err| {
-            // A rejected host key surfaces as a connection error, so the
-            // verdict recorded during the handshake is what says why.
-            match outcome.lock().ok().and_then(|slot| slot.clone()) {
-                Some(Verdict::Unknown { fingerprint }) => Failure::UnknownHost { fingerprint },
-                Some(Verdict::Changed {
-                    recorded,
-                    offered,
-                    file,
-                    line,
-                }) => Failure::HostKeyChanged {
-                    recorded,
-                    offered,
-                    file,
-                    line,
-                },
-                _ => Failure::Unreachable(err.to_string()),
-            }
-        })?;
+    let handle = client::connect(
+        config,
+        (settings.hostname.as_str(), settings.port),
+        verifier,
+    )
+    .await
+    .map_err(|err| {
+        // A rejected host key surfaces as a connection error, so the
+        // verdict recorded during the handshake is what says why.
+        match outcome.lock().ok().and_then(|slot| slot.clone()) {
+            Some(Verdict::Unknown { fingerprint }) => Failure::UnknownHost { fingerprint },
+            Some(Verdict::Changed {
+                recorded,
+                offered,
+                file,
+                line,
+            }) => Failure::HostKeyChanged {
+                recorded,
+                offered,
+                file,
+                line,
+            },
+            _ => Failure::Unreachable(err.to_string()),
+        }
+    })?;
 
     let mut session = Session { handle };
     session.authenticate(settings, user).await?;
@@ -202,7 +206,12 @@ impl Session {
                         .authenticate_publickey_with(
                             user,
                             key,
-                            self.handle.best_supported_rsa_hash().await.ok().flatten().flatten(),
+                            self.handle
+                                .best_supported_rsa_hash()
+                                .await
+                                .ok()
+                                .flatten()
+                                .flatten(),
                             &mut agent,
                         )
                         .await
@@ -432,7 +441,10 @@ mod tests {
         };
         let message = failure.to_string();
         assert!(message.contains("has changed"));
-        assert!(message.contains("line 7"), "the user needs to know where to look");
+        assert!(
+            message.contains("line 7"),
+            "the user needs to know where to look"
+        );
     }
 
     #[test]

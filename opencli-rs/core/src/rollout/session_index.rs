@@ -83,9 +83,7 @@ pub async fn find_thread_name_by_id(
 /// re-scans the whole index once per row. This reads it once; later entries
 /// overwrite earlier ones, which is how the append-only index records a
 /// rename.
-pub async fn load_thread_names(
-    opencli_home: &Path,
-) -> std::io::Result<HashMap<ThreadId, String>> {
+pub async fn load_thread_names(opencli_home: &Path) -> std::io::Result<HashMap<ThreadId, String>> {
     let path = session_index_path(opencli_home);
     if !path.exists() {
         return Ok(HashMap::new());
@@ -231,7 +229,12 @@ mod name_tests {
     #[tokio::test]
     async fn should_return_no_names_when_nothing_was_ever_renamed() {
         let dir = tempdir().expect("tempdir");
-        assert!(load_thread_names(dir.path()).await.expect("load").is_empty());
+        assert!(
+            load_thread_names(dir.path())
+                .await
+                .expect("load")
+                .is_empty()
+        );
     }
 
     #[tokio::test]
@@ -240,8 +243,12 @@ mod name_tests {
         // in the file and must not be the one that is shown.
         let dir = tempdir().expect("tempdir");
         let id = ThreadId::new();
-        append_thread_name(dir.path(), id, "first").await.expect("append");
-        append_thread_name(dir.path(), id, "second").await.expect("append");
+        append_thread_name(dir.path(), id, "first")
+            .await
+            .expect("append");
+        append_thread_name(dir.path(), id, "second")
+            .await
+            .expect("append");
 
         let names = load_thread_names(dir.path()).await.expect("load");
         assert_eq!(names.get(&id).map(String::as_str), Some("second"));
@@ -251,7 +258,9 @@ mod name_tests {
     async fn should_keep_the_other_names_when_one_line_is_unreadable() {
         let dir = tempdir().expect("tempdir");
         let id = ThreadId::new();
-        append_thread_name(dir.path(), id, "kept").await.expect("append");
+        append_thread_name(dir.path(), id, "kept")
+            .await
+            .expect("append");
         tokio::fs::write(
             session_index_path(dir.path()),
             format!(

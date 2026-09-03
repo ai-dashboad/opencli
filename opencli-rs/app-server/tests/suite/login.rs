@@ -50,7 +50,8 @@ async fn logout_chatgpt_removes_auth() -> Result<()> {
     )?;
     assert!(opencli_home.path().join("auth.json").exists());
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let id = mcp.send_logout_chat_gpt_request().await?;
@@ -84,7 +85,10 @@ async fn logout_chatgpt_removes_auth() -> Result<()> {
     Ok(())
 }
 
-fn create_config_toml_forced_login(opencli_home: &Path, forced_method: &str) -> std::io::Result<()> {
+fn create_config_toml_forced_login(
+    opencli_home: &Path,
+    forced_method: &str,
+) -> std::io::Result<()> {
     let config_toml = opencli_home.join("config.toml");
     let contents = format!(
         r#"

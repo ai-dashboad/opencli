@@ -135,11 +135,11 @@ use opencli_app_server_protocol::token_usage_from_rollout;
 use opencli_backend_client::Client as BackendClient;
 use opencli_chatgpt::connectors;
 use opencli_core::AuthManager;
-use opencli_core::OpenCLIAuth;
-use opencli_core::OpenCLIThread;
 use opencli_core::Cursor as RolloutCursor;
 use opencli_core::InitialHistory;
 use opencli_core::NewThread;
+use opencli_core::OpenCLIAuth;
+use opencli_core::OpenCLIThread;
 use opencli_core::RolloutRecorder;
 use opencli_core::SessionMeta;
 use opencli_core::ThreadConfigSnapshot;
@@ -618,7 +618,9 @@ impl OpenCLIMessageProcessor {
                 warn!("Config request reached OpenCLIMessageProcessor unexpectedly");
             }
             ClientRequest::ConfigRequirementsRead { .. } => {
-                warn!("ConfigRequirementsRead request reached OpenCLIMessageProcessor unexpectedly");
+                warn!(
+                    "ConfigRequirementsRead request reached OpenCLIMessageProcessor unexpectedly"
+                );
             }
             ClientRequest::GetAccountRateLimits {
                 request_id,
@@ -1442,7 +1444,7 @@ impl OpenCLIMessageProcessor {
             windows_sandbox_level,
             justification: None,
             arg0: None,
-                    description: None,
+            description: None,
         };
 
         let requested_policy = params.sandbox_policy.map(|policy| policy.to_core());
@@ -1798,7 +1800,8 @@ impl OpenCLIMessageProcessor {
         };
 
         let rollout_path =
-            match find_thread_path_by_id_str(&self.config.opencli_home, &thread_id.to_string()).await
+            match find_thread_path_by_id_str(&self.config.opencli_home, &thread_id.to_string())
+                .await
             {
                 Ok(Some(p)) => p,
                 Ok(None) => {
@@ -3282,8 +3285,11 @@ impl OpenCLIMessageProcessor {
                 }
             }
         } else if let Some(conversation_id) = conversation_id {
-            match find_thread_path_by_id_str(&self.config.opencli_home, &conversation_id.to_string())
-                .await
+            match find_thread_path_by_id_str(
+                &self.config.opencli_home,
+                &conversation_id.to_string(),
+            )
+            .await
             {
                 Ok(Some(found_path)) => {
                     match RolloutRecorder::get_rollout_history(&found_path).await {
@@ -3479,8 +3485,11 @@ impl OpenCLIMessageProcessor {
         let rollout_path = if let Some(path) = path {
             path
         } else if let Some(conversation_id) = conversation_id {
-            match find_thread_path_by_id_str(&self.config.opencli_home, &conversation_id.to_string())
-                .await
+            match find_thread_path_by_id_str(
+                &self.config.opencli_home,
+                &conversation_id.to_string(),
+            )
+            .await
             {
                 Ok(Some(found_path)) => found_path,
                 Ok(None) => {
@@ -4159,7 +4168,7 @@ impl OpenCLIMessageProcessor {
                     items: vec![],
                     error: None,
                     status: TurnStatus::InProgress,
-                                        total_ms: None,
+                    total_ms: None,
                 };
 
                 let response = TurnStartResponse { turn: turn.clone() };
@@ -4204,7 +4213,7 @@ impl OpenCLIMessageProcessor {
             items,
             error: None,
             status: TurnStatus::InProgress,
-                        total_ms: None,
+            total_ms: None,
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::bottom_pane::ApprovalRequest;
 use crate::render::renderable::Renderable;
-use opencli_protocol::request_user_input::RequestUserInputEvent;
 use crossterm::event::KeyEvent;
+use opencli_protocol::request_user_input::RequestUserInputEvent;
 
 use super::CancellationEvent;
 

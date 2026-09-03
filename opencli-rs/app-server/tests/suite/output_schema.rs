@@ -1,6 +1,8 @@
 use anyhow::Result;
 use app_test_support::McpProcess;
 use app_test_support::to_response;
+use core_test_support::responses;
+use core_test_support::skip_if_no_network;
 use opencli_app_server_protocol::AddConversationListenerParams;
 use opencli_app_server_protocol::InputItem;
 use opencli_app_server_protocol::JSONRPCResponse;
@@ -13,8 +15,6 @@ use opencli_core::protocol::AskForApproval;
 use opencli_core::protocol::SandboxPolicy;
 use opencli_protocol::config_types::ReasoningSummary;
 use opencli_protocol::openai_models::ReasoningEffort;
-use core_test_support::responses;
-use core_test_support::skip_if_no_network;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 use tempfile::TempDir;

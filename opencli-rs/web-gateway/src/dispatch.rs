@@ -71,7 +71,10 @@ fn run_json(run: &dispatch::Run) -> Value {
 fn list(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     let runs = dispatch::load(opencli_home);
     let filtered: Vec<&dispatch::Run> = match params.get("activeOnly").and_then(Value::as_bool) {
-        Some(true) => runs.iter().filter(|run| !run.status.is_finished()).collect(),
+        Some(true) => runs
+            .iter()
+            .filter(|run| !run.status.is_finished())
+            .collect(),
         _ => runs.iter().collect(),
     };
     let limit = params
@@ -310,7 +313,11 @@ mod tests {
         // A whole paragraph as a list row is unreadable.
         let long = "word ".repeat(40);
         let summary = summarize(&long);
-        assert!(summary.chars().count() <= 61, "got {} chars", summary.chars().count());
+        assert!(
+            summary.chars().count() <= 61,
+            "got {} chars",
+            summary.chars().count()
+        );
         assert!(summary.ends_with('…'));
     }
 
@@ -321,9 +328,11 @@ mod tests {
             r#"{"method":"dispatch/create","id":1,"params":{"prompt":"go","cwd":"/no/such"}}"#,
             dir.path(),
         );
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("not a directory")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("not a directory"))
+        );
     }
 
     #[test]

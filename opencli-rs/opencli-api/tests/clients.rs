@@ -5,6 +5,8 @@ use std::time::Duration;
 use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
+use http::HeaderMap;
+use http::StatusCode;
 use opencli_api::AuthProvider;
 use opencli_api::ChatClient;
 use opencli_api::Provider;
@@ -19,8 +21,6 @@ use opencli_client::StreamResponse;
 use opencli_client::TransportError;
 use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::ResponseItem;
-use http::HeaderMap;
-use http::StatusCode;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 

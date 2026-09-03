@@ -184,7 +184,10 @@ mod tests {
     use tempfile::tempdir;
 
     fn write_auth_json(opencli_home: &Path, value: serde_json::Value) -> std::io::Result<()> {
-        std::fs::write(opencli_home.join("auth.json"), serde_json::to_string(&value)?)?;
+        std::fs::write(
+            opencli_home.join("auth.json"),
+            serde_json::to_string(&value)?,
+        )?;
         Ok(())
     }
 

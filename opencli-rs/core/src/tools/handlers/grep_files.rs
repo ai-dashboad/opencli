@@ -100,8 +100,15 @@ impl ToolHandler for GrepFilesHandler {
             }
         });
 
-        let search_results =
-            run_rg_search(pattern, include.as_deref(), &search_path, limit, mode, &turn.cwd).await?;
+        let search_results = run_rg_search(
+            pattern,
+            include.as_deref(),
+            &search_path,
+            limit,
+            mode,
+            &turn.cwd,
+        )
+        .await?;
 
         if search_results.is_empty() {
             Ok(ToolOutput::Function {
@@ -151,10 +158,7 @@ async fn run_rg_search(
             command.arg("--files-with-matches").arg("--sortr=modified");
         }
     }
-    command
-        .arg("--regexp")
-        .arg(pattern)
-        .arg("--no-messages");
+    command.arg("--regexp").arg(pattern).arg("--no-messages");
 
     if let Some(glob) = include {
         command.arg("--glob").arg(glob);
@@ -239,8 +243,7 @@ mod tests {
         let dir = temp.path();
         std::fs::write(dir.join("sample.py"), "def alpha():\n    return 42\n").unwrap();
 
-        let results =
-            run_rg_search("return", None, dir, 10, SearchMode::Content, dir).await?;
+        let results = run_rg_search("return", None, dir, 10, SearchMode::Content, dir).await?;
         assert_eq!(results.len(), 1);
         // `path:line:text` — the line number and content are present, so no
         // follow-up read is needed to see what matched.

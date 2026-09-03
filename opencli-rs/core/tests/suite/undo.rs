@@ -8,11 +8,6 @@ use std::sync::Arc;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::bail;
-use opencli_core::OpenCLIThread;
-use opencli_core::features::Feature;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_core::protocol::UndoCompletedEvent;
 use core_test_support::responses::ev_apply_patch_function_call;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
@@ -23,6 +18,11 @@ use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::TestOpenCLIHarness;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event_match;
+use opencli_core::OpenCLIThread;
+use opencli_core::features::Feature;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::UndoCompletedEvent;
 use pretty_assertions::assert_eq;
 
 #[allow(clippy::expect_used)]

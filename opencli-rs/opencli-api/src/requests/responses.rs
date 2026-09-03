@@ -6,9 +6,9 @@ use crate::provider::Provider;
 use crate::requests::headers::build_conversation_headers;
 use crate::requests::headers::insert_header;
 use crate::requests::headers::subagent_header;
+use http::HeaderMap;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::SessionSource;
-use http::HeaderMap;
 use serde_json::Value;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -192,8 +192,8 @@ mod tests {
     use super::*;
     use crate::provider::RetryConfig;
     use crate::provider::WireApi;
-    use opencli_protocol::protocol::SubAgentSource;
     use http::HeaderValue;
+    use opencli_protocol::protocol::SubAgentSource;
     use pretty_assertions::assert_eq;
     use std::time::Duration;
 

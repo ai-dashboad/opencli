@@ -20,10 +20,10 @@ use std::sync::Mutex;
 use tracing::warn;
 
 use crate::token_data::TokenData;
+use once_cell::sync::Lazy;
 use opencli_app_server_protocol::AuthMode;
 use opencli_keyring_store::DefaultKeyringStore;
 use opencli_keyring_store::KeyringStore;
-use once_cell::sync::Lazy;
 
 /// Determine where OpenCLI should store CLI auth credentials.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -326,7 +326,9 @@ fn create_auth_storage_with_keyring_store(
         AuthCredentialsStoreMode::Keyring => {
             Arc::new(KeyringAuthStorage::new(opencli_home, keyring_store))
         }
-        AuthCredentialsStoreMode::Auto => Arc::new(AutoAuthStorage::new(opencli_home, keyring_store)),
+        AuthCredentialsStoreMode::Auto => {
+            Arc::new(AutoAuthStorage::new(opencli_home, keyring_store))
+        }
         AuthCredentialsStoreMode::Ephemeral => Arc::new(EphemeralAuthStorage::new(opencli_home)),
     }
 }
@@ -341,8 +343,8 @@ mod tests {
     use serde_json::json;
     use tempfile::tempdir;
 
-    use opencli_keyring_store::tests::MockKeyringStore;
     use keyring::Error as KeyringError;
+    use opencli_keyring_store::tests::MockKeyringStore;
 
     #[tokio::test]
     async fn file_storage_load_returns_auth_dot_json() -> anyhow::Result<()> {
@@ -643,7 +645,8 @@ mod tests {
     fn auto_auth_storage_load_uses_file_when_keyring_empty() -> anyhow::Result<()> {
         let opencli_home = tempdir()?;
         let mock_keyring = MockKeyringStore::default();
-        let storage = AutoAuthStorage::new(opencli_home.path().to_path_buf(), Arc::new(mock_keyring));
+        let storage =
+            AutoAuthStorage::new(opencli_home.path().to_path_buf(), Arc::new(mock_keyring));
 
         let expected = auth_with_prefix("file-only");
         storage.file_storage.save(&expected)?;

@@ -58,7 +58,10 @@ sandbox_mode = "danger-full-access"
     )
 }
 
-fn create_config_toml_forced_login(opencli_home: &Path, forced_method: &str) -> std::io::Result<()> {
+fn create_config_toml_forced_login(
+    opencli_home: &Path,
+    forced_method: &str,
+) -> std::io::Result<()> {
     let config_toml = opencli_home.join("config.toml");
     let contents = format!(
         r#"
@@ -92,7 +95,8 @@ async fn get_auth_status_no_auth() -> Result<()> {
     let opencli_home = TempDir::new()?;
     create_config_toml(opencli_home.path())?;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let request_id = mcp

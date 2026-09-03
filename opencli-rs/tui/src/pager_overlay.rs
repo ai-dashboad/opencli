@@ -772,9 +772,9 @@ fn render_offset_content(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use insta::assert_snapshot;
     use opencli_core::protocol::ExecCommandSource;
     use opencli_core::protocol::ReviewDecision;
-    use insta::assert_snapshot;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
     use std::path::PathBuf;

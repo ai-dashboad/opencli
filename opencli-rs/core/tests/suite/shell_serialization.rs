@@ -2,7 +2,6 @@
 #![allow(clippy::expect_used)]
 
 use anyhow::Result;
-use opencli_core::protocol::SandboxPolicy;
 use core_test_support::assert_regex_match;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
@@ -17,6 +16,7 @@ use core_test_support::test_opencli::ApplyPatchModelOutput;
 use core_test_support::test_opencli::ShellModelOutput;
 use core_test_support::test_opencli::TestOpenCLIBuilder;
 use core_test_support::test_opencli::test_opencli;
+use opencli_core::protocol::SandboxPolicy;
 use pretty_assertions::assert_eq;
 use regex_lite::Regex;
 use serde_json::Value;
@@ -54,11 +54,7 @@ fn shell_responses(
             Ok(vec![
                 sse(vec![
                     ev_response_created("resp-1"),
-                    ev_function_call(
-                        call_id,
-                        "run_command",
-                        &serde_json::to_string(&parameters)?,
-                    ),
+                    ev_function_call(call_id, "run_command", &serde_json::to_string(&parameters)?),
                     ev_completed("resp-1"),
                 ]),
                 sse(vec![

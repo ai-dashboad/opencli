@@ -3,6 +3,14 @@
 use std::fs;
 
 use anyhow::Result;
+use core_test_support::responses;
+use core_test_support::responses::mount_sse_once;
+use core_test_support::responses::sse;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_opencli::TestOpenCLIHarness;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
+use core_test_support::wait_for_event_match;
 use opencli_core::OpenCLIAuth;
 use opencli_core::features::Feature;
 use opencli_core::protocol::EventMsg;
@@ -15,14 +23,6 @@ use opencli_protocol::items::TurnItem;
 use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::user_input::UserInput;
-use core_test_support::responses;
-use core_test_support::responses::mount_sse_once;
-use core_test_support::responses::sse;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_opencli::TestOpenCLIHarness;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
-use core_test_support::wait_for_event_match;
 use pretty_assertions::assert_eq;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

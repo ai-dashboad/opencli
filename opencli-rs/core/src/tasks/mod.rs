@@ -19,9 +19,9 @@ use tracing::trace;
 use tracing::warn;
 
 use crate::AuthManager;
+use crate::models_manager::manager::ModelsManager;
 use crate::opencli::Session;
 use crate::opencli::TurnContext;
-use crate::models_manager::manager::ModelsManager;
 use crate::protocol::EventMsg;
 use crate::protocol::TurnAbortReason;
 use crate::protocol::TurnAbortedEvent;

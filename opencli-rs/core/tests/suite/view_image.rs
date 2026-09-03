@@ -2,12 +2,6 @@
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use opencli_core::protocol::AskForApproval;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_core::protocol::SandboxPolicy;
-use opencli_protocol::config_types::ReasoningSummary;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
@@ -24,6 +18,12 @@ use image::GenericImageView;
 use image::ImageBuffer;
 use image::Rgba;
 use image::load_from_memory;
+use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::SandboxPolicy;
+use opencli_protocol::config_types::ReasoningSummary;
+use opencli_protocol::user_input::UserInput;
 use serde_json::Value;
 use tokio::time::Duration;
 

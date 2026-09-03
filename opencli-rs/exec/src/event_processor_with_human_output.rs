@@ -43,8 +43,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use crate::event_processor::OpenCLIStatus;
 use crate::event_processor::EventProcessor;
+use crate::event_processor::OpenCLIStatus;
 use crate::event_processor::handle_last_message;
 use opencli_common::create_config_summary_entries;
 use opencli_protocol::plan_tool::StepStatus;

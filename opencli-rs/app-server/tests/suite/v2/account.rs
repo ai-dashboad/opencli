@@ -8,6 +8,7 @@ use app_test_support::ChatGptIdTokenClaims;
 use app_test_support::encode_id_token;
 use app_test_support::write_chatgpt_auth;
 use app_test_support::write_models_cache;
+use core_test_support::responses;
 use opencli_app_server_protocol::Account;
 use opencli_app_server_protocol::AuthMode;
 use opencli_app_server_protocol::CancelLoginAccountParams;
@@ -31,7 +32,6 @@ use opencli_app_server_protocol::TurnStatus;
 use opencli_core::auth::AuthCredentialsStoreMode;
 use opencli_login::login_with_api_key;
 use opencli_protocol::account::PlanType as AccountPlanType;
-use core_test_support::responses;
 use pretty_assertions::assert_eq;
 use serde_json::json;
 use serial_test::serial;
@@ -107,7 +107,8 @@ async fn logout_account_removes_auth_and_notifies() -> Result<()> {
     )?;
     assert!(opencli_home.path().join("auth.json").exists());
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let id = mcp.send_logout_account_request().await?;
@@ -174,7 +175,8 @@ async fn set_auth_token_updates_account_and_notifies() -> Result<()> {
     )?;
     let access_token = "access-embedded".to_string();
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let set_id = mcp
@@ -243,7 +245,8 @@ async fn account_read_refresh_token_is_noop_in_external_mode() -> Result<()> {
             .chatgpt_account_id("org-embedded"),
     )?;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let set_id = mcp
@@ -364,7 +367,8 @@ async fn external_auth_refreshes_on_unauthorized() -> Result<()> {
     let initial_access_token = "access-initial".to_string();
     let refreshed_access_token = "access-refreshed".to_string();
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let set_id = mcp
@@ -463,7 +467,8 @@ async fn external_auth_refresh_error_fails_turn() -> Result<()> {
             .chatgpt_account_id("org-initial"),
     )?;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let set_id = mcp
@@ -581,7 +586,8 @@ async fn external_auth_refresh_mismatched_workspace_fails_turn() -> Result<()> {
             .chatgpt_account_id("org-other"),
     )?;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let set_id = mcp
@@ -691,7 +697,8 @@ async fn external_auth_refresh_invalid_id_token_fails_turn() -> Result<()> {
             .chatgpt_account_id("org-initial"),
     )?;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let set_id = mcp
@@ -1054,7 +1061,8 @@ async fn get_account_no_auth() -> Result<()> {
         },
     )?;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let params = GetAccountParams {
@@ -1170,7 +1178,8 @@ async fn get_account_with_chatgpt() -> Result<()> {
         AuthCredentialsStoreMode::File,
     )?;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let params = GetAccountParams {

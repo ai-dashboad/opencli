@@ -59,7 +59,13 @@ fn hook_applies(hook: &Hook, command: &str) -> bool {
 
 /// Run one hook to completion, returning its exit code (or `None` if it timed
 /// out or could not be spawned).
-async fn run_one(hook: &Hook, event: HookEvent, command: &str, cwd: &Path, exit_code: Option<i32>) -> Option<i32> {
+async fn run_one(
+    hook: &Hook,
+    event: HookEvent,
+    command: &str,
+    cwd: &Path,
+    exit_code: Option<i32>,
+) -> Option<i32> {
     // Route through the user's shell so `command` can use pipes, globs, etc.
     let mut cmd = Command::new("/bin/sh");
     cmd.arg("-c")
@@ -80,7 +86,11 @@ async fn run_one(hook: &Hook, event: HookEvent, command: &str, cwd: &Path, exit_
             None
         }
         Err(_) => {
-            tracing::warn!("hook timed out after {}ms: {}", limit.as_millis(), hook.command);
+            tracing::warn!(
+                "hook timed out after {}ms: {}",
+                limit.as_millis(),
+                hook.command
+            );
             None
         }
     }
@@ -94,11 +104,11 @@ pub async fn run_pre_exec(hooks: &[Hook], command: &str, cwd: &Path) -> PreExecD
         let failed = !matches!(code, Some(0));
         if failed && hook.block_on_failure {
             let reason = match code {
-                Some(code) => format!(
-                    "blocked by pre_exec hook `{}` (exit {code})",
+                Some(code) => format!("blocked by pre_exec hook `{}` (exit {code})", hook.command),
+                None => format!(
+                    "blocked by pre_exec hook `{}` (did not complete)",
                     hook.command
                 ),
-                None => format!("blocked by pre_exec hook `{}` (did not complete)", hook.command),
             };
             return PreExecDecision::Blocked(reason);
         }

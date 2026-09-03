@@ -11,6 +11,13 @@ use std::time::UNIX_EPOCH;
 use opencli_core::config::types::McpServerConfig;
 use opencli_core::config::types::McpServerTransportConfig;
 
+use core_test_support::responses;
+use core_test_support::responses::mount_sse_once;
+use core_test_support::skip_if_no_network;
+use core_test_support::stdio_server_bin;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
+use mcp_types::ContentBlock;
 use opencli_core::protocol::AskForApproval;
 use opencli_core::protocol::EventMsg;
 use opencli_core::protocol::McpInvocation;
@@ -20,13 +27,6 @@ use opencli_core::protocol::SandboxPolicy;
 use opencli_protocol::config_types::ReasoningSummary;
 use opencli_protocol::user_input::UserInput;
 use opencli_utils_cargo_bin::cargo_bin;
-use core_test_support::responses;
-use core_test_support::responses::mount_sse_once;
-use core_test_support::skip_if_no_network;
-use core_test_support::stdio_server_bin;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
-use mcp_types::ContentBlock;
 use serde_json::Value;
 use serde_json::json;
 use serial_test::serial;
@@ -171,7 +171,10 @@ async fn stdio_server_round_trip() -> anyhow::Result<()> {
         .expect("env snapshot inserted");
     assert_eq!(env_value, expected_env_value);
 
-    wait_for_event(&fixture.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&fixture.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     server.verify().await;
 
@@ -316,7 +319,10 @@ async fn stdio_image_responses_round_trip() -> anyhow::Result<()> {
         other => panic!("expected image content, got {other:?}"),
     }
 
-    wait_for_event(&fixture.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&fixture.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     let output_item = final_mock.single_request().function_call_output(call_id);
     assert_eq!(
@@ -492,7 +498,10 @@ async fn stdio_image_completions_round_trip() -> anyhow::Result<()> {
     };
     assert!(end.result.as_ref().is_ok(), "tool call should succeed");
 
-    wait_for_event(&fixture.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&fixture.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     // Chat Completions assertion: the second POST should include a tool role message
     // with an array `content` containing an item with the expected data URL.
@@ -658,7 +667,10 @@ async fn stdio_server_propagates_whitelisted_env_vars() -> anyhow::Result<()> {
         .expect("env snapshot inserted");
     assert_eq!(env_value, expected_env_value);
 
-    wait_for_event(&fixture.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&fixture.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     server.verify().await;
 
@@ -816,7 +828,10 @@ async fn streamable_http_tool_call_round_trip() -> anyhow::Result<()> {
         .expect("env snapshot inserted");
     assert_eq!(env_value, expected_env_value);
 
-    wait_for_event(&fixture.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&fixture.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     server.verify().await;
 
@@ -1006,7 +1021,10 @@ async fn streamable_http_with_oauth_round_trip() -> anyhow::Result<()> {
         .expect("env snapshot inserted");
     assert_eq!(env_value, expected_env_value);
 
-    wait_for_event(&fixture.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&fixture.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     server.verify().await;
 

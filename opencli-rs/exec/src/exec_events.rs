@@ -1,5 +1,5 @@
-use opencli_protocol::models::WebSearchAction;
 use mcp_types::ContentBlock as McpContentBlock;
+use opencli_protocol::models::WebSearchAction;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value as JsonValue;

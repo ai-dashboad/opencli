@@ -407,7 +407,10 @@ $envVars | ForEach-Object {
 /// Removes shell snapshots that either lack a matching session rollout file or
 /// whose rollouts have not been updated within the retention window.
 /// The active session id is exempt from cleanup.
-pub async fn cleanup_stale_snapshots(opencli_home: &Path, active_session_id: ThreadId) -> Result<()> {
+pub async fn cleanup_stale_snapshots(
+    opencli_home: &Path,
+    active_session_id: ThreadId,
+) -> Result<()> {
     let snapshot_dir = opencli_home.join(SNAPSHOT_DIR);
 
     let mut entries = match fs::read_dir(&snapshot_dir).await {
@@ -585,7 +588,10 @@ mod tests {
             .env("BASH_ENV", "/dev/null")
             .env("VALID_NAME", "ok")
             .env("PWD", "/tmp/stale")
-            .env("NEXTEST_BIN_EXE_opencli-write-config-schema", "/path/to/bin")
+            .env(
+                "NEXTEST_BIN_EXE_opencli-write-config-schema",
+                "/path/to/bin",
+            )
             .env("BAD-NAME", "broken")
             .output()?;
 

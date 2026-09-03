@@ -27,8 +27,8 @@ use crate::tools::sandboxing::with_cached_approval;
 use crate::unified_exec::UnifiedExecError;
 use crate::unified_exec::UnifiedExecProcess;
 use crate::unified_exec::UnifiedExecProcessManager;
-use opencli_protocol::protocol::ReviewDecision;
 use futures::future::BoxFuture;
+use opencli_protocol::protocol::ReviewDecision;
 use std::collections::HashMap;
 use std::path::PathBuf;
 

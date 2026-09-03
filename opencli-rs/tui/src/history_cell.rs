@@ -37,6 +37,12 @@ use crate::wrapping::RtOptions;
 use crate::wrapping::word_wrap_line;
 use crate::wrapping::word_wrap_lines;
 use base64::Engine;
+use image::DynamicImage;
+use image::ImageReader;
+use mcp_types::EmbeddedResourceResource;
+use mcp_types::Resource;
+use mcp_types::ResourceLink;
+use mcp_types::ResourceTemplate;
 use opencli_common::format_env_display::format_env_display;
 use opencli_core::config::Config;
 use opencli_core::config::types::McpServerTransportConfig;
@@ -52,12 +58,6 @@ use opencli_protocol::plan_tool::PlanItemArg;
 use opencli_protocol::plan_tool::StepStatus;
 use opencli_protocol::plan_tool::UpdatePlanArgs;
 use opencli_protocol::user_input::TextElement;
-use image::DynamicImage;
-use image::ImageReader;
-use mcp_types::EmbeddedResourceResource;
-use mcp_types::Resource;
-use mcp_types::ResourceLink;
-use mcp_types::ResourceTemplate;
 use ratatui::prelude::*;
 use ratatui::style::Color;
 use ratatui::style::Modifier;
@@ -2097,6 +2097,7 @@ mod tests {
     use crate::exec_cell::CommandOutput;
     use crate::exec_cell::ExecCall;
     use crate::exec_cell::ExecCell;
+    use dirs::home_dir;
     use opencli_core::config::Config;
     use opencli_core::config::ConfigBuilder;
     use opencli_core::config::types::McpServerConfig;
@@ -2106,18 +2107,17 @@ mod tests {
     use opencli_otel::RuntimeMetricsSummary;
     use opencli_protocol::models::WebSearchAction;
     use opencli_protocol::parse_command::ParsedCommand;
-    use dirs::home_dir;
     use pretty_assertions::assert_eq;
     use serde_json::json;
     use std::collections::HashMap;
 
-    use opencli_core::protocol::ExecCommandSource;
     use mcp_types::CallToolResult;
     use mcp_types::ContentBlock;
     use mcp_types::ImageContent;
     use mcp_types::TextContent;
     use mcp_types::Tool;
     use mcp_types::ToolInputSchema;
+    use opencli_core::protocol::ExecCommandSource;
 
     const SMALL_PNG_BASE64: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==";
     async fn test_config() -> Config {

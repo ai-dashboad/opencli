@@ -1,7 +1,7 @@
+use http::HeaderMap;
 use opencli_protocol::protocol::CreditsSnapshot;
 use opencli_protocol::protocol::RateLimitSnapshot;
 use opencli_protocol::protocol::RateLimitWindow;
-use http::HeaderMap;
 use std::fmt::Display;
 
 #[derive(Debug)]

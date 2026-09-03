@@ -1,17 +1,15 @@
 use std::sync::Arc;
 
 use crate::ModelProviderInfo;
-use tracing::warn;
-use crate::context_manager::ContextManager;
-use opencli_protocol::models::FunctionCallOutputContentItem;
 use crate::Prompt;
 use crate::client_common::ResponseEvent;
-use crate::opencli::Session;
-use crate::opencli::TurnContext;
-use crate::opencli::get_last_assistant_message_from_turn;
+use crate::context_manager::ContextManager;
 use crate::error::OpenCLIErr;
 use crate::error::Result as OpenCLIResult;
 use crate::features::Feature;
+use crate::opencli::Session;
+use crate::opencli::TurnContext;
+use crate::opencli::get_last_assistant_message_from_turn;
 use crate::protocol::CompactedItem;
 use crate::protocol::EventMsg;
 use crate::protocol::TurnContextItem;
@@ -22,15 +20,17 @@ use crate::truncate::TruncationPolicy;
 use crate::truncate::approx_token_count;
 use crate::truncate::truncate_text;
 use crate::util::backoff;
+use futures::prelude::*;
 use opencli_protocol::items::ContextCompactionItem;
 use opencli_protocol::items::TurnItem;
 use opencli_protocol::models::ContentItem;
+use opencli_protocol::models::FunctionCallOutputContentItem;
 use opencli_protocol::models::ResponseInputItem;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::RolloutItem;
 use opencli_protocol::user_input::UserInput;
-use futures::prelude::*;
 use tracing::error;
+use tracing::warn;
 
 pub const SUMMARIZATION_PROMPT: &str = include_str!("../templates/compact/prompt.md");
 pub const SUMMARY_PREFIX: &str = include_str!("../templates/compact/summary_prefix.md");
@@ -139,7 +139,11 @@ async fn condense_until_it_fits(
             // Short and structured: the interface puts this under a line of
             // its own that already says what is happening, and a sentence
             // crammed in beside that read as an alarm.
-            format!("part {} of {} · nothing is being lost", at + 1, pieces.len()),
+            format!(
+                "part {} of {} · nothing is being lost",
+                at + 1,
+                pieces.len()
+            ),
         )
         .await;
 
@@ -227,7 +231,10 @@ fn drop_images(item: ResponseItem) -> ResponseItem {
                 .collect(),
             end_turn,
         },
-        ResponseItem::FunctionCallOutput { call_id, mut output } => {
+        ResponseItem::FunctionCallOutput {
+            call_id,
+            mut output,
+        } => {
             if let Some(items) = output.content_items.take() {
                 output.content_items = Some(
                     items
@@ -350,11 +357,8 @@ async fn run_compact_task_inner(
     // on a slow gateway or a small context window can take a while and may trim
     // in several passes. Announce it so the turn does not look frozen; the
     // header updates again on each trim below.
-    sess.notify_background_event(
-        turn_context.as_ref(),
-        "reading the conversation",
-    )
-    .await;
+    sess.notify_background_event(turn_context.as_ref(), "reading the conversation")
+        .await;
 
     // A conversation too large to summarise in one request is folded down
     // first, oldest part by oldest part, until what remains can be. Nothing is
@@ -762,8 +766,14 @@ mod tests {
             !sent.contains(&huge),
             "the base64 must not be sent to be summarised"
         );
-        assert!(sent.contains("an image was shared here"), "but say one was there");
-        assert!(sent.contains("look at this"), "and keep the words around it");
+        assert!(
+            sent.contains("an image was shared here"),
+            "but say one was there"
+        );
+        assert!(
+            sent.contains("look at this"),
+            "and keep the words around it"
+        );
     }
 
     #[test]
@@ -789,7 +799,10 @@ mod tests {
             .iter()
             .filter(|item| matches!(item, ResponseItem::FunctionCallOutput { .. }))
             .count();
-        assert_eq!(calls, answers, "every call in a piece must have an answer in it");
+        assert_eq!(
+            calls, answers,
+            "every call in a piece must have an answer in it"
+        );
     }
 
     #[test]
@@ -801,7 +814,10 @@ mod tests {
 
         let pieces = split_into_pieces(&items, budget, TruncationPolicy::Tokens(100_000));
 
-        assert!(pieces.len() > 1, "a conversation this long has to be cut up");
+        assert!(
+            pieces.len() > 1,
+            "a conversation this long has to be cut up"
+        );
         for piece in &pieces {
             let mut measured = ContextManager::new();
             measured.record_items(piece.iter(), TruncationPolicy::Tokens(100_000));
@@ -820,7 +836,11 @@ mod tests {
         let pieces = split_into_pieces(&items, 50, TruncationPolicy::Tokens(100_000));
         let kept: usize = pieces.iter().map(Vec::len).sum();
 
-        assert_eq!(kept, items.len(), "every message must land in exactly one piece");
+        assert_eq!(
+            kept,
+            items.len(),
+            "every message must land in exactly one piece"
+        );
     }
 
     #[test]

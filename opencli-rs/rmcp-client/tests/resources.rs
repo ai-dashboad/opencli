@@ -2,10 +2,6 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use opencli_rmcp_client::ElicitationAction;
-use opencli_rmcp_client::ElicitationResponse;
-use opencli_rmcp_client::RmcpClient;
-use opencli_utils_cargo_bin::CargoBinError;
 use futures::FutureExt as _;
 use mcp_types::ClientCapabilities;
 use mcp_types::Implementation;
@@ -16,6 +12,10 @@ use mcp_types::ReadResourceResultContents;
 use mcp_types::Resource;
 use mcp_types::ResourceTemplate;
 use mcp_types::TextResourceContents;
+use opencli_rmcp_client::ElicitationAction;
+use opencli_rmcp_client::ElicitationResponse;
+use opencli_rmcp_client::RmcpClient;
+use opencli_utils_cargo_bin::CargoBinError;
 use serde_json::json;
 
 const RESOURCE_URI: &str = "memo://opencli/example-note";

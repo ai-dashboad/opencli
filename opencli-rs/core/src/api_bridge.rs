@@ -1,16 +1,16 @@
 use chrono::DateTime;
 use chrono::Utc;
+use http::HeaderMap;
 use opencli_api::AuthProvider as ApiAuthProvider;
 use opencli_api::TransportError;
 use opencli_api::error::ApiError;
 use opencli_api::rate_limits::parse_promo_message;
 use opencli_api::rate_limits::parse_rate_limit;
-use http::HeaderMap;
 use serde::Deserialize;
 
 use crate::auth::OpenCLIAuth;
-use crate::error::OpenCLIErr;
 use crate::error::ModelCapError;
+use crate::error::OpenCLIErr;
 use crate::error::RetryLimitReachedError;
 use crate::error::UnexpectedResponseError;
 use crate::error::UsageLimitReachedError;
@@ -19,17 +19,21 @@ use crate::token_data::PlanType;
 
 pub(crate) fn map_api_error(err: ApiError) -> OpenCLIErr {
     match err {
-        ApiError::ContextWindowExceeded { context_limit } => OpenCLIErr::ContextWindowExceeded { context_limit },
+        ApiError::ContextWindowExceeded { context_limit } => {
+            OpenCLIErr::ContextWindowExceeded { context_limit }
+        }
         ApiError::QuotaExceeded => OpenCLIErr::QuotaExceeded,
         ApiError::UsageNotIncluded => OpenCLIErr::UsageNotIncluded,
         ApiError::Retryable { message, delay } => OpenCLIErr::Stream(message, delay),
         ApiError::Stream(msg) => OpenCLIErr::Stream(msg, None),
-        ApiError::Api { status, message } => OpenCLIErr::UnexpectedStatus(UnexpectedResponseError {
-            status,
-            body: message,
-            url: None,
-            request_id: None,
-        }),
+        ApiError::Api { status, message } => {
+            OpenCLIErr::UnexpectedStatus(UnexpectedResponseError {
+                status,
+                body: message,
+                url: None,
+                request_id: None,
+            })
+        }
         ApiError::InvalidRequest { message } => OpenCLIErr::InvalidRequest(message),
         ApiError::Transport(transport) => match transport {
             TransportError::Http {
@@ -119,9 +123,9 @@ const MODEL_CAP_RESET_AFTER_HEADER: &str = "x-opencli-model-cap-reset-after-seco
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opencli_api::TransportError;
     use http::HeaderMap;
     use http::StatusCode;
+    use opencli_api::TransportError;
 
     #[test]
     fn map_api_error_maps_model_cap_headers() {

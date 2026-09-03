@@ -132,7 +132,10 @@ pub async fn serve_with_listener(
         None => std::env::current_exe().context("locate the running binary")?,
     };
     let token = (!config.no_auth).then(generate_token);
-    let opencli_home = config.opencli_home.clone().unwrap_or_else(default_opencli_home);
+    let opencli_home = config
+        .opencli_home
+        .clone()
+        .unwrap_or_else(default_opencli_home);
     let state = Arc::new(GatewayState {
         token: token.clone(),
         server_bin: server_bin.clone(),
@@ -187,7 +190,9 @@ fn is_networked(raw: &str) -> bool {
         .and_then(|message| message.get("method"))
         .and_then(|method| method.as_str())
         .is_some_and(|method| {
-            method.starts_with("server/") || method.starts_with("hub/") || method.starts_with("runtime/")
+            method.starts_with("server/")
+                || method.starts_with("hub/")
+                || method.starts_with("runtime/")
         })
 }
 
@@ -347,11 +352,11 @@ mod dispatch;
 mod hub;
 mod memory;
 mod plugin;
+mod project;
 mod register;
 mod runtime;
-mod server;
-mod project;
 mod schedule;
+mod server;
 
 mod futures_lite_split {
     use axum::extract::ws::Message;
@@ -424,7 +429,8 @@ mod tests {
         .await
         .expect_err("must refuse");
         assert!(
-            err.to_string().contains("refusing to disable authentication"),
+            err.to_string()
+                .contains("refusing to disable authentication"),
             "{err}"
         );
     }
@@ -468,4 +474,3 @@ mod dispatch_tests {
         assert!(!is_networked(r#"{"id":1}"#));
     }
 }
-

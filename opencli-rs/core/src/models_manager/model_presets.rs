@@ -1,7 +1,6 @@
 use crate::auth::AuthMode;
-use opencli_protocol::openai_models::ModelPreset;
 use once_cell::sync::Lazy;
-
+use opencli_protocol::openai_models::ModelPreset;
 
 /// Models compiled into the binary.
 ///
@@ -20,7 +19,6 @@ pub fn provider_id_for_model(model: &str) -> Option<String> {
         .find(|preset| preset.model == model || preset.id == model)
         .and_then(|preset| preset.provider.clone())
 }
-
 
 /// Presets compiled into the binary.
 ///

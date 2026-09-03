@@ -1,8 +1,8 @@
+use lazy_static::lazy_static;
 use opencli_protocol::custom_prompts::CustomPrompt;
 use opencli_protocol::custom_prompts::PROMPTS_CMD_PREFIX;
 use opencli_protocol::user_input::ByteRange;
 use opencli_protocol::user_input::TextElement;
-use lazy_static::lazy_static;
 use regex_lite::Regex;
 use shlex::Shlex;
 use std::collections::HashMap;

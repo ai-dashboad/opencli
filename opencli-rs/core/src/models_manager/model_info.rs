@@ -19,8 +19,6 @@ const BASE_INSTRUCTIONS_WITH_APPLY_PATCH: &str =
 const GPT_5_1_INSTRUCTIONS: &str = include_str!("../../gpt_5_1_prompt.md");
 const GPT_5_2_INSTRUCTIONS: &str = include_str!("../../gpt_5_2_prompt.md");
 
-
-
 pub(crate) const CONTEXT_WINDOW_272K: i64 = 272_000;
 
 macro_rules! model_info {
@@ -247,7 +245,6 @@ fn supported_reasoning_level_low_medium_high_non_opencli() -> Vec<ReasoningEffor
         },
     ]
 }
-
 
 fn supported_reasoning_level_low_medium_high_xhigh_non_opencli() -> Vec<ReasoningEffortPreset> {
     vec![

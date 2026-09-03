@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use opencli_core::features::Feature;
 use core_test_support::assert_regex_match;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
@@ -14,6 +13,7 @@ use core_test_support::skip_if_windows;
 use core_test_support::test_opencli::TestOpenCLIBuilder;
 use core_test_support::test_opencli::TestOpenCLIHarness;
 use core_test_support::test_opencli::test_opencli;
+use opencli_core::features::Feature;
 use serde_json::json;
 use test_case::test_case;
 

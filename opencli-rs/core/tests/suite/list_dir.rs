@@ -29,7 +29,8 @@ async fn list_dir_tool_returns_entries() -> anyhow::Result<()> {
     })
     .to_string();
 
-    let mocks = mount_function_call_agent_response(&server, call_id, &arguments, "browse_dir").await;
+    let mocks =
+        mount_function_call_agent_response(&server, call_id, &arguments, "browse_dir").await;
     test.submit_turn("list directory contents").await?;
     let req = mocks.completion.single_request();
     let (content_opt, _) = req
@@ -65,7 +66,8 @@ async fn list_dir_tool_depth_one_omits_children() -> anyhow::Result<()> {
     })
     .to_string();
 
-    let mocks = mount_function_call_agent_response(&server, call_id, &arguments, "browse_dir").await;
+    let mocks =
+        mount_function_call_agent_response(&server, call_id, &arguments, "browse_dir").await;
     test.submit_turn("list directory contents depth one")
         .await?;
     let req = mocks.completion.single_request();
@@ -106,7 +108,8 @@ async fn list_dir_tool_depth_two_includes_children_only() -> anyhow::Result<()> 
     })
     .to_string();
 
-    let mocks = mount_function_call_agent_response(&server, call_id, &arguments, "browse_dir").await;
+    let mocks =
+        mount_function_call_agent_response(&server, call_id, &arguments, "browse_dir").await;
     test.submit_turn("list directory contents depth two")
         .await?;
     let req = mocks.completion.single_request();
@@ -150,7 +153,8 @@ async fn list_dir_tool_depth_three_includes_grandchildren() -> anyhow::Result<()
     })
     .to_string();
 
-    let mocks = mount_function_call_agent_response(&server, call_id, &arguments, "browse_dir").await;
+    let mocks =
+        mount_function_call_agent_response(&server, call_id, &arguments, "browse_dir").await;
     test.submit_turn("list directory contents depth three")
         .await?;
     let req = mocks.completion.single_request();

@@ -5,19 +5,19 @@ use opencli_protocol::config_types::ModeKind;
 use opencli_protocol::items::TurnItem;
 use tokio_util::sync::CancellationToken;
 
-use crate::opencli::Session;
-use crate::opencli::TurnContext;
 use crate::error::OpenCLIErr;
 use crate::error::Result;
 use crate::function_tool::FunctionCallError;
+use crate::opencli::Session;
+use crate::opencli::TurnContext;
 use crate::parse_turn_item;
 use crate::proposed_plan_parser::strip_proposed_plan_blocks;
 use crate::tools::parallel::ToolCallRuntime;
 use crate::tools::router::ToolRouter;
+use futures::Future;
 use opencli_protocol::models::FunctionCallOutputPayload;
 use opencli_protocol::models::ResponseInputItem;
 use opencli_protocol::models::ResponseItem;
-use futures::Future;
 use tracing::debug;
 use tracing::instrument;
 
@@ -174,7 +174,9 @@ pub(crate) async fn handle_non_tool_response_item(
                     .content
                     .iter()
                     .map(|entry| match entry {
-                        opencli_protocol::items::AgentMessageContent::Text { text } => text.as_str(),
+                        opencli_protocol::items::AgentMessageContent::Text { text } => {
+                            text.as_str()
+                        }
                     })
                     .collect::<String>();
                 let stripped = strip_proposed_plan_blocks(&combined);

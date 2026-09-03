@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::Prompt;
+use crate::error::Result as OpenCLIResult;
 use crate::opencli::Session;
 use crate::opencli::TurnContext;
-use crate::error::Result as OpenCLIResult;
 use crate::protocol::CompactedItem;
 use crate::protocol::EventMsg;
 use crate::protocol::RolloutItem;

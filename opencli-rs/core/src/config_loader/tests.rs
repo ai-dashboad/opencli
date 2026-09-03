@@ -618,7 +618,10 @@ async fn project_layers_prefer_closest_cwd() -> std::io::Result<()> {
         })
         .collect();
     assert_eq!(project_layers.len(), 2);
-    assert_eq!(project_layers[0].as_path(), nested.join(".opencli").as_path());
+    assert_eq!(
+        project_layers[0].as_path(),
+        nested.join(".opencli").as_path()
+    );
     assert_eq!(
         project_layers[1].as_path(),
         project_root.join(".opencli").as_path()
@@ -649,7 +652,11 @@ model_instructions_file = "root.txt"
     let nested_cfg = r#"
 model_instructions_file = "child.txt"
 "#;
-    tokio::fs::write(project_root.join(".opencli").join(CONFIG_TOML_FILE), root_cfg).await?;
+    tokio::fs::write(
+        project_root.join(".opencli").join(CONFIG_TOML_FILE),
+        root_cfg,
+    )
+    .await?;
     tokio::fs::write(nested.join(".opencli").join(CONFIG_TOML_FILE), nested_cfg).await?;
     tokio::fs::write(
         project_root.join(".opencli").join("root.txt"),
@@ -720,7 +727,8 @@ async fn cli_override_model_instructions_file_sets_base_instructions() -> std::i
 }
 
 #[tokio::test]
-async fn project_layer_is_added_when_dot_opencli_exists_without_config_toml() -> std::io::Result<()> {
+async fn project_layer_is_added_when_dot_opencli_exists_without_config_toml() -> std::io::Result<()>
+{
     let tmp = tempdir()?;
     let project_root = tmp.path().join("project");
     let nested = project_root.join("child");
@@ -749,7 +757,9 @@ async fn project_layer_is_added_when_dot_opencli_exists_without_config_toml() ->
     assert_eq!(
         vec![&ConfigLayerEntry {
             name: super::ConfigLayerSource::Project {
-                dot_opencli_folder: AbsolutePathBuf::from_absolute_path(project_root.join(".opencli"))?,
+                dot_opencli_folder: AbsolutePathBuf::from_absolute_path(
+                    project_root.join(".opencli")
+                )?,
             },
             config: TomlValue::Table(toml::map::Map::new()),
             version: version_for_toml(&TomlValue::Table(toml::map::Map::new())),
@@ -807,10 +817,20 @@ async fn opencli_home_within_project_tree_is_not_double_loaded() -> std::io::Res
 
     tokio::fs::create_dir_all(&nested_dot_opencli).await?;
     tokio::fs::create_dir_all(project_root.join(".git")).await?;
-    tokio::fs::write(nested_dot_opencli.join(CONFIG_TOML_FILE), "foo = \"child\"\n").await?;
+    tokio::fs::write(
+        nested_dot_opencli.join(CONFIG_TOML_FILE),
+        "foo = \"child\"\n",
+    )
+    .await?;
 
     tokio::fs::create_dir_all(&project_dot_opencli).await?;
-    make_config_for_test(&project_dot_opencli, &project_root, TrustLevel::Trusted, None).await?;
+    make_config_for_test(
+        &project_dot_opencli,
+        &project_root,
+        TrustLevel::Trusted,
+        None,
+    )
+    .await?;
     let user_config_path = project_dot_opencli.join(CONFIG_TOML_FILE);
     let user_config_contents = tokio::fs::read_to_string(&user_config_path).await?;
     tokio::fs::write(
@@ -1104,7 +1124,10 @@ async fn project_root_markers_supports_alternate_markers() -> std::io::Result<()
         })
         .collect();
     assert_eq!(project_layers.len(), 2);
-    assert_eq!(project_layers[0].as_path(), nested.join(".opencli").as_path());
+    assert_eq!(
+        project_layers[0].as_path(),
+        nested.join(".opencli").as_path()
+    );
     assert_eq!(
         project_layers[1].as_path(),
         project_root.join(".opencli").as_path()

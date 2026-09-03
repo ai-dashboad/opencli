@@ -2,14 +2,14 @@ use crate::common::ResponseEvent;
 use crate::common::ResponseStream;
 use crate::error::ApiError;
 use crate::telemetry::SseTelemetry;
+use eventsource_stream::Eventsource;
+use futures::Stream;
+use futures::StreamExt;
 use opencli_client::StreamResponse;
 use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::ReasoningItemContent;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::TokenUsage;
-use eventsource_stream::Eventsource;
-use futures::Stream;
-use futures::StreamExt;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -330,7 +330,11 @@ pub async fn process_chat_sse<S>(
             }
 
             if finish_reason == Some("length") {
-                let _ = tx_event.send(Err(ApiError::ContextWindowExceeded { context_limit: None })).await;
+                let _ = tx_event
+                    .send(Err(ApiError::ContextWindowExceeded {
+                        context_limit: None,
+                    }))
+                    .await;
                 return;
             }
 
@@ -433,8 +437,8 @@ async fn append_reasoning_text(
 mod tests {
     use super::*;
     use assert_matches::assert_matches;
-    use opencli_protocol::models::ResponseItem;
     use futures::TryStreamExt;
+    use opencli_protocol::models::ResponseItem;
     use serde_json::json;
     use tokio::sync::mpsc;
     use tokio_util::io::ReaderStream;
@@ -545,7 +549,10 @@ mod tests {
         let events = collect_events(&body).await;
         assert_matches!(
             events.last(),
-            Some(ResponseEvent::Completed { token_usage: None, .. })
+            Some(ResponseEvent::Completed {
+                token_usage: None,
+                ..
+            })
         );
     }
 
@@ -567,8 +574,8 @@ mod tests {
 
     #[test]
     fn should_work_out_a_total_a_provider_did_not_give() {
-        let usage = parse_usage(&json!({ "prompt_tokens": 10, "completion_tokens": 5 }))
-            .expect("parsed");
+        let usage =
+            parse_usage(&json!({ "prompt_tokens": 10, "completion_tokens": 5 })).expect("parsed");
         assert_eq!(usage.total_tokens, 15);
     }
 

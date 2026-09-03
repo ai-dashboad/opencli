@@ -622,7 +622,10 @@ mod tests {
         let root = dir.path();
         // git init and minimal identity
         let _ = run(root, &["git", "init"]);
-        let _ = run(root, &["git", "config", "user.email", "opencli@example.com"]);
+        let _ = run(
+            root,
+            &["git", "config", "user.email", "opencli@example.com"],
+        );
         let _ = run(root, &["git", "config", "user.name", "OpenCLI"]);
         dir
     }

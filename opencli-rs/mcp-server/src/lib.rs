@@ -19,11 +19,11 @@ use tracing::error;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-mod opencli_tool_config;
-mod opencli_tool_runner;
 mod error_code;
 mod exec_approval;
 pub(crate) mod message_processor;
+mod opencli_tool_config;
+mod opencli_tool_runner;
 mod outgoing_message;
 mod patch_approval;
 
@@ -31,10 +31,10 @@ use crate::message_processor::MessageProcessor;
 use crate::outgoing_message::OutgoingMessage;
 use crate::outgoing_message::OutgoingMessageSender;
 
-pub use crate::opencli_tool_config::OpenCLIToolCallParam;
-pub use crate::opencli_tool_config::OpenCLIToolCallReplyParam;
 pub use crate::exec_approval::ExecApprovalElicitRequestParams;
 pub use crate::exec_approval::ExecApprovalResponse;
+pub use crate::opencli_tool_config::OpenCLIToolCallParam;
+pub use crate::opencli_tool_config::OpenCLIToolCallReplyParam;
 pub use crate::patch_approval::PatchApprovalElicitRequestParams;
 pub use crate::patch_approval::PatchApprovalResponse;
 

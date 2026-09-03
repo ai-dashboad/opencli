@@ -1,10 +1,10 @@
+use multimap::MultiMap;
 use opencli_execpolicy::Decision;
 use opencli_execpolicy::Policy;
 use opencli_execpolicy::rule::PatternToken;
 use opencli_execpolicy::rule::PrefixPattern;
 use opencli_execpolicy::rule::PrefixRule;
 use opencli_execpolicy::rule::RuleRef;
-use multimap::MultiMap;
 use serde::Deserialize;
 use std::sync::Arc;
 use thiserror::Error;

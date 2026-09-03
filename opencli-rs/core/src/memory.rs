@@ -145,7 +145,10 @@ pub fn as_instructions(memories: &[Memory]) -> String {
 fn rand_suffix() -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::BuildHasher;
-    format!("{:x}", RandomState::new().hash_one(now_seconds()) & 0xffffff)
+    format!(
+        "{:x}",
+        RandomState::new().hash_one(now_seconds()) & 0xffffff
+    )
 }
 
 #[cfg(test)]
@@ -182,7 +185,11 @@ mod tests {
     #[test]
     fn should_report_an_unknown_id_rather_than_creating_one() {
         let dir = tempdir().expect("tempdir");
-        assert!(update(dir.path(), "nope", "x".into()).expect("update").is_none());
+        assert!(
+            update(dir.path(), "nope", "x".into())
+                .expect("update")
+                .is_none()
+        );
         assert!(!delete(dir.path(), "nope").expect("delete"));
     }
 

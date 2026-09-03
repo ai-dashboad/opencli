@@ -22,14 +22,14 @@ use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
 use crate::AuthManager;
+use crate::config::Config;
+use crate::error::OpenCLIErr;
+use crate::models_manager::manager::ModelsManager;
 use crate::opencli::OpenCLI;
 use crate::opencli::OpenCLISpawnOk;
 use crate::opencli::SUBMISSION_CHANNEL_CAPACITY;
 use crate::opencli::Session;
 use crate::opencli::TurnContext;
-use crate::config::Config;
-use crate::error::OpenCLIErr;
-use crate::models_manager::manager::ModelsManager;
 use opencli_protocol::protocol::InitialHistory;
 
 /// Start an interactive sub-OpenCLI thread and return IO channels.

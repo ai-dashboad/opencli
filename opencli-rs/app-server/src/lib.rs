@@ -42,7 +42,6 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 mod bespoke_event_handling;
-mod opencli_message_processor;
 mod config_api;
 mod dynamic_tools;
 mod error_code;
@@ -50,6 +49,7 @@ mod filters;
 mod fuzzy_file_search;
 mod message_processor;
 mod models;
+mod opencli_message_processor;
 mod outgoing_message;
 
 /// Size of the bounded channels used to communicate between tasks. The value
@@ -218,11 +218,12 @@ pub async fn run_main(
             let effective_toml = config.config_layer_stack.effective_config();
             match effective_toml.try_into() {
                 Ok(config_toml) => {
-                    if let Err(err) = opencli_core::personality_migration::maybe_migrate_personality(
-                        &config.opencli_home,
-                        &config_toml,
-                    )
-                    .await
+                    if let Err(err) =
+                        opencli_core::personality_migration::maybe_migrate_personality(
+                            &config.opencli_home,
+                            &config_toml,
+                        )
+                        .await
                     {
                         warn!(error = %err, "Failed to run personality migration");
                     }

@@ -20,20 +20,6 @@ use anyhow::Context;
 use anyhow::Result;
 use anyhow::anyhow;
 use async_channel::Sender;
-use opencli_async_utils::CancelErr;
-use opencli_async_utils::OrCancelExt;
-use opencli_protocol::approvals::ElicitationRequestEvent;
-use opencli_protocol::protocol::Event;
-use opencli_protocol::protocol::EventMsg;
-use opencli_protocol::protocol::McpStartupCompleteEvent;
-use opencli_protocol::protocol::McpStartupFailure;
-use opencli_protocol::protocol::McpStartupStatus;
-use opencli_protocol::protocol::McpStartupUpdateEvent;
-use opencli_protocol::protocol::SandboxPolicy;
-use opencli_rmcp_client::ElicitationResponse;
-use opencli_rmcp_client::OAuthCredentialsStoreMode;
-use opencli_rmcp_client::RmcpClient;
-use opencli_rmcp_client::SendElicitation;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::future::Shared;
@@ -49,6 +35,20 @@ use mcp_types::RequestId;
 use mcp_types::Resource;
 use mcp_types::ResourceTemplate;
 use mcp_types::Tool;
+use opencli_async_utils::CancelErr;
+use opencli_async_utils::OrCancelExt;
+use opencli_protocol::approvals::ElicitationRequestEvent;
+use opencli_protocol::protocol::Event;
+use opencli_protocol::protocol::EventMsg;
+use opencli_protocol::protocol::McpStartupCompleteEvent;
+use opencli_protocol::protocol::McpStartupFailure;
+use opencli_protocol::protocol::McpStartupStatus;
+use opencli_protocol::protocol::McpStartupUpdateEvent;
+use opencli_protocol::protocol::SandboxPolicy;
+use opencli_rmcp_client::ElicitationResponse;
+use opencli_rmcp_client::OAuthCredentialsStoreMode;
+use opencli_rmcp_client::RmcpClient;
+use opencli_rmcp_client::SendElicitation;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -62,9 +62,9 @@ use tokio_util::sync::CancellationToken;
 use tracing::instrument;
 use tracing::warn;
 
-use crate::opencli::INITIAL_SUBMIT_ID;
 use crate::config::types::McpServerConfig;
 use crate::config::types::McpServerTransportConfig;
+use crate::opencli::INITIAL_SUBMIT_ID;
 
 /// Delimiter used to separate the server name from the tool name in a fully
 /// qualified tool name.
@@ -956,8 +956,11 @@ async fn list_tools_for_client(
             let connector_name = tool.connector_name;
             let mut tool_def = tool.tool;
             if let Some(title) = tool_def.title.as_deref() {
-                let normalized_title =
-                    normalize_opencli_apps_tool_title(server_name, connector_name.as_deref(), title);
+                let normalized_title = normalize_opencli_apps_tool_title(
+                    server_name,
+                    connector_name.as_deref(),
+                    title,
+                );
                 if tool_def.title.as_deref() != Some(normalized_title.as_str()) {
                     tool_def.title = Some(normalized_title);
                 }
@@ -1046,8 +1049,8 @@ mod mcp_init_error_display_tests {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opencli_protocol::protocol::McpAuthStatus;
     use mcp_types::ToolInputSchema;
+    use opencli_protocol::protocol::McpAuthStatus;
     use std::collections::HashSet;
 
     fn create_test_tool(server_name: &str, tool_name: &str) -> ToolInfo {

@@ -1,10 +1,19 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
+use core_test_support::load_default_config_for_test;
+use core_test_support::responses::WebSocketConnectionConfig;
+use core_test_support::responses::WebSocketTestServer;
+use core_test_support::responses::ev_completed;
+use core_test_support::responses::ev_response_created;
+use core_test_support::responses::start_websocket_server;
+use core_test_support::responses::start_websocket_server_with_headers;
+use core_test_support::skip_if_no_network;
+use futures::StreamExt;
 use opencli_core::AuthManager;
-use opencli_core::OpenCLIAuth;
 use opencli_core::ContentItem;
 use opencli_core::ModelClient;
 use opencli_core::ModelClientSession;
 use opencli_core::ModelProviderInfo;
+use opencli_core::OpenCLIAuth;
 use opencli_core::Prompt;
 use opencli_core::ResponseEvent;
 use opencli_core::ResponseItem;
@@ -18,15 +27,6 @@ use opencli_otel::metrics::MetricsClient;
 use opencli_otel::metrics::MetricsConfig;
 use opencli_protocol::ThreadId;
 use opencli_protocol::config_types::ReasoningSummary;
-use core_test_support::load_default_config_for_test;
-use core_test_support::responses::WebSocketConnectionConfig;
-use core_test_support::responses::WebSocketTestServer;
-use core_test_support::responses::ev_completed;
-use core_test_support::responses::ev_response_created;
-use core_test_support::responses::start_websocket_server;
-use core_test_support::responses::start_websocket_server_with_headers;
-use core_test_support::skip_if_no_network;
-use futures::StreamExt;
 use opentelemetry_sdk::metrics::InMemoryMetricExporter;
 use pretty_assertions::assert_eq;
 use std::sync::Arc;
@@ -248,7 +248,8 @@ async fn websocket_harness(server: &WebSocketTestServer) -> WebsocketTestHarness
     let config = Arc::new(config);
     let model_info = ModelsManager::construct_model_info_offline(MODEL, &config);
     let conversation_id = ThreadId::new();
-    let auth_manager = AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
+    let auth_manager =
+        AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
     let exporter = InMemoryMetricExporter::default();
     let metrics = MetricsClient::new(
         MetricsConfig::in_memory("test", "opencli-core", env!("CARGO_PKG_VERSION"), exporter)

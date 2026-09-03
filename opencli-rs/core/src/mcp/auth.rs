@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use futures::future::join_all;
 use opencli_protocol::protocol::McpAuthStatus;
 use opencli_rmcp_client::OAuthCredentialsStoreMode;
 use opencli_rmcp_client::determine_streamable_http_auth_status;
 use opencli_rmcp_client::supports_oauth_login;
-use futures::future::join_all;
 use tracing::warn;
 
 use crate::config::types::McpServerConfig;

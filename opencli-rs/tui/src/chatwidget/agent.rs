@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use opencli_core::OpenCLIThread;
 use opencli_core::NewThread;
+use opencli_core::OpenCLIThread;
 use opencli_core::ThreadManager;
 use opencli_core::config::Config;
 use opencli_core::protocol::Event;

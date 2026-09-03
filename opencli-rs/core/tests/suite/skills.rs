@@ -2,10 +2,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use anyhow::Result;
-use opencli_core::protocol::AskForApproval;
-use opencli_core::protocol::Op;
-use opencli_core::protocol::SandboxPolicy;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_response_created;
@@ -14,6 +10,10 @@ use core_test_support::responses::sse;
 use core_test_support::responses::start_mock_server;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::test_opencli;
+use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::SandboxPolicy;
+use opencli_protocol::user_input::UserInput;
 use std::fs;
 use std::path::Path;
 
@@ -124,7 +124,9 @@ async fn skill_load_errors_surface_in_session_configured() -> Result<()> {
         .await?;
     let response =
         core_test_support::wait_for_event_match(test.opencli.as_ref(), |event| match event {
-            opencli_core::protocol::EventMsg::ListSkillsResponse(response) => Some(response.clone()),
+            opencli_core::protocol::EventMsg::ListSkillsResponse(response) => {
+                Some(response.clone())
+            }
             _ => None,
         })
         .await;
@@ -192,7 +194,9 @@ async fn list_skills_includes_system_cache_entries() -> Result<()> {
         .await?;
     let response =
         core_test_support::wait_for_event_match(test.opencli.as_ref(), |event| match event {
-            opencli_core::protocol::EventMsg::ListSkillsResponse(response) => Some(response.clone()),
+            opencli_core::protocol::EventMsg::ListSkillsResponse(response) => {
+                Some(response.clone())
+            }
             _ => None,
         })
         .await;

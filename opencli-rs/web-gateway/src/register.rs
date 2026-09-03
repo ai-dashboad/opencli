@@ -193,20 +193,32 @@ mod tests {
     fn should_derive_one_provider_id_per_server() {
         // A second model on the same server must reuse the provider rather
         // than adding a near-duplicate beside it.
-        assert_eq!(provider_id("https://llm.example.com"), "ollama-llm-example-com");
+        assert_eq!(
+            provider_id("https://llm.example.com"),
+            "ollama-llm-example-com"
+        );
         assert_eq!(
             provider_id("https://llm.example.com/v1"),
             provider_id("https://llm.example.com")
         );
-        assert_eq!(provider_id("http://localhost:11434"), "ollama-localhost-11434");
+        assert_eq!(
+            provider_id("http://localhost:11434"),
+            "ollama-localhost-11434"
+        );
     }
 
     #[test]
     fn should_point_the_provider_at_the_openai_surface() {
         // The management API is at the root and the chat API under `/v1`; a
         // provider pointed at the root fails on every request.
-        assert_eq!(provider_url("http://localhost:11434"), "http://localhost:11434/v1");
-        assert_eq!(provider_url("http://localhost:11434/v1"), "http://localhost:11434/v1");
+        assert_eq!(
+            provider_url("http://localhost:11434"),
+            "http://localhost:11434/v1"
+        );
+        assert_eq!(
+            provider_url("http://localhost:11434/v1"),
+            "http://localhost:11434/v1"
+        );
     }
 
     #[test]
@@ -223,7 +235,10 @@ mod tests {
         assert_eq!(result["added"], true);
 
         let written = config_of(dir.path());
-        assert!(written.contains("[model_providers.ollama-llm-example-com]"), "got: {written}");
+        assert!(
+            written.contains("[model_providers.ollama-llm-example-com]"),
+            "got: {written}"
+        );
         assert!(written.contains("qwen2.5-coder:7b"), "got: {written}");
         assert!(written.contains("context_window = 32768"), "got: {written}");
         assert!(written.contains("wire_api = \"chat\""), "got: {written}");
@@ -246,10 +261,15 @@ mod tests {
         register(dir.path(), "https://llm.example.com", "b:7b", None, None).expect("second");
 
         let written = config_of(dir.path());
-        assert!(written.contains("a:7b"), "the first must survive: {written}");
+        assert!(
+            written.contains("a:7b"),
+            "the first must survive: {written}"
+        );
         assert!(written.contains("b:7b"), "got: {written}");
         assert_eq!(
-            written.matches("[model_providers.ollama-llm-example-com]").count(),
+            written
+                .matches("[model_providers.ollama-llm-example-com]")
+                .count(),
             1,
             "one provider, not one per model"
         );
@@ -271,7 +291,10 @@ mod tests {
         let written = config_of(dir.path());
         assert!(written.contains("# my notes"), "got: {written}");
         assert!(written.contains("model = \"something\""), "got: {written}");
-        assert!(written.contains("kept"), "an existing model must survive: {written}");
+        assert!(
+            written.contains("kept"),
+            "an existing model must survive: {written}"
+        );
         assert!(written.contains("new:7b"), "got: {written}");
     }
 
@@ -287,16 +310,28 @@ mod tests {
         )
         .expect("write");
 
-        register(dir.path(), "https://llm.example.com", "qwen2.5:0.5b", None, Some(32768))
-            .expect("register");
+        register(
+            dir.path(),
+            "https://llm.example.com",
+            "qwen2.5:0.5b",
+            None,
+            Some(32768),
+        )
+        .expect("register");
 
         let written = config_of(dir.path());
-        assert!(written.contains("qwen2.5:0.5b"), "the model must be written: {written}");
+        assert!(
+            written.contains("qwen2.5:0.5b"),
+            "the model must be written: {written}"
+        );
         // And the file must still parse, which is the part that breaks when a
         // bare key lands after a table.
         let parsed: toml_edit::DocumentMut = written.parse().expect("still valid TOML");
         assert!(
-            parsed.get("models").and_then(|m| m.as_array_of_tables()).is_some(),
+            parsed
+                .get("models")
+                .and_then(|m| m.as_array_of_tables())
+                .is_some(),
             "got: {written}"
         );
     }
@@ -307,18 +342,23 @@ mod tests {
         register(dir.path(), "https://llm.example.com", "a:7b", None, None).expect("register");
         register(dir.path(), "https://llm.example.com", "b:7b", None, None).expect("register");
 
-        let removed = unregister(dir.path(), "https://llm.example.com", "a:7b").expect("unregister");
+        let removed =
+            unregister(dir.path(), "https://llm.example.com", "a:7b").expect("unregister");
         assert_eq!(removed["removed"], true);
 
         let written = config_of(dir.path());
         assert!(!written.contains("a:7b"), "got: {written}");
-        assert!(written.contains("b:7b"), "the other must survive: {written}");
+        assert!(
+            written.contains("b:7b"),
+            "the other must survive: {written}"
+        );
     }
 
     #[test]
     fn should_report_nothing_removed_for_a_model_never_registered() {
         let dir = tempdir().expect("tempdir");
-        let result = unregister(dir.path(), "https://llm.example.com", "never").expect("unregister");
+        let result =
+            unregister(dir.path(), "https://llm.example.com", "never").expect("unregister");
         assert_eq!(result["removed"], false);
     }
 }

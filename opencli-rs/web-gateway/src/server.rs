@@ -60,7 +60,10 @@ fn server_json(server: &servers::Server) -> Value {
 }
 
 fn list(opencli_home: &Path) -> Result<Value, String> {
-    let data: Vec<Value> = servers::load(opencli_home).iter().map(server_json).collect();
+    let data: Vec<Value> = servers::load(opencli_home)
+        .iter()
+        .map(server_json)
+        .collect();
     Ok(json!({ "data": data }))
 }
 
@@ -169,8 +172,14 @@ fn update(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     let updated = servers::update(
         opencli_home,
         &id,
-        params.get("name").and_then(Value::as_str).map(str::to_string),
-        params.get("baseUrl").and_then(Value::as_str).map(str::to_string),
+        params
+            .get("name")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        params
+            .get("baseUrl")
+            .and_then(Value::as_str)
+            .map(str::to_string),
         alias,
     )
     .map_err(|err| format!("could not save: {err}"))?;
@@ -194,8 +203,8 @@ async fn open(server: &servers::Server) -> Result<(client::Session, String), Str
         .ssh_alias
         .as_ref()
         .ok_or("this server has no SSH alias, so it can only be managed over HTTP")?;
-    let settings =
-        ssh_config::resolve(alias).ok_or_else(|| format!("`{alias}` is not in your ~/.ssh/config"))?;
+    let settings = ssh_config::resolve(alias)
+        .ok_or_else(|| format!("`{alias}` is not in your ~/.ssh/config"))?;
     if !settings.unsupported.is_empty() {
         return Err(format!(
             "your config uses {} for `{alias}`, which this client does not support",
@@ -232,7 +241,10 @@ async fn diagnose(opencli_home: &Path, params: &Value) -> Result<Value, String> 
         .build()
     {
         Ok(client) => {
-            let root = server.base_url.trim_end_matches('/').trim_end_matches("/v1");
+            let root = server
+                .base_url
+                .trim_end_matches('/')
+                .trim_end_matches("/v1");
             match client.get(format!("{root}/api/version")).send().await {
                 Ok(response) if response.status().is_success() => {
                     let body: Value = response.json().await.unwrap_or(json!({}));
@@ -396,14 +408,20 @@ mod tests {
     use tempfile::tempdir;
 
     async fn call(raw: &str, home: &Path) -> Value {
-        let reply = handle(raw, home).await.expect("server methods are handled locally");
+        let reply = handle(raw, home)
+            .await
+            .expect("server methods are handled locally");
         serde_json::from_str(&reply).expect("valid JSON reply")
     }
 
     #[tokio::test]
     async fn should_pass_non_server_methods_through_to_the_agent() {
         let dir = tempdir().expect("tempdir");
-        assert!(handle(r#"{"method":"turn/start","id":1}"#, dir.path()).await.is_none());
+        assert!(
+            handle(r#"{"method":"turn/start","id":1}"#, dir.path())
+                .await
+                .is_none()
+        );
         assert!(handle("not json", dir.path()).await.is_none());
     }
 
@@ -442,9 +460,11 @@ mod tests {
             dir.path(),
         )
         .await;
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("ssh/config")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("ssh/config"))
+        );
     }
 
     #[tokio::test]

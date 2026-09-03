@@ -82,9 +82,11 @@ pub fn resolve_in(contents: &str, alias: &str) -> Option<HostSettings> {
             continue;
         }
 
-        let applies = current
-            .as_ref()
-            .is_some_and(|patterns| patterns.iter().any(|pattern| matches_pattern(pattern, alias)));
+        let applies = current.as_ref().is_some_and(|patterns| {
+            patterns
+                .iter()
+                .any(|pattern| matches_pattern(pattern, alias))
+        });
         if !applies {
             continue;
         }
@@ -96,7 +98,9 @@ pub fn resolve_in(contents: &str, alias: &str) -> Option<HostSettings> {
             unsupported.push(keyword);
         } else {
             // First value wins, as OpenSSH does.
-            collected.entry(keyword).or_insert_with(|| value.to_string());
+            collected
+                .entry(keyword)
+                .or_insert_with(|| value.to_string());
         }
     }
 
@@ -249,8 +253,7 @@ Host jumped
 
     #[test]
     fn should_let_the_first_value_win_as_openssh_does() {
-        let host =
-            resolve_in("Host x\n  User first\n  User second\n", "x").expect("named");
+        let host = resolve_in("Host x\n  User first\n  User second\n", "x").expect("named");
         assert_eq!(host.user.as_deref(), Some("first"));
     }
 
@@ -284,7 +287,10 @@ mod real_config_tests {
         // Every alias named in the file must resolve to somewhere.
         for line in contents.lines() {
             let line = line.trim();
-            let Some(rest) = line.strip_prefix("Host ").or_else(|| line.strip_prefix("host ")) else {
+            let Some(rest) = line
+                .strip_prefix("Host ")
+                .or_else(|| line.strip_prefix("host "))
+            else {
                 continue;
             };
             for alias in rest.split_whitespace() {
@@ -292,9 +298,15 @@ mod real_config_tests {
                     continue;
                 }
                 let resolved = resolve_in(&contents, alias);
-                assert!(resolved.is_some(), "`{alias}` is declared but does not resolve");
+                assert!(
+                    resolved.is_some(),
+                    "`{alias}` is declared but does not resolve"
+                );
                 let host = resolved.expect("just checked");
-                assert!(!host.hostname.is_empty(), "`{alias}` resolved to no address");
+                assert!(
+                    !host.hostname.is_empty(),
+                    "`{alias}` resolved to no address"
+                );
                 assert!(host.port > 0);
             }
         }

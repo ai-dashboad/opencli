@@ -40,6 +40,17 @@ use crate::user_notification::UserNotifier;
 use crate::util::error_or_panic;
 use async_channel::Receiver;
 use async_channel::Sender;
+use futures::future::BoxFuture;
+use futures::prelude::*;
+use futures::stream::FuturesOrdered;
+use mcp_types::CallToolResult;
+use mcp_types::ListResourceTemplatesRequestParams;
+use mcp_types::ListResourceTemplatesResult;
+use mcp_types::ListResourcesRequestParams;
+use mcp_types::ListResourcesResult;
+use mcp_types::ReadResourceRequestParams;
+use mcp_types::ReadResourceResult;
+use mcp_types::RequestId;
 use opencli_protocol::ThreadId;
 use opencli_protocol::approvals::ExecPolicyAmendment;
 use opencli_protocol::config_types::ModeKind;
@@ -69,17 +80,6 @@ use opencli_protocol::request_user_input::RequestUserInputArgs;
 use opencli_protocol::request_user_input::RequestUserInputResponse;
 use opencli_rmcp_client::ElicitationResponse;
 use opencli_rmcp_client::OAuthCredentialsStoreMode;
-use futures::future::BoxFuture;
-use futures::prelude::*;
-use futures::stream::FuturesOrdered;
-use mcp_types::CallToolResult;
-use mcp_types::ListResourceTemplatesRequestParams;
-use mcp_types::ListResourceTemplatesResult;
-use mcp_types::ListResourcesRequestParams;
-use mcp_types::ListResourcesResult;
-use mcp_types::ReadResourceRequestParams;
-use mcp_types::ReadResourceResult;
-use mcp_types::RequestId;
 use serde_json;
 use serde_json::Value;
 use tokio::sync::Mutex;
@@ -102,7 +102,6 @@ use crate::client::ModelClient;
 use crate::client::ModelClientSession;
 use crate::client_common::Prompt;
 use crate::client_common::ResponseEvent;
-use crate::opencli_thread::ThreadConfigSnapshot;
 use crate::compact::collect_user_messages;
 use crate::config::Config;
 use crate::config::Constrained;
@@ -131,6 +130,7 @@ use crate::mentions::build_skill_name_counts;
 use crate::mentions::collect_explicit_app_paths;
 use crate::mentions::collect_tool_mentions_from_messages;
 use crate::model_provider_info::CHAT_WIRE_API_DEPRECATION_SUMMARY;
+use crate::opencli_thread::ThreadConfigSnapshot;
 use crate::project_doc::get_user_instructions;
 use crate::proposed_plan_parser::ProposedPlanParser;
 use crate::proposed_plan_parser::ProposedPlanSegment;
@@ -214,8 +214,8 @@ use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::DeveloperInstructions;
 use opencli_protocol::models::ResponseInputItem;
 use opencli_protocol::models::ResponseItem;
-use opencli_protocol::protocol::OpenCLIErrorInfo;
 use opencli_protocol::protocol::InitialHistory;
+use opencli_protocol::protocol::OpenCLIErrorInfo;
 use opencli_protocol::user_input::UserInput;
 use opencli_utils_readiness::Readiness;
 use opencli_utils_readiness::ReadinessFlag;
@@ -328,7 +328,10 @@ impl OpenCLI {
                 // left untouched, and resumed history already carries whatever
                 // was persisted, so the guidance is appended exactly once.
                 let mut instructions = model_info.get_model_instructions(config.personality);
-                if config.features.enabled(crate::features::Feature::StructuredFileTools) {
+                if config
+                    .features
+                    .enabled(crate::features::Feature::StructuredFileTools)
+                {
                     instructions.push_str(crate::tools::STRUCTURED_FILE_TOOLS_GUIDANCE);
                 }
                 instructions
@@ -910,7 +913,8 @@ impl Session {
             );
         }
         let thread_name =
-            match session_index::find_thread_name_by_id(&config.opencli_home, &conversation_id).await
+            match session_index::find_thread_name_by_id(&config.opencli_home, &conversation_id)
+                .await
             {
                 Ok(name) => name,
                 Err(err) => {
@@ -2534,8 +2538,8 @@ mod handlers {
     use crate::opencli::SessionSettingsUpdate;
     use crate::opencli::TurnContext;
 
-    use crate::opencli::spawn_review_thread;
     use crate::config::Config;
+    use crate::opencli::spawn_review_thread;
 
     use crate::mcp::auth::compute_auth_statuses;
     use crate::mcp::collect_mcp_snapshot_from_manager;
@@ -2547,7 +2551,6 @@ mod handlers {
     use crate::tasks::UndoTask;
     use crate::tasks::UserShellCommandTask;
     use opencli_protocol::custom_prompts::CustomPrompt;
-    use opencli_protocol::protocol::OpenCLIErrorInfo;
     use opencli_protocol::protocol::ErrorEvent;
     use opencli_protocol::protocol::Event;
     use opencli_protocol::protocol::EventMsg;
@@ -2555,6 +2558,7 @@ mod handlers {
     use opencli_protocol::protocol::ListSkillsResponseEvent;
     use opencli_protocol::protocol::McpServerRefreshConfig;
     use opencli_protocol::protocol::Op;
+    use opencli_protocol::protocol::OpenCLIErrorInfo;
     use opencli_protocol::protocol::ReviewDecision;
     use opencli_protocol::protocol::ReviewRequest;
     use opencli_protocol::protocol::SkillsListEntry;
@@ -2565,6 +2569,7 @@ mod handlers {
     use opencli_protocol::request_user_input::RequestUserInputResponse;
 
     use crate::context_manager::is_user_turn_boundary;
+    use mcp_types::RequestId;
     use opencli_protocol::config_types::CollaborationMode;
     use opencli_protocol::config_types::ModeKind;
     use opencli_protocol::config_types::Settings;
@@ -2572,7 +2577,6 @@ mod handlers {
     use opencli_protocol::user_input::UserInput;
     use opencli_rmcp_client::ElicitationAction;
     use opencli_rmcp_client::ElicitationResponse;
-    use mcp_types::RequestId;
     use std::path::PathBuf;
     use std::sync::Arc;
     use tracing::info;
@@ -3574,8 +3578,9 @@ pub(crate) async fn run_turn(
                 sess.send_event(
                     &turn_context,
                     EventMsg::Warning(WarningEvent {
-                        message: "Context window exceeded; compacting the conversation and retrying."
-                            .to_string(),
+                        message:
+                            "Context window exceeded; compacting the conversation and retrying."
+                                .to_string(),
                     }),
                 )
                 .await;
@@ -3591,7 +3596,10 @@ pub(crate) async fn run_turn(
             // does not answer tidily: it returns HTTP 500 after two and a half
             // minutes, or nothing at all. Waiting for a well-formed refusal
             // meant the one thing that could have helped was never tried.
-            Err(e) if !compacted_after_overflow && is_over_compact_limit(&sess, &turn_context).await => {
+            Err(e)
+                if !compacted_after_overflow
+                    && is_over_compact_limit(&sess, &turn_context).await =>
+            {
                 compacted_after_overflow = true;
                 warn!("turn failed while the conversation was over its compaction limit: {e:#}");
                 sess.send_event(
@@ -5407,7 +5415,8 @@ mod tests {
                 .expect("event");
             match evt.msg {
                 EventMsg::Error(payload)
-                    if payload.opencli_error_info == Some(OpenCLIErrorInfo::ThreadRollbackFailed) =>
+                    if payload.opencli_error_info
+                        == Some(OpenCLIErrorInfo::ThreadRollbackFailed) =>
                 {
                     return payload;
                 }
@@ -6131,7 +6140,7 @@ mod tests {
             windows_sandbox_level: turn_context.windows_sandbox_level,
             justification: Some("test".to_string()),
             arg0: None,
-                    description: None,
+            description: None,
         };
 
         let params2 = ExecParams {
@@ -6143,7 +6152,7 @@ mod tests {
             windows_sandbox_level: turn_context.windows_sandbox_level,
             justification: params.justification.clone(),
             arg0: None,
-                    description: None,
+            description: None,
         };
 
         let turn_diff_tracker = Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new()));

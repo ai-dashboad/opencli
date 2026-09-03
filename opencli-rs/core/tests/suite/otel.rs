@@ -1,11 +1,3 @@
-use opencli_core::config::Constrained;
-use opencli_core::features::Feature;
-use opencli_protocol::protocol::AskForApproval;
-use opencli_protocol::protocol::EventMsg;
-use opencli_protocol::protocol::Op;
-use opencli_protocol::protocol::ReviewDecision;
-use opencli_protocol::protocol::SandboxPolicy;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_custom_tool_call;
@@ -25,6 +17,14 @@ use core_test_support::responses::start_mock_server;
 use core_test_support::test_opencli::TestOpenCLI;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::config::Constrained;
+use opencli_core::features::Feature;
+use opencli_protocol::protocol::AskForApproval;
+use opencli_protocol::protocol::EventMsg;
+use opencli_protocol::protocol::Op;
+use opencli_protocol::protocol::ReviewDecision;
+use opencli_protocol::protocol::SandboxPolicy;
+use opencli_protocol::user_input::UserInput;
 use std::sync::Mutex;
 use tracing::Level;
 use tracing_test::traced_test;
@@ -881,7 +881,9 @@ async fn handle_response_item_records_tool_result_for_local_shell_call() {
     logs_assert(|lines: &[&str]| {
         let line = lines
             .iter()
-            .find(|line| line.contains("opencli.tool_result") && line.contains("call_id=shell-call"))
+            .find(|line| {
+                line.contains("opencli.tool_result") && line.contains("call_id=shell-call")
+            })
             .ok_or_else(|| "missing opencli.tool_result event".to_string())?;
 
         if !line.contains("tool_name=local_shell") {
@@ -917,7 +919,8 @@ fn tool_decision_assertion<'a>(
         let line = lines
             .iter()
             .find(|line| {
-                line.contains("opencli.tool_decision") && line.contains(&format!("call_id={call_id}"))
+                line.contains("opencli.tool_decision")
+                    && line.contains(&format!("call_id={call_id}"))
             })
             .ok_or_else(|| format!("missing opencli.tool_decision event for {call_id}"))?;
 
@@ -1032,7 +1035,10 @@ async fn handle_container_exec_user_approved_records_tool_decision() {
         .await
         .unwrap();
 
-    wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ExecApprovalRequest(_))).await;
+    wait_for_event(&opencli, |ev| {
+        matches!(ev, EventMsg::ExecApprovalRequest(_))
+    })
+    .await;
 
     opencli
         .submit(Op::ExecApproval {
@@ -1092,7 +1098,10 @@ async fn handle_container_exec_user_approved_for_session_records_tool_decision()
         .await
         .unwrap();
 
-    wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ExecApprovalRequest(_))).await;
+    wait_for_event(&opencli, |ev| {
+        matches!(ev, EventMsg::ExecApprovalRequest(_))
+    })
+    .await;
 
     opencli
         .submit(Op::ExecApproval {
@@ -1152,7 +1161,10 @@ async fn handle_sandbox_error_user_approves_retry_records_tool_decision() {
         .await
         .unwrap();
 
-    wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ExecApprovalRequest(_))).await;
+    wait_for_event(&opencli, |ev| {
+        matches!(ev, EventMsg::ExecApprovalRequest(_))
+    })
+    .await;
 
     opencli
         .submit(Op::ExecApproval {
@@ -1212,7 +1224,10 @@ async fn handle_container_exec_user_denies_records_tool_decision() {
         .await
         .unwrap();
 
-    wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ExecApprovalRequest(_))).await;
+    wait_for_event(&opencli, |ev| {
+        matches!(ev, EventMsg::ExecApprovalRequest(_))
+    })
+    .await;
 
     opencli
         .submit(Op::ExecApproval {
@@ -1272,7 +1287,10 @@ async fn handle_sandbox_error_user_approves_for_session_records_tool_decision() 
         .await
         .unwrap();
 
-    wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ExecApprovalRequest(_))).await;
+    wait_for_event(&opencli, |ev| {
+        matches!(ev, EventMsg::ExecApprovalRequest(_))
+    })
+    .await;
 
     opencli
         .submit(Op::ExecApproval {
@@ -1333,7 +1351,10 @@ async fn handle_sandbox_error_user_denies_records_tool_decision() {
         .await
         .unwrap();
 
-    wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ExecApprovalRequest(_))).await;
+    wait_for_event(&opencli, |ev| {
+        matches!(ev, EventMsg::ExecApprovalRequest(_))
+    })
+    .await;
 
     opencli
         .submit(Op::ExecApproval {

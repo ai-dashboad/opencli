@@ -1,5 +1,5 @@
-use opencli_core::features::FEATURES;
 use lazy_static::lazy_static;
+use opencli_core::features::FEATURES;
 use rand::Rng;
 
 const ANNOUNCEMENT_TIP_URL: &str =

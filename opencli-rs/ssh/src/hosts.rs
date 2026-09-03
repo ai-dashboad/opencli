@@ -180,7 +180,14 @@ pub fn remember(hostname: &str, port: u16, algorithm: &str, key: &str) -> std::i
 /// from the recorded text than something that looks official and is wrong.
 fn fingerprint(algorithm: &str, key: &str) -> String {
     let head: String = key.chars().take(12).collect();
-    let tail: String = key.chars().rev().take(12).collect::<Vec<_>>().into_iter().rev().collect();
+    let tail: String = key
+        .chars()
+        .rev()
+        .take(12)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
     format!("{algorithm} {head}…{tail}")
 }
 

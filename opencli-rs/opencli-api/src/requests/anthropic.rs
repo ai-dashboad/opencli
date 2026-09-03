@@ -63,7 +63,10 @@ impl<'a> AnthropicRequestBuilder<'a> {
 
     pub fn build(self) -> Result<AnthropicRequest, ApiError> {
         let mut headers = HeaderMap::new();
-        headers.insert("anthropic-version", HeaderValue::from_static(ANTHROPIC_VERSION));
+        headers.insert(
+            "anthropic-version",
+            HeaderValue::from_static(ANTHROPIC_VERSION),
+        );
 
         let body = json!({
             "model": self.model,
@@ -244,7 +247,10 @@ mod tests {
             .build()
             .expect("build");
         assert_eq!(
-            request.headers.get("anthropic-version").map(|v| v.to_str().unwrap_or("")),
+            request
+                .headers
+                .get("anthropic-version")
+                .map(|v| v.to_str().unwrap_or("")),
             Some(ANTHROPIC_VERSION)
         );
     }
@@ -264,7 +270,10 @@ mod tests {
 
         assert_eq!(converted.len(), 1);
         assert_eq!(converted[0]["name"], "shell");
-        assert_eq!(converted[0]["input_schema"]["properties"]["cmd"]["type"], "string");
+        assert_eq!(
+            converted[0]["input_schema"]["properties"]["cmd"]["type"],
+            "string"
+        );
         // The OpenAI-only wrapper keys must be gone.
         assert!(converted[0].get("function").is_none());
         assert!(converted[0].get("parameters").is_none());

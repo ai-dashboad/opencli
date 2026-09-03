@@ -1,21 +1,15 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::error_code::INVALID_REQUEST_ERROR_CODE;
 use crate::opencli_tool_config::OpenCLIToolCallParam;
 use crate::opencli_tool_config::OpenCLIToolCallReplyParam;
 use crate::opencli_tool_config::create_tool_for_opencli_tool_call_param;
 use crate::opencli_tool_config::create_tool_for_opencli_tool_call_reply_param;
-use crate::error_code::INVALID_REQUEST_ERROR_CODE;
 use crate::outgoing_message::OutgoingMessageSender;
 use opencli_protocol::ThreadId;
 use opencli_protocol::protocol::SessionSource;
 
-use opencli_core::AuthManager;
-use opencli_core::ThreadManager;
-use opencli_core::config::Config;
-use opencli_core::default_client::USER_AGENT_SUFFIX;
-use opencli_core::default_client::get_opencli_user_agent;
-use opencli_core::protocol::Submission;
 use mcp_types::CallToolRequestParams;
 use mcp_types::CallToolResult;
 use mcp_types::ClientRequest as McpClientRequest;
@@ -31,6 +25,12 @@ use mcp_types::RequestId;
 use mcp_types::ServerCapabilitiesTools;
 use mcp_types::ServerNotification;
 use mcp_types::TextContent;
+use opencli_core::AuthManager;
+use opencli_core::ThreadManager;
+use opencli_core::config::Config;
+use opencli_core::default_client::USER_AGENT_SUFFIX;
+use opencli_core::default_client::get_opencli_user_agent;
+use opencli_core::protocol::Submission;
 use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::Mutex;

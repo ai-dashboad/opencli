@@ -3,13 +3,13 @@ use crate::auth::add_auth_headers;
 use crate::error::ApiError;
 use crate::provider::Provider;
 use crate::telemetry::run_with_request_telemetry;
+use http::HeaderMap;
+use http::Method;
+use http::header::ETAG;
 use opencli_client::HttpTransport;
 use opencli_client::RequestTelemetry;
 use opencli_protocol::openai_models::ModelInfo;
 use opencli_protocol::openai_models::ModelsResponse;
-use http::HeaderMap;
-use http::Method;
-use http::header::ETAG;
 use std::sync::Arc;
 
 pub struct ModelsClient<T: HttpTransport, A: AuthProvider> {
@@ -85,12 +85,12 @@ mod tests {
     use crate::provider::RetryConfig;
     use crate::provider::WireApi;
     use async_trait::async_trait;
+    use http::HeaderMap;
+    use http::StatusCode;
     use opencli_client::Request;
     use opencli_client::Response;
     use opencli_client::StreamResponse;
     use opencli_client::TransportError;
-    use http::HeaderMap;
-    use http::StatusCode;
     use pretty_assertions::assert_eq;
     use serde_json::json;
     use std::sync::Arc;

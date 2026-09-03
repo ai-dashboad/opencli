@@ -3,15 +3,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use opencli_core::OpenCLIAuth;
-use opencli_core::features::Feature;
-use opencli_core::protocol::AskForApproval;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_core::protocol::SandboxPolicy;
-use opencli_protocol::config_types::ReasoningSummary;
-use opencli_protocol::openai_models::ModelsResponse;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
@@ -22,6 +13,15 @@ use core_test_support::responses::sse_response;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::OpenCLIAuth;
+use opencli_core::features::Feature;
+use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::SandboxPolicy;
+use opencli_protocol::config_types::ReasoningSummary;
+use opencli_protocol::openai_models::ModelsResponse;
+use opencli_protocol::user_input::UserInput;
 use pretty_assertions::assert_eq;
 use wiremock::MockServer;
 

@@ -14,6 +14,10 @@ use crate::history_cell::UserHistoryCell;
 use crate::test_backend::VT100Backend;
 use crate::tui::FrameRequester;
 use assert_matches::assert_matches;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyModifiers;
+use insta::assert_snapshot;
 use opencli_common::approval_presets::builtin_approval_presets;
 use opencli_core::AuthManager;
 use opencli_core::OpenCLIAuth;
@@ -78,10 +82,6 @@ use opencli_protocol::protocol::OpenCLIErrorInfo;
 use opencli_protocol::user_input::TextElement;
 use opencli_protocol::user_input::UserInput;
 use opencli_utils_absolute_path::AbsolutePathBuf;
-use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
-use crossterm::event::KeyModifiers;
-use insta::assert_snapshot;
 use pretty_assertions::assert_eq;
 #[cfg(target_os = "windows")]
 use serial_test::serial;
@@ -2015,7 +2015,12 @@ async fn unified_exec_wait_after_final_agent_message_snapshot() {
         }),
     });
 
-    begin_unified_exec_startup(&mut chat, "call-wait", "proc-1", "cargo test -p opencli-core");
+    begin_unified_exec_startup(
+        &mut chat,
+        "call-wait",
+        "proc-1",
+        "cargo test -p opencli-core",
+    );
     terminal_interaction(&mut chat, "call-wait-stdin", "proc-1", "");
 
     chat.handle_opencli_event(Event {

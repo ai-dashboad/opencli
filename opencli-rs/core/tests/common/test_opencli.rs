@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
+use opencli_core::ModelProviderInfo;
 use opencli_core::OpenCLIAuth;
 use opencli_core::OpenCLIThread;
-use opencli_core::ModelProviderInfo;
 use opencli_core::ThreadManager;
 use opencli_core::built_in_model_providers;
 use opencli_core::config::Config;

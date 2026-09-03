@@ -6,10 +6,10 @@
 
 use opencli_core::memory;
 use opencli_core::projects;
-use std::path::PathBuf;
 use serde_json::Value;
 use serde_json::json;
 use std::path::Path;
+use std::path::PathBuf;
 
 /// Answer a `project/*` request, or return `None` to let it pass through to
 /// the app server.
@@ -344,9 +344,11 @@ mod tests {
             r#"{"method":"project/create","id":1,"params":{"name":"x"}}"#,
             dir.path(),
         );
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("cwd")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("cwd"))
+        );
     }
 
     #[test]
@@ -388,7 +390,10 @@ mod tests {
                 &format!(r#"{{"method":"{method}","id":1,"params":{{"id":"nope"}}}}"#),
                 dir.path(),
             );
-            assert!(reply["error"].is_object(), "{method} should report an error");
+            assert!(
+                reply["error"].is_object(),
+                "{method} should report an error"
+            );
         }
     }
 
@@ -400,9 +405,11 @@ mod tests {
                 {"name":"x","cwd":"/no/such/place"}}"#,
             dir.path(),
         );
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("does not exist")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("does not exist"))
+        );
     }
 
     #[test]
@@ -522,9 +529,11 @@ mod tests {
             &format!(r#"{{"method":"project/files","id":2,"params":{{"id":"{id}"}}}}"#),
             dir.path(),
         );
-        assert!(listed["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("no longer there")));
+        assert!(
+            listed["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("no longer there"))
+        );
     }
 
     #[test]
@@ -595,7 +604,10 @@ mod tests {
             dir.path(),
         );
         assert_eq!(pinned["result"]["pinned"], true);
-        assert_eq!(pinned["result"]["name"], "Site", "pinning changes nothing else");
+        assert_eq!(
+            pinned["result"]["name"], "Site",
+            "pinning changes nothing else"
+        );
     }
 
     #[test]
@@ -603,7 +615,11 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         create_one(dir.path());
         let listed = call(r#"{"method":"project/list","id":2}"#, dir.path());
-        assert!(listed["result"]["data"][0]["updatedAt"].as_u64().is_some_and(|at| at > 0));
+        assert!(
+            listed["result"]["data"][0]["updatedAt"]
+                .as_u64()
+                .is_some_and(|at| at > 0)
+        );
     }
 
     #[test]
@@ -636,6 +652,11 @@ mod tests {
         assert!(deleted["result"].is_object());
 
         let listed = call(r#"{"method":"project/list","id":3}"#, dir.path());
-        assert!(listed["result"]["data"].as_array().expect("data").is_empty());
+        assert!(
+            listed["result"]["data"]
+                .as_array()
+                .expect("data")
+                .is_empty()
+        );
     }
 }

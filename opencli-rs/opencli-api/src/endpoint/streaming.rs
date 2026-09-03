@@ -5,13 +5,13 @@ use crate::error::ApiError;
 use crate::provider::Provider;
 use crate::telemetry::SseTelemetry;
 use crate::telemetry::run_with_request_telemetry;
+use http::HeaderMap;
+use http::Method;
 use opencli_client::HttpTransport;
 use opencli_client::RequestCompression;
 use opencli_client::RequestTelemetry;
 use opencli_client::StreamResponse;
 use opencli_client::TransportError;
-use http::HeaderMap;
-use http::Method;
 use serde_json::Value;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -102,7 +102,9 @@ impl<T: HttpTransport, A: AuthProvider> StreamingClient<T, A> {
 /// so it is handled (compact + retry, learn the window) rather than retried
 /// blindly as a generic failure.
 fn classify_transport_error(err: TransportError) -> ApiError {
-    if let TransportError::Http { body: Some(body), .. } = &err
+    if let TransportError::Http {
+        body: Some(body), ..
+    } = &err
         && let Ok(value) = serde_json::from_str::<Value>(body)
     {
         let error = unwrap_nested_error(value.get("error").unwrap_or(&value));
@@ -201,7 +203,9 @@ mod tests {
     #[test]
     fn should_read_the_window_out_of_prose() {
         assert_eq!(
-            limit_from_message("request (36058 tokens) exceeds the available context size (32768 tokens)"),
+            limit_from_message(
+                "request (36058 tokens) exceeds the available context size (32768 tokens)"
+            ),
             Some(32_768)
         );
         assert_eq!(limit_from_message("something else entirely"), None);

@@ -1,12 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use anyhow::Result;
-use opencli_core::protocol::AskForApproval;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_core::protocol::SandboxPolicy;
-use opencli_protocol::config_types::ReasoningSummary;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_function_call;
@@ -16,6 +10,12 @@ use core_test_support::responses::sse;
 use core_test_support::responses::start_mock_server;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::SandboxPolicy;
+use opencli_protocol::config_types::ReasoningSummary;
+use opencli_protocol::user_input::UserInput;
 use serde_json::json;
 use std::fs;
 

@@ -63,7 +63,10 @@ fn task_json(task: &scheduled::ScheduledTask) -> Value {
 }
 
 fn list(opencli_home: &Path) -> Result<Value, String> {
-    let tasks: Vec<Value> = scheduled::load(opencli_home).iter().map(task_json).collect();
+    let tasks: Vec<Value> = scheduled::load(opencli_home)
+        .iter()
+        .map(task_json)
+        .collect();
     Ok(json!({ "data": tasks }))
 }
 
@@ -101,7 +104,10 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
 }
 
 fn delete(opencli_home: &Path, params: &Value) -> Result<Value, String> {
-    let id = params.get("id").and_then(Value::as_str).ok_or("id is required")?;
+    let id = params
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or("id is required")?;
     let removed =
         scheduled::delete(opencli_home, id).map_err(|err| format!("could not save: {err}"))?;
     if !removed {
@@ -111,7 +117,10 @@ fn delete(opencli_home: &Path, params: &Value) -> Result<Value, String> {
 }
 
 fn set_enabled(opencli_home: &Path, params: &Value) -> Result<Value, String> {
-    let id = params.get("id").and_then(Value::as_str).ok_or("id is required")?;
+    let id = params
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or("id is required")?;
     let enabled = params
         .get("enabled")
         .and_then(Value::as_bool)
@@ -204,7 +213,11 @@ mod tests {
             r#"{"method":"schedule/create","id":1,"params":{"name":"x","intervalSeconds":60}}"#,
             dir.path(),
         );
-        assert!(reply["error"]["message"].as_str().is_some_and(|m| m.contains("prompt")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("prompt"))
+        );
     }
 
     #[test]

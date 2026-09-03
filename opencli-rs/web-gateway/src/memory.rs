@@ -158,9 +158,11 @@ mod tests {
             r#"{"method":"memory/create","id":1,"params":{"text":"   "}}"#,
             dir.path(),
         );
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("text")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("text"))
+        );
     }
 
     #[test]
@@ -212,7 +214,9 @@ mod tests {
         let id = create_one(dir.path(), "old", None);
 
         let updated = call(
-            &format!(r#"{{"method":"memory/update","id":2,"params":{{"id":"{id}","text":"new"}}}}"#),
+            &format!(
+                r#"{{"method":"memory/update","id":2,"params":{{"id":"{id}","text":"new"}}}}"#
+            ),
             dir.path(),
         );
         assert_eq!(updated["result"]["text"], "new");
@@ -231,7 +235,10 @@ mod tests {
                 &format!(r#"{{"method":"{method}","id":1,"params":{params}}}"#),
                 dir.path(),
             );
-            assert!(reply["error"].is_object(), "{method} should report an error");
+            assert!(
+                reply["error"].is_object(),
+                "{method} should report an error"
+            );
         }
     }
 
@@ -247,6 +254,11 @@ mod tests {
         assert!(deleted["result"].is_object());
 
         let listed = call(r#"{"method":"memory/list","id":3}"#, dir.path());
-        assert!(listed["result"]["data"].as_array().expect("data").is_empty());
+        assert!(
+            listed["result"]["data"]
+                .as_array()
+                .expect("data")
+                .is_empty()
+        );
     }
 }

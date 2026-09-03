@@ -113,9 +113,7 @@ async fn probe(params: &Value) -> Result<Value, String> {
         .get(format!("{root}/api/version"))
         .send()
         .await
-        .map_err(|err| {
-            format!("could not reach it: {}", err.without_url_noise())
-        })?;
+        .map_err(|err| format!("could not reach it: {}", err.without_url_noise()))?;
 
     let status = response.status();
     if !status.is_success() {
@@ -133,9 +131,10 @@ async fn probe(params: &Value) -> Result<Value, String> {
         }));
     }
 
-    let body: Value = response.json().await.map_err(|_| {
-        "something answered, but not a model runtime".to_string()
-    })?;
+    let body: Value = response
+        .json()
+        .await
+        .map_err(|_| "something answered, but not a model runtime".to_string())?;
     let Some(version) = body.get("version").and_then(Value::as_str) else {
         return Err("something answered, but not a model runtime".to_string());
     };
@@ -382,11 +381,7 @@ async fn register_model(params: &Value, opencli_home: &std::path::Path) -> Resul
 /// Only a loaded model can say; an unloaded one is not being served with
 /// anything, and the trained figure is then the only honest answer available.
 async fn served_context(root: &str, model: &str) -> Option<i64> {
-    let response = client()
-        .get(format!("{root}/api/ps"))
-        .send()
-        .await
-        .ok()?;
+    let response = client().get(format!("{root}/api/ps")).send().await.ok()?;
     let body: Value = response.json().await.ok()?;
     body.get("models")?
         .as_array()?
@@ -563,7 +558,10 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
     {
         Ok(response) => response,
         Err(err) => {
-            notify(&out, root, model,
+            notify(
+                &out,
+                root,
+                model,
                 json!({ "error": format!("could not reach it: {}", err.without_url_noise()) }),
             )
             .await;
@@ -572,7 +570,10 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
     };
 
     if !response.status().is_success() {
-        notify(&out, root, model,
+        notify(
+            &out,
+            root,
+            model,
             json!({ "error": format!("the runtime answered {}", response.status()) }),
         )
         .await;
@@ -613,7 +614,10 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
             }
 
             let status = event.get("status").and_then(Value::as_str).unwrap_or("");
-            notify(&out, root, model,
+            notify(
+                &out,
+                root,
+                model,
                 json!({
                     "status": status,
                     "completed": event.get("completed"),
@@ -631,7 +635,10 @@ async fn stream_pull(root: &str, model: &str, out: Sender<String>) {
 
     // The stream ended without saying it succeeded — a dropped connection
     // mid-download. Say so rather than leaving a row spinning forever.
-    notify(&out, root, model,
+    notify(
+        &out,
+        root,
+        model,
         json!({ "error": "the connection ended before the download finished" }),
     )
     .await;
@@ -658,7 +665,9 @@ mod tests {
 
     /// Ask a method and read the reply, as the tests below all do.
     async fn call_in(raw: &str, home: &std::path::Path) -> Value {
-        let reply = handle(raw, home).await.expect("runtime methods are handled locally");
+        let reply = handle(raw, home)
+            .await
+            .expect("runtime methods are handled locally");
         serde_json::from_str(&reply).expect("valid JSON reply")
     }
 
@@ -693,8 +702,14 @@ mod tests {
         // Seven installed and two offered, with nothing explaining the gap,
         // reads as a broken picker rather than a step not yet taken.
         let dir = tempfile::tempdir().expect("tempdir");
-        crate::register::register(dir.path(), "http://localhost:11434", "qwen2.5:3b", None, None)
-            .expect("register");
+        crate::register::register(
+            dir.path(),
+            "http://localhost:11434",
+            "qwen2.5:3b",
+            None,
+            None,
+        )
+        .expect("register");
 
         let reply = call_in(
             r#"{"method":"runtime/registered","id":1,"params":{"baseUrl":"http://localhost:11434"}}"#,
@@ -707,8 +722,14 @@ mod tests {
     #[tokio::test]
     async fn should_not_credit_one_machine_with_another_machines_models() {
         let dir = tempfile::tempdir().expect("tempdir");
-        crate::register::register(dir.path(), "http://localhost:11434", "qwen2.5:3b", None, None)
-            .expect("register");
+        crate::register::register(
+            dir.path(),
+            "http://localhost:11434",
+            "qwen2.5:3b",
+            None,
+            None,
+        )
+        .expect("register");
 
         let reply = call_in(
             r#"{"method":"runtime/registered","id":1,"params":{"baseUrl":"https://elsewhere.example"}}"#,
@@ -733,7 +754,11 @@ mod tests {
     #[tokio::test]
     async fn should_pass_non_runtime_methods_through_to_the_agent() {
         let dir = tempfile::tempdir().expect("tempdir");
-        assert!(handle(r#"{"method":"turn/start","id":1}"#, dir.path()).await.is_none());
+        assert!(
+            handle(r#"{"method":"turn/start","id":1}"#, dir.path())
+                .await
+                .is_none()
+        );
         assert!(handle("not json", dir.path()).await.is_none());
     }
 
@@ -741,17 +766,23 @@ mod tests {
     async fn should_leave_pull_to_the_streaming_path() {
         // Answering it here would hold the reply for the whole download.
         assert!(
-            handle(r#"{"method":"runtime/pull","id":1,"params":{}}"#, std::path::Path::new("/tmp"))
-                .await
-                .is_none()
+            handle(
+                r#"{"method":"runtime/pull","id":1,"params":{}}"#,
+                std::path::Path::new("/tmp")
+            )
+            .await
+            .is_none()
         );
     }
 
     #[tokio::test]
     async fn should_describe_every_runtime_and_whether_it_can_be_driven_remotely() {
-        let reply = handle(r#"{"method":"runtime/list","id":1}"#, std::path::Path::new("/tmp"))
-            .await
-            .expect("handled");
+        let reply = handle(
+            r#"{"method":"runtime/list","id":1}"#,
+            std::path::Path::new("/tmp"),
+        )
+        .await
+        .expect("handled");
         let parsed: Value = serde_json::from_str(&reply).expect("valid JSON");
         let rows = parsed["result"]["data"].as_array().expect("data");
         assert_eq!(rows.len(), 4);
@@ -775,14 +806,27 @@ mod tests {
     fn should_strip_the_v1_a_provider_url_carries() {
         // A provider is configured as `.../v1`; the management API is not
         // under it, and asking for `/v1/api/tags` would 404 forever.
-        assert_eq!(management_root("http://localhost:11434/v1"), "http://localhost:11434");
-        assert_eq!(management_root("https://llm.example.com/v1/"), "https://llm.example.com");
-        assert_eq!(management_root("http://localhost:11434"), "http://localhost:11434");
+        assert_eq!(
+            management_root("http://localhost:11434/v1"),
+            "http://localhost:11434"
+        );
+        assert_eq!(
+            management_root("https://llm.example.com/v1/"),
+            "https://llm.example.com"
+        );
+        assert_eq!(
+            management_root("http://localhost:11434"),
+            "http://localhost:11434"
+        );
     }
 
     #[tokio::test]
     async fn should_refuse_an_address_that_is_not_a_url() {
-        for params in [r#"{}"#, r#"{"baseUrl":"gpu-box:11434"}"#, r#"{"baseUrl":""}"#] {
+        for params in [
+            r#"{}"#,
+            r#"{"baseUrl":"gpu-box:11434"}"#,
+            r#"{"baseUrl":""}"#,
+        ] {
             let reply = handle(
                 &format!(r#"{{"method":"runtime/models","id":1,"params":{params}}}"#),
                 std::path::Path::new("/tmp"),
@@ -799,9 +843,12 @@ mod tests {
         // This runs on every visit to the panel; four timeouts in sequence
         // would be long enough to look broken.
         let started = std::time::Instant::now();
-        let reply = handle(r#"{"method":"runtime/discover","id":1}"#, std::path::Path::new("/tmp"))
-            .await
-            .expect("handled");
+        let reply = handle(
+            r#"{"method":"runtime/discover","id":1}"#,
+            std::path::Path::new("/tmp"),
+        )
+        .await
+        .expect("handled");
         let parsed: Value = serde_json::from_str(&reply).expect("valid JSON");
         assert!(parsed["result"]["data"].is_array());
         assert!(

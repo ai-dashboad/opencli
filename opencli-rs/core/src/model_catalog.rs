@@ -200,7 +200,11 @@ mod tests {
         for entry in &entries {
             assert!(!entry.tag.is_empty());
             assert!(!entry.note.is_empty(), "`{}` needs a note", entry.tag);
-            assert!(entry.needs_gb > 0.0, "`{}` needs a memory figure", entry.tag);
+            assert!(
+                entry.needs_gb > 0.0,
+                "`{}` needs a memory figure",
+                entry.tag
+            );
         }
     }
 
@@ -209,7 +213,10 @@ mod tests {
         // A catalogue that hid this would recommend disappointment.
         let entries = bundled();
         let without: Vec<&CatalogModel> = entries.iter().filter(|entry| !entry.tools).collect();
-        assert!(!without.is_empty(), "the catalogue should include some, and say so");
+        assert!(
+            !without.is_empty(),
+            "the catalogue should include some, and say so"
+        );
         for entry in without {
             assert!(
                 entry.note.to_lowercase().contains("tool"),

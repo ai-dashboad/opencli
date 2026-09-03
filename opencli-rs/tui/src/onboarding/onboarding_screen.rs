@@ -1,9 +1,9 @@
-use opencli_core::AuthManager;
-use opencli_core::config::Config;
-use opencli_core::git_info::get_git_repo_root;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyEventKind;
+use opencli_core::AuthManager;
+use opencli_core::config::Config;
+use opencli_core::git_info::get_git_repo_root;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Widget;

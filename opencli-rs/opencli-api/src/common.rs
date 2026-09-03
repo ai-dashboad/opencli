@@ -1,11 +1,11 @@
 use crate::error::ApiError;
+use futures::Stream;
 use opencli_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use opencli_protocol::config_types::Verbosity as VerbosityConfig;
 use opencli_protocol::models::ResponseItem;
 use opencli_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use opencli_protocol::protocol::RateLimitSnapshot;
 use opencli_protocol::protocol::TokenUsage;
-use futures::Stream;
 use serde::Serialize;
 use serde_json::Value;
 use std::pin::Pin;

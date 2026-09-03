@@ -7,13 +7,13 @@
 
 use crate::auth::AuthMode;
 use crate::error::EnvVarError;
+use http::HeaderMap;
+use http::header::HeaderName;
+use http::header::HeaderValue;
 use opencli_api::Provider as ApiProvider;
 use opencli_api::WireApi as ApiWireApi;
 use opencli_api::is_azure_responses_wire_base_url;
 use opencli_api::provider::RetryConfig as ApiRetryConfig;
-use http::HeaderMap;
-use http::header::HeaderName;
-use http::header::HeaderValue;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde::Serialize;
@@ -298,8 +298,6 @@ pub const DEFAULT_OLLAMA_PORT: u16 = 11434;
 pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
 pub const OLLAMA_CHAT_PROVIDER_ID: &str = "ollama-chat";
-
-
 
 /// Built-in default provider list.
 /// Built-in default provider list.

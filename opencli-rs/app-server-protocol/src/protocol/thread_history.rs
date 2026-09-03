@@ -1,25 +1,25 @@
+use crate::protocol::v2::CommandExecutionStatus;
+use crate::protocol::v2::McpToolCallResult;
+use crate::protocol::v2::McpToolCallStatus;
+use crate::protocol::v2::PatchApplyStatus;
 use crate::protocol::v2::ThreadItem;
 use crate::protocol::v2::ThreadTokenUsage;
 use crate::protocol::v2::Turn;
 use crate::protocol::v2::TurnError;
 use crate::protocol::v2::TurnStatus;
 use crate::protocol::v2::UserInput;
+use crate::protocol::v2::file_changes_from_core;
+use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::AgentReasoningEvent;
 use opencli_protocol::protocol::AgentReasoningRawContentEvent;
 use opencli_protocol::protocol::EventMsg;
 use opencli_protocol::protocol::ItemCompletedEvent;
 use opencli_protocol::protocol::PatchApplyBeginEvent;
+use opencli_protocol::protocol::RolloutItem;
+use opencli_protocol::protocol::RolloutLine;
 use opencli_protocol::protocol::ThreadRolledBackEvent;
 use opencli_protocol::protocol::TurnAbortedEvent;
 use opencli_protocol::protocol::UserMessageEvent;
-use crate::protocol::v2::CommandExecutionStatus;
-use crate::protocol::v2::PatchApplyStatus;
-use crate::protocol::v2::file_changes_from_core;
-use crate::protocol::v2::McpToolCallResult;
-use crate::protocol::v2::McpToolCallStatus;
-use opencli_protocol::models::ResponseItem;
-use opencli_protocol::protocol::RolloutItem;
-use opencli_protocol::protocol::RolloutLine;
 
 /// Shown where a conversation was compacted.
 ///
@@ -31,8 +31,7 @@ use opencli_protocol::protocol::RolloutLine;
 /// survives a front end that has never heard of compaction — but worded to
 /// match the row the live view leaves behind, so the same event does not read
 /// as two different things depending on when you look at it.
-const COMPACTION_NOTICE: &str =
-    "— Summarised the conversation here to fit the model's context. \
+const COMPACTION_NOTICE: &str = "— Summarised the conversation here to fit the model's context. \
      Nothing was lost: the full transcript is on disk and shown above.";
 
 /// What a recorded tool output carries, once opened.
@@ -729,8 +728,9 @@ mod tests {
             RolloutItem::ResponseItem(ResponseItem::FunctionCall {
                 id: None,
                 name: "shell".to_string(),
-                arguments: r#"{"command":["bash","-lc","cargo test"],"description":"Run the tests"}"#
-                    .to_string(),
+                arguments:
+                    r#"{"command":["bash","-lc","cargo test"],"description":"Run the tests"}"#
+                        .to_string(),
                 call_id: "call-1".to_string(),
             }),
             RolloutItem::ResponseItem(ResponseItem::FunctionCallOutput {
@@ -753,7 +753,11 @@ mod tests {
                     description,
                     aggregated_output,
                     ..
-                } => Some((command.clone(), description.clone(), aggregated_output.clone())),
+                } => Some((
+                    command.clone(),
+                    description.clone(),
+                    aggregated_output.clone(),
+                )),
                 _ => None,
             })
             .expect("the command is in the history");
@@ -1166,15 +1170,19 @@ mod tests {
     fn should_show_what_a_command_printed_not_the_envelope_around_it() {
         // Stored as `{"output": "...", "metadata": {...}}`. Shown verbatim, a
         // directory listing arrives inside a JSON string, escapes and all.
-        let opened =
-            unwrap_output(r#"{"output":"total 8\ndrwxr-xr-x","metadata":{"exit_code":0,"duration_seconds":0.2}}"#);
+        let opened = unwrap_output(
+            r#"{"output":"total 8\ndrwxr-xr-x","metadata":{"exit_code":0,"duration_seconds":0.2}}"#,
+        );
         assert_eq!(opened.text, "total 8\ndrwxr-xr-x");
         assert_eq!(opened.exit_code, Some(0));
         assert_eq!(opened.duration_ms, Some(200));
 
         // A tool that returns plain text is returning plain text.
         assert_eq!(unwrap_output("just text").text, "just text");
-        assert_eq!(unwrap_output(r#"{"other":"shape"}"#).text, r#"{"other":"shape"}"#);
+        assert_eq!(
+            unwrap_output(r#"{"other":"shape"}"#).text,
+            r#"{"other":"shape"}"#
+        );
     }
 
     #[test]
@@ -1204,7 +1212,11 @@ mod tests {
         assert_eq!(said.len(), 2);
         // Says what happened and that nothing went missing — the two things
         // a reader needs where a conversation visibly jumps.
-        assert!(said[1].contains("Summarised the conversation"), "got: {}", said[1]);
+        assert!(
+            said[1].contains("Summarised the conversation"),
+            "got: {}",
+            said[1]
+        );
         assert!(said[1].contains("Nothing was lost"), "got: {}", said[1]);
     }
 
@@ -1241,7 +1253,8 @@ mod tests {
         };
 
         // Each figure is the running total at that moment, so the last wins.
-        let found = token_usage_from_rollout(&recorded(vec![usage(500), usage(101_420)])).expect("a total");
+        let found =
+            token_usage_from_rollout(&recorded(vec![usage(500), usage(101_420)])).expect("a total");
         assert_eq!(found.total.total_tokens, 101_420);
         assert_eq!(found.model_context_window, Some(32768));
 
@@ -1264,8 +1277,9 @@ mod tests {
             RolloutItem::ResponseItem(ResponseItem::FunctionCallOutput {
                 call_id: "call-1".to_string(),
                 output: FunctionCallOutputPayload {
-                    content: r#"{"output":"boom","metadata":{"exit_code":2,"duration_seconds":1.5}}"#
-                        .to_string(),
+                    content:
+                        r#"{"output":"boom","metadata":{"exit_code":2,"duration_seconds":1.5}}"#
+                            .to_string(),
                     content_items: None,
                     success: Some(false),
                 },
@@ -1331,7 +1345,13 @@ mod tests {
         // on configuration. A list of names written from memory got two of the
         // three wrong, and every command in an old conversation was then filed
         // as an unknown tool with no command in it.
-        for name in ["run", "local_shell", "run_command", "shell", "something_new"] {
+        for name in [
+            "run",
+            "local_shell",
+            "run_command",
+            "shell",
+            "something_new",
+        ] {
             let items = vec![RolloutItem::ResponseItem(ResponseItem::FunctionCall {
                 id: None,
                 name: name.to_string(),
@@ -1431,9 +1451,9 @@ mod tests {
             .iter()
             .flat_map(|turn| turn.items.iter())
             .find_map(|item| match item {
-                ThreadItem::FileChange { changes, status, .. } => {
-                    Some((changes.clone(), status.clone()))
-                }
+                ThreadItem::FileChange {
+                    changes, status, ..
+                } => Some((changes.clone(), status.clone())),
                 _ => None,
             })
             .expect("the edit is there");

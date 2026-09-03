@@ -321,8 +321,13 @@ mod tests {
         )
         .await?;
 
-        let out_2 =
-            exec_command(&session, &turn, "echo $OPENCLI_INTERACTIVE_SHELL_VAR", 2_500).await?;
+        let out_2 = exec_command(
+            &session,
+            &turn,
+            "echo $OPENCLI_INTERACTIVE_SHELL_VAR",
+            2_500,
+        )
+        .await?;
         tokio::time::sleep(Duration::from_secs(2)).await;
         assert!(
             out_2.process_id.is_none(),

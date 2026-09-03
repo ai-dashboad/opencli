@@ -3,13 +3,14 @@ use std::time::Instant;
 
 use tracing::error;
 
+use crate::mcp::OPENCLI_APPS_MCP_SERVER_NAME;
 use crate::opencli::Session;
 use crate::opencli::TurnContext;
-use crate::mcp::OPENCLI_APPS_MCP_SERVER_NAME;
 use crate::protocol::EventMsg;
 use crate::protocol::McpInvocation;
 use crate::protocol::McpToolCallBeginEvent;
 use crate::protocol::McpToolCallEndEvent;
+use mcp_types::ToolAnnotations;
 use opencli_protocol::models::FunctionCallOutputPayload;
 use opencli_protocol::models::ResponseInputItem;
 use opencli_protocol::protocol::AskForApproval;
@@ -18,7 +19,6 @@ use opencli_protocol::request_user_input::RequestUserInputArgs;
 use opencli_protocol::request_user_input::RequestUserInputQuestion;
 use opencli_protocol::request_user_input::RequestUserInputQuestionOption;
 use opencli_protocol::request_user_input::RequestUserInputResponse;
-use mcp_types::ToolAnnotations;
 use std::sync::Arc;
 
 /// Handles the specified tool call dispatches the appropriate
@@ -118,10 +118,11 @@ pub(crate) async fn handle_mcp_tool_call(
         };
 
         let status = if result.is_ok() { "ok" } else { "error" };
-        turn_context
-            .client
-            .get_otel_manager()
-            .counter("opencli.mcp.call", 1, &[("status", status)]);
+        turn_context.client.get_otel_manager().counter(
+            "opencli.mcp.call",
+            1,
+            &[("status", status)],
+        );
 
         return ResponseInputItem::McpToolCallOutput { call_id, result };
     }

@@ -5,6 +5,14 @@ use anyhow::Result;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
+use core_test_support::responses;
+use core_test_support::responses::ev_assistant_message;
+use core_test_support::responses::ev_completed;
+use core_test_support::responses::ev_response_created;
+use core_test_support::responses::sse;
+use core_test_support::responses::sse_response;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
 use opencli_core::OpenCLIAuth;
 use opencli_core::features::Feature;
 use opencli_core::models_manager::manager::RefreshStrategy;
@@ -20,14 +28,6 @@ use opencli_protocol::openai_models::ReasoningEffort;
 use opencli_protocol::openai_models::ReasoningEffortPreset;
 use opencli_protocol::openai_models::TruncationPolicyConfig;
 use opencli_protocol::user_input::UserInput;
-use core_test_support::responses;
-use core_test_support::responses::ev_assistant_message;
-use core_test_support::responses::ev_completed;
-use core_test_support::responses::ev_response_created;
-use core_test_support::responses::sse;
-use core_test_support::responses::sse_response;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
 use pretty_assertions::assert_eq;
 use serde::Deserialize;
 use serde::Serialize;
@@ -51,7 +51,8 @@ async fn renews_cache_ttl_on_matching_models_etag() -> Result<()> {
     )
     .await;
 
-    let mut builder = test_opencli().with_auth(OpenCLIAuth::create_dummy_chatgpt_auth_for_testing());
+    let mut builder =
+        test_opencli().with_auth(OpenCLIAuth::create_dummy_chatgpt_auth_for_testing());
     builder = builder.with_config(|config| {
         config.features.enable(Feature::RemoteModels);
         config.model = Some("gpt-5".to_string());

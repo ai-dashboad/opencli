@@ -296,7 +296,12 @@ mod tests {
     fn should_list_nothing_before_anything_is_configured() {
         let dir = tempdir().expect("tempdir");
         let listed = call(r#"{"method":"connector/list","id":1}"#, dir.path());
-        assert!(listed["result"]["data"].as_array().expect("data").is_empty());
+        assert!(
+            listed["result"]["data"]
+                .as_array()
+                .expect("data")
+                .is_empty()
+        );
     }
 
     #[test]
@@ -429,7 +434,10 @@ mod tests {
 
     #[test]
     fn should_offer_a_catalog_of_connectors_that_exist() {
-        let catalogued = call(r#"{"method":"connector/catalog","id":1}"#, Path::new("/tmp"));
+        let catalogued = call(
+            r#"{"method":"connector/catalog","id":1}"#,
+            Path::new("/tmp"),
+        );
         let rows = catalogued["result"]["data"].as_array().expect("data");
         assert!(rows.iter().any(|row| row["id"] == "figma"));
         assert!(

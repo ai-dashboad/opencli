@@ -5,12 +5,6 @@ use std::fs;
 use std::time::Duration;
 use std::time::Instant;
 
-use opencli_core::protocol::AskForApproval;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_core::protocol::SandboxPolicy;
-use opencli_protocol::config_types::ReasoningSummary;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_function_call;
@@ -26,6 +20,12 @@ use core_test_support::streaming_sse::start_streaming_sse_server;
 use core_test_support::test_opencli::TestOpenCLI;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::SandboxPolicy;
+use opencli_protocol::config_types::ReasoningSummary;
+use opencli_protocol::user_input::UserInput;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 use serde_json::json;
@@ -64,7 +64,9 @@ async fn run_turn_and_measure(test: &TestOpenCLI, prompt: &str) -> anyhow::Resul
 }
 
 #[allow(clippy::expect_used)]
-async fn build_opencli_with_test_tool(server: &wiremock::MockServer) -> anyhow::Result<TestOpenCLI> {
+async fn build_opencli_with_test_tool(
+    server: &wiremock::MockServer,
+) -> anyhow::Result<TestOpenCLI> {
     let mut builder = test_opencli().with_model("test-test-model");
     builder.build(server).await
 }

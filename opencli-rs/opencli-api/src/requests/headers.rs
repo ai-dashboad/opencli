@@ -1,6 +1,6 @@
-use opencli_protocol::protocol::SessionSource;
 use http::HeaderMap;
 use http::HeaderValue;
+use opencli_protocol::protocol::SessionSource;
 
 pub fn build_conversation_headers(conversation_id: Option<String>) -> HeaderMap {
     let mut headers = HeaderMap::new();

@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::opencli_message_processor::OpenCLIMessageProcessor;
-use crate::opencli_message_processor::OpenCLIMessageProcessorArgs;
 use crate::config_api::ConfigApi;
 use crate::error_code::INVALID_REQUEST_ERROR_CODE;
+use crate::opencli_message_processor::OpenCLIMessageProcessor;
+use crate::opencli_message_processor::OpenCLIMessageProcessorArgs;
 use crate::outgoing_message::OutgoingMessageSender;
 use async_trait::async_trait;
 use opencli_app_server_protocol::ChatgptAuthTokensRefreshParams;

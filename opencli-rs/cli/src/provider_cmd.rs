@@ -94,16 +94,17 @@ fn list(path: &Path) -> Result<()> {
 
 fn add(path: &Path, id: &str) -> Result<()> {
     let Some(provider) = providers::find(id) else {
-        bail!(
-            "unknown provider `{id}`; run `opencli provider list` to see the catalog",
-        );
+        bail!("unknown provider `{id}`; run `opencli provider list` to see the catalog",);
     };
     let mut doc = load_doc(path)?;
     write_provider(&mut doc, &provider);
-    std::fs::write(path, doc.to_string())
-        .with_context(|| format!("write {}", path.display()))?;
+    std::fs::write(path, doc.to_string()).with_context(|| format!("write {}", path.display()))?;
 
-    println!("Added [model_providers.{}] to {}", provider.id, path.display());
+    println!(
+        "Added [model_providers.{}] to {}",
+        provider.id,
+        path.display()
+    );
     if let Some(key) = provider.env_key.as_deref() {
         println!("Set {key} in your environment before using it.");
     }
@@ -149,7 +150,10 @@ fn write_models(doc: &mut toml_edit::DocumentMut, provider_id: &str, slugs: &[St
             array
                 .iter()
                 .filter_map(|table| {
-                    table.get("model").and_then(|v| v.as_str()).map(str::to_string)
+                    table
+                        .get("model")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
                 })
                 .collect()
         })
@@ -268,7 +272,10 @@ async fn scan(path: &Path, dry_run: bool) -> Result<()> {
     let mut found_any = false;
     let mut changed = false;
 
-    for provider in providers::all().into_iter().filter(CatalogProvider::is_local) {
+    for provider in providers::all()
+        .into_iter()
+        .filter(CatalogProvider::is_local)
+    {
         let mut open_port = None;
         for port in &provider.scan_ports {
             if port_is_open(*port).await {

@@ -113,16 +113,16 @@ impl ToolOrchestrator {
             }
             Err(ToolError::OpenCLI(OpenCLIErr::Sandbox(SandboxErr::Denied { output }))) => {
                 if !tool.escalate_on_failure() {
-                    return Err(ToolError::OpenCLI(OpenCLIErr::Sandbox(SandboxErr::Denied {
-                        output,
-                    })));
+                    return Err(ToolError::OpenCLI(OpenCLIErr::Sandbox(
+                        SandboxErr::Denied { output },
+                    )));
                 }
                 // Under `Never` or `OnRequest`, do not retry without sandbox; surface a concise
                 // sandbox denial that preserves the original output.
                 if !tool.wants_no_sandbox_approval(approval_policy) {
-                    return Err(ToolError::OpenCLI(OpenCLIErr::Sandbox(SandboxErr::Denied {
-                        output,
-                    })));
+                    return Err(ToolError::OpenCLI(OpenCLIErr::Sandbox(
+                        SandboxErr::Denied { output },
+                    )));
                 }
 
                 // Ask for approval before retrying without sandbox.

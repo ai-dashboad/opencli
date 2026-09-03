@@ -75,9 +75,10 @@ fn schema_root() -> Result<std::path::PathBuf> {
         .to_path_buf();
 
     // Sanity check that the JSON fixtures resolve to the same schema root.
-    let json_bundle =
-        opencli_utils_cargo_bin::find_resource!("schema/json/opencli_app_server_protocol.schemas.json")
-            .context("resolve JSON schema bundle")?;
+    let json_bundle = opencli_utils_cargo_bin::find_resource!(
+        "schema/json/opencli_app_server_protocol.schemas.json"
+    )
+    .context("resolve JSON schema bundle")?;
     let json_root = json_bundle
         .parent()
         .and_then(|p| p.parent())

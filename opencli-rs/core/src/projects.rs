@@ -165,7 +165,11 @@ pub fn attach_thread(opencli_home: &Path, id: &str, thread_id: &str) -> std::io:
     let Some(project) = projects.iter_mut().find(|project| project.id == id) else {
         return Ok(false);
     };
-    if project.thread_ids.iter().any(|existing| existing == thread_id) {
+    if project
+        .thread_ids
+        .iter()
+        .any(|existing| existing == thread_id)
+    {
         return Ok(true);
     }
     project.thread_ids.push(thread_id.to_string());
@@ -180,7 +184,10 @@ pub fn attach_thread(opencli_home: &Path, id: &str, thread_id: &str) -> std::io:
 fn rand_suffix() -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::BuildHasher;
-    format!("{:x}", RandomState::new().hash_one(now_seconds()) & 0xffffff)
+    format!(
+        "{:x}",
+        RandomState::new().hash_one(now_seconds()) & 0xffffff
+    )
 }
 
 #[cfg(test)]
@@ -241,9 +248,17 @@ mod tests {
         )
         .expect("create");
 
-        let updated = update(dir.path(), &created.id, Some("New".into()), None, None, None, None)
-            .expect("update")
-            .expect("the project exists");
+        let updated = update(
+            dir.path(),
+            &created.id,
+            Some("New".into()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("update")
+        .expect("the project exists");
 
         assert_eq!(updated.name, "New");
         assert_eq!(updated.cwd, "/a", "an omitted field is left alone");

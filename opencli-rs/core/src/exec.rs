@@ -229,7 +229,7 @@ pub(crate) async fn execute_exec_env(
         windows_sandbox_level,
         justification,
         arg0,
-            description: None,
+        description: None,
     };
 
     let start = Instant::now();
@@ -1058,7 +1058,7 @@ mod tests {
             windows_sandbox_level: opencli_protocol::config_types::WindowsSandboxLevel::Disabled,
             justification: None,
             arg0: None,
-                    description: None,
+            description: None,
         };
 
         let output = exec(params, SandboxType::None, &SandboxPolicy::ReadOnly, None).await?;
@@ -1105,7 +1105,7 @@ mod tests {
             windows_sandbox_level: opencli_protocol::config_types::WindowsSandboxLevel::Disabled,
             justification: None,
             arg0: None,
-                    description: None,
+            description: None,
         };
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(1_000)).await;

@@ -1,6 +1,6 @@
 use crate::rate_limits::RateLimitError;
-use opencli_client::TransportError;
 use http::StatusCode;
+use opencli_client::TransportError;
 use std::time::Duration;
 use thiserror::Error;
 

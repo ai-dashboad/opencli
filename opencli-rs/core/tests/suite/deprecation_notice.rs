@@ -1,6 +1,12 @@
 #![cfg(not(target_os = "windows"))]
 
 use anyhow::Ok;
+use core_test_support::responses::start_mock_server;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_absolute_path;
+use core_test_support::test_opencli::TestOpenCLI;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event_match;
 use opencli_app_server_protocol::ConfigLayerSource;
 use opencli_core::config_loader::ConfigLayerEntry;
 use opencli_core::config_loader::ConfigLayerStack;
@@ -9,12 +15,6 @@ use opencli_core::config_loader::ConfigRequirementsToml;
 use opencli_core::features::Feature;
 use opencli_core::protocol::DeprecationNoticeEvent;
 use opencli_core::protocol::EventMsg;
-use core_test_support::responses::start_mock_server;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_absolute_path;
-use core_test_support::test_opencli::TestOpenCLI;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event_match;
 use pretty_assertions::assert_eq;
 use std::collections::BTreeMap;
 use toml::Value as TomlValue;

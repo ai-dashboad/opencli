@@ -16,6 +16,11 @@ use crate::key_hint::KeyBinding;
 use crate::render::highlight::highlight_bash_to_lines;
 use crate::render::renderable::ColumnRenderable;
 use crate::render::renderable::Renderable;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyEventKind;
+use crossterm::event::KeyModifiers;
+use mcp_types::RequestId;
 use opencli_core::features::Feature;
 use opencli_core::features::Features;
 use opencli_core::protocol::ElicitationAction;
@@ -23,11 +28,6 @@ use opencli_core::protocol::ExecPolicyAmendment;
 use opencli_core::protocol::FileChange;
 use opencli_core::protocol::Op;
 use opencli_core::protocol::ReviewDecision;
-use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
-use crossterm::event::KeyEventKind;
-use crossterm::event::KeyModifiers;
-use mcp_types::RequestId;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Stylize;
@@ -194,17 +194,19 @@ impl ApprovalOverlay {
     fn handle_exec_decision(&self, id: &str, command: &[String], decision: ReviewDecision) {
         let cell = history_cell::new_approval_decision_cell(command.to_vec(), decision.clone());
         self.app_event_tx.send(AppEvent::InsertHistoryCell(cell));
-        self.app_event_tx.send(AppEvent::OpenCLIOp(Op::ExecApproval {
-            id: id.to_string(),
-            decision,
-        }));
+        self.app_event_tx
+            .send(AppEvent::OpenCLIOp(Op::ExecApproval {
+                id: id.to_string(),
+                decision,
+            }));
     }
 
     fn handle_patch_decision(&self, id: &str, decision: ReviewDecision) {
-        self.app_event_tx.send(AppEvent::OpenCLIOp(Op::PatchApproval {
-            id: id.to_string(),
-            decision,
-        }));
+        self.app_event_tx
+            .send(AppEvent::OpenCLIOp(Op::PatchApproval {
+                id: id.to_string(),
+                decision,
+            }));
     }
 
     fn handle_elicitation_decision(

@@ -1,6 +1,8 @@
 use anyhow::Result;
 use app_test_support::McpProcess;
 use app_test_support::to_response;
+use core_test_support::responses;
+use core_test_support::skip_if_no_network;
 use opencli_app_server_protocol::JSONRPCResponse;
 use opencli_app_server_protocol::RequestId;
 use opencli_app_server_protocol::ThreadStartParams;
@@ -8,8 +10,6 @@ use opencli_app_server_protocol::ThreadStartResponse;
 use opencli_app_server_protocol::TurnStartParams;
 use opencli_app_server_protocol::TurnStartResponse;
 use opencli_app_server_protocol::UserInput as V2UserInput;
-use core_test_support::responses;
-use core_test_support::skip_if_no_network;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 use tempfile::TempDir;

@@ -3,14 +3,6 @@
 use std::fs;
 
 use assert_matches::assert_matches;
-use opencli_core::features::Feature;
-use opencli_core::protocol::AskForApproval;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_core::protocol::SandboxPolicy;
-use opencli_protocol::config_types::ReasoningSummary;
-use opencli_protocol::plan_tool::StepStatus;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::assert_regex_match;
 use core_test_support::responses;
 use core_test_support::responses::ResponsesRequest;
@@ -26,6 +18,14 @@ use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::TestOpenCLI;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::features::Feature;
+use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::SandboxPolicy;
+use opencli_protocol::config_types::ReasoningSummary;
+use opencli_protocol::plan_tool::StepStatus;
+use opencli_protocol::user_input::UserInput;
 use serde_json::Value;
 use serde_json::json;
 fn call_output(req: &ResponsesRequest, call_id: &str) -> (String, Option<bool>) {

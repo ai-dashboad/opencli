@@ -1,17 +1,17 @@
 use crate::AuthManager;
 #[cfg(any(test, feature = "test-support"))]
-use crate::OpenCLIAuth;
-#[cfg(any(test, feature = "test-support"))]
 use crate::ModelProviderInfo;
+#[cfg(any(test, feature = "test-support"))]
+use crate::OpenCLIAuth;
 use crate::agent::AgentControl;
-use crate::opencli::OpenCLI;
-use crate::opencli::OpenCLISpawnOk;
-use crate::opencli::INITIAL_SUBMIT_ID;
-use crate::opencli_thread::OpenCLIThread;
 use crate::config::Config;
 use crate::error::OpenCLIErr;
 use crate::error::Result as OpenCLIResult;
 use crate::models_manager::manager::ModelsManager;
+use crate::opencli::INITIAL_SUBMIT_ID;
+use crate::opencli::OpenCLI;
+use crate::opencli::OpenCLISpawnOk;
+use crate::opencli_thread::OpenCLIThread;
 use crate::protocol::Event;
 use crate::protocol::EventMsg;
 use crate::protocol::SessionConfiguredEvent;
@@ -299,7 +299,10 @@ impl ThreadManager {
 
 impl ThreadManagerState {
     /// Fetch a thread by ID or return ThreadNotFound.
-    pub(crate) async fn get_thread(&self, thread_id: ThreadId) -> OpenCLIResult<Arc<OpenCLIThread>> {
+    pub(crate) async fn get_thread(
+        &self,
+        thread_id: ThreadId,
+    ) -> OpenCLIResult<Arc<OpenCLIThread>> {
         let threads = self.threads.read().await;
         threads
             .get(&thread_id)

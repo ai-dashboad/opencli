@@ -24,6 +24,10 @@ use eventsource_stream::Eventsource;
 use futures::Stream;
 use futures::StreamExt;
 use opencli_client::StreamResponse;
+use opencli_protocol::models::ContentItem;
+use opencli_protocol::models::ResponseItem;
+use opencli_protocol::protocol::TokenUsage;
+use serde_json::Value;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -31,10 +35,6 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tokio::time::timeout;
 use tracing::trace;
-use opencli_protocol::models::ContentItem;
-use opencli_protocol::models::ResponseItem;
-use opencli_protocol::protocol::TokenUsage;
-use serde_json::Value;
 
 /// A content block being accumulated across deltas.
 #[derive(Debug, Clone)]
@@ -106,8 +106,16 @@ impl AnthropicStreamState {
             match b.get("type").and_then(Value::as_str)? {
                 "text" => Some(Block::Text(String::new())),
                 "tool_use" => Some(Block::ToolUse {
-                    id: b.get("id").and_then(Value::as_str).unwrap_or("").to_string(),
-                    name: b.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
+                    id: b
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
+                    name: b
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
                     arguments: String::new(),
                 }),
                 _ => None,
@@ -498,7 +506,9 @@ mod tests {
             .iter()
             .filter_map(|e| match e {
                 ResponseEvent::OutputItemDone(ResponseItem::FunctionCall {
-                    name, arguments, ..
+                    name,
+                    arguments,
+                    ..
                 }) => Some((name.clone(), arguments.clone())),
                 _ => None,
             })

@@ -1,10 +1,5 @@
 #![cfg(not(target_os = "windows"))]
 
-use opencli_core::OpenCLIAuth;
-use opencli_core::features::Feature;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_response_created;
 use core_test_support::responses::mount_sse_once;
@@ -13,6 +8,11 @@ use core_test_support::responses::start_mock_server;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::OpenCLIAuth;
+use opencli_core::features::Feature;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_protocol::user_input::UserInput;
 use pretty_assertions::assert_eq;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -1,12 +1,4 @@
 use anyhow::Result;
-use opencli_core::protocol::COLLABORATION_MODE_CLOSE_TAG;
-use opencli_core::protocol::COLLABORATION_MODE_OPEN_TAG;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_protocol::config_types::CollaborationMode;
-use opencli_protocol::config_types::ModeKind;
-use opencli_protocol::config_types::Settings;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_response_created;
 use core_test_support::responses::mount_sse_once;
@@ -15,6 +7,14 @@ use core_test_support::responses::start_mock_server;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::protocol::COLLABORATION_MODE_CLOSE_TAG;
+use opencli_core::protocol::COLLABORATION_MODE_OPEN_TAG;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_protocol::config_types::CollaborationMode;
+use opencli_protocol::config_types::ModeKind;
+use opencli_protocol::config_types::Settings;
+use opencli_protocol::user_input::UserInput;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 
@@ -614,7 +614,10 @@ async fn resume_replays_collaboration_instructions() -> Result<()> {
             final_output_json_schema: None,
         })
         .await?;
-    wait_for_event(&initial.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&initial.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     let resumed = builder.resume(&server, home, rollout_path).await?;
     resumed
@@ -627,7 +630,10 @@ async fn resume_replays_collaboration_instructions() -> Result<()> {
             final_output_json_schema: None,
         })
         .await?;
-    wait_for_event(&resumed.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&resumed.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     let input = req2.single_request().input();
     let dev_texts = developer_texts(&input);

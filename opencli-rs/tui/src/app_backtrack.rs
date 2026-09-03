@@ -33,16 +33,16 @@ use crate::history_cell::UserHistoryCell;
 use crate::pager_overlay::Overlay;
 use crate::tui;
 use crate::tui::TuiEvent;
-use opencli_core::protocol::OpenCLIErrorInfo;
-use opencli_core::protocol::ErrorEvent;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_protocol::ThreadId;
-use opencli_protocol::user_input::TextElement;
 use color_eyre::eyre::Result;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyEventKind;
+use opencli_core::protocol::ErrorEvent;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::OpenCLIErrorInfo;
+use opencli_protocol::ThreadId;
+use opencli_protocol::user_input::TextElement;
 
 /// Aggregates all backtrack-related state used by the App.
 #[derive(Default)]

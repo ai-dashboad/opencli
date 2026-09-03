@@ -3,9 +3,9 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use crate::util::resolve_path;
+use futures::future::join_all;
 use opencli_app_server_protocol::GitSha;
 use opencli_protocol::protocol::GitInfo;
-use futures::future::join_all;
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::process::Command;

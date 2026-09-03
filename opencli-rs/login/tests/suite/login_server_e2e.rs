@@ -7,10 +7,10 @@ use std::time::Duration;
 
 use anyhow::Result;
 use base64::Engine;
+use core_test_support::skip_if_no_network;
 use opencli_core::auth::AuthCredentialsStoreMode;
 use opencli_login::ServerOptions;
 use opencli_login::run_login_server;
-use core_test_support::skip_if_no_network;
 use tempfile::tempdir;
 
 // See spawn.rs for details

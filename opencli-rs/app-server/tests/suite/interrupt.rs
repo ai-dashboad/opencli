@@ -3,6 +3,7 @@
 
 use std::path::Path;
 
+use core_test_support::skip_if_no_network;
 use opencli_app_server_protocol::AddConversationListenerParams;
 use opencli_app_server_protocol::InterruptConversationParams;
 use opencli_app_server_protocol::InterruptConversationResponse;
@@ -13,7 +14,6 @@ use opencli_app_server_protocol::RequestId;
 use opencli_app_server_protocol::SendUserMessageParams;
 use opencli_app_server_protocol::SendUserMessageResponse;
 use opencli_core::protocol::TurnAbortReason;
-use core_test_support::skip_if_no_network;
 use tempfile::TempDir;
 use tokio::time::timeout;
 

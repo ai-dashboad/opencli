@@ -359,7 +359,8 @@ model = "gpt-old"
     )
     .await??;
     let write: ConfigWriteResponse = to_response(write_resp)?;
-    let expected_file_path = AbsolutePathBuf::resolve_path_against_base("config.toml", opencli_home)?;
+    let expected_file_path =
+        AbsolutePathBuf::resolve_path_against_base("config.toml", opencli_home)?;
 
     assert_eq!(write.status, WriteStatus::Ok);
     assert_eq!(write.file_path, expected_file_path);
@@ -397,7 +398,13 @@ model = "gpt-old"
 
     let write_id = mcp
         .send_config_value_write_request(ConfigValueWriteParams {
-            file_path: Some(opencli_home.path().join("config.toml").display().to_string()),
+            file_path: Some(
+                opencli_home
+                    .path()
+                    .join("config.toml")
+                    .display()
+                    .to_string(),
+            ),
             key_path: "model".to_string(),
             value: json!("gpt-new"),
             merge_strategy: MergeStrategy::Replace,
@@ -459,7 +466,8 @@ async fn config_batch_write_applies_multiple_edits() -> Result<()> {
     .await??;
     let batch_write: ConfigWriteResponse = to_response(batch_resp)?;
     assert_eq!(batch_write.status, WriteStatus::Ok);
-    let expected_file_path = AbsolutePathBuf::resolve_path_against_base("config.toml", opencli_home)?;
+    let expected_file_path =
+        AbsolutePathBuf::resolve_path_against_base("config.toml", opencli_home)?;
     assert_eq!(batch_write.file_path, expected_file_path);
 
     let read_id = mcp

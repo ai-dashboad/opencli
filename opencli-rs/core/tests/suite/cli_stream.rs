@@ -1,10 +1,10 @@
 use assert_cmd::Command as AssertCommand;
+use core_test_support::fs_wait;
+use core_test_support::skip_if_no_network;
 use opencli_core::RolloutRecorder;
 use opencli_core::auth::OPENCLI_API_KEY_ENV_VAR;
 use opencli_core::protocol::GitInfo;
 use opencli_utils_cargo_bin::find_resource;
-use core_test_support::fs_wait;
-use core_test_support::skip_if_no_network;
 use std::time::Duration;
 use tempfile::TempDir;
 use uuid::Uuid;

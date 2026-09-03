@@ -4,8 +4,8 @@ use opencli_protocol::models::ResponseItem;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use crate::opencli::SessionConfiguration;
 use crate::context_manager::ContextManager;
+use crate::opencli::SessionConfiguration;
 use crate::protocol::RateLimitSnapshot;
 use crate::protocol::TokenUsage;
 use crate::protocol::TokenUsageInfo;

@@ -1,6 +1,6 @@
 use crate::agent::AgentStatus;
-use crate::opencli::OpenCLI;
 use crate::error::Result as OpenCLIResult;
+use crate::opencli::OpenCLI;
 use crate::protocol::Event;
 use crate::protocol::Op;
 use crate::protocol::Submission;

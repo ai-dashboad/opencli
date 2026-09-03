@@ -1,3 +1,6 @@
+use core_test_support::skip_if_no_network;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
 use opencli_core::NewThread;
 use opencli_core::parse_turn_item;
 use opencli_core::protocol::EventMsg;
@@ -6,9 +9,6 @@ use opencli_core::protocol::RolloutItem;
 use opencli_core::protocol::RolloutLine;
 use opencli_protocol::items::TurnItem;
 use opencli_protocol::user_input::UserInput;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
 use wiremock::Mock;
 use wiremock::MockServer;
 use wiremock::ResponseTemplate;

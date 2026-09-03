@@ -1,8 +1,8 @@
 use crate::client_common::tools::ResponsesApiTool;
 use crate::client_common::tools::ToolSpec;
+use crate::function_tool::FunctionCallError;
 use crate::opencli::Session;
 use crate::opencli::TurnContext;
-use crate::function_tool::FunctionCallError;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolOutput;
 use crate::tools::context::ToolPayload;

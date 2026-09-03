@@ -181,7 +181,10 @@ pub fn load_sse_fixture_with_id(path: impl AsRef<std::path::Path>, id: &str) -> 
         .collect()
 }
 
-pub async fn wait_for_event<F>(opencli: &OpenCLIThread, predicate: F) -> opencli_core::protocol::EventMsg
+pub async fn wait_for_event<F>(
+    opencli: &OpenCLIThread,
+    predicate: F,
+) -> opencli_core::protocol::EventMsg
 where
     F: FnMut(&opencli_core::protocol::EventMsg) -> bool,
 {

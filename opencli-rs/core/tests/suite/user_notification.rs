@@ -2,15 +2,15 @@
 
 use std::os::unix::fs::PermissionsExt;
 
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::fs_wait;
 use core_test_support::responses;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::TestOpenCLI;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_protocol::user_input::UserInput;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 use serde_json::json;

@@ -49,9 +49,9 @@ use crate::export_cmd::ExportArgs;
 use crate::loop_cmd::LoopArgs;
 use crate::mcp_cmd::McpCli;
 use crate::model_cmd::ModelArgs;
-use crate::serve_cmd::ServeArgs;
 use crate::parallel::ParallelArgs;
 use crate::provider_cmd::ProviderArgs;
+use crate::serve_cmd::ServeArgs;
 
 use opencli_core::config::Config;
 use opencli_core::config::ConfigOverrides;
@@ -427,7 +427,9 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
 /// control and any wrapping script see one continuous process. On success this
 /// never returns.
 #[cfg(unix)]
-fn restart_into_current_binary(thread_id: Option<opencli_protocol::ThreadId>) -> anyhow::Result<()> {
+fn restart_into_current_binary(
+    thread_id: Option<opencli_protocol::ThreadId>,
+) -> anyhow::Result<()> {
     use std::os::unix::process::CommandExt;
 
     let Some(thread_id) = thread_id else {
@@ -436,8 +438,9 @@ fn restart_into_current_binary(thread_id: Option<opencli_protocol::ThreadId>) ->
     // Re-exec by path, not by the original inode: an upgrade replaces the file
     // at this path, and resolving it now is what makes the restart pick up the
     // new build.
-    let exe = std::env::current_exe()
-        .map_err(|err| anyhow::anyhow!("cannot restart: could not locate the running binary: {err}"))?;
+    let exe = std::env::current_exe().map_err(|err| {
+        anyhow::anyhow!("cannot restart: could not locate the running binary: {err}")
+    })?;
 
     let error = std::process::Command::new(&exe)
         .arg("resume")
@@ -460,14 +463,17 @@ fn restart_into_current_binary(
     let Some(thread_id) = thread_id else {
         anyhow::bail!("cannot restart: this session has no thread to resume");
     };
-    let exe = std::env::current_exe()
-        .map_err(|err| anyhow::anyhow!("cannot restart: could not locate the running binary: {err}"))?;
+    let exe = std::env::current_exe().map_err(|err| {
+        anyhow::anyhow!("cannot restart: could not locate the running binary: {err}")
+    })?;
 
     let status = std::process::Command::new(&exe)
         .arg("resume")
         .arg(thread_id.to_string())
         .status()
-        .map_err(|err| anyhow::anyhow!("cannot restart: failed to launch {}: {err}", exe.display()))?;
+        .map_err(|err| {
+            anyhow::anyhow!("cannot restart: failed to launch {}: {err}", exe.display())
+        })?;
 
     std::process::exit(status.code().unwrap_or(1));
 }

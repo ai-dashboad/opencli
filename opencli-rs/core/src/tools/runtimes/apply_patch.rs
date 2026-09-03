@@ -19,12 +19,12 @@ use crate::tools::sandboxing::ToolCtx;
 use crate::tools::sandboxing::ToolError;
 use crate::tools::sandboxing::ToolRuntime;
 use crate::tools::sandboxing::with_cached_approval;
+use futures::future::BoxFuture;
 use opencli_apply_patch::ApplyPatchAction;
 use opencli_protocol::protocol::AskForApproval;
 use opencli_protocol::protocol::FileChange;
 use opencli_protocol::protocol::ReviewDecision;
 use opencli_utils_absolute_path::AbsolutePathBuf;
-use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -57,7 +57,10 @@ impl ApplyPatchRuntime {
         let program = exe.to_string_lossy().to_string();
         Ok(CommandSpec {
             program,
-            args: vec![OPENCLI_APPLY_PATCH_ARG1.to_string(), req.action.patch.clone()],
+            args: vec![
+                OPENCLI_APPLY_PATCH_ARG1.to_string(),
+                req.action.patch.clone(),
+            ],
             cwd: req.action.cwd.clone(),
             expiration: req.timeout_ms.into(),
             // Run apply_patch with a minimal environment for determinism and to avoid leaks.

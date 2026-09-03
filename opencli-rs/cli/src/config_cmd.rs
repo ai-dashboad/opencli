@@ -53,8 +53,7 @@ pub fn run_main(args: ConfigArgs) -> Result<()> {
         }
         ConfigSubcommand::Set { key, value } => {
             let contents = std::fs::read_to_string(&path).unwrap_or_default();
-            let mut doc: toml_edit::DocumentMut =
-                contents.parse().context("parse config.toml")?;
+            let mut doc: toml_edit::DocumentMut = contents.parse().context("parse config.toml")?;
             doc[&key] = parse_value(&value);
             std::fs::write(&path, doc.to_string())
                 .with_context(|| format!("write {}", path.display()))?;

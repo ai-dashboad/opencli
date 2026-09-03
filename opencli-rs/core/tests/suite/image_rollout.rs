@@ -1,14 +1,4 @@
 use anyhow::Context;
-use opencli_core::protocol::AskForApproval;
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_core::protocol::RolloutItem;
-use opencli_core::protocol::RolloutLine;
-use opencli_core::protocol::SandboxPolicy;
-use opencli_protocol::config_types::ReasoningSummary;
-use opencli_protocol::models::ContentItem;
-use opencli_protocol::models::ResponseItem;
-use opencli_protocol::user_input::UserInput;
 use core_test_support::responses;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
@@ -21,6 +11,16 @@ use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
 use image::ImageBuffer;
 use image::Rgba;
+use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_core::protocol::RolloutItem;
+use opencli_core::protocol::RolloutLine;
+use opencli_core::protocol::SandboxPolicy;
+use opencli_protocol::config_types::ReasoningSummary;
+use opencli_protocol::models::ContentItem;
+use opencli_protocol::models::ResponseItem;
+use opencli_protocol::user_input::UserInput;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 use std::time::Duration;
@@ -134,7 +134,10 @@ async fn copy_paste_local_image_persists_rollout_request_shape() -> anyhow::Resu
 
     wait_for_event(&opencli, |event| matches!(event, EventMsg::TurnComplete(_))).await;
     opencli.submit(Op::Shutdown).await?;
-    wait_for_event(&opencli, |event| matches!(event, EventMsg::ShutdownComplete)).await;
+    wait_for_event(&opencli, |event| {
+        matches!(event, EventMsg::ShutdownComplete)
+    })
+    .await;
 
     let rollout_path = opencli.rollout_path().expect("rollout path");
     let rollout_text = read_rollout_text(&rollout_path).await?;
@@ -215,7 +218,10 @@ async fn drag_drop_image_persists_rollout_request_shape() -> anyhow::Result<()> 
 
     wait_for_event(&opencli, |event| matches!(event, EventMsg::TurnComplete(_))).await;
     opencli.submit(Op::Shutdown).await?;
-    wait_for_event(&opencli, |event| matches!(event, EventMsg::ShutdownComplete)).await;
+    wait_for_event(&opencli, |event| {
+        matches!(event, EventMsg::ShutdownComplete)
+    })
+    .await;
 
     let rollout_path = opencli.rollout_path().expect("rollout path");
     let rollout_text = read_rollout_text(&rollout_path).await?;

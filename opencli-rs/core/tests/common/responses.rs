@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use anyhow::Result;
 use base64::Engine;
-use opencli_protocol::openai_models::ModelsResponse;
 use futures::SinkExt;
 use futures::StreamExt;
+use opencli_protocol::openai_models::ModelsResponse;
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;

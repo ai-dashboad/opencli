@@ -13,6 +13,7 @@ use crate::model_provider_info::ModelProviderInfo;
 use crate::models_manager::collaboration_mode_presets::builtin_collaboration_mode_presets;
 use crate::models_manager::model_info;
 use crate::models_manager::model_presets::builtin_model_presets;
+use http::HeaderMap;
 use opencli_api::ModelsClient;
 use opencli_api::ReqwestTransport;
 use opencli_protocol::config_types::CollaborationModeMask;
@@ -21,7 +22,6 @@ use opencli_protocol::openai_models::ModelPreset;
 use opencli_protocol::openai_models::ModelsResponse;
 use opencli_protocol::openai_models::ReasoningEffort;
 use opencli_protocol::openai_models::ReasoningEffortPreset;
-use http::HeaderMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -876,7 +876,11 @@ mod tests {
         let presets =
             merge_custom_models(&[custom_model("shadow-me", "my-gateway")], existing.clone());
 
-        assert_eq!(presets.len(), existing.len(), "shadowing must not add a row");
+        assert_eq!(
+            presets.len(),
+            existing.len(),
+            "shadowing must not add a row"
+        );
         assert_eq!(
             presets.iter().map(|p| p.model.as_str()).collect::<Vec<_>>(),
             vec!["first", "shadow-me", "last"],
@@ -1030,7 +1034,9 @@ mod tests {
         let manager =
             ModelsManager::with_provider(opencli_home.path().to_path_buf(), auth_manager, provider);
 
-        let info = manager.get_model_info("some-undeclared-model", &config).await;
+        let info = manager
+            .get_model_info("some-undeclared-model", &config)
+            .await;
 
         assert_eq!(info.context_window, Some(48_000));
     }
@@ -1079,5 +1085,3 @@ mod tests {
         assert!(response.models.is_empty());
     }
 }
-
-

@@ -4,11 +4,11 @@ use std::time::Duration;
 use anyhow::Context;
 use chrono::DateTime;
 use clap::Parser;
+use dirs::home_dir;
 use opencli_state::LogQuery;
 use opencli_state::LogRow;
 use opencli_state::STATE_DB_FILENAME;
 use opencli_state::StateRuntime;
-use dirs::home_dir;
 use owo_colors::OwoColorize;
 
 #[derive(Debug, Parser)]
@@ -103,7 +103,10 @@ fn resolve_db_path(args: &Args) -> anyhow::Result<PathBuf> {
         return Ok(db.clone());
     }
 
-    let opencli_home = args.opencli_home.clone().unwrap_or_else(default_opencli_home);
+    let opencli_home = args
+        .opencli_home
+        .clone()
+        .unwrap_or_else(default_opencli_home);
     Ok(opencli_home.join(STATE_DB_FILENAME))
 }
 

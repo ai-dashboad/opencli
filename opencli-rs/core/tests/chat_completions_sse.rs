@@ -3,10 +3,13 @@ use opencli_core::AuthManager;
 use std::sync::Arc;
 use tracing_test::traced_test;
 
-use opencli_core::OpenCLIAuth;
+use core_test_support::load_default_config_for_test;
+use core_test_support::skip_if_no_network;
+use futures::StreamExt;
 use opencli_core::ContentItem;
 use opencli_core::ModelClient;
 use opencli_core::ModelProviderInfo;
+use opencli_core::OpenCLIAuth;
 use opencli_core::Prompt;
 use opencli_core::ResponseEvent;
 use opencli_core::ResponseItem;
@@ -17,9 +20,6 @@ use opencli_otel::OtelManager;
 use opencli_protocol::ThreadId;
 use opencli_protocol::models::ReasoningItemContent;
 use opencli_protocol::protocol::SessionSource;
-use core_test_support::load_default_config_for_test;
-use core_test_support::skip_if_no_network;
-use futures::StreamExt;
 use tempfile::TempDir;
 use wiremock::Mock;
 use wiremock::MockServer;
@@ -75,7 +75,8 @@ async fn run_stream_with_bytes(sse_body: &[u8]) -> Vec<ResponseEvent> {
     let config = Arc::new(config);
 
     let conversation_id = ThreadId::new();
-    let auth_manager = AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
+    let auth_manager =
+        AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
     let auth_mode = auth_manager.get_auth_mode();
     let model = ModelsManager::get_model_offline(config.model.as_deref());
     let model_info = ModelsManager::construct_model_info_offline(model.as_str(), &config);
@@ -407,7 +408,8 @@ async fn chat_sse_emits_failed_on_parse_error() {
         lines
             .iter()
             .find(|line| {
-                line.contains("opencli.api_request") && line.contains("http.response.status_code=200")
+                line.contains("opencli.api_request")
+                    && line.contains("http.response.status_code=200")
             })
             .map(|_| Ok(()))
             .unwrap_or(Err("cannot find opencli.api_request event".to_string()))

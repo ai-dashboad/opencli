@@ -126,7 +126,11 @@ mod windows_impl {
     /// Generates a unique named-pipe path used to communicate with the runner process.
     fn pipe_name(suffix: &str) -> String {
         let mut rng = SmallRng::from_entropy();
-        format!(r"\\.\pipe\opencli-runner-{:x}-{}", rng.gen::<u128>(), suffix)
+        format!(
+            r"\\.\pipe\opencli-runner-{:x}-{}",
+            rng.gen::<u128>(),
+            suffix
+        )
     }
 
     /// Creates a named pipe with permissive ACLs so the sandbox user can connect.

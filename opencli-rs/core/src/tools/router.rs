@@ -1,7 +1,7 @@
 use crate::client_common::tools::ToolSpec;
+use crate::function_tool::FunctionCallError;
 use crate::opencli::Session;
 use crate::opencli::TurnContext;
-use crate::function_tool::FunctionCallError;
 use crate::sandboxing::SandboxPermissions;
 use crate::tools::context::SharedTurnDiffTracker;
 use crate::tools::context::ToolInvocation;

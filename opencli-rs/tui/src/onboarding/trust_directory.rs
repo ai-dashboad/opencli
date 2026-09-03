@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
-use opencli_core::config::set_project_trust_level;
-use opencli_core::git_info::resolve_root_git_project_for_trust;
-use opencli_protocol::config_types::TrustLevel;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::KeyEventKind;
+use opencli_core::config::set_project_trust_level;
+use opencli_core::git_info::resolve_root_git_project_for_trust;
+use opencli_protocol::config_types::TrustLevel;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Stylize;
@@ -166,7 +166,8 @@ impl TrustDirectoryWidget {
         self.highlighted = TrustDirectorySelection::DontTrust;
         let target =
             resolve_root_git_project_for_trust(&self.cwd).unwrap_or_else(|| self.cwd.clone());
-        if let Err(e) = set_project_trust_level(&self.opencli_home, &target, TrustLevel::Untrusted) {
+        if let Err(e) = set_project_trust_level(&self.opencli_home, &target, TrustLevel::Untrusted)
+        {
             tracing::error!("Failed to set project untrusted: {e:?}");
             self.error = Some(format!(
                 "Failed to set untrusted for {}: {e}",

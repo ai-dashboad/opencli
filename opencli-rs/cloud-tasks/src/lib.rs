@@ -55,7 +55,8 @@ async fn init_backend(user_agent_suffix: &str) -> anyhow::Result<BackendContext>
     }
 
     let ua = opencli_core::default_client::get_opencli_user_agent();
-    let mut http = opencli_cloud_tasks_client::HttpClient::new(base_url.clone())?.with_user_agent(ua);
+    let mut http =
+        opencli_cloud_tasks_client::HttpClient::new(base_url.clone())?.with_user_agent(ua);
     let style = if base_url.contains("/backend-api") {
         "wham"
     } else {
@@ -2120,6 +2121,9 @@ fn pretty_lines_from_error(raw: &str) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::resolve_git_ref_with_git_info;
+    use crossterm::event::KeyCode;
+    use crossterm::event::KeyEvent;
+    use crossterm::event::KeyModifiers;
     use opencli_cloud_tasks_client::DiffSummary;
     use opencli_cloud_tasks_client::MockClient;
     use opencli_cloud_tasks_client::TaskId;
@@ -2127,9 +2131,6 @@ mod tests {
     use opencli_cloud_tasks_client::TaskSummary;
     use opencli_tui::ComposerAction;
     use opencli_tui::ComposerInput;
-    use crossterm::event::KeyCode;
-    use crossterm::event::KeyEvent;
-    use crossterm::event::KeyModifiers;
     use pretty_assertions::assert_eq;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
@@ -2345,8 +2346,8 @@ mod tests {
     fn parse_task_id_from_url_and_raw() {
         let raw = parse_task_id("task_i_abc123").expect("raw id");
         assert_eq!(raw.0, "task_i_abc123");
-        let url =
-            parse_task_id("https://chatgpt.com/opencli/tasks/task_i_123456?foo=bar").expect("url id");
+        let url = parse_task_id("https://chatgpt.com/opencli/tasks/task_i_123456?foo=bar")
+            .expect("url id");
         assert_eq!(url.0, "task_i_123456");
         assert!(parse_task_id("   ").is_err());
     }

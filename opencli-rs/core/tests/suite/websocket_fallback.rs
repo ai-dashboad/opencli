@@ -1,5 +1,4 @@
 use anyhow::Result;
-use opencli_core::features::Feature;
 use core_test_support::responses;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_response_created;
@@ -8,6 +7,7 @@ use core_test_support::responses::mount_sse_sequence;
 use core_test_support::responses::sse;
 use core_test_support::skip_if_no_network;
 use core_test_support::test_opencli::test_opencli;
+use opencli_core::features::Feature;
 use pretty_assertions::assert_eq;
 use wiremock::http::Method;
 

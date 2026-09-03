@@ -1,10 +1,10 @@
 use crate::client_common::tools::ToolSpec;
 use crate::config::types::Personality;
 use crate::error::Result;
+use futures::Stream;
 pub use opencli_api::common::ResponseEvent;
 use opencli_protocol::models::BaseInstructions;
 use opencli_protocol::models::ResponseItem;
-use futures::Stream;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;

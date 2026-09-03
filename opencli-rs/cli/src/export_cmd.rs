@@ -26,8 +26,9 @@ pub fn run_main(args: ExportArgs) -> Result<()> {
     let sessions = home.join("sessions");
 
     let rollout = match &args.session_id {
-        Some(id) => find_by_id(&sessions, id)
-            .with_context(|| format!("no session found for id `{id}`"))?,
+        Some(id) => {
+            find_by_id(&sessions, id).with_context(|| format!("no session found for id `{id}`"))?
+        }
         None => latest_rollout(&sessions).context("no recorded sessions found")?,
     };
 
@@ -35,8 +36,7 @@ pub fn run_main(args: ExportArgs) -> Result<()> {
 
     match &args.out {
         Some(path) => {
-            std::fs::write(path, &markdown)
-                .with_context(|| format!("write {}", path.display()))?;
+            std::fs::write(path, &markdown).with_context(|| format!("write {}", path.display()))?;
             eprintln!("exported to {}", path.display());
         }
         None => {

@@ -5,11 +5,11 @@ use crate::error::ApiError;
 use crate::provider::Provider;
 use crate::provider::WireApi;
 use crate::telemetry::run_with_request_telemetry;
+use http::HeaderMap;
+use http::Method;
 use opencli_client::HttpTransport;
 use opencli_client::RequestTelemetry;
 use opencli_protocol::models::ResponseItem;
-use http::HeaderMap;
-use http::Method;
 use serde::Deserialize;
 use serde_json::to_value;
 use std::sync::Arc;
@@ -91,11 +91,11 @@ mod tests {
     use super::*;
     use crate::provider::RetryConfig;
     use async_trait::async_trait;
+    use http::HeaderMap;
     use opencli_client::Request;
     use opencli_client::Response;
     use opencli_client::StreamResponse;
     use opencli_client::TransportError;
-    use http::HeaderMap;
     use std::time::Duration;
 
     #[derive(Clone, Default)]

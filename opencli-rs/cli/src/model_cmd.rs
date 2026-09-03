@@ -240,8 +240,8 @@ fn apply_to_config(doc: &mut toml_edit::DocumentMut, slug: &str, caps: &Capabili
 }
 
 async fn probe(path: &Path, slug: &str, dry_run: bool) -> Result<()> {
-    let contents = std::fs::read_to_string(path)
-        .with_context(|| format!("read {}", path.display()))?;
+    let contents =
+        std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
     let mut doc: toml_edit::DocumentMut = contents.parse().context("parse config.toml")?;
     let (base_url, api_key) = resolve_endpoint(&doc, slug)?;
 
@@ -251,8 +251,10 @@ async fn probe(path: &Path, slug: &str, dry_run: bool) -> Result<()> {
         .await
         .unwrap_or_default();
     if caps.context_window.is_some() {
-        println!("  context window: {} (reported by the runtime)",
-            caps.context_window.unwrap_or_default());
+        println!(
+            "  context window: {} (reported by the runtime)",
+            caps.context_window.unwrap_or_default()
+        );
     }
 
     // Always exercise the real endpoint: native metadata says what the runtime
@@ -263,7 +265,11 @@ async fn probe(path: &Path, slug: &str, dry_run: bool) -> Result<()> {
                 caps.supports_tools = Some(tools);
                 println!(
                     "  tool calling: {}",
-                    if tools { "yes" } else { "no (offered a tool, model did not call it)" }
+                    if tools {
+                        "yes"
+                    } else {
+                        "no (offered a tool, model did not call it)"
+                    }
                 );
             }
             if let Some(true) = reasoning {

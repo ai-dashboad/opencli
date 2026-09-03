@@ -1,3 +1,5 @@
+use crate::error_code::INTERNAL_ERROR_CODE;
+use crate::error_code::INVALID_REQUEST_ERROR_CODE;
 use crate::opencli_message_processor::ApiVersion;
 use crate::opencli_message_processor::PendingInterrupts;
 use crate::opencli_message_processor::PendingRollbacks;
@@ -6,14 +8,11 @@ use crate::opencli_message_processor::TurnSummaryStore;
 use crate::opencli_message_processor::read_rollout_lines;
 use crate::opencli_message_processor::read_summary_from_rollout;
 use crate::opencli_message_processor::summary_to_thread;
-use crate::error_code::INTERNAL_ERROR_CODE;
-use crate::error_code::INVALID_REQUEST_ERROR_CODE;
 use crate::outgoing_message::OutgoingMessageSender;
 use opencli_app_server_protocol::AccountRateLimitsUpdatedNotification;
 use opencli_app_server_protocol::AgentMessageDeltaNotification;
 use opencli_app_server_protocol::ApplyPatchApprovalParams;
 use opencli_app_server_protocol::ApplyPatchApprovalResponse;
-use opencli_app_server_protocol::OpenCLIErrorInfo as V2OpenCLIErrorInfo;
 use opencli_app_server_protocol::CollabAgentState as V2CollabAgentStatus;
 use opencli_app_server_protocol::CollabAgentTool;
 use opencli_app_server_protocol::CollabAgentToolCallStatus as V2CollabToolCallStatus;
@@ -35,7 +34,6 @@ use opencli_app_server_protocol::FileChangeOutputDeltaNotification;
 use opencli_app_server_protocol::FileChangeRequestApprovalParams;
 use opencli_app_server_protocol::FileChangeRequestApprovalResponse;
 use opencli_app_server_protocol::FileUpdateChange;
-use opencli_app_server_protocol::file_changes_from_core;
 use opencli_app_server_protocol::InterruptConversationResponse;
 use opencli_app_server_protocol::ItemCompletedNotification;
 use opencli_app_server_protocol::ItemStartedNotification;
@@ -43,6 +41,7 @@ use opencli_app_server_protocol::JSONRPCErrorError;
 use opencli_app_server_protocol::McpToolCallError;
 use opencli_app_server_protocol::McpToolCallResult;
 use opencli_app_server_protocol::McpToolCallStatus;
+use opencli_app_server_protocol::OpenCLIErrorInfo as V2OpenCLIErrorInfo;
 use opencli_app_server_protocol::PatchApplyStatus;
 use opencli_app_server_protocol::PlanDeltaNotification;
 use opencli_app_server_protocol::RawResponseItemCompletedNotification;
@@ -70,10 +69,10 @@ use opencli_app_server_protocol::TurnPlanStep;
 use opencli_app_server_protocol::TurnPlanUpdatedNotification;
 use opencli_app_server_protocol::TurnStatus;
 use opencli_app_server_protocol::build_turns_from_rollout;
+use opencli_app_server_protocol::file_changes_from_core;
 use opencli_core::OpenCLIThread;
 use opencli_core::parse_command::shlex_join;
 use opencli_core::protocol::ApplyPatchApprovalRequestEvent;
-use opencli_core::protocol::OpenCLIErrorInfo as CoreOpenCLIErrorInfo;
 use opencli_core::protocol::Event;
 use opencli_core::protocol::EventMsg;
 use opencli_core::protocol::ExecApprovalRequestEvent;
@@ -81,6 +80,7 @@ use opencli_core::protocol::ExecCommandEndEvent;
 use opencli_core::protocol::McpToolCallBeginEvent;
 use opencli_core::protocol::McpToolCallEndEvent;
 use opencli_core::protocol::Op;
+use opencli_core::protocol::OpenCLIErrorInfo as CoreOpenCLIErrorInfo;
 use opencli_core::protocol::ReviewDecision;
 use opencli_core::protocol::TokenCountEvent;
 use opencli_core::protocol::TurnDiffEvent;
@@ -404,7 +404,9 @@ pub(crate) async fn apply_bespoke_event_handling(
             let has_receiver = end_event.new_thread_id.is_some();
             let status = match &end_event.status {
                 opencli_protocol::protocol::AgentStatus::Errored(_)
-                | opencli_protocol::protocol::AgentStatus::NotFound => V2CollabToolCallStatus::Failed,
+                | opencli_protocol::protocol::AgentStatus::NotFound => {
+                    V2CollabToolCallStatus::Failed
+                }
                 _ if has_receiver => V2CollabToolCallStatus::Completed,
                 _ => V2CollabToolCallStatus::Failed,
             };
@@ -460,7 +462,9 @@ pub(crate) async fn apply_bespoke_event_handling(
         EventMsg::CollabAgentInteractionEnd(end_event) => {
             let status = match &end_event.status {
                 opencli_protocol::protocol::AgentStatus::Errored(_)
-                | opencli_protocol::protocol::AgentStatus::NotFound => V2CollabToolCallStatus::Failed,
+                | opencli_protocol::protocol::AgentStatus::NotFound => {
+                    V2CollabToolCallStatus::Failed
+                }
                 _ => V2CollabToolCallStatus::Completed,
             };
             let receiver_id = end_event.receiver_thread_id.to_string();
@@ -565,7 +569,9 @@ pub(crate) async fn apply_bespoke_event_handling(
         EventMsg::CollabCloseEnd(end_event) => {
             let status = match &end_event.status {
                 opencli_protocol::protocol::AgentStatus::Errored(_)
-                | opencli_protocol::protocol::AgentStatus::NotFound => V2CollabToolCallStatus::Failed,
+                | opencli_protocol::protocol::AgentStatus::NotFound => {
+                    V2CollabToolCallStatus::Failed
+                }
                 _ => V2CollabToolCallStatus::Completed,
             };
             let receiver_id = end_event.receiver_thread_id.to_string();
@@ -594,8 +600,9 @@ pub(crate) async fn apply_bespoke_event_handling(
                 .await;
         }
         EventMsg::AgentMessageContentDelta(event) => {
-            let opencli_protocol::protocol::AgentMessageContentDeltaEvent { item_id, delta, .. } =
-                event;
+            let opencli_protocol::protocol::AgentMessageContentDeltaEvent {
+                item_id, delta, ..
+            } = event;
             let notification = AgentMessageDeltaNotification {
                 thread_id: conversation_id.to_string(),
                 turn_id: event_turn_id.clone(),
@@ -1803,6 +1810,9 @@ mod tests {
     use anyhow::Result;
     use anyhow::anyhow;
     use anyhow::bail;
+    use mcp_types::CallToolResult;
+    use mcp_types::ContentBlock;
+    use mcp_types::TextContent;
     use opencli_app_server_protocol::TurnPlanStepStatus;
     use opencli_core::protocol::CreditsSnapshot;
     use opencli_core::protocol::McpInvocation;
@@ -1812,9 +1822,6 @@ mod tests {
     use opencli_core::protocol::TokenUsageInfo;
     use opencli_protocol::plan_tool::PlanItemArg;
     use opencli_protocol::plan_tool::StepStatus;
-    use mcp_types::CallToolResult;
-    use mcp_types::ContentBlock;
-    use mcp_types::TextContent;
     use pretty_assertions::assert_eq;
     use serde_json::Value as JsonValue;
     use std::collections::HashMap;

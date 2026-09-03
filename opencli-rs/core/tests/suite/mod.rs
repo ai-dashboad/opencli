@@ -1,6 +1,6 @@
 // Aggregates all former standalone integration tests as modules.
-use opencli_arg0::arg0_dispatch;
 use ctor::ctor;
+use opencli_arg0::arg0_dispatch;
 use tempfile::TempDir;
 
 // This code runs before any other tests are run.
@@ -23,7 +23,6 @@ mod auth_refresh;
 mod cli_stream;
 mod client;
 mod client_websockets;
-mod opencli_delegate;
 mod collaboration_instructions;
 mod compact;
 mod compact_remote;
@@ -45,6 +44,7 @@ mod model_overrides;
 mod model_tools;
 mod models_cache_ttl;
 mod models_etag_responses;
+mod opencli_delegate;
 mod otel;
 mod pending_input;
 mod permissions_messages;

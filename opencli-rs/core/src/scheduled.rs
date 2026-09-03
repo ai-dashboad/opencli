@@ -165,7 +165,10 @@ pub fn mark_ran(opencli_home: &Path, id: &str) -> std::io::Result<()> {
 fn rand_suffix() -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::BuildHasher;
-    format!("{:x}", RandomState::new().hash_one(now_seconds()) & 0xffffff)
+    format!(
+        "{:x}",
+        RandomState::new().hash_one(now_seconds()) & 0xffffff
+    )
 }
 
 #[cfg(test)]
@@ -259,7 +262,10 @@ mod tests {
 
         let after = load(dir.path());
         assert!(after[0].last_run.is_some());
-        assert!(!after[0].is_due(now_seconds()), "just ran, so not due again");
+        assert!(
+            !after[0].is_due(now_seconds()),
+            "just ran, so not due again"
+        );
     }
 
     #[test]

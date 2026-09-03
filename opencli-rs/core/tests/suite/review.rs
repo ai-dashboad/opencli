@@ -1,5 +1,11 @@
-use opencli_core::OpenCLIThread;
+use core_test_support::load_sse_fixture_with_id_from_str;
+use core_test_support::responses::ResponseMock;
+use core_test_support::responses::mount_sse_sequence;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
 use opencli_core::ContentItem;
+use opencli_core::OpenCLIThread;
 use opencli_core::REVIEW_PROMPT;
 use opencli_core::ResponseItem;
 use opencli_core::config::Config;
@@ -17,12 +23,6 @@ use opencli_core::protocol::RolloutItem;
 use opencli_core::protocol::RolloutLine;
 use opencli_core::review_format::render_review_output_text;
 use opencli_protocol::user_input::UserInput;
-use core_test_support::load_sse_fixture_with_id_from_str;
-use core_test_support::responses::ResponseMock;
-use core_test_support::responses::mount_sse_sequence;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -86,7 +86,8 @@ async fn review_op_emits_lifecycle_and_review_output() {
         .unwrap();
 
     // Verify lifecycle: Entered -> Exited(Some(review)) -> TurnComplete.
-    let _entered = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
+    let _entered =
+        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
     let closed = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ExitedReviewMode(_))).await;
     let review = match closed {
         EventMsg::ExitedReviewMode(ev) => ev
@@ -206,7 +207,8 @@ async fn review_op_with_plain_text_emits_review_fallback() {
         .await
         .unwrap();
 
-    let _entered = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
+    let _entered =
+        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
     let closed = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ExitedReviewMode(_))).await;
     let review = match closed {
         EventMsg::ExitedReviewMode(ev) => ev
@@ -410,7 +412,8 @@ async fn review_uses_custom_review_model_from_config() {
         .unwrap();
 
     // Wait for completion
-    let _entered = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
+    let _entered =
+        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
     let _closed = wait_for_event(&opencli, |ev| {
         matches!(
             ev,
@@ -462,7 +465,8 @@ async fn review_uses_session_model_when_review_model_unset() {
         .await
         .unwrap();
 
-    let _entered = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
+    let _entered =
+        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
     let _closed = wait_for_event(&opencli, |ev| {
         matches!(
             ev,
@@ -578,7 +582,8 @@ async fn review_input_isolated_from_parent_history() {
         .await
         .unwrap();
 
-    let _entered = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
+    let _entered =
+        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
     let _closed = wait_for_event(&opencli, |ev| {
         matches!(
             ev,
@@ -689,7 +694,8 @@ async fn review_history_surfaces_in_parent_session() {
         })
         .await
         .unwrap();
-    let _entered = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
+    let _entered =
+        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
     let _closed = wait_for_event(&opencli, |ev| {
         matches!(
             ev,
@@ -841,7 +847,8 @@ async fn review_uses_overridden_cwd_for_base_branch_merge_base() {
         .await
         .unwrap();
 
-    let _entered = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
+    let _entered =
+        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::EnteredReviewMode(_))).await;
     let _complete = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
 
     let requests = request_log.requests();

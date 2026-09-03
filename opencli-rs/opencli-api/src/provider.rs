@@ -1,9 +1,9 @@
+use http::Method;
+use http::header::HeaderMap;
 use opencli_client::Request;
 use opencli_client::RequestCompression;
 use opencli_client::RetryOn;
 use opencli_client::RetryPolicy;
-use http::Method;
-use http::header::HeaderMap;
 use std::collections::HashMap;
 use std::time::Duration;
 use url::Url;

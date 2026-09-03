@@ -9,9 +9,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use async_channel::unbounded;
+use mcp_types::Tool as McpTool;
 use opencli_protocol::protocol::McpListToolsResponseEvent;
 use opencli_protocol::protocol::SandboxPolicy;
-use mcp_types::Tool as McpTool;
 use tokio_util::sync::CancellationToken;
 
 use crate::AuthManager;

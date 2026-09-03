@@ -1,8 +1,11 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use core::time::Duration;
+use core_test_support::load_default_config_for_test;
+use core_test_support::wait_for_event;
 use opencli_core::AuthManager;
-use opencli_core::OpenCLIAuth;
 use opencli_core::NewThread;
+use opencli_core::OpenCLIAuth;
 use opencli_core::ThreadManager;
 use opencli_core::config::CONFIG_TOML_FILE;
 use opencli_core::features::Feature;
@@ -10,9 +13,6 @@ use opencli_core::protocol::EventMsg;
 use opencli_core::protocol::InitialHistory;
 use opencli_core::protocol::WarningEvent;
 use opencli_utils_absolute_path::AbsolutePathBuf;
-use core::time::Duration;
-use core_test_support::load_default_config_for_test;
-use core_test_support::wait_for_event;
 use tempfile::TempDir;
 use tokio::time::timeout;
 use toml::toml;

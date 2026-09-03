@@ -1,4 +1,6 @@
 use anyhow::Result;
+use core_test_support::load_default_config_for_test;
+use indoc::indoc;
 use opencli_core::OpenCLIAuth;
 use opencli_core::ThreadManager;
 use opencli_core::built_in_model_providers;
@@ -7,8 +9,6 @@ use opencli_protocol::openai_models::ModelPreset;
 use opencli_protocol::openai_models::ModelUpgrade;
 use opencli_protocol::openai_models::ReasoningEffort;
 use opencli_protocol::openai_models::ReasoningEffortPreset;
-use core_test_support::load_default_config_for_test;
-use indoc::indoc;
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
 use tempfile::tempdir;

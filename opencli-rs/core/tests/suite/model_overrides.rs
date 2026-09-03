@@ -1,9 +1,9 @@
-use opencli_core::protocol::EventMsg;
-use opencli_core::protocol::Op;
-use opencli_protocol::openai_models::ReasoningEffort;
 use core_test_support::responses::start_mock_server;
 use core_test_support::test_opencli::test_opencli;
 use core_test_support::wait_for_event;
+use opencli_core::protocol::EventMsg;
+use opencli_core::protocol::Op;
+use opencli_protocol::openai_models::ReasoningEffort;
 use pretty_assertions::assert_eq;
 
 const CONFIG_TOML: &str = "config.toml";
@@ -39,7 +39,10 @@ async fn override_turn_context_does_not_persist_when_config_exists() {
         .await
         .expect("submit override");
 
-    opencli.submit(Op::Shutdown).await.expect("request shutdown");
+    opencli
+        .submit(Op::Shutdown)
+        .await
+        .expect("request shutdown");
     wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ShutdownComplete)).await;
 
     let contents = tokio::fs::read_to_string(&config_path)
@@ -75,7 +78,10 @@ async fn override_turn_context_does_not_create_config_file() {
         .await
         .expect("submit override");
 
-    opencli.submit(Op::Shutdown).await.expect("request shutdown");
+    opencli
+        .submit(Op::Shutdown)
+        .await
+        .expect("request shutdown");
     wait_for_event(&opencli, |ev| matches!(ev, EventMsg::ShutdownComplete)).await;
 
     assert!(

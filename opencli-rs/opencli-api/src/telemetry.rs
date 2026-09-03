@@ -1,4 +1,5 @@
 use crate::error::ApiError;
+use http::StatusCode;
 use opencli_client::Request;
 use opencli_client::RequestTelemetry;
 use opencli_client::Response;
@@ -6,7 +7,6 @@ use opencli_client::RetryPolicy;
 use opencli_client::StreamResponse;
 use opencli_client::TransportError;
 use opencli_client::run_with_retry;
-use http::StatusCode;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;

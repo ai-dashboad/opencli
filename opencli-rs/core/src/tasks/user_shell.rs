@@ -9,13 +9,13 @@ use tokio_util::sync::CancellationToken;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::opencli::TurnContext;
 use crate::exec::ExecToolCallOutput;
 use crate::exec::SandboxType;
 use crate::exec::StdoutStream;
 use crate::exec::StreamOutput;
 use crate::exec::execute_exec_env;
 use crate::exec_env::create_env;
+use crate::opencli::TurnContext;
 use crate::parse_command::parse_command;
 use crate::protocol::EventMsg;
 use crate::protocol::ExecCommandBeginEvent;
@@ -98,9 +98,9 @@ impl SessionTask for UserShellCommandTask {
                     parsed_cmd: parsed_cmd.clone(),
                     source: ExecCommandSource::UserShell,
                     interaction_input: None,
-                                    // The user typed this one; there is nobody to have described it.
+                    // The user typed this one; there is nobody to have described it.
                     description: None,
-}),
+                }),
             )
             .await;
 

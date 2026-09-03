@@ -1,4 +1,12 @@
 use anyhow::Result;
+use core_test_support::responses::ev_completed;
+use core_test_support::responses::ev_response_created;
+use core_test_support::responses::mount_sse_once;
+use core_test_support::responses::sse;
+use core_test_support::responses::start_mock_server;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
 use opencli_core::config::Constrained;
 use opencli_core::protocol::AskForApproval;
 use opencli_core::protocol::EventMsg;
@@ -8,14 +16,6 @@ use opencli_execpolicy::Policy;
 use opencli_protocol::models::DeveloperInstructions;
 use opencli_protocol::user_input::UserInput;
 use opencli_utils_absolute_path::AbsolutePathBuf;
-use core_test_support::responses::ev_completed;
-use core_test_support::responses::ev_response_created;
-use core_test_support::responses::mount_sse_once;
-use core_test_support::responses::sse;
-use core_test_support::responses::start_mock_server;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
 use pretty_assertions::assert_eq;
 use std::collections::HashSet;
 use tempfile::TempDir;
@@ -222,7 +222,10 @@ async fn resume_replays_permissions_messages() -> Result<()> {
             final_output_json_schema: None,
         })
         .await?;
-    wait_for_event(&initial.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&initial.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     initial
         .opencli
@@ -249,7 +252,10 @@ async fn resume_replays_permissions_messages() -> Result<()> {
             final_output_json_schema: None,
         })
         .await?;
-    wait_for_event(&initial.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&initial.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     let resumed = builder.resume(&server, home, rollout_path).await?;
     resumed
@@ -262,7 +268,10 @@ async fn resume_replays_permissions_messages() -> Result<()> {
             final_output_json_schema: None,
         })
         .await?;
-    wait_for_event(&resumed.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&resumed.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     let body3 = req3.single_request().body_json();
     let input = body3["input"].as_array().expect("input array");
@@ -305,7 +314,10 @@ async fn resume_and_fork_append_permissions_messages() -> Result<()> {
             final_output_json_schema: None,
         })
         .await?;
-    wait_for_event(&initial.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&initial.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     initial
         .opencli
@@ -332,7 +344,10 @@ async fn resume_and_fork_append_permissions_messages() -> Result<()> {
             final_output_json_schema: None,
         })
         .await?;
-    wait_for_event(&initial.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&initial.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     let body2 = req2.single_request().body_json();
     let input2 = body2["input"].as_array().expect("input array");
@@ -353,7 +368,10 @@ async fn resume_and_fork_append_permissions_messages() -> Result<()> {
             final_output_json_schema: None,
         })
         .await?;
-    wait_for_event(&resumed.opencli, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+    wait_for_event(&resumed.opencli, |ev| {
+        matches!(ev, EventMsg::TurnComplete(_))
+    })
+    .await;
 
     let body3 = req3.single_request().body_json();
     let input3 = body3["input"].as_array().expect("input array");

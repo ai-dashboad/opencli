@@ -3,6 +3,9 @@ use std::time::Duration;
 use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
+use futures::StreamExt;
+use http::HeaderMap;
+use http::StatusCode;
 use opencli_api::AggregateStreamExt;
 use opencli_api::AuthProvider;
 use opencli_api::Provider;
@@ -17,9 +20,6 @@ use opencli_client::StreamResponse;
 use opencli_client::TransportError;
 use opencli_protocol::models::ContentItem;
 use opencli_protocol::models::ResponseItem;
-use futures::StreamExt;
-use http::HeaderMap;
-use http::StatusCode;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 
@@ -301,7 +301,9 @@ fn build_anthropic_body(events: Vec<Value>) -> String {
     body
 }
 
-async fn collect(mut stream: opencli_api::ResponseStream) -> Vec<Result<ResponseEvent, opencli_api::ApiError>> {
+async fn collect(
+    mut stream: opencli_api::ResponseStream,
+) -> Vec<Result<ResponseEvent, opencli_api::ApiError>> {
     let mut events = Vec::new();
     while let Some(event) = stream.next().await {
         events.push(event);
@@ -334,7 +336,12 @@ async fn should_stream_text_and_a_tool_call_from_anthropic_events() -> Result<()
         provider("anthropic", WireApi::Anthropic),
         NoAuth,
     );
-    let events = collect(client.stream(serde_json::json!({}), HeaderMap::new()).await?).await;
+    let events = collect(
+        client
+            .stream(serde_json::json!({}), HeaderMap::new())
+            .await?,
+    )
+    .await;
     let events: Vec<ResponseEvent> = events.into_iter().collect::<Result<_, _>>()?;
 
     assert!(matches!(events.first(), Some(ResponseEvent::Created)));
@@ -347,15 +354,18 @@ async fn should_stream_text_and_a_tool_call_from_anthropic_events() -> Result<()
     let call = events
         .iter()
         .find_map(|event| match event {
-            ResponseEvent::OutputItemDone(ResponseItem::FunctionCall { name, arguments, .. }) => {
-                Some((name.clone(), arguments.clone()))
-            }
+            ResponseEvent::OutputItemDone(ResponseItem::FunctionCall {
+                name, arguments, ..
+            }) => Some((name.clone(), arguments.clone())),
             _ => None,
         })
         .expect("the tool call should be emitted once its block stops");
     assert_eq!(call.0, "ping");
     assert_eq!(call.1, r#"{"host":"a"}"#);
-    assert!(matches!(events.last(), Some(ResponseEvent::Completed { .. })));
+    assert!(matches!(
+        events.last(),
+        Some(ResponseEvent::Completed { .. })
+    ));
     Ok(())
 }
 
@@ -374,9 +384,18 @@ async fn should_report_an_anthropic_error_event_instead_of_completing_silently()
         provider("anthropic", WireApi::Anthropic),
         NoAuth,
     );
-    let events = collect(client.stream(serde_json::json!({}), HeaderMap::new()).await?).await;
+    let events = collect(
+        client
+            .stream(serde_json::json!({}), HeaderMap::new())
+            .await?,
+    )
+    .await;
 
-    let error = events.last().expect("an event").as_ref().expect_err("an error");
+    let error = events
+        .last()
+        .expect("an event")
+        .as_ref()
+        .expect_err("an error");
     assert!(error.to_string().contains("Overloaded"), "got: {error}");
     Ok(())
 }
@@ -396,10 +415,18 @@ async fn should_complete_the_turn_when_the_stream_ends_without_message_stop() ->
         provider("anthropic", WireApi::Anthropic),
         NoAuth,
     );
-    let events = collect(client.stream(serde_json::json!({}), HeaderMap::new()).await?).await;
+    let events = collect(
+        client
+            .stream(serde_json::json!({}), HeaderMap::new())
+            .await?,
+    )
+    .await;
     let events: Vec<ResponseEvent> = events.into_iter().collect::<Result<_, _>>()?;
 
-    assert!(matches!(events.last(), Some(ResponseEvent::Completed { .. })));
+    assert!(matches!(
+        events.last(),
+        Some(ResponseEvent::Completed { .. })
+    ));
     Ok(())
 }
 
@@ -417,11 +444,23 @@ async fn should_authenticate_anthropic_with_x_api_key_not_a_bearer_token() -> Re
         provider("anthropic", WireApi::Anthropic),
         StaticKey("sk-ant-secret"),
     );
-    let _ = collect(client.stream(serde_json::json!({}), HeaderMap::new()).await?).await;
+    let _ = collect(
+        client
+            .stream(serde_json::json!({}), HeaderMap::new())
+            .await?,
+    )
+    .await;
 
-    let request = seen.lock().expect("lock").clone().expect("a request was sent");
+    let request = seen
+        .lock()
+        .expect("lock")
+        .clone()
+        .expect("a request was sent");
     assert_eq!(
-        request.headers.get("x-api-key").map(|value| value.to_str().unwrap_or("")),
+        request
+            .headers
+            .get("x-api-key")
+            .map(|value| value.to_str().unwrap_or("")),
         Some("sk-ant-secret")
     );
     assert!(
@@ -446,9 +485,18 @@ async fn should_still_authenticate_chat_providers_with_a_bearer_token() -> Resul
         provider("openai", WireApi::Chat),
         StaticKey("sk-openai"),
     );
-    let _ = collect(client.stream(serde_json::json!({}), HeaderMap::new()).await?).await;
+    let _ = collect(
+        client
+            .stream(serde_json::json!({}), HeaderMap::new())
+            .await?,
+    )
+    .await;
 
-    let request = seen.lock().expect("lock").clone().expect("a request was sent");
+    let request = seen
+        .lock()
+        .expect("lock")
+        .clone()
+        .expect("a request was sent");
     assert_eq!(
         request
             .headers

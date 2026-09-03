@@ -1,16 +1,16 @@
 #![cfg(not(target_os = "windows"))]
 
+use core_test_support::responses;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_opencli::TestOpenCLI;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
 use opencli_core::protocol::AskForApproval;
 use opencli_core::protocol::EventMsg;
 use opencli_core::protocol::Op;
 use opencli_core::protocol::SandboxPolicy;
 use opencli_protocol::config_types::ReasoningSummary;
 use opencli_protocol::user_input::UserInput;
-use core_test_support::responses;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_opencli::TestOpenCLI;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
 use pretty_assertions::assert_eq;
 use responses::ev_assistant_message;
 use responses::ev_completed;

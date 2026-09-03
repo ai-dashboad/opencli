@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use opencli_utils_image::load_and_resize_to_fit;
 use mcp_types::CallToolResult;
 use mcp_types::ContentBlock;
+use opencli_utils_image::load_and_resize_to_fit;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -761,12 +761,12 @@ pub struct ShellCommandToolCallParams {
     #[ts(optional)]
     pub prefix_rule: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub justification: Option<String>,    /// What the command is for, in the model's own words. Optional, and often
+    pub justification: Option<String>,
+    /// What the command is for, in the model's own words. Optional, and often
     /// absent: a smaller model routinely skips a field it need not fill.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub description: Option<String>,
-
 }
 
 /// Responses API compatible content items that can be returned by a tool call.
@@ -948,9 +948,9 @@ mod tests {
     use crate::config_types::SandboxMode;
     use crate::protocol::AskForApproval;
     use anyhow::Result;
-    use opencli_execpolicy::Policy;
     use mcp_types::ImageContent;
     use mcp_types::TextContent;
+    use opencli_execpolicy::Policy;
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
     use tempfile::tempdir;

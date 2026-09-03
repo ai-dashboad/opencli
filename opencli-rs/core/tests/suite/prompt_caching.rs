@@ -1,5 +1,12 @@
 #![allow(clippy::unwrap_used)]
 
+use core_test_support::load_sse_fixture_with_id;
+use core_test_support::responses::mount_sse_once;
+use core_test_support::responses::start_mock_server;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_opencli::TestOpenCLI;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
 use opencli_apply_patch::APPLY_PATCH_TOOL_INSTRUCTIONS;
 use opencli_core::features::Feature;
 use opencli_core::models_manager::model_info::BASE_INSTRUCTIONS;
@@ -18,13 +25,6 @@ use opencli_protocol::config_types::WebSearchMode;
 use opencli_protocol::openai_models::ReasoningEffort;
 use opencli_protocol::user_input::UserInput;
 use opencli_utils_absolute_path::AbsolutePathBuf;
-use core_test_support::load_sse_fixture_with_id;
-use core_test_support::responses::mount_sse_once;
-use core_test_support::responses::start_mock_server;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_opencli::TestOpenCLI;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
@@ -241,7 +241,9 @@ async fn prefixes_context_and_instructions_once_and_consistently_across_requests
     let req1 = mount_sse_once(&server, sse_completed("resp-1")).await;
     let req2 = mount_sse_once(&server, sse_completed("resp-2")).await;
 
-    let TestOpenCLI { opencli, config, .. } = test_opencli()
+    let TestOpenCLI {
+        opencli, config, ..
+    } = test_opencli()
         .with_config(|config| {
             config.user_instructions = Some("be consistent and helpful".to_string());
             config.features.enable(Feature::CollaborationModes);

@@ -1,5 +1,18 @@
+use core_test_support::load_default_config_for_test;
+use core_test_support::load_sse_fixture_with_id;
+use core_test_support::responses::ev_completed_with_tokens;
+use core_test_support::responses::mount_sse_once;
+use core_test_support::responses::mount_sse_once_match;
+use core_test_support::responses::mount_sse_sequence;
+use core_test_support::responses::sse;
+use core_test_support::responses::sse_failed;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_opencli::TestOpenCLI;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
+use dunce::canonicalize as normalize_path;
+use futures::StreamExt;
 use opencli_core::AuthManager;
-use opencli_core::OpenCLIAuth;
 use opencli_core::ContentItem;
 use opencli_core::LocalShellAction;
 use opencli_core::LocalShellExecAction;
@@ -7,6 +20,7 @@ use opencli_core::LocalShellStatus;
 use opencli_core::ModelClient;
 use opencli_core::ModelProviderInfo;
 use opencli_core::NewThread;
+use opencli_core::OpenCLIAuth;
 use opencli_core::Prompt;
 use opencli_core::ResponseEvent;
 use opencli_core::ResponseItem;
@@ -34,20 +48,6 @@ use opencli_protocol::models::ReasoningItemReasoningSummary;
 use opencli_protocol::models::WebSearchAction;
 use opencli_protocol::openai_models::ReasoningEffort;
 use opencli_protocol::user_input::UserInput;
-use core_test_support::load_default_config_for_test;
-use core_test_support::load_sse_fixture_with_id;
-use core_test_support::responses::ev_completed_with_tokens;
-use core_test_support::responses::mount_sse_once;
-use core_test_support::responses::mount_sse_once_match;
-use core_test_support::responses::mount_sse_sequence;
-use core_test_support::responses::sse;
-use core_test_support::responses::sse_failed;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_opencli::TestOpenCLI;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
-use dunce::canonicalize as normalize_path;
-use futures::StreamExt;
 use pretty_assertions::assert_eq;
 use serde_json::json;
 use std::io::Write;
@@ -543,7 +543,9 @@ async fn prefers_apikey_when_config_prefers_apikey_even_with_chatgpt_tokens() {
         auth_manager,
         SessionSource::Exec,
     );
-    let NewThread { thread: opencli, .. } = thread_manager
+    let NewThread {
+        thread: opencli, ..
+    } = thread_manager
         .start_thread(config)
         .await
         .expect("create new conversation");
@@ -1165,7 +1167,8 @@ async fn azure_responses_request_includes_store_and_reasoning_ids() {
     let config = Arc::new(config);
     let model_info = ModelsManager::construct_model_info_offline(model.as_str(), &config);
     let conversation_id = ThreadId::new();
-    let auth_manager = AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
+    let auth_manager =
+        AuthManager::from_auth_for_testing(OpenCLIAuth::from_api_key("Test API Key"));
     let otel_manager = OtelManager::new(
         conversation_id,
         model.as_str(),
@@ -1607,8 +1610,10 @@ async fn context_window_error_sets_total_tokens_to_model_window() -> anyhow::Res
     );
 
     let error_event = wait_for_event(&opencli, |ev| matches!(ev, EventMsg::Error(_))).await;
-    let expected_context_window_message =
-        OpenCLIErr::ContextWindowExceeded { context_limit: None }.to_string();
+    let expected_context_window_message = OpenCLIErr::ContextWindowExceeded {
+        context_limit: None,
+    }
+    .to_string();
     assert!(
         matches!(
             error_event,

@@ -31,7 +31,8 @@ const INVALID_REQUEST_ERROR_CODE: i64 = -32600;
 async fn get_account_rate_limits_requires_auth() -> Result<()> {
     let opencli_home = TempDir::new()?;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let request_id = mcp.send_get_account_rate_limits_request().await?;
@@ -128,7 +129,8 @@ async fn get_account_rate_limits_returns_snapshot() -> Result<()> {
         .mount(&server)
         .await;
 
-    let mut mcp = McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
+    let mut mcp =
+        McpProcess::new_with_env(opencli_home.path(), &[("OPENAI_API_KEY", None)]).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let request_id = mcp.send_get_account_rate_limits_request().await?;

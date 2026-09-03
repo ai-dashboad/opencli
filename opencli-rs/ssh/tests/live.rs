@@ -8,7 +8,9 @@ use opencli_ssh::client;
 use opencli_ssh::config;
 
 fn alias() -> Option<String> {
-    std::env::var("OPENCLI_SSH_TEST_ALIAS").ok().filter(|a| !a.is_empty())
+    std::env::var("OPENCLI_SSH_TEST_ALIAS")
+        .ok()
+        .filter(|a| !a.is_empty())
 }
 
 #[tokio::test]
@@ -22,7 +24,12 @@ async fn should_run_a_command_on_a_real_server() {
         .expect("connects with a recorded host key and an available key");
 
     let output = session.exec("echo hello-from-opencli").await.expect("runs");
-    assert!(output.succeeded(), "exit {} / {}", output.exit_code, output.stderr);
+    assert!(
+        output.succeeded(),
+        "exit {} / {}",
+        output.exit_code,
+        output.stderr
+    );
     assert_eq!(output.stdout.trim(), "hello-from-opencli");
 
     // A failing command must report its status, not be mistaken for success.
@@ -32,10 +39,7 @@ async fn should_run_a_command_on_a_real_server() {
 
     // stderr must not be mixed into stdout; a caller parsing output would
     // otherwise read a warning as data.
-    let mixed = session
-        .exec("echo out; echo err >&2")
-        .await
-        .expect("runs");
+    let mixed = session.exec("echo out; echo err >&2").await.expect("runs");
     assert_eq!(mixed.stdout.trim(), "out");
     assert_eq!(mixed.stderr.trim(), "err");
 
@@ -54,7 +58,10 @@ async fn should_refuse_a_host_it_has_no_record_of() {
     let user = settings.user.clone().unwrap_or_else(|| "root".into());
     match client::connect(&settings, &user, client::TrustPolicy::Ask).await {
         Err(client::Failure::UnknownHost { fingerprint }) => {
-            assert!(!fingerprint.is_empty(), "the user must see what they are trusting");
+            assert!(
+                !fingerprint.is_empty(),
+                "the user must see what they are trusting"
+            );
         }
         Err(client::Failure::Unreachable(_)) => {
             // The trailing dot may not resolve everywhere; that is not a

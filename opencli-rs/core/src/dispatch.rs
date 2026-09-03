@@ -46,7 +46,10 @@ pub enum RunStatus {
 
 impl RunStatus {
     pub fn is_finished(self) -> bool {
-        matches!(self, RunStatus::Done | RunStatus::Failed | RunStatus::Cancelled)
+        matches!(
+            self,
+            RunStatus::Done | RunStatus::Failed | RunStatus::Cancelled
+        )
     }
 }
 
@@ -105,7 +108,10 @@ pub fn load(opencli_home: &Path) -> Vec<Run> {
 }
 
 pub fn save(opencli_home: &Path, runs: &[Run]) -> std::io::Result<()> {
-    std::fs::write(store_path(opencli_home), serde_json::to_string_pretty(runs)?)
+    std::fs::write(
+        store_path(opencli_home),
+        serde_json::to_string_pretty(runs)?,
+    )
 }
 
 /// Record a new run, queued and waiting to start.
@@ -236,7 +242,10 @@ pub fn clear_finished(opencli_home: &Path) -> std::io::Result<usize> {
 fn rand_suffix() -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::BuildHasher;
-    format!("{:x}", RandomState::new().hash_one(now_seconds()) & 0xffffff)
+    format!(
+        "{:x}",
+        RandomState::new().hash_one(now_seconds()) & 0xffffff
+    )
 }
 
 #[cfg(test)]
@@ -380,7 +389,10 @@ mod tests {
         make(dir.path(), "new");
 
         let left = load(dir.path());
-        assert!(left.iter().any(|run| run.id == "r0"), "unfinished runs are kept");
+        assert!(
+            left.iter().any(|run| run.id == "r0"),
+            "unfinished runs are kept"
+        );
         assert!(left.iter().filter(|run| run.status.is_finished()).count() <= KEEP_FINISHED);
     }
 

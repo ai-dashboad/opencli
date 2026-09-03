@@ -1,12 +1,19 @@
 #![allow(clippy::expect_used)]
-use opencli_core::OpenCLIAuth;
+use core_test_support::responses::ev_local_shell_call;
+use core_test_support::responses::ev_reasoning_item;
+use core_test_support::skip_if_no_network;
+use core_test_support::test_opencli::test_opencli;
+use core_test_support::wait_for_event;
+use core_test_support::wait_for_event_match;
 use opencli_core::ModelProviderInfo;
+use opencli_core::OpenCLIAuth;
 use opencli_core::built_in_model_providers;
 use opencli_core::compact::SUMMARIZATION_PROMPT;
 use opencli_core::compact::SUMMARY_PREFIX;
 use opencli_core::config::Config;
 use opencli_core::features::Feature;
 use opencli_core::protocol::AskForApproval;
+use opencli_core::protocol::BackgroundEventEvent;
 use opencli_core::protocol::EventMsg;
 use opencli_core::protocol::ItemCompletedEvent;
 use opencli_core::protocol::ItemStartedEvent;
@@ -14,17 +21,10 @@ use opencli_core::protocol::Op;
 use opencli_core::protocol::RolloutItem;
 use opencli_core::protocol::RolloutLine;
 use opencli_core::protocol::SandboxPolicy;
-use opencli_core::protocol::BackgroundEventEvent;
 use opencli_core::protocol::WarningEvent;
 use opencli_protocol::config_types::ReasoningSummary;
 use opencli_protocol::items::TurnItem;
 use opencli_protocol::user_input::UserInput;
-use core_test_support::responses::ev_local_shell_call;
-use core_test_support::responses::ev_reasoning_item;
-use core_test_support::skip_if_no_network;
-use core_test_support::test_opencli::test_opencli;
-use core_test_support::wait_for_event;
-use core_test_support::wait_for_event_match;
 use std::collections::VecDeque;
 
 use core_test_support::responses::ev_assistant_message;
@@ -346,10 +346,8 @@ async fn compaction_announces_progress_so_the_turn_is_not_silent() {
 
     // A background event must arrive so the UI shows a live "Compacting…" status
     // instead of a silent spinner while the summary is generated.
-    let background_event = wait_for_event(&opencli, |ev| {
-        matches!(ev, EventMsg::BackgroundEvent(_))
-    })
-    .await;
+    let background_event =
+        wait_for_event(&opencli, |ev| matches!(ev, EventMsg::BackgroundEvent(_))).await;
     let EventMsg::BackgroundEvent(BackgroundEventEvent { message }) = background_event else {
         panic!("expected a background event during compaction");
     };

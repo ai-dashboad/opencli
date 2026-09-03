@@ -1,11 +1,11 @@
 use crate::agent::AgentStatus;
 use crate::agent::exceeds_thread_spawn_depth_limit;
-use crate::opencli::Session;
-use crate::opencli::TurnContext;
 use crate::config::Config;
 use crate::error::OpenCLIErr;
 use crate::features::Feature;
 use crate::function_tool::FunctionCallError;
+use crate::opencli::Session;
+use crate::opencli::TurnContext;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolOutput;
 use crate::tools::context::ToolPayload;
@@ -634,9 +634,9 @@ mod tests {
     use crate::agent::MAX_THREAD_SPAWN_DEPTH;
     use crate::built_in_model_providers;
     use crate::client::ModelClient;
-    use crate::opencli::make_session_and_context;
     use crate::config::types::ShellEnvironmentPolicy;
     use crate::function_tool::FunctionCallError;
+    use crate::opencli::make_session_and_context;
     use crate::protocol::AskForApproval;
     use crate::protocol::Op;
     use crate::protocol::SandboxPolicy;

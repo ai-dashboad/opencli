@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
 
-use opencli_core::protocol::Event;
-use opencli_protocol::ThreadId;
 use mcp_types::JSONRPC_VERSION;
 use mcp_types::JSONRPCError;
 use mcp_types::JSONRPCErrorError;
@@ -13,6 +11,8 @@ use mcp_types::JSONRPCRequest;
 use mcp_types::JSONRPCResponse;
 use mcp_types::RequestId;
 use mcp_types::Result;
+use opencli_core::protocol::Event;
+use opencli_protocol::ThreadId;
 use serde::Serialize;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;

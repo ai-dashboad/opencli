@@ -1,3 +1,4 @@
+use eventsource_stream::Event as StreamEvent;
 use opencli_app_server_protocol::AuthMode;
 use opencli_otel::OtelManager;
 use opencli_otel::RuntimeMetricTotals;
@@ -7,7 +8,6 @@ use opencli_otel::metrics::MetricsConfig;
 use opencli_otel::metrics::Result;
 use opencli_protocol::ThreadId;
 use opencli_protocol::protocol::SessionSource;
-use eventsource_stream::Event as StreamEvent;
 use opentelemetry_sdk::metrics::InMemoryMetricExporter;
 use pretty_assertions::assert_eq;
 use std::time::Duration;

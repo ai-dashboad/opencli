@@ -2,6 +2,9 @@
 
 use std::sync::Arc;
 
+use core_test_support::load_default_config_for_test;
+use core_test_support::skip_if_no_network;
+use futures::StreamExt;
 use opencli_app_server_protocol::AuthMode;
 use opencli_core::ContentItem;
 use opencli_core::LocalShellAction;
@@ -18,9 +21,6 @@ use opencli_otel::OtelManager;
 use opencli_protocol::ThreadId;
 use opencli_protocol::models::ReasoningItemContent;
 use opencli_protocol::protocol::SessionSource;
-use core_test_support::load_default_config_for_test;
-use core_test_support::skip_if_no_network;
-use futures::StreamExt;
 use serde_json::Value;
 use tempfile::TempDir;
 use wiremock::Mock;

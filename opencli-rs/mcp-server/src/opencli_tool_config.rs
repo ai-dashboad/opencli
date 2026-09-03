@@ -1,14 +1,14 @@
 //! Configuration object accepted by the `opencli` MCP tool-call.
 
+use mcp_types::Tool;
+use mcp_types::ToolInputSchema;
+use mcp_types::ToolOutputSchema;
 use opencli_core::config::Config;
 use opencli_core::config::ConfigOverrides;
 use opencli_core::protocol::AskForApproval;
 use opencli_protocol::ThreadId;
 use opencli_protocol::config_types::SandboxMode;
 use opencli_utils_json_to_toml::json_to_toml;
-use mcp_types::Tool;
-use mcp_types::ToolInputSchema;
-use mcp_types::ToolOutputSchema;
 use schemars::JsonSchema;
 use schemars::r#gen::SchemaSettings;
 use serde::Deserialize;

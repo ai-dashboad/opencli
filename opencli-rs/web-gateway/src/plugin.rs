@@ -250,9 +250,8 @@ fn record(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     // The front matter is what the loader reads to decide when a skill
     // applies, so a description that does not say *when* makes the skill
     // invisible in practice.
-    let contents = format!(
-        "---\nname: {name}\ndescription: {description}\n---\n\n# {name}\n\n{body}\n"
-    );
+    let contents =
+        format!("---\nname: {name}\ndescription: {description}\n---\n\n# {name}\n\n{body}\n");
     std::fs::write(target.join(SKILL_FILE), contents)
         .map_err(|err| format!("could not write: {err}"))?;
 
@@ -345,7 +344,12 @@ mod tests {
     fn should_list_nothing_when_none_are_installed() {
         let dir = tempdir().expect("tempdir");
         let listed = call(r#"{"method":"plugin/list","id":1}"#, dir.path());
-        assert!(listed["result"]["data"].as_array().expect("data").is_empty());
+        assert!(
+            listed["result"]["data"]
+                .as_array()
+                .expect("data")
+                .is_empty()
+        );
     }
 
     #[test]
@@ -366,7 +370,12 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         std::fs::create_dir_all(skills_root(dir.path()).join("notes")).expect("mkdir");
         let listed = call(r#"{"method":"plugin/list","id":1}"#, dir.path());
-        assert!(listed["result"]["data"].as_array().expect("data").is_empty());
+        assert!(
+            listed["result"]["data"]
+                .as_array()
+                .expect("data")
+                .is_empty()
+        );
     }
 
     #[test]
@@ -375,7 +384,12 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         place_skill(dir.path(), ".system", "internal");
         let listed = call(r#"{"method":"plugin/list","id":1}"#, dir.path());
-        assert!(listed["result"]["data"].as_array().expect("data").is_empty());
+        assert!(
+            listed["result"]["data"]
+                .as_array()
+                .expect("data")
+                .is_empty()
+        );
     }
 
     #[test]
@@ -419,9 +433,11 @@ mod tests {
                {"name":"x","source":"file:///etc/passwd"}}"#,
             dir.path(),
         );
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("repository")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("repository"))
+        );
     }
 
     #[test]
@@ -433,9 +449,11 @@ mod tests {
                {"name":"design","source":"https://example.com/x.git"}}"#,
             dir.path(),
         );
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("already installed")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("already installed"))
+        );
     }
 
     #[test]
@@ -473,7 +491,10 @@ mod tests {
                 .expect("read");
         // The front matter is what decides when the skill applies; without it
         // the skill is invisible in practice.
-        assert!(written.contains("description: Use when shipping a release."), "got: {written}");
+        assert!(
+            written.contains("description: Use when shipping a release."),
+            "got: {written}"
+        );
         assert!(written.contains("just ship"), "got: {written}");
     }
 
@@ -496,9 +517,11 @@ mod tests {
             r#"{"method":"plugin/record","id":1,"params":{"name":"x","body":"b"}}"#,
             dir.path(),
         );
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("description")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("description"))
+        );
     }
 
     #[test]
@@ -514,9 +537,11 @@ mod tests {
             ),
             dir.path(),
         );
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("not a directory")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("not a directory"))
+        );
     }
 
     #[test]

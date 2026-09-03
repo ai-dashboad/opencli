@@ -155,7 +155,9 @@ fn main() -> Result<()> {
         CliCommand::TriggerPatchApproval { user_message } => {
             trigger_patch_approval(&opencli_bin, &config_overrides, user_message)
         }
-        CliCommand::NoTriggerCmdApproval => no_trigger_cmd_approval(&opencli_bin, &config_overrides),
+        CliCommand::NoTriggerCmdApproval => {
+            no_trigger_cmd_approval(&opencli_bin, &config_overrides)
+        }
         CliCommand::SendFollowUpV2 {
             first_message,
             follow_up_message,
@@ -166,12 +168,18 @@ fn main() -> Result<()> {
             follow_up_message,
         ),
         CliCommand::TestLogin => test_login(&opencli_bin, &config_overrides),
-        CliCommand::GetAccountRateLimits => get_account_rate_limits(&opencli_bin, &config_overrides),
+        CliCommand::GetAccountRateLimits => {
+            get_account_rate_limits(&opencli_bin, &config_overrides)
+        }
         CliCommand::ModelList => model_list(&opencli_bin, &config_overrides),
     }
 }
 
-fn send_message(opencli_bin: &str, config_overrides: &[String], user_message: String) -> Result<()> {
+fn send_message(
+    opencli_bin: &str,
+    config_overrides: &[String],
+    user_message: String,
+) -> Result<()> {
     let mut client = OpenCLIClient::spawn(opencli_bin, config_overrides)?;
 
     let initialize = client.initialize()?;
@@ -237,7 +245,13 @@ fn trigger_patch_approval(
 
 fn no_trigger_cmd_approval(opencli_bin: &str, config_overrides: &[String]) -> Result<()> {
     let prompt = "Run `touch should_not_trigger_approval.txt`";
-    send_message_v2_with_policies(opencli_bin, config_overrides, prompt.to_string(), None, None)
+    send_message_v2_with_policies(
+        opencli_bin,
+        config_overrides,
+        prompt.to_string(),
+        None,
+        None,
+    )
 }
 
 fn send_message_v2_with_policies(
@@ -455,7 +469,9 @@ impl OpenCLIClient {
         let request_id = self.request_id();
         let request = ClientRequest::RemoveConversationListener {
             request_id: request_id.clone(),
-            params: opencli_app_server_protocol::RemoveConversationListenerParams { subscription_id },
+            params: opencli_app_server_protocol::RemoveConversationListenerParams {
+                subscription_id,
+            },
         };
 
         self.send_request::<opencli_app_server_protocol::RemoveConversationSubscriptionResponse>(

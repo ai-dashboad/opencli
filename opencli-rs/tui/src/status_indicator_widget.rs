@@ -4,8 +4,8 @@
 use std::time::Duration;
 use std::time::Instant;
 
-use opencli_core::protocol::Op;
 use crossterm::event::KeyCode;
+use opencli_core::protocol::Op;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Stylize;

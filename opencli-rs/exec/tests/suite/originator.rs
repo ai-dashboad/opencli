@@ -1,9 +1,9 @@
 #![cfg(not(target_os = "windows"))]
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-use opencli_core::default_client::OPENCLI_INTERNAL_ORIGINATOR_OVERRIDE_ENV_VAR;
 use core_test_support::responses;
 use core_test_support::test_opencli_exec::test_opencli_exec;
+use opencli_core::default_client::OPENCLI_INTERNAL_ORIGINATOR_OVERRIDE_ENV_VAR;
 use wiremock::matchers::header;
 
 /// Verify that when the server reports an error, `opencli-exec` exits with a
@@ -44,7 +44,10 @@ async fn supports_originator_override() -> anyhow::Result<()> {
         .await;
 
     test.cmd_with_server(&server)
-        .env("OPENCLI_INTERNAL_ORIGINATOR_OVERRIDE", "opencli_exec_override")
+        .env(
+            "OPENCLI_INTERNAL_ORIGINATOR_OVERRIDE",
+            "opencli_exec_override",
+        )
         .arg("--skip-git-repo-check")
         .arg("tell me something")
         .assert()

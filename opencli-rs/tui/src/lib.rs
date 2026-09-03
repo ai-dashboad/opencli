@@ -7,14 +7,16 @@ use additional_dirs::add_dir_warning_message;
 use app::App;
 pub use app::AppExitInfo;
 pub use app::ExitReason;
+use cwd_prompt::CwdPromptAction;
+use cwd_prompt::CwdSelection;
 use opencli_app_server_protocol::AuthMode;
 use opencli_cloud_requirements::cloud_requirements_loader;
 use opencli_common::oss::ensure_oss_provider_ready;
 use opencli_common::oss::get_default_model_for_oss_provider;
 use opencli_common::oss::ollama_chat_deprecation_notice;
 use opencli_core::AuthManager;
-use opencli_core::OpenCLIAuth;
 use opencli_core::INTERACTIVE_SESSION_SOURCES;
+use opencli_core::OpenCLIAuth;
 use opencli_core::RolloutRecorder;
 use opencli_core::ThreadSortKey;
 use opencli_core::auth::enforce_login_restrictions;
@@ -42,8 +44,6 @@ use opencli_protocol::protocol::RolloutItem;
 use opencli_protocol::protocol::RolloutLine;
 use opencli_state::log_db;
 use opencli_utils_absolute_path::AbsolutePathBuf;
-use cwd_prompt::CwdPromptAction;
-use cwd_prompt::CwdSelection;
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::path::PathBuf;
@@ -94,6 +94,7 @@ mod session_log;
 mod shimmer;
 mod skills_helpers;
 mod slash_command;
+mod spinner_words;
 mod status;
 mod status_indicator_widget;
 mod streaming;
@@ -107,7 +108,6 @@ pub mod update_action;
 mod update_prompt;
 mod updates;
 mod version;
-mod spinner_words;
 mod wordmark;
 
 mod wrapping;
@@ -842,7 +842,8 @@ fn get_login_status(config: &Config) -> LoginStatus {
         // Reading the OpenAI API key is an async operation because it may need
         // to refresh the token. Block on it.
         let opencli_home = config.opencli_home.clone();
-        match OpenCLIAuth::from_auth_storage(&opencli_home, config.cli_auth_credentials_store_mode) {
+        match OpenCLIAuth::from_auth_storage(&opencli_home, config.cli_auth_credentials_store_mode)
+        {
             Ok(Some(auth)) => LoginStatus::AuthMode(auth.api_auth_mode()),
             Ok(None) => LoginStatus::NotAuthenticated,
             Err(err) => {

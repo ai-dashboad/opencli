@@ -7,12 +7,12 @@ use std::sync::Mutex;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::ensure;
-use opencli_exec_server::ExecResult;
 use exec_server_test_support::InteractiveClient;
 use exec_server_test_support::create_transport;
 use exec_server_test_support::notify_readable_sandbox;
 use exec_server_test_support::write_default_execpolicy;
 use maplit::hashset;
+use opencli_exec_server::ExecResult;
 use pretty_assertions::assert_eq;
 use rmcp::ServiceExt;
 use rmcp::model::CallToolRequestParam;
@@ -78,7 +78,9 @@ prefix_rule(
     // `shell` tool calls.
     let linux_sandbox_exe_folder = TempDir::new()?;
     let opencli_linux_sandbox_exe = if cfg!(target_os = "linux") {
-        let opencli_linux_sandbox_exe = linux_sandbox_exe_folder.path().join("opencli-linux-sandbox");
+        let opencli_linux_sandbox_exe = linux_sandbox_exe_folder
+            .path()
+            .join("opencli-linux-sandbox");
         let opencli_cli = ensure_opencli_cli()?;
         symlink(&opencli_cli, &opencli_linux_sandbox_exe)?;
         Some(opencli_linux_sandbox_exe)

@@ -334,7 +334,8 @@ fn handle_server_request(
             send_jsonrpc_response(stdin, request_id, response)
         }
         opencli_app_server_protocol::ServerRequest::FileChangeRequestApproval {
-            request_id, ..
+            request_id,
+            ..
         } => {
             let response = opencli_app_server_protocol::FileChangeRequestApprovalResponse {
                 decision: FileChangeApprovalDecision::Decline,

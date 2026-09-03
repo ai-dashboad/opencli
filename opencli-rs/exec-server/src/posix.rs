@@ -229,7 +229,8 @@ fn format_program_name(path: &Path, preserve_program_paths: bool) -> Option<Stri
 }
 
 async fn load_exec_policy() -> anyhow::Result<Policy> {
-    let opencli_home = find_opencli_home().context("failed to resolve opencli_home for execpolicy")?;
+    let opencli_home =
+        find_opencli_home().context("failed to resolve opencli_home for execpolicy")?;
 
     // TODO(mbolin): At a minimum, `cwd` should be configurable via
     // `opencli/sandbox-state/update` or some other custom MCP call.

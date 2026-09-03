@@ -9,8 +9,8 @@ use chrono::Local;
 use chrono::Utc;
 use opencli_async_utils::CancelErr;
 use opencli_protocol::ThreadId;
-use opencli_protocol::protocol::OpenCLIErrorInfo;
 use opencli_protocol::protocol::ErrorEvent;
+use opencli_protocol::protocol::OpenCLIErrorInfo;
 use opencli_protocol::protocol::RateLimitSnapshot;
 use reqwest::StatusCode;
 use serde_json;
@@ -610,9 +610,11 @@ impl OpenCLIErr {
             OpenCLIErr::ConnectionFailed(_) => OpenCLIErrorInfo::HttpConnectionFailed {
                 http_status_code: self.http_status_code_value(),
             },
-            OpenCLIErr::ResponseStreamFailed(_) => OpenCLIErrorInfo::ResponseStreamConnectionFailed {
-                http_status_code: self.http_status_code_value(),
-            },
+            OpenCLIErr::ResponseStreamFailed(_) => {
+                OpenCLIErrorInfo::ResponseStreamConnectionFailed {
+                    http_status_code: self.http_status_code_value(),
+                }
+            }
             OpenCLIErr::RefreshTokenFailed(_) => OpenCLIErrorInfo::Unauthorized,
             OpenCLIErr::SessionConfiguredNotFirstEvent
             | OpenCLIErr::InternalServerError
@@ -750,8 +752,14 @@ mod tests {
             shown.contains("This request exceeds glm-5.2's context window"),
             "should show the human message, got: {shown}"
         );
-        assert!(!shown.contains("{\"error\""), "should not dump raw JSON: {shown}");
-        assert!(shown.contains("req-123"), "should keep the request id: {shown}");
+        assert!(
+            !shown.contains("{\"error\""),
+            "should not dump raw JSON: {shown}"
+        );
+        assert!(
+            shown.contains("req-123"),
+            "should keep the request id: {shown}"
+        );
     }
 
     #[test]

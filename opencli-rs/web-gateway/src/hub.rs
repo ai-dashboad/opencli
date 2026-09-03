@@ -132,7 +132,10 @@ fn upsert(opencli_home: &std::path::Path, params: &Value) -> Result<Value, Strin
         note,
         size_gb: params.get("sizeGb").and_then(Value::as_f64).unwrap_or(0.0) as f32,
         needs_gb: params.get("needsGb").and_then(Value::as_f64).unwrap_or(0.0) as f32,
-        tools: params.get("tools").and_then(Value::as_bool).unwrap_or(false),
+        tools: params
+            .get("tools")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         context: params.get("context").and_then(Value::as_u64).unwrap_or(0) as u32,
         // An unrecognised purpose would make a group of one, so anything the
         // build does not group by falls into the general one.
@@ -177,7 +180,10 @@ async fn search(params: &Value) -> Result<Value, String> {
         .map(str::trim)
         .filter(|query| !query.is_empty())
         .ok_or("query is required")?;
-    let source = params.get("source").and_then(Value::as_str).unwrap_or("huggingface");
+    let source = params
+        .get("source")
+        .and_then(Value::as_str)
+        .unwrap_or("huggingface");
 
     match source {
         "huggingface" => search_hugging_face(query).await,
@@ -621,7 +627,9 @@ mod tests {
     use tempfile::tempdir;
 
     async fn call_in(raw: &str, home: &std::path::Path) -> Value {
-        let reply = handle(raw, home).await.expect("hub methods are handled locally");
+        let reply = handle(raw, home)
+            .await
+            .expect("hub methods are handled locally");
         serde_json::from_str(&reply).expect("valid JSON reply")
     }
 
@@ -633,7 +641,11 @@ mod tests {
     #[tokio::test]
     async fn should_pass_non_hub_methods_through_to_the_agent() {
         let dir = tempdir().expect("tempdir");
-        assert!(handle(r#"{"method":"turn/start","id":1}"#, dir.path()).await.is_none());
+        assert!(
+            handle(r#"{"method":"turn/start","id":1}"#, dir.path())
+                .await
+                .is_none()
+        );
         assert!(handle("not json", dir.path()).await.is_none());
     }
 
@@ -643,8 +655,14 @@ mod tests {
         let rows = listed["result"]["data"].as_array().expect("data");
         assert!(rows.len() >= 8);
         for row in rows {
-            assert!(!row["note"].as_str().unwrap_or("").is_empty(), "{row} needs a note");
-            assert!(row["tools"].is_boolean(), "{row} must say whether it calls tools");
+            assert!(
+                !row["note"].as_str().unwrap_or("").is_empty(),
+                "{row} needs a note"
+            );
+            assert!(
+                row["tools"].is_boolean(),
+                "{row} must say whether it calls tools"
+            );
             assert!(row["needsGb"].as_f64().unwrap_or(0.0) > 0.0);
         }
     }
@@ -655,7 +673,10 @@ mod tests {
         // model cannot drive the agent's own work.
         let listed = call(r#"{"method":"hub/catalog","id":1}"#).await;
         let rows = listed["result"]["data"].as_array().expect("data");
-        let without = rows.iter().find(|row| row["tools"] == false).expect("one is listed");
+        let without = rows
+            .iter()
+            .find(|row| row["tools"] == false)
+            .expect("one is listed");
         assert!(
             without["note"]
                 .as_str()
@@ -671,7 +692,10 @@ mod tests {
         let listed = call(r#"{"method":"hub/catalog","id":1,"params":{"query":"coder"}}"#).await;
         let rows = listed["result"]["data"].as_array().expect("data");
         assert!(!rows.is_empty());
-        assert!(rows.iter().all(|row| row["tag"].as_str().unwrap_or("").contains("coder")));
+        assert!(
+            rows.iter()
+                .all(|row| row["tag"].as_str().unwrap_or("").contains("coder"))
+        );
     }
 
     #[tokio::test]
@@ -734,9 +758,11 @@ mod tests {
             dir.path(),
         )
         .await;
-        assert!(reply["error"]["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("note")));
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("note"))
+        );
     }
 
     #[tokio::test]
@@ -787,7 +813,10 @@ mod tests {
         // `Q4_K_M` tells a person nothing; a choice without a consequence
         // attached is one nobody can make.
         for quant in ["Q2_K", "Q4_K_M", "Q6_K", "Q8_0"] {
-            assert!(!describe_quant(quant).is_empty(), "{quant} needs a description");
+            assert!(
+                !describe_quant(quant).is_empty(),
+                "{quant} needs a description"
+            );
         }
     }
 
@@ -923,8 +952,14 @@ mod tests {
         )
         .await;
 
-        assert_eq!(first["result"]["data"][0]["tag"], "hf.co/owner/model-0-GGUF");
-        assert_eq!(second["result"]["data"][0]["tag"], "hf.co/owner/model-5-GGUF");
+        assert_eq!(
+            first["result"]["data"][0]["tag"],
+            "hf.co/owner/model-0-GGUF"
+        );
+        assert_eq!(
+            second["result"]["data"][0]["tag"],
+            "hf.co/owner/model-5-GGUF"
+        );
     }
 
     #[tokio::test]
@@ -936,7 +971,12 @@ mod tests {
         seed_popular(dir.path(), 30, long_ago);
 
         let reply = call_in(r#"{"method":"hub/popular","id":1,"params":{}}"#, dir.path()).await;
-        assert!(!reply["result"]["data"].as_array().expect("a list").is_empty());
+        assert!(
+            !reply["result"]["data"]
+                .as_array()
+                .expect("a list")
+                .is_empty()
+        );
         assert_eq!(reply["result"]["stale"], true, "and it must say so");
         assert_eq!(reply["result"]["fetchedAt"], long_ago);
     }
@@ -1036,10 +1076,16 @@ mod tests {
 
     #[tokio::test]
     async fn should_send_people_to_modelscope_rather_than_pretend_to_search_it() {
-        let reply =
-            call(r#"{"method":"hub/search","id":1,"params":{"query":"qwen","source":"modelscope"}}"#)
-                .await;
+        let reply = call(
+            r#"{"method":"hub/search","id":1,"params":{"query":"qwen","source":"modelscope"}}"#,
+        )
+        .await;
         assert!(reply["result"]["data"].as_array().expect("data").is_empty());
-        assert!(reply["result"]["hint"].as_str().unwrap_or("").contains("modelscope.cn"));
+        assert!(
+            reply["result"]["hint"]
+                .as_str()
+                .unwrap_or("")
+                .contains("modelscope.cn")
+        );
     }
 }

@@ -5308,11 +5308,8 @@ dependencies = [
 name = "opencli-ssh"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "russh",
- "tempfile",
  "tokio",
- "tracing",
 ]
 
 [[package]]

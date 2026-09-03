@@ -1,3 +1,5 @@
+use http::HeaderMap;
+use http::Method;
 use opencli_api::AuthProvider;
 use opencli_api::ModelsClient;
 use opencli_api::provider::Provider;
@@ -11,8 +13,6 @@ use opencli_protocol::openai_models::ModelsResponse;
 use opencli_protocol::openai_models::ReasoningEffort;
 use opencli_protocol::openai_models::ReasoningEffortPreset;
 use opencli_protocol::openai_models::TruncationPolicyConfig;
-use http::HeaderMap;
-use http::Method;
 use wiremock::Mock;
 use wiremock::MockServer;
 use wiremock::ResponseTemplate;

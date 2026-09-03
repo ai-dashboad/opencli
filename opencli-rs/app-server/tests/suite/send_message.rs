@@ -1,6 +1,7 @@
 use anyhow::Result;
 use app_test_support::McpProcess;
 use app_test_support::to_response;
+use core_test_support::responses;
 use opencli_app_server_protocol::AddConversationListenerParams;
 use opencli_app_server_protocol::AddConversationSubscriptionResponse;
 use opencli_app_server_protocol::InputItem;
@@ -19,7 +20,6 @@ use opencli_protocol::models::ResponseItem;
 use opencli_protocol::protocol::AskForApproval;
 use opencli_protocol::protocol::RawResponseItemEvent;
 use opencli_protocol::protocol::SandboxPolicy;
-use core_test_support::responses;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 use std::path::PathBuf;

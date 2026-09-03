@@ -30,6 +30,10 @@ use std::time::Duration;
 use std::time::Instant;
 
 use crate::version::OPENCLI_CLI_VERSION;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyEventKind;
+use crossterm::event::KeyModifiers;
 use opencli_backend_client::Client as BackendClient;
 use opencli_chatgpt::connectors;
 use opencli_core::config::Config;
@@ -49,7 +53,6 @@ use opencli_core::protocol::AgentReasoningRawContentDeltaEvent;
 use opencli_core::protocol::AgentReasoningRawContentEvent;
 use opencli_core::protocol::ApplyPatchApprovalRequestEvent;
 use opencli_core::protocol::BackgroundEventEvent;
-use opencli_core::protocol::OpenCLIErrorInfo;
 use opencli_core::protocol::CreditsSnapshot;
 use opencli_core::protocol::DeprecationNoticeEvent;
 use opencli_core::protocol::ErrorEvent;
@@ -70,6 +73,7 @@ use opencli_core::protocol::McpStartupUpdateEvent;
 use opencli_core::protocol::McpToolCallBeginEvent;
 use opencli_core::protocol::McpToolCallEndEvent;
 use opencli_core::protocol::Op;
+use opencli_core::protocol::OpenCLIErrorInfo;
 use opencli_core::protocol::PatchApplyBeginEvent;
 use opencli_core::protocol::RateLimitSnapshot;
 use opencli_core::protocol::ReviewRequest;
@@ -108,10 +112,6 @@ use opencli_protocol::parse_command::ParsedCommand;
 use opencli_protocol::request_user_input::RequestUserInputEvent;
 use opencli_protocol::user_input::TextElement;
 use opencli_protocol::user_input::UserInput;
-use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
-use crossterm::event::KeyEventKind;
-use crossterm::event::KeyModifiers;
 use rand::Rng;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -5102,9 +5102,7 @@ impl ChatWidget {
         lines.push(line![
             "Elevation failed. You can also use a non-elevated sandbox, which protects your files and prevents network access under most circumstances. However, it carries greater risk if prompt injected."
         ]);
-        lines.push(line![
-            "Learn more: https://github.com/ai-dashboad/opencli"
-        ]);
+        lines.push(line!["Learn more: https://github.com/ai-dashboad/opencli"]);
 
         let mut header = ColumnRenderable::new();
         header.push(*Box::new(Paragraph::new(lines).wrap(Wrap { trim: false })));

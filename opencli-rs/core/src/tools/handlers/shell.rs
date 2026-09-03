@@ -3,12 +3,12 @@ use opencli_protocol::models::ShellCommandToolCallParams;
 use opencli_protocol::models::ShellToolCallParams;
 use std::sync::Arc;
 
-use crate::opencli::TurnContext;
 use crate::exec::ExecParams;
 use crate::exec_env::create_env;
 use crate::exec_policy::ExecApprovalRequest;
 use crate::function_tool::FunctionCallError;
 use crate::is_safe_command::is_known_safe_command;
+use crate::opencli::TurnContext;
 use crate::protocol::ExecCommandSource;
 use crate::shell::Shell;
 use crate::tools::context::ToolInvocation;
@@ -355,9 +355,9 @@ mod tests {
     use opencli_protocol::models::ShellCommandToolCallParams;
     use pretty_assertions::assert_eq;
 
-    use crate::opencli::make_session_and_context;
     use crate::exec_env::create_env;
     use crate::is_safe_command::is_known_safe_command;
+    use crate::opencli::make_session_and_context;
     use crate::powershell::try_find_powershell_executable_blocking;
     use crate::powershell::try_find_pwsh_executable_blocking;
     use crate::sandboxing::SandboxPermissions;
@@ -437,7 +437,7 @@ mod tests {
             sandbox_permissions: Some(sandbox_permissions),
             prefix_rule: None,
             justification: justification.clone(),
-                    description: None,
+            description: None,
         };
 
         let exec_params = ShellCommandHandler::to_exec_params(&params, &session, &turn_context);

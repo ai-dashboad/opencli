@@ -1,5 +1,9 @@
 #![allow(clippy::unwrap_used)]
 
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::KeyEventKind;
+use crossterm::event::KeyModifiers;
 use opencli_core::AuthManager;
 use opencli_core::auth::AuthCredentialsStoreMode;
 use opencli_core::auth::CLIENT_ID;
@@ -9,10 +13,6 @@ use opencli_login::DeviceCode;
 use opencli_login::ServerOptions;
 use opencli_login::ShutdownHandle;
 use opencli_login::run_login_server;
-use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
-use crossterm::event::KeyEventKind;
-use crossterm::event::KeyModifiers;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;

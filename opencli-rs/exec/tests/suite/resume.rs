@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use anyhow::Context;
-use opencli_utils_cargo_bin::find_resource;
 use core_test_support::test_opencli_exec::test_opencli_exec;
+use opencli_utils_cargo_bin::find_resource;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 use std::fs::FileTimes;
