@@ -55,6 +55,11 @@ jobs:
         shell: bash
         run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
+      # The sidecar is the expensive half and is cached; the desktop crate's
+      # own target directory is not. Caching it linked a stale Windows
+      # resource file alongside the freshly generated one and the build died
+      # on "CVT1100: duplicate resource, type:VERSION" — a failure with no
+      # connection to anything in the source.
       - uses: actions/cache@v5
         with:
           path: |
@@ -62,7 +67,6 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             opencli-rs/target/
-            desktop/src-tauri/target/
           key: desktop-${{ matrix.platform }}-${{ hashFiles('**/Cargo.lock') }}
 
       - uses: pnpm/action-setup@v4
