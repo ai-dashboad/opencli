@@ -11,6 +11,12 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "{count} chat": "{count} 个会话",
+  "{count} chats": "{count} 个会话",
+  "{count} run": "{count} 次运行",
+  "{count} runs": "{count} 次运行",
+  "{count} tool": "{count} 个工具",
+  "{count} tools": "{count} 个工具",
   ", or a": ",或者一个",
   ". There is no marketplace behind this — it is a git clone, and the repository is whatever you point it at.": "。这背后没有应用市场 —— 它就是一次 git clone,仓库是你指定的那个。",
   "/path/to/project": "/路径/到/项目",

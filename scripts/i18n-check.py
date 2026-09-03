@@ -18,6 +18,17 @@ from pathlib import Path
 # A word boundary before `t(`, or this also matches `get("…")` and every other
 # identifier that happens to end in t.
 CALL = re.compile(r'(?<![A-Za-z0-9_$.])t\(\s*"((?:[^"\\]|\\.)*)"')
+
+# `plural(count, "one", "many")` reaches the screen exactly as `t()` does, and
+# looking only for `t(` meant its two sentences were never counted as used —
+# so `{count} tool` and `{count} chat` sat untranslated behind a report that
+# said every string was done. A check that cannot see a whole call shape is
+# worse than no check, because it is believed.
+PLURAL = re.compile(
+    r'(?<![A-Za-z0-9_$.])plural\(\s*[^,]+,\s*'
+    r'"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"'
+)
+
 ENTRY = re.compile(r'^  "((?:[^"\\]|\\.)*)":', re.M)
 
 
@@ -28,7 +39,10 @@ def main() -> int:
     for path in root.rglob("*.ts*"):
         if "locales" in str(path) or path.name == "i18n.ts":
             continue
-        used |= {match.group(1) for match in CALL.finditer(path.read_text(encoding="utf-8"))}
+        source = path.read_text(encoding="utf-8")
+        used |= {match.group(1) for match in CALL.finditer(source)}
+        for match in PLURAL.finditer(source):
+            used |= {match.group(1), match.group(2)}
 
     failed = False
     for locale in sorted((root / "locales").glob("*.ts")):

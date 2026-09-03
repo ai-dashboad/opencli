@@ -56,7 +56,8 @@ import { Boot } from "./boot";
 import { Markdown } from "./markdown";
 import { shouldInterrupt, shouldSend } from "./composer";
 import "./styles.css";
-import { t } from "./i18n";
+import { plural, t } from "./i18n";
+import { groupRuns } from "./runs";
 
 /**
  * The gateway prints a URL containing a one-time token. Accept it in the
@@ -142,6 +143,7 @@ const RUN_STATUS_WORD: Record<Run["status"], () => string> = {
   failed: () => t("failed"),
   cancelled: () => t("cancelled"),
 };
+
 
 const KIND_LABEL: Record<ThreadItem["kind"], () => string> = {
   user: () => t("You"),
@@ -351,6 +353,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
   // Cowork sends work to the background instead of waiting on it inline.
   const [cowork, setCowork] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
+  const runGroups = groupRuns(runs);
   // The project whose page is being read, which is not necessarily the one the
   // current chat belongs to.
   const [viewing, setViewing] = useState<Project | null>(null);
@@ -1389,27 +1392,30 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
                           </button>
                         </div>
                         <ul>
-                          {runs.slice(0, showAllRuns ? 20 : 5).map((run) => (
-                            <li key={run.id}>
+                          {runGroups.slice(0, showAllRuns ? 20 : 5).map(({ latest, times }) => (
+                            <li key={latest.taskId ?? latest.id}>
                               <span className="run-icon">
                                 <ClockIcon size={15} />
-                                <i className={`run-dot ${run.status}`} />
+                                <i className={`run-dot ${latest.status}`} />
                               </span>
                               <button
                                 className="what"
                                 onClick={() => go("dispatch")}
-                                title={run.prompt}
+                                title={latest.prompt}
                               >
-                                <strong>{run.title}</strong>
+                                <strong>{latest.title}</strong>
                                 <em>
-                                  {RUN_STATUS_WORD[run.status]()} ·{" "}
-                                  {ago(run.finishedAt ?? run.startedAt)}
+                                  {RUN_STATUS_WORD[latest.status]()} ·{" "}
+                                  {ago(latest.finishedAt ?? latest.startedAt)}
+                                  {times > 1
+                                    ? ` · ${plural(times, "{count} run", "{count} runs")}`
+                                    : ""}
                                 </em>
                               </button>
                             </li>
                           ))}
                         </ul>
-                        {runs.length > 5 ? (
+                        {runGroups.length > 5 ? (
                           <button className="link more" onClick={() => setShowAllRuns(!showAllRuns)}>
                             {showAllRuns ? t("Show less") : t("Show more")}
                           </button>
