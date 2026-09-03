@@ -118,7 +118,12 @@ jobs:
           arch="${{ matrix.platform }}"
           arch="${arch#*-}"
 
-          shopt -s nullglob globstar
+          # `find` rather than `shopt -s globstar`: the Intel macOS runner has
+          # bash 3.2, where globstar does not exist and the option itself is an
+          # error — after twenty minutes of compiling.
+          find_bundles() {
+            find "$bundle" -type f -name "$1" 2>/dev/null || true
+          }
 
           # Updater artifacts, renamed to carry the platform.
           #
@@ -128,7 +133,7 @@ jobs:
           # half the users updating into a build for the wrong processor. The
           # extension is preserved exactly, because the updater decides how to
           # install from it.
-          for signature in "$bundle"/**/*.sig; do
+          find_bundles "*.sig" | while read -r signature; do
             artifact="${signature%.sig}"
             name="$(basename "$artifact")"
             case "$name" in
@@ -146,15 +151,15 @@ jobs:
           # on the site and in the README never have to be edited. On Linux and
           # Windows this is the same file the updater uses, already staged
           # above; copying it again would only add a name nothing points at.
-          stable() {
-            [[ -f "$1" ]] || return 0
-            cp "$1" "$dest/$2"
-          }
-          for file in "$bundle"/**/*.dmg; do stable "$file" "OpenCLI-macos-${arch}.dmg"; done
-          for file in "$bundle"/**/*.deb; do stable "$file" "OpenCLI-linux-${arch}.deb"; done
+          find_bundles "*.dmg" | while read -r file; do
+            cp "$file" "$dest/OpenCLI-macos-${arch}.dmg"
+          done
+          find_bundles "*.deb" | while read -r file; do
+            cp "$file" "$dest/OpenCLI-linux-${arch}.deb"
+          done
 
           ls -l "$dest"
-          if [[ -z "$(ls -A "$dest")" ]]; then
+          if [ -z "$(ls -A "$dest")" ]; then
             echo "no bundles were produced for ${{ matrix.platform }}" >&2
             exit 1
           fi
