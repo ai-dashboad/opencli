@@ -52,7 +52,7 @@ jobs:
             desktop/src-tauri/target/
           key: desktop-${{ matrix.platform }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
 
