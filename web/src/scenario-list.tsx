@@ -104,3 +104,94 @@ function ScenarioRow({
     </li>
   );
 }
+
+/**
+ * One kind of work, on a page of its own.
+ *
+ * The first screen offers six of these in a list, which is enough to be
+ * understood and not enough to be started from: what is needed, what is
+ * missing, and what to say are three questions, and a row that expands has
+ * room for none of them.
+ *
+ * Starting an instruction from here opens a chat with it already sent, because
+ * someone who has come this far has chosen the work rather than an example of
+ * it. The first screen behaves the other way round, filling the box and
+ * leaving it — the difference is whether the click was a choice or a look.
+ */
+export function ScenarioView({
+  scenario,
+  connected,
+  onRun,
+  onConnect,
+}: {
+  scenario: Scenario;
+  connected: string[];
+  /** Opens a chat and sends this instruction. */
+  onRun: (prompt: string) => void;
+  onConnect: () => void;
+}) {
+  const needs = [...new Set(scenario.examples.flatMap((example) => example.needs ?? []))].sort();
+
+  return (
+    <div className="panel">
+      <header className="panel-head">
+        <h2>{scenario.name()}</h2>
+        <p>{scenario.blurb()}</p>
+      </header>
+
+      {scenario.caveat ? (
+        <p className="scenario-caveat standalone">{scenario.caveat()}</p>
+      ) : null}
+
+      <section className="panel-section">
+        <h3>{t("Ask for it like this")}</h3>
+        <ul className="scenario-asks">
+          {scenario.examples.map((example) => {
+            const ready = isRunnable(example, connected);
+            const missing = missingFor(example, connected);
+            return (
+              <li key={example.prompt()}>
+                <button className="ask" disabled={!ready} onClick={() => onRun(example.prompt())}>
+                  <span>{example.prompt()}</span>
+                  {ready ? (
+                    <em>{t("Start")}</em>
+                  ) : (
+                    <em className="blocked">{t("needs {name}", { name: missing.join(", ") })}</em>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {needs.length > 0 ? (
+        <section className="panel-section">
+          <h3>{t("Services this can use")}</h3>
+          <p className="panel-note">
+            {t(
+              "Everything above that needs no service works as it is. These open up the rest.",
+            )}
+          </p>
+          <ul className="scenario-needs">
+            {needs.map((need) => {
+              const have = isRunnable({ prompt: () => "", needs: [need] }, connected);
+              return (
+                <li key={need}>
+                  <strong>{need}</strong>
+                  {have ? (
+                    <em className="ready">{t("connected")}</em>
+                  ) : (
+                    <button className="link" onClick={onConnect}>
+                      {t("connect")}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+    </div>
+  );
+}

@@ -181,3 +181,38 @@ export function missingFor(example: ScenarioExample, connected: string[]): strin
   if (!example.needs?.length) return [];
   return example.needs.filter((need) => !isRunnable({ needs: [need], prompt: example.prompt }, connected));
 }
+
+/** The scenario with this id, if there is one. */
+export function findScenario(id: string): Scenario | undefined {
+  return SCENARIOS.find((scenario) => scenario.id === id);
+}
+
+/**
+ * The kinds of work a service would open up.
+ *
+ * The Connectors panel lists servers by the name they are configured under,
+ * which says what a thing is and not why anyone would want it. Read the other
+ * way round — this service unlocks these kinds of work — the same list answers
+ * the question someone actually arrived with.
+ */
+export function scenariosNeeding(connector: string): Scenario[] {
+  const wanted = connector.toLowerCase();
+  return SCENARIOS.filter((scenario) =>
+    scenario.examples.some((example) =>
+      example.needs?.some(
+        (need) => need.toLowerCase() === wanted || wanted.includes(need.toLowerCase()),
+      ),
+    ),
+  );
+}
+
+/** Every service any kind of work asks for, named once. */
+export function allNeeds(): string[] {
+  const seen = new Set<string>();
+  for (const scenario of SCENARIOS) {
+    for (const example of scenario.examples) {
+      for (const need of example.needs ?? []) seen.add(need);
+    }
+  }
+  return [...seen].sort();
+}

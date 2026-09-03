@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { SCENARIOS, isRunnable, missingFor } from "./scenarios";
+import {
+  SCENARIOS,
+  allNeeds,
+  findScenario,
+  isRunnable,
+  missingFor,
+  scenariosNeeding,
+} from "./scenarios";
 
 describe("SCENARIOS", () => {
   it("should give every kind of work something that runs with nothing connected", () => {
@@ -56,5 +63,41 @@ describe("isRunnable", () => {
     expect(isRunnable(both, ["slack"])).toBe(false);
     expect(missingFor(both, ["slack"])).toEqual(["shopify"]);
     expect(isRunnable(both, ["slack", "shopify"])).toBe(true);
+  });
+});
+
+describe("scenariosNeeding", () => {
+  it("should say which kinds of work a service opens up", () => {
+    // The Connectors panel reads the other way round from this table: a row
+    // that says `shopify` should be able to say why anyone would want it.
+    const names = scenariosNeeding("shopify").map((scenario) => scenario.id);
+    expect(names).toEqual(["commerce"]);
+  });
+
+  it("should match a service however it was named", () => {
+    expect(scenariosNeeding("google-gmail").map((s) => s.id)).toEqual(["messages"]);
+  });
+
+  it("should say nothing for a service no work asks for", () => {
+    expect(scenariosNeeding("postgres")).toEqual([]);
+  });
+
+  it("should list every service the table asks for, once", () => {
+    const needs = allNeeds();
+    expect(new Set(needs).size).toBe(needs.length);
+    expect(needs).toContain("gmail");
+    expect(needs).toContain("shopify");
+  });
+});
+
+describe("findScenario", () => {
+  it("should find each kind of work by its id", () => {
+    for (const scenario of SCENARIOS) {
+      expect(findScenario(scenario.id)?.id).toBe(scenario.id);
+    }
+  });
+
+  it("should find nothing for an id that is not one", () => {
+    expect(findScenario("no-such-thing")).toBeUndefined();
   });
 });

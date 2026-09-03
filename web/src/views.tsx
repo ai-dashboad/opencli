@@ -39,6 +39,7 @@ import type {
   ThreadSummary,
 } from "./protocol";
 import { LOCALES, plural, t } from "./i18n";
+import { scenariosNeeding } from "./scenarios";
 
 
 /**
@@ -400,6 +401,10 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
         {configured.map((row) => {
           const live = status.find((entry) => entry.name === row.name);
           const needs = row.transport.envVars ?? [];
+          // Read the other way round. A row that says `shopify` and lists its
+          // transport says what the thing is; it never said why anyone would
+          // want it, which is the question people arrive with.
+          const unlocks = scenariosNeeding(row.name);
           return (
             <li key={row.name}>
               <strong>{row.name}</strong>
@@ -408,6 +413,12 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
                   ? row.transport.url
                   : [row.transport.command, ...(row.transport.args ?? [])].join(" ")}
               </span>
+
+              {unlocks.length > 0 ? (
+                <span className="unlocks">
+                  {t("Used for")} {unlocks.map((scenario) => scenario.name()).join(" · ")}
+                </span>
+              ) : null}
 
               {needs.length > 0 ? (
                 <span>

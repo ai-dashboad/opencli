@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Scenarios } from "./scenario-list";
+import { ScenarioView, Scenarios } from "./scenario-list";
+import { findScenario } from "./scenarios";
 
 /**
  * Proof that the first screen renders, rather than an argument that it should.
@@ -35,5 +36,39 @@ describe("the first screen", () => {
       <Scenarios connected={[]} onPick={() => {}} onConnect={() => {}} />,
     );
     expect(closed).not.toContain("Shrink every image in this folder");
+  });
+});
+
+describe("one kind of work, on its own page", () => {
+  const scenario = findScenario("commerce")!;
+
+  it("should say what to ask, and offer to start it", () => {
+    const html = renderToStaticMarkup(
+      <ScenarioView scenario={scenario} connected={["shopify"]} onRun={() => {}} onConnect={() => {}} />,
+    );
+
+    expect(html).toContain("Selling abroad");
+    expect(html).toContain("Ask for it like this");
+    expect(html).toContain("Translate every product title");
+    // Connected, so the instruction that needs it is offered rather than blocked.
+    expect(html).toContain("List the ten slowest-selling things in my store");
+    expect(html).toContain("connected");
+  });
+
+  it("should offer to connect what is missing instead of failing quietly", () => {
+    const html = renderToStaticMarkup(
+      <ScenarioView scenario={scenario} connected={[]} onRun={() => {}} onConnect={() => {}} />,
+    );
+
+    expect(html).toContain("needs shopify");
+    expect(html).toContain("disabled");
+  });
+
+  it("should state a limit where the work has one", () => {
+    const messages = findScenario("messages")!;
+    const html = renderToStaticMarkup(
+      <ScenarioView scenario={messages} connected={[]} onRun={() => {}} onConnect={() => {}} />,
+    );
+    expect(html).toContain("Qianniu");
   });
 });

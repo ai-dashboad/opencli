@@ -58,7 +58,8 @@ import { shouldInterrupt, shouldSend } from "./composer";
 import "./styles.css";
 import { plural, t } from "./i18n";
 import { groupRuns } from "./runs";
-import { Scenarios } from "./scenario-list";
+import { ScenarioView, Scenarios } from "./scenario-list";
+import { findScenario } from "./scenarios";
 
 /**
  * The gateway prints a URL containing a one-time token. Accept it in the
@@ -354,6 +355,8 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
   // Cowork sends work to the background instead of waiting on it inline.
   const [cowork, setCowork] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
+  /** Which kind of work is being read, when one is. */
+  const [scenarioId, setScenarioId] = useState<string | null>(null);
   const runGroups = groupRuns(runs);
   // Focused after an example is picked, so the instruction can be edited
   // before it is sent rather than being sent out from under the reader.
@@ -1136,6 +1139,24 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
     await startFreshThread(cwd);
   }, [cwd, go, startFreshThread]);
 
+  /**
+   * Open a fresh chat and ask for this straight away.
+   *
+   * Chosen from a page about one kind of work, rather than glanced at on the
+   * first screen — so it is sent rather than typed into the box. The chat is
+   * fresh because the instruction is a beginning; adding it to whatever was
+   * already being discussed would answer a question nobody asked.
+   */
+  const startChatWith = useCallback(
+    async (prompt: string) => {
+      go("chat");
+      setProject(null);
+      await startFreshThread(cwd);
+      await sendPrompt(prompt, []);
+    },
+    [cwd, go, sendPrompt, startFreshThread],
+  );
+
   const answerApproval = useCallback(
     (decision: "approved" | "denied") => {
       if (!approval) return;
@@ -1206,6 +1227,11 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
         activeProjectId={project?.id ?? null}
         viewedProjectId={view === "project" ? (viewing?.id ?? null) : null}
         onNavigate={go}
+        onOpenScenario={(id) => {
+          setScenarioId(id);
+          go("scenario");
+        }}
+        openScenarioId={scenarioId}
         onNewChat={() => void newChat()}
         onOpenThread={(id) => void openThread(id)}
         onOpenProject={showProject}
@@ -1361,6 +1387,15 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
           />
         ) : view === "settings" && client ? (
           <SettingsView client={client} version={appVersion} update={update} />
+        ) : view === "scenario" && scenarioId && findScenario(scenarioId) ? (
+          <ScenarioView
+            // Checked on the line above; narrowing across the ternary needs it
+            // said again.
+            scenario={findScenario(scenarioId)!}
+            connected={connectorList.map((connector) => connector.name)}
+            onRun={(prompt) => void startChatWith(prompt)}
+            onConnect={() => go("connectors")}
+          />
         ) : (
           <>
             <div className="transcript" ref={transcriptRef} onScroll={noticeScroll}>
