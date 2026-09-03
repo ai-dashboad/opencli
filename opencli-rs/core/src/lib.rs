@@ -18,6 +18,7 @@ mod opencli_thread;
 pub use opencli_thread::OpenCLIThread;
 pub use opencli_thread::ThreadConfigSnapshot;
 mod agent;
+pub mod bots;
 mod command_safety;
 pub mod config;
 pub mod config_loader;

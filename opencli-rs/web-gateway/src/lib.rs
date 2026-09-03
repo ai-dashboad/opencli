@@ -299,7 +299,8 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             .or_else(|| connector::handle(&text, &state.opencli_home))
             .or_else(|| plugin::handle(&text, &state.opencli_home))
             .or_else(|| secrets::handle(&text, &state.opencli_home))
-            .or_else(|| workspace::handle(&text, &state.opencli_home));
+            .or_else(|| workspace::handle(&text, &state.opencli_home))
+            .or_else(|| bot::handle(&text, &state.opencli_home));
         if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -358,6 +359,7 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
     Ok(())
 }
 
+mod bot;
 /// Minimal split shim so this file does not pull in `futures` just to halve a
 /// socket.
 mod connector;
