@@ -58,6 +58,7 @@ import { shouldInterrupt, shouldSend } from "./composer";
 import "./styles.css";
 import { plural, t } from "./i18n";
 import { groupRuns } from "./runs";
+import { Scenarios } from "./scenario-list";
 
 /**
  * The gateway prints a URL containing a one-time token. Accept it in the
@@ -354,6 +355,9 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
   const [cowork, setCowork] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
   const runGroups = groupRuns(runs);
+  // Focused after an example is picked, so the instruction can be edited
+  // before it is sent rather than being sent out from under the reader.
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   // The project whose page is being read, which is not necessarily the one the
   // current chat belongs to.
   const [viewing, setViewing] = useState<Project | null>(null);
@@ -1367,6 +1371,19 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
                       <OpenCliMark size={30} />
                       <span>{t("Ready when you are")}</span>
                     </h1>
+                    {/* What it can be asked to do, before being asked. The
+                        panels down the side name the parts — artifacts,
+                        dispatch, connectors — which tells a first-time reader
+                        what the machinery is called and nothing about what it
+                        is for. */}
+                    <Scenarios
+                      connected={connectorList.map((connector) => connector.name)}
+                      onPick={(prompt: string) => {
+                        setDraft(prompt);
+                        composerRef.current?.focus();
+                      }}
+                      onConnect={() => go("connectors")}
+                    />
                     {runs.length > 0 ? (
                       <section className="recent">
                         <div className="recent-head">
@@ -1574,6 +1591,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
               }}
             >
               <textarea
+                ref={composerRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onPaste={(e) => {

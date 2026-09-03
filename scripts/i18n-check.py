@@ -31,6 +31,25 @@ PLURAL = re.compile(
 
 ENTRY = re.compile(r'^  "((?:[^"\\]|\\.)*)":', re.M)
 
+# A `t("…")` written *about* the code is not a string the interface uses. One
+# in a docstring explaining how this very check works was duly reported as an
+# untranslated ellipsis, which is the sort of thing that teaches people to
+# ignore the report.
+#
+# Whole lines only, and by how the line begins. Matching `/* … */` across lines
+# instead looked obviously right and was not: `accept="image/*"` opens a
+# comment as far as that pattern is concerned, and the closing `*/` it found
+# was four thousand characters later, taking a working part of the composer
+# with it and reporting eight real strings as orphaned.
+COMMENT_LINE = re.compile(r"^\s*(?://|/\*|\*)")
+
+
+def without_comments(source: str) -> str:
+    """Drop comment lines, so only what reaches a screen is counted."""
+    return "\n".join(
+        "" if COMMENT_LINE.match(line) else line for line in source.split("\n")
+    )
+
 
 def main() -> int:
     root = Path(__file__).resolve().parent.parent / "web" / "src"
@@ -39,7 +58,7 @@ def main() -> int:
     for path in root.rglob("*.ts*"):
         if "locales" in str(path) or path.name == "i18n.ts":
             continue
-        source = path.read_text(encoding="utf-8")
+        source = without_comments(path.read_text(encoding="utf-8"))
         used |= {match.group(1) for match in CALL.finditer(source)}
         for match in PLURAL.finditer(source):
             used |= {match.group(1), match.group(2)}

@@ -1826,6 +1826,110 @@ textarea:focus {
   color: var(--accent);
 }
 
+/* What it can be asked to do, above the record of what it has done. Same
+   column as `.recent` so the empty screen reads as one thing rather than two
+   panels that happen to be stacked. */
+.scenarios {
+  max-width: 560px;
+  margin: 0 auto 34px;
+}
+
+.scenarios-head {
+  margin-bottom: 8px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.scenarios ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.scenario {
+  border-top: 1px solid var(--line-soft);
+}
+
+.scenario-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenario-head strong {
+  flex: none;
+  font-weight: 500;
+}
+
+.scenario-head em {
+  color: var(--text-faint);
+  font-size: 13px;
+  font-style: normal;
+  /* The blurb explains, it does not compete: on a narrow window it gives way
+     rather than wrapping the heading onto a second line. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.scenario.open .scenario-head strong {
+  color: var(--accent);
+}
+
+.scenario-body {
+  padding: 0 2px 12px;
+}
+
+.scenario-example {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+/* The instruction itself, which is the thing being read. Left-aligned and
+   wrapping, because these are sentences rather than buttons with labels. */
+.scenario-example .try {
+  flex: 1;
+  padding: 5px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenario-example .try:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.scenario-example .try:disabled {
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.scenario-example .needs {
+  flex: none;
+  font-size: 12px;
+}
+
+.scenario-caveat {
+  margin: 8px 0 0;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .recent {
   max-width: 560px;
   margin: 0 auto;
