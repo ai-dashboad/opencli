@@ -331,7 +331,14 @@ export interface Memory {
 /** Where a background run came from. */
 export type RunSource = "dispatch" | "cowork" | "scheduled";
 
-export type RunStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+export type RunStatus =
+  | "queued"
+  | "running"
+  | "done"
+  | "failed"
+  | "cancelled"
+  /** Held because of where it would run, until that directory is allowed. */
+  | "needsApproval";
 
 /** Work the agent is doing, or has done, without the chat waiting on it. */
 export interface Run {
@@ -2090,6 +2097,20 @@ export class OpenCliClient {
   async revokeDevice(id: string): Promise<boolean> {
     const result = (await this.request("device/revoke", { id })) as { removed?: boolean };
     return result.removed === true;
+  }
+
+  /**
+   * Say yes to a directory, releasing anything held for it.
+   *
+   * A run's working directory is what its sandbox may write to, so one outside
+   * every department is a request to write anywhere in it. Answered once, per
+   * directory, rather than per run.
+   */
+  async allowDirectory(path: string): Promise<number> {
+    const result = (await this.request("dispatch/allowDirectory", { path })) as {
+      released?: number;
+    };
+    return result.released ?? 0;
   }
 
   async clearRuns(): Promise<number> {

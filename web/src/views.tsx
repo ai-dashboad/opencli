@@ -2427,6 +2427,7 @@ const STATUS_LABEL: Record<RunStatus, () => string> = {
   done: () => t("Done"),
   failed: () => t("Failed"),
   cancelled: () => t("Cancelled"),
+  needsApproval: () => t("Waiting for you"),
 };
 
 /** One run, expandable to show what it printed. */
@@ -2528,6 +2529,9 @@ export function DispatchView({
   }, [client]);
 
   const active = runs.filter((run) => run.status === "queued" || run.status === "running");
+  // Not "finished" and not running: waiting on a person, which is the one
+  // state somebody has to act on.
+  const held = runs.filter((run) => run.status === "needsApproval");
 
   // Faster while something is running: the output arrives as the agent
   // produces it, and four seconds between glimpses of a live log is a long
@@ -2582,6 +2586,46 @@ export function DispatchView({
           </button>
         </div>
       </div>
+
+      {held.length > 0 ? (
+        <>
+          <h3>{t("Waiting for you")}</h3>
+          <p className="hint">
+            {t(
+              "A run can write anywhere in the directory it runs in. These are outside every department, so they are held until you say otherwise.",
+            )}
+          </p>
+          <ul className="rows">
+            {held.map((run) => (
+              <li key={run.id}>
+                <strong>{run.title}</strong>
+                <span>{run.cwd}</span>
+                <div className="actions">
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      void client
+                        .allowDirectory(run.cwd)
+                        .then(() => void reload())
+                        .catch((err: unknown) =>
+                          setError(err instanceof Error ? err.message : String(err)),
+                        );
+                    }}
+                  >
+                    {t("Allow this directory")}
+                  </button>
+                  <button
+                    className="link"
+                    onClick={() => void client.deleteRun(run.id).then(reload)}
+                  >
+                    {t("Remove")}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
 
       <h3>{t("Active")}</h3>
       <ul className="rows wide">

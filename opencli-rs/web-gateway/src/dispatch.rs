@@ -38,6 +38,8 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
         "dispatch/cancel" => cancel(opencli_home, &params),
         "dispatch/delete" => delete(opencli_home, &params),
         "dispatch/clear" => clear(opencli_home),
+        "dispatch/allowDirectory" => allow_directory(opencli_home, &params),
+        "dispatch/directories" => Ok(directories(opencli_home)),
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -47,6 +49,43 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
             json!({ "id": id, "error": { "code": -32602, "message": message } }).to_string()
         }
     })
+}
+
+/// Say yes to a directory, and let anything held for it run.
+///
+/// Re-queuing here rather than making somebody find each held run: they said
+/// yes to the place, and every run waiting on that place is what they were
+/// saying yes to.
+fn allow_directory(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let path = params
+        .get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .ok_or("path is required")?;
+
+    opencli_core::directories::grant(opencli_home, Path::new(path))
+        .map_err(|err| format!("could not save: {err}"))?;
+
+    let mut released = 0;
+    for run in dispatch::load(opencli_home) {
+        if run.status == dispatch::RunStatus::NeedsApproval
+            && opencli_core::directories::allowed(opencli_home, Path::new(&run.cwd))
+        {
+            let _ = dispatch::set_status(opencli_home, &run.id, dispatch::RunStatus::Queued, None);
+            released += 1;
+        }
+    }
+    Ok(json!({ "allowed": path, "released": released }))
+}
+
+/// The directories that have been said yes to, for showing and taking back.
+fn directories(opencli_home: &Path) -> Value {
+    let data: Vec<Value> = opencli_core::directories::granted(opencli_home)
+        .iter()
+        .map(|entry| json!({ "path": entry.path, "grantedAt": entry.granted_at }))
+        .collect();
+    json!({ "data": data })
 }
 
 fn run_json(run: &dispatch::Run) -> Value {
@@ -200,6 +239,34 @@ pub async fn run_worker(opencli_home: PathBuf, opencli_bin: PathBuf) {
             .into_iter()
             .take(MAX_PARALLEL - in_flight)
         {
+            // Where it would run, before it runs.
+            //
+            // The sandbox's writable root is this directory, so one outside
+            // everything this product knows about is a request to write
+            // anywhere in it. A scheduled task made before departments existed
+            // carried the home directory and had run forty-two times that way,
+            // each run able to reach `.ssh` and `Documents`, with nobody asked.
+            // Held rather than failed: running somewhere unusual is often what
+            // was meant, and the answer is a prompt.
+            if !opencli_core::directories::allowed(&opencli_home, std::path::Path::new(&run.cwd)) {
+                let _ = dispatch::set_output(
+                    &opencli_home,
+                    &run.id,
+                    &format!(
+                        "This would run in `{}`, which is not a department's directory or \
+                         anywhere you have allowed. Allow that directory to let it run.",
+                        run.cwd
+                    ),
+                );
+                let _ = dispatch::set_status(
+                    &opencli_home,
+                    &run.id,
+                    dispatch::RunStatus::NeedsApproval,
+                    None,
+                );
+                continue;
+            }
+
             // Claim it before spawning: two ticks must not start the same run.
             match dispatch::set_status(&opencli_home, &run.id, dispatch::RunStatus::Running, None) {
                 Ok(true) => {}
@@ -502,5 +569,81 @@ mod tests {
         );
         let listed = call(r#"{"method":"dispatch/list","id":2}"#, dir.path());
         assert_eq!(listed["result"]["data"][0]["source"], "cowork");
+    }
+
+    #[test]
+    fn should_let_a_directory_be_allowed_and_release_what_was_waiting_on_it() {
+        let dir = tempdir().expect("tempdir");
+        let elsewhere = dir.path().join("elsewhere");
+        std::fs::create_dir_all(&elsewhere).expect("mkdir");
+
+        let made = opencli_core::dispatch::create(
+            dir.path(),
+            "somewhere else".to_string(),
+            "do a thing".to_string(),
+            elsewhere.to_string_lossy().into_owned(),
+            None,
+            opencli_core::dispatch::RunSource::Dispatch,
+            None,
+        )
+        .expect("create");
+        opencli_core::dispatch::set_status(
+            dir.path(),
+            &made.id,
+            opencli_core::dispatch::RunStatus::NeedsApproval,
+            None,
+        )
+        .expect("hold");
+
+        let allowed = call(
+            &format!(
+                r#"{{"method":"dispatch/allowDirectory","id":1,"params":{{"path":"{}"}}}}"#,
+                elsewhere.to_string_lossy()
+            ),
+            dir.path(),
+        );
+        // Saying yes to the place is saying yes to what was waiting on it;
+        // making somebody find each held run would be asking twice.
+        assert_eq!(allowed["result"]["released"], 1);
+
+        let listed = call(r#"{"method":"dispatch/list","id":2}"#, dir.path());
+        assert_eq!(listed["result"]["data"][0]["status"], "queued");
+    }
+
+    #[test]
+    fn should_report_the_directories_that_were_allowed() {
+        let dir = tempdir().expect("tempdir");
+        let elsewhere = dir.path().join("elsewhere");
+        std::fs::create_dir_all(&elsewhere).expect("mkdir");
+        call(
+            &format!(
+                r#"{{"method":"dispatch/allowDirectory","id":1,"params":{{"path":"{}"}}}}"#,
+                elsewhere.to_string_lossy()
+            ),
+            dir.path(),
+        );
+
+        let listed = call(r#"{"method":"dispatch/directories","id":2}"#, dir.path());
+        let rows = listed["result"]["data"].as_array().expect("data");
+        assert_eq!(rows.len(), 1);
+        assert!(
+            rows[0]["path"]
+                .as_str()
+                .is_some_and(|p| p.ends_with("elsewhere"))
+        );
+    }
+
+    #[test]
+    fn should_refuse_to_allow_nothing() {
+        let dir = tempdir().expect("tempdir");
+        let reply = call(
+            r#"{"method":"dispatch/allowDirectory","id":1,"params":{}}"#,
+            dir.path(),
+        );
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("path"))
+        );
     }
 }

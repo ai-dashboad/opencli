@@ -42,6 +42,14 @@ pub enum RunStatus {
     Done,
     Failed,
     Cancelled,
+    /// Held because of where it would run.
+    ///
+    /// A run is started with `--sandbox workspace-write`, whose writable root
+    /// is the run's working directory — so a directory outside anything this
+    /// product knows about is a request to write anywhere in it. Held rather
+    /// than failed, because running somewhere unusual is often exactly what
+    /// was meant and the answer is a prompt.
+    NeedsApproval,
 }
 
 impl RunStatus {

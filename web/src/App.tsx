@@ -144,6 +144,7 @@ const RUN_STATUS_WORD: Record<Run["status"], () => string> = {
   done: () => t("finished"),
   failed: () => t("failed"),
   cancelled: () => t("cancelled"),
+  needsApproval: () => t("waiting for you to allow its directory"),
 };
 
 
