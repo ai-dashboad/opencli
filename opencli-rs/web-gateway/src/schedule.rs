@@ -35,6 +35,7 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
     let result = match method {
         "schedule/list" => list(opencli_home),
         "schedule/create" => create(opencli_home, &params),
+        "schedule/update" => update(opencli_home, &params),
         "schedule/delete" => delete(opencli_home, &params),
         "schedule/setEnabled" => set_enabled(opencli_home, &params),
         "schedule/runNow" => run_now(opencli_home, &params),
@@ -49,13 +50,29 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
     })
 }
 
-fn task_json(task: &scheduled::ScheduledTask) -> Value {
+/// Where a task's directory stands, said in one word the UI can show.
+///
+/// Answered here rather than in the client because the rule — departments,
+/// then the workspace, then what has been granted by name — already exists in
+/// one place, and a second copy in TypeScript would be a copy that drifts.
+fn standing_json(opencli_home: &Path, cwd: &str) -> Value {
+    use opencli_core::directories::Standing;
+    match opencli_core::directories::standing(opencli_home, Path::new(cwd)) {
+        Standing::Department(name) => json!({ "kind": "department", "name": name }),
+        Standing::Workspace => json!({ "kind": "workspace" }),
+        Standing::Granted => json!({ "kind": "granted" }),
+        Standing::Unknown => json!({ "kind": "unknown" }),
+    }
+}
+
+fn task_json(opencli_home: &Path, task: &scheduled::ScheduledTask) -> Value {
     json!({
         "id": task.id,
         "name": task.name,
         "prompt": task.prompt,
         "intervalSeconds": task.interval_seconds,
         "cwd": task.cwd,
+        "standing": standing_json(opencli_home, &task.cwd),
         "lastRun": task.last_run,
         "runCount": task.run_count,
         "nextRun": task.next_run(),
@@ -66,7 +83,7 @@ fn task_json(task: &scheduled::ScheduledTask) -> Value {
 fn list(opencli_home: &Path) -> Result<Value, String> {
     let tasks: Vec<Value> = scheduled::load(opencli_home)
         .iter()
-        .map(task_json)
+        .map(|task| task_json(opencli_home, task))
         .collect();
     Ok(json!({ "data": tasks }))
 }
@@ -101,7 +118,37 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
         cwd,
     )
     .map_err(|err| format!("could not save the task: {err}"))?;
-    Ok(task_json(&task))
+    Ok(task_json(opencli_home, &task))
+}
+
+fn update(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let id = params
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or("id is required")?;
+
+    // An absent field is left alone; only what was sent is changed. Blank
+    // strings are treated as absent so an empty box in the form cannot wipe a
+    // name the caller never meant to touch.
+    let text = |key: &str| {
+        params
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_string)
+    };
+
+    let edit = scheduled::TaskEdit {
+        name: text("name"),
+        prompt: text("prompt"),
+        interval_seconds: params.get("intervalSeconds").and_then(Value::as_u64),
+        cwd: text("cwd"),
+    };
+
+    let task = scheduled::update(opencli_home, id, edit)
+        .map_err(|err| format!("could not save: {err}"))?
+        .ok_or_else(|| format!("no task with id `{id}`"))?;
+    Ok(task_json(opencli_home, &task))
 }
 
 fn delete(opencli_home: &Path, params: &Value) -> Result<Value, String> {
@@ -234,6 +281,81 @@ mod tests {
 
         let listed = call(r#"{"method":"schedule/list","id":2}"#, dir.path());
         assert_eq!(listed["result"]["data"].as_array().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn should_move_a_task_without_disturbing_the_rest_of_it() {
+        let dir = tempdir().expect("tempdir");
+        let created = call(
+            r#"{"method":"schedule/create","id":1,"params":
+                {"name":"5555","prompt":"5555","intervalSeconds":3600,"cwd":"/tmp"}}"#,
+            dir.path(),
+        );
+        let id = created["result"]["id"].as_str().expect("an id").to_string();
+
+        let moved = call(
+            &format!(
+                r#"{{"method":"schedule/update","id":2,"params":{{"id":"{id}","cwd":"/var"}}}}"#
+            ),
+            dir.path(),
+        );
+        assert_eq!(moved["result"]["cwd"], "/var");
+        assert_eq!(moved["result"]["name"], "5555");
+        assert_eq!(moved["result"]["intervalSeconds"], 3600);
+    }
+
+    #[test]
+    fn should_say_a_task_is_outside_every_department() {
+        // What the panel colours red. `/tmp` is nobody's department, and a run
+        // there may write anything under it.
+        let dir = tempdir().expect("tempdir");
+        let created = call(
+            r#"{"method":"schedule/create","id":1,"params":
+                {"name":"n","prompt":"p","intervalSeconds":60,"cwd":"/tmp"}}"#,
+            dir.path(),
+        );
+        assert_eq!(created["result"]["standing"]["kind"], "unknown");
+    }
+
+    #[test]
+    fn should_name_the_department_a_task_runs_in() {
+        let dir = tempdir().expect("tempdir");
+        let finance = dir.path().join("finance");
+        std::fs::create_dir_all(&finance).expect("mkdir");
+        opencli_core::projects::create(
+            dir.path(),
+            "Finance".into(),
+            finance.to_string_lossy().into_owned(),
+            String::new(),
+            String::new(),
+        )
+        .expect("department");
+
+        let created = call(
+            &format!(
+                r#"{{"method":"schedule/create","id":1,"params":
+                    {{"name":"n","prompt":"p","intervalSeconds":60,
+                      "cwd":"{}"}}}}"#,
+                finance.to_string_lossy()
+            ),
+            dir.path(),
+        );
+        assert_eq!(created["result"]["standing"]["kind"], "department");
+        assert_eq!(created["result"]["standing"]["name"], "Finance");
+    }
+
+    #[test]
+    fn should_report_a_move_of_a_task_that_is_not_there() {
+        let dir = tempdir().expect("tempdir");
+        let reply = call(
+            r#"{"method":"schedule/update","id":1,"params":{"id":"gone","cwd":"/var"}}"#,
+            dir.path(),
+        );
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("gone"))
+        );
     }
 
     #[test]

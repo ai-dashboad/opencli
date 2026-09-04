@@ -139,6 +139,55 @@ pub fn delete(opencli_home: &Path, id: &str) -> std::io::Result<bool> {
     Ok(removed)
 }
 
+/// A change to an existing task. Every field is optional, and `None` means
+/// leave it alone — so a caller who only wants to move a task to a different
+/// directory does not have to resend a prompt it never read.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TaskEdit {
+    pub name: Option<String>,
+    pub prompt: Option<String>,
+    pub interval_seconds: Option<u64>,
+    pub cwd: Option<String>,
+}
+
+/// Change a stored task, returning it as it now stands.
+///
+/// This exists because the directory a task runs in was captured when the task
+/// was created and there was no way to change it afterwards. Tasks made before
+/// the default directory was fixed still carry a home directory, and telling
+/// somebody their only options are "delete it and build it again" or "widen
+/// what it may touch" is not a real choice.
+///
+/// `last_run` and `run_count` are deliberately not editable: they are a record
+/// of what happened, not settings.
+pub fn update(
+    opencli_home: &Path,
+    id: &str,
+    edit: TaskEdit,
+) -> std::io::Result<Option<ScheduledTask>> {
+    let mut tasks = load(opencli_home);
+    let Some(task) = tasks.iter_mut().find(|task| task.id == id) else {
+        return Ok(None);
+    };
+    if let Some(name) = edit.name {
+        task.name = name;
+    }
+    if let Some(prompt) = edit.prompt {
+        task.prompt = prompt;
+    }
+    // A zero interval would make the task due on every tick forever, so it is
+    // refused here rather than at each of the several call sites.
+    if let Some(interval) = edit.interval_seconds.filter(|each| *each > 0) {
+        task.interval_seconds = interval;
+    }
+    if let Some(cwd) = edit.cwd.filter(|each| !each.trim().is_empty()) {
+        task.cwd = cwd;
+    }
+    let updated = task.clone();
+    save(opencli_home, &tasks)?;
+    Ok(Some(updated))
+}
+
 /// Turn a task on or off without deleting it.
 pub fn set_enabled(opencli_home: &Path, id: &str, enabled: bool) -> std::io::Result<bool> {
     let mut tasks = load(opencli_home);
@@ -208,6 +257,104 @@ mod tests {
         disabled.enabled = false;
         assert!(!disabled.is_due(now_seconds()));
         assert_eq!(disabled.next_run(), None);
+    }
+
+    #[test]
+    fn should_move_a_task_to_another_directory() {
+        // The case this was written for: a task created back when new chats
+        // started in the home directory.
+        let dir = tempdir().expect("tempdir");
+        let created = create(dir.path(), "5555".into(), "5555".into(), 3600, "/Users/cw".into())
+            .expect("create");
+
+        let moved = update(
+            dir.path(),
+            &created.id,
+            TaskEdit {
+                cwd: Some("/Users/cw/.opencli/workspace/finance".into()),
+                ..TaskEdit::default()
+            },
+        )
+        .expect("update")
+        .expect("the task exists");
+
+        assert_eq!(moved.cwd, "/Users/cw/.opencli/workspace/finance");
+        assert_eq!(load(dir.path())[0].cwd, moved.cwd);
+    }
+
+    #[test]
+    fn should_leave_untouched_fields_alone() {
+        let dir = tempdir().expect("tempdir");
+        let created =
+            create(dir.path(), "Digest".into(), "summarize".into(), 3600, "/tmp".into())
+                .expect("create");
+
+        let edited = update(
+            dir.path(),
+            &created.id,
+            TaskEdit {
+                cwd: Some("/srv".into()),
+                ..TaskEdit::default()
+            },
+        )
+        .expect("update")
+        .expect("the task exists");
+
+        assert_eq!(edited.name, "Digest");
+        assert_eq!(edited.prompt, "summarize");
+        assert_eq!(edited.interval_seconds, 3600);
+    }
+
+    #[test]
+    fn should_keep_the_record_of_what_already_ran() {
+        // Editing is about settings. How many times it ran is history, and an
+        // edit that reset the count would quietly erase it.
+        let dir = tempdir().expect("tempdir");
+        let created =
+            create(dir.path(), "n".into(), "p".into(), 60, "/tmp".into()).expect("create");
+        mark_ran(dir.path(), &created.id).expect("mark_ran");
+
+        let edited = update(
+            dir.path(),
+            &created.id,
+            TaskEdit {
+                name: Some("renamed".into()),
+                ..TaskEdit::default()
+            },
+        )
+        .expect("update")
+        .expect("the task exists");
+
+        assert_eq!(edited.run_count, 1);
+        assert!(edited.last_run.is_some());
+    }
+
+    #[test]
+    fn should_refuse_an_interval_of_zero() {
+        // It would be due on every tick, forever.
+        let dir = tempdir().expect("tempdir");
+        let created =
+            create(dir.path(), "n".into(), "p".into(), 3600, "/tmp".into()).expect("create");
+
+        let edited = update(
+            dir.path(),
+            &created.id,
+            TaskEdit {
+                interval_seconds: Some(0),
+                ..TaskEdit::default()
+            },
+        )
+        .expect("update")
+        .expect("the task exists");
+
+        assert_eq!(edited.interval_seconds, 3600);
+    }
+
+    #[test]
+    fn should_report_an_unknown_task_rather_than_inventing_one() {
+        let dir = tempdir().expect("tempdir");
+        let missing = update(dir.path(), "no-such-task", TaskEdit::default()).expect("update");
+        assert!(missing.is_none());
     }
 
     #[test]

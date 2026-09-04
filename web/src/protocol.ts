@@ -291,12 +291,26 @@ export interface SkillSummary {
 }
 
 /** A recurring task, run by the gateway while it is up. */
+/**
+ * Why a task's directory is allowed, decided by the gateway.
+ *
+ * The client is told rather than working it out, because the rule lives in one
+ * place and a second copy here would be one that drifts.
+ */
+export type DirectoryStanding =
+  | { kind: "department"; name: string }
+  | { kind: "workspace" }
+  | { kind: "granted" }
+  | { kind: "unknown" };
+
 export interface ScheduledTask {
   id: string;
   name: string;
   prompt: string;
   intervalSeconds: number;
   cwd: string;
+  /** Absent from older gateways, which did not report it. */
+  standing?: DirectoryStanding;
   lastRun: number | null;
   nextRun: number | null;
   /** How many times it has run, ever. */
@@ -1795,6 +1809,20 @@ export class OpenCliClient {
     cwd: string;
   }): Promise<ScheduledTask> {
     return (await this.request("schedule/create", task)) as ScheduledTask;
+  }
+
+  /**
+   * Change a task in place. Fields left out keep their current value.
+   *
+   * The directory matters most here: a task remembers where it was created,
+   * and tasks made before the default was fixed still point at a home
+   * directory they have no business writing to.
+   */
+  async updateTask(
+    id: string,
+    edit: { name?: string; prompt?: string; intervalSeconds?: number; cwd?: string },
+  ): Promise<ScheduledTask> {
+    return (await this.request("schedule/update", { id, ...edit })) as ScheduledTask;
   }
 
   async deleteTask(id: string): Promise<void> {

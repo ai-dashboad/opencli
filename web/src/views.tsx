@@ -9,6 +9,7 @@ import type {
   ConnectorConfig,
   ConnectorOffer,
   ConnectorSummary,
+  DirectoryStanding,
   FileChange,
   InstalledPlugin,
   Memory,
@@ -1192,6 +1193,7 @@ export function ScheduledView({
 }) {
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
+  const [departments, setDepartments] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -1199,15 +1201,18 @@ export function ScheduledView({
   const [unit, setUnit] = useState("h");
   const [directory, setDirectory] = useState(cwd);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      const [listed, recent] = await Promise.all([
+      const [listed, recent, projects] = await Promise.all([
         client.listTasks(),
         client.listRuns({ limit: 100 }).catch(() => [] as Run[]),
+        client.listProjects().catch(() => [] as Project[]),
       ]);
       setTasks(listed);
       setRuns(recent);
+      setDepartments(projects);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1336,6 +1341,14 @@ export function ScheduledView({
                 {task.enabled ? "active" : "paused"}
                 {last ? ` · ${t("last run {status}", { status: STATUS_LABEL[last.status]().toLowerCase() })}` : " · never run"}
               </span>
+              {/*
+                The directory was never shown, which is how a task kept running
+                in a home directory for weeks without anyone seeing it. A run
+                may write anything under here, so it belongs on the row.
+              */}
+              <span className={task.standing?.kind === "unknown" ? "warn" : "muted"}>
+                <code>{task.cwd}</code> · {describeStanding(task.standing)}
+              </span>
               <div className="actions">
                 <button
                   className="secondary"
@@ -1358,6 +1371,12 @@ export function ScheduledView({
                 >
                   {task.enabled ? t("Pause") : t("Resume")}
                 </button>
+                <button
+                  className="secondary"
+                  onClick={() => setMoving(moving === task.id ? null : task.id)}
+                >
+                  {t("Move")}
+                </button>
                 {history.length > 0 ? (
                   <button
                     className="secondary"
@@ -1376,6 +1395,26 @@ export function ScheduledView({
                 </button>
               </div>
 
+              {moving === task.id ? (
+                <MoveTask
+                  task={task}
+                  departments={departments}
+                  onBrowse={onBrowse}
+                  onMove={(to) => {
+                    void client
+                      .updateTask(task.id, { cwd: to })
+                      .then(() => {
+                        setMoving(null);
+                        return reload();
+                      })
+                      .catch((err: unknown) =>
+                        setError(err instanceof Error ? err.message : String(err)),
+                      );
+                  }}
+                  onCancel={() => setMoving(null)}
+                />
+              ) : null}
+
               {expanded === task.id ? (
                 <ul className="rows">
                   {history.map((run) => (
@@ -1393,6 +1432,93 @@ export function ScheduledView({
         })}
       </ul>
     </section>
+  );
+}
+
+/** Why this directory is allowed, or that it is not, in a few words. */
+export function describeStanding(standing: DirectoryStanding | undefined): string {
+  switch (standing?.kind) {
+    case "department":
+      return t("in {name}", { name: standing.name });
+    case "workspace":
+      return t("in the workspace");
+    case "granted":
+      return t("you allowed this one");
+    case "unknown":
+      return t("outside every department — runs here are held");
+    default:
+      // An older gateway did not send it. Saying nothing beats guessing.
+      return "";
+  }
+}
+
+/**
+ * Move one task to another directory.
+ *
+ * A list of departments rather than a path box, because the answer is almost
+ * always "the department this task belongs to" and making somebody type a path
+ * for that invites the typo that put the task in a home directory to begin
+ * with. The path box is still there underneath for the case it is not.
+ */
+function MoveTask({
+  task,
+  departments,
+  onBrowse,
+  onMove,
+  onCancel,
+}: {
+  task: ScheduledTask;
+  departments: Project[];
+  onBrowse?: (start: string) => Promise<string | null>;
+  onMove: (cwd: string) => void;
+  onCancel: () => void;
+}) {
+  const [path, setPath] = useState(task.cwd);
+
+  return (
+    <div className="project-form">
+      {departments.length > 0 ? (
+        <label className="field">
+          {t("Move to a department")}
+          <select value="" onChange={(event) => event.target.value && setPath(event.target.value)}>
+            <option value="">{t("Pick one…")}</option>
+            {departments.map((department) => (
+              <option key={department.id} value={department.cwd}>
+                {department.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <label className="field">
+        {t("Or a directory")}
+        <span className="path-input">
+          <input value={path} onChange={(event) => setPath(event.target.value)} />
+          {onBrowse ? (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                void onBrowse(path).then((picked) => {
+                  if (picked) setPath(picked);
+                });
+              }}
+            >
+              <FolderPlusIcon size={14} />
+              {t("Choose")}
+            </button>
+          ) : null}
+        </span>
+      </label>
+      <div className="actions">
+        <button onClick={() => onMove(path.trim())} disabled={!path.trim() || path.trim() === task.cwd}>
+          {t("Move task")}
+        </button>
+        <button className="secondary" onClick={onCancel}>
+          {t("Cancel")}
+        </button>
+      </div>
+    </div>
   );
 }
 

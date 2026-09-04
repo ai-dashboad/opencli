@@ -11,10 +11,18 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "Move": "移动",
+  "Move task": "移动任务",
+  "Move to a department": "移动到部门",
+  "Or a directory": "或指定目录",
+  "Pick one…": "选一个…",
   "Set approvals to never, in Customize, and nothing is held.": "在 Customize 里把审批设为「从不」,就不会再扣住任何运行。",
   "Waiting for you": "等你授权",
   "A run can write anywhere in the directory it runs in. These are outside every department, so they are held until you say otherwise.": "一次运行可以写它所在目录里的任何东西。下面这些不在任何部门的目录里,所以先扣住,等你说了算。",
   "Allow this directory": "允许这个目录",
+  "in the workspace": "在工作区内",
+  "in {name}": "在 {name}",
+  "outside every department — runs here are held": "不属于任何部门 —— 这里的运行会被扣住",
   "waiting for you to allow its directory": "等你授权它的目录",
   "Abilities": "能力",
   "All": "全部",
@@ -42,6 +50,7 @@ export const zh: Record<string, string> = {
   "Answer": "提交答复",
   "Work passed between bots": "员工之间的交接",
   "No bot has handed work to another yet.": "还没有员工把活交给过别人。",
+  "you allowed this one": "你授权过这个目录",
   "{hops} of {max} hops": "{hops} / {max} 跳",
   "stopped at the limit": "触顶停下",
   "asking": "待批",
