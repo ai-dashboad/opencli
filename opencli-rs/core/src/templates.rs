@@ -130,10 +130,13 @@ Dana Whitfield,dana@whitfield.example,Spare jug,2026-06-30
 Priya Raman,priya@raman.example,900W blender; spare jug,2026-08-19
 ";
 
+// SO-2202 says shipped and carries no reference, which is the case the rules
+// call stuck whatever the status says. Without it that rule could never fire
+// and a first run would only ever find the two obvious late ones.
 const ORDERS: &str = "\
 order,placed,customer,item,status,carrier_ref
 SO-2201,2026-08-18,Northwind Ltd,900W blender,shipped,TR889201
-SO-2202,2026-08-19,Halcyon Media,Spare jug,shipped,TR889244
+SO-2202,2026-08-19,Halcyon Media,Spare jug,shipped,
 SO-2203,2026-08-20,Baxter & Sons,900W blender,unshipped,
 SO-2204,2026-08-21,Priya Raman,900W blender,shipped,TR889310
 SO-2205,2026-08-26,Ridgeway Supplies,900W blender x4,unshipped,
@@ -842,5 +845,298 @@ mod tests {
         // `marketing` did arrive and quietly turned this into a test of
         // nothing until it failed.
         assert!(apply(dir.path(), "no-such-department").is_err());
+    }
+
+    /// The rows of a sample CSV, as columns of text.
+    fn rows(home: &Path, department: &str, file: &str) -> Vec<Vec<String>> {
+        let applied = apply(home, department).expect("apply");
+        let text = std::fs::read_to_string(Path::new(&applied.department.cwd).join(file))
+            .unwrap_or_else(|err| panic!("{department}/{file}: {err}"));
+        text.lines()
+            .skip(1)
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| line.split(',').map(str::trim).map(str::to_string).collect())
+            .collect()
+    }
+
+    fn text(home: &Path, department: &str, file: &str) -> String {
+        let applied = apply(home, department).expect("apply");
+        std::fs::read_to_string(Path::new(&applied.department.cwd).join(file))
+            .unwrap_or_else(|err| panic!("{department}/{file}: {err}"))
+    }
+
+    // What follows checks the sample data itself, not the plumbing. Each
+    // template plants something for its first run to find, and a run that
+    // finds nothing teaches nobody anything — so if an edit ever tidies the
+    // problems away, these say which one went.
+
+    #[test]
+    fn finance_sample_has_three_differences_one_of_them_over_the_threshold() {
+        let dir = tempdir().expect("tempdir");
+        let ledger = rows(dir.path(), "finance", "ledger.csv");
+        let statement = rows(dir.path(), "finance", "statement.csv");
+
+        let paid: std::collections::HashMap<&str, f64> = statement
+            .iter()
+            .map(|row| (row[1].as_str(), row[2].parse::<f64>().expect("amount")))
+            .collect();
+
+        // Invoiced and never paid, and over the 500 the rules escalate at.
+        let unpaid: Vec<&Vec<String>> = ledger
+            .iter()
+            .filter(|row| !paid.contains_key(row[1].as_str()))
+            .collect();
+        assert_eq!(unpaid.len(), 1, "expected exactly one unpaid invoice");
+        assert_eq!(unpaid[0][1], "INV-1003");
+        assert!(
+            unpaid[0][3].parse::<f64>().expect("amount") > 500.0,
+            "the unpaid one has to cross the escalation threshold"
+        );
+
+        // Short by an amount the rules say to record and leave.
+        let short = ledger
+            .iter()
+            .find(|row| {
+                paid.get(row[1].as_str()).is_some_and(|amount| {
+                    (row[3].parse::<f64>().expect("amount") - amount).abs() > 0.001
+                })
+            })
+            .expect("one invoice paid short");
+        let difference = short[3].parse::<f64>().expect("amount") - paid[short[1].as_str()];
+        assert_eq!(short[1], "INV-1006");
+        assert!(difference > 0.0 && difference < 100.0, "got {difference}");
+
+        // Paid with nothing to match it against, which the rules also escalate.
+        let invoiced: std::collections::HashSet<&str> =
+            ledger.iter().map(|row| row[1].as_str()).collect();
+        assert!(
+            statement
+                .iter()
+                .any(|row| !invoiced.contains(row[1].as_str())),
+            "expected a payment matching no invoice"
+        );
+    }
+
+    #[test]
+    fn engineering_sample_sums_the_wrong_column() {
+        let dir = tempdir().expect("tempdir");
+        let code = text(dir.path(), "engineering", "sample-service/main.py");
+        // The bug the reviewer is meant to find: totalling a date column.
+        assert!(
+            code.contains("def total("),
+            "the function under review is gone"
+        );
+        let body = code
+            .split("def total(")
+            .nth(1)
+            .expect("body")
+            .split("def ")
+            .next()
+            .expect("body");
+        assert!(
+            body.contains("row[\"due\"]"),
+            "total() no longer sums the wrong column, so there is nothing to find"
+        );
+        assert!(
+            !body.contains("row[\"amount\"]"),
+            "the bug has been fixed away"
+        );
+    }
+
+    #[test]
+    fn support_sample_holds_a_question_the_rules_escalate() {
+        let dir = tempdir().expect("tempdir");
+        let asked = rows(dir.path(), "support", "questions.csv");
+        assert!(asked.len() >= 3, "one question is not a morning's work");
+        // "Says delivered and nothing arrived" is named in escalate_when.
+        assert!(
+            asked
+                .iter()
+                .any(|row| row[2].to_lowercase().contains("delivered")),
+            "nothing here reaches the escalation rule"
+        );
+    }
+
+    #[test]
+    fn operations_sample_has_something_late_and_something_stuck() {
+        let dir = tempdir().expect("tempdir");
+        let orders = rows(dir.path(), "operations", "orders.csv");
+
+        assert!(
+            orders.iter().any(|row| row[4] == "unshipped"),
+            "nothing is late"
+        );
+        // Shipped with no carrier reference: stuck, whatever the status says.
+        assert!(
+            orders.iter().any(|row| row[4] == "shipped"
+                && row.get(5).is_none_or(|reference| reference.is_empty()))
+                || orders
+                    .iter()
+                    .any(|row| row[4] == "unshipped" && row.len() == 5),
+            "nothing is stuck"
+        );
+    }
+
+    #[test]
+    fn meeting_notes_hold_a_decision_nobody_owns() {
+        // Used by two departments, and the escalation rule of one of them is
+        // exactly this.
+        let dir = tempdir().expect("tempdir");
+        let notes = text(dir.path(), "people", "notes.md");
+        assert!(
+            notes.contains("Nobody owns this"),
+            "no unowned action, so the escalation never fires"
+        );
+        assert!(notes.contains("Left open"), "nothing left open");
+    }
+
+    #[test]
+    fn legal_sample_differs_in_the_three_ways_the_rules_name() {
+        let dir = tempdir().expect("tempdir");
+        let ours = text(dir.path(), "legal", "our-terms.md");
+        let theirs = text(dir.path(), "legal", "their-draft.md");
+
+        // Uncapped indemnity: in theirs, absent from ours.
+        assert!(theirs.contains("without limit"), "the indemnity is capped");
+        assert!(
+            !ours.contains("Indemnity"),
+            "ours already has one to compare"
+        );
+
+        // Termination is one-sided in theirs and even in ours.
+        assert!(theirs.contains("7 days") && theirs.contains("90 days"));
+        assert!(ours.contains("30 days"));
+
+        // Governing law moved.
+        assert!(ours.contains("England"));
+        assert!(theirs.contains("Delaware"));
+    }
+
+    #[test]
+    fn research_sample_disagrees_with_the_better_study_being_smaller() {
+        let dir = tempdir().expect("tempdir");
+        let papers = rows(dir.path(), "research", "papers.csv");
+
+        let claims: std::collections::HashSet<&str> =
+            papers.iter().map(|row| row[2].as_str()).collect();
+        assert!(
+            claims.len() > 1,
+            "the papers agree, so there is nothing to weigh"
+        );
+
+        // The conflict the escalation rule is about: randomised evidence on
+        // both sides, and the two disagree.
+        let randomised: Vec<&Vec<String>> =
+            papers.iter().filter(|row| row[3] == "randomised").collect();
+        assert!(randomised.len() >= 2);
+        let sizes: Vec<i64> = randomised
+            .iter()
+            .map(|row| row[4].parse::<i64>().expect("n"))
+            .collect();
+        assert!(
+            sizes.iter().max() != sizes.iter().min(),
+            "the studies are the same size, so size cannot be the deciding factor"
+        );
+    }
+
+    #[test]
+    fn clinical_sample_holds_three_things_a_clinician_should_see() {
+        let dir = tempdir().expect("tempdir");
+        let notes = rows(dir.path(), "clinical", "records.csv");
+        let of = |patient: &str| -> String {
+            notes
+                .iter()
+                .filter(|row| row[0] == patient)
+                .map(|row| row[2].to_lowercase())
+                .collect::<Vec<_>>()
+                .join(" | ")
+        };
+
+        // A prescription against a recorded allergy.
+        let first = of("P-1041");
+        assert!(first.contains("allergy: penicillin"), "no allergy recorded");
+        assert!(
+            first.contains("amoxicillin"),
+            "nothing prescribed that the allergy bears on"
+        );
+
+        // A pair that interacts.
+        assert!(first.contains("warfarin") && first.contains("fluconazole"));
+
+        // A dose against a recorded organ function.
+        let second = of("P-2277");
+        assert!(second.contains("metformin"), "no dose to question");
+        assert!(second.contains("egfr"), "no kidney function recorded");
+    }
+
+    #[test]
+    fn every_department_plants_something_findable() {
+        // The blunt version of all of the above: no sample file is empty, and
+        // none is only a header. A template whose data has been emptied would
+        // still pass every other test here.
+        let dir = tempdir().expect("tempdir");
+        for template in TEMPLATES {
+            let applied = apply(dir.path(), template.id).expect("apply");
+            for sample in template.samples {
+                let body =
+                    std::fs::read_to_string(Path::new(&applied.department.cwd).join(sample.name))
+                        .expect("sample");
+                let lines = body.lines().filter(|line| !line.trim().is_empty()).count();
+                assert!(
+                    lines >= 3,
+                    "{}/{} has {lines} lines, which is a header and not data",
+                    template.id,
+                    sample.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_duty_reaches_its_bot_with_its_rules_and_its_stopping_condition() {
+        // The last link. The data can be right and the rules can be written
+        // and a bot still be sent a bare instruction, because the brief is
+        // assembled somewhere else — which is how the escalation threshold
+        // came to be a sentence nothing acted on the first time.
+        let dir = tempdir().expect("tempdir");
+        for template in TEMPLATES {
+            let applied = apply(dir.path(), template.id).expect("apply");
+            for duty in &applied.duties {
+                let brief =
+                    crate::duties::brief(duty, &crate::duties::state(dir.path(), &duty.id), None);
+
+                assert!(
+                    brief.contains(duty.what.trim()),
+                    "{}/{}: the work never reaches the bot",
+                    template.id,
+                    duty.name
+                );
+                assert!(
+                    brief.contains(duty.rules.trim()),
+                    "{}/{}: the rules never reach the bot",
+                    template.id,
+                    duty.name
+                );
+                assert!(
+                    brief.contains(duty.escalate_when.trim()),
+                    "{}/{}: the stopping condition never reaches the bot",
+                    template.id,
+                    duty.name
+                );
+                assert!(
+                    brief.find("How to decide") < brief.find("Stop and ask"),
+                    "{}/{}: a bot that reads the stopping rule after deciding has read \
+                     it too late",
+                    template.id,
+                    duty.name
+                );
+                assert!(
+                    brief.contains("first run"),
+                    "{}/{}: a first run must be told it is one",
+                    template.id,
+                    duty.name
+                );
+            }
+        }
     }
 }
