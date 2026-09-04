@@ -3763,3 +3763,143 @@ textarea:focus {
   color: var(--text-faint);
   font-size: 12px;
 }
+
+/*
+ * On a phone.
+ *
+ * Every width in this file was written for a desktop window: a 258px sidebar,
+ * a 268px details column, and a chat between them. There was not one width
+ * breakpoint in the stylesheet — the nine media queries it did have were all
+ * about colour and motion — so on a 390px screen the three columns each got
+ * about a third of the room and none of them was usable.
+ *
+ * The rule below is the whole of it: on a narrow screen there is one column,
+ * and the two side panels become things you open rather than things that are
+ * always there. A drawer over the content, not a column beside it, because
+ * there is no beside.
+ */
+@media (max-width: 720px) {
+  .shell,
+  .shell.collapsed,
+  .shell.with-details,
+  .shell.collapsed.with-details {
+    grid-template-columns: 1fr;
+  }
+
+  /* Over the content and above it, with the rest dimmed behind — which is
+     what says it is a layer rather than the page having jumped. */
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(84vw, 300px);
+    box-shadow: 0 0 0 100vmax rgb(0 0 0 / 45%);
+  }
+
+  .shell.collapsed .sidebar {
+    display: none;
+  }
+
+  .details {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 40;
+    width: min(88vw, 340px);
+    background: var(--bg-sidebar);
+    box-shadow: 0 0 0 100vmax rgb(0 0 0 / 45%);
+  }
+
+  /* The window's traffic lights are not there to clear on a phone, and the
+     padding that avoided them wastes a quarter of a short screen. */
+  .titlebar {
+    padding-left: 8px;
+  }
+
+  .panel {
+    padding: 18px 16px;
+  }
+
+  .transcript {
+    padding: 12px 14px;
+  }
+
+  /* Thumbs, not pointers: 44px is the smallest target most people hit
+     reliably, and every icon button in here was sized for a mouse. */
+  .icon-button,
+  .nav-row,
+  .tree-row {
+    min-height: 40px;
+  }
+
+  .composer {
+    border-radius: 12px;
+  }
+
+  /* A grid of cards at 280px minimum leaves a phone showing one column with
+     the last 40px cut off. */
+  .templates {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-head em {
+    display: none;
+  }
+}
+
+/*
+ * Installed to a home screen, the page owns the whole display — including the
+ * strip behind the status bar and the one the home indicator sits on. Without
+ * this the first row of the sidebar hides under the clock.
+ */
+@supports (padding: env(safe-area-inset-top)) {
+  @media (max-width: 720px) {
+    .titlebar {
+      padding-top: calc(8px + env(safe-area-inset-top));
+    }
+
+    .sidebar,
+    .details {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .composer-wrap {
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* Pairing: the code and the address, side by side. */
+.pairing {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin: 14px 0 4px;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+}
+
+.qr {
+  flex: none;
+  border-radius: 4px;
+}
+
+.pairing-what {
+  min-width: 0;
+}
+
+/* The address wraps rather than scrolling: it has to be readable to be typed
+   out on a phone when the camera will not cooperate. */
+.pairing-what code {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+@media (max-width: 720px) {
+  .pairing {
+    flex-direction: column;
+  }
+}

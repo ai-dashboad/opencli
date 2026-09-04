@@ -11,6 +11,17 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "pairing code": "配对二维码",
+  "Phones and tablets": "手机与平板",
+  "A paired device can make the agent run commands on this machine. Pair only your own, and revoke anything you do not recognise.": "配对过的设备可以让 agent 在这台机器上执行命令。只配对你自己的设备,看到不认识的立即吊销。",
+  "Add a device": "添加设备",
+  "Scan the code with its camera, or open the address.": "用它的相机扫码,或者直接打开这个地址。",
+  "Pair a device": "配对设备",
+  "Revoke": "吊销",
+  "never connected": "从未连接",
+  "last seen {when}": "最后活跃 {when}",
+  "This is the only time this address is shown. Anything holding it can run commands here.": "这个地址只显示这一次。任何拿到它的人都能在这里执行命令。",
+  "No address on this network could be found, so another device has nothing to connect to. Join a network, or install Tailscale and try again.": "找不到本机在网络上的地址,别的设备无从连接。先连上网络,或者装好 Tailscale 再试。",
   "Or start with one that already works": "或者直接用一个现成能跑的",
   "Each comes with its bots, what they are for, and files for them to work on — so the first run does something rather than explaining that there is nothing to do.": "每个都自带员工、职责,以及给他们干活的文件 —— 所以第一次运行是真的做了点什么,而不是解释「没有可做的事」。",
   "Set this up": "就用这个",

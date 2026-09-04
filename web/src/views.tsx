@@ -25,6 +25,8 @@ import type {
   SecretStatus,
   ModelVariant,
   DepartmentTemplate,
+  PairedDevice,
+  Pairing,
   Project,
   ProjectFile,
   PullProgress,
@@ -40,6 +42,7 @@ import type {
   ThreadSummary,
 } from "./protocol";
 import { LOCALES, plural, t } from "./i18n";
+import { QrCode } from "./qr";
 import { scenariosNeeding } from "./scenarios";
 
 
@@ -665,6 +668,115 @@ const SANDBOX_SETTINGS: { value: string; label: string; hint: string }[] = [
  * So: the settings that decide whether the thing works at all, edited here; and
  * the rest still shown, still read-only, still saying which file set it.
  */
+/**
+ * Phones and tablets allowed to connect, and how one is added.
+ *
+ * The code and the URL are shown together on purpose. A code that will not
+ * scan — a bad camera, a dark room, a code drawn by an encoder written for one
+ * job — leaves someone with nothing, and the URL always works. It is also the
+ * only time the token exists in the open: nothing can read it back, so a
+ * pairing not used is a pairing to revoke and do again.
+ */
+function Devices({ client }: { client: OpenCliClient }) {
+  const [devices, setDevices] = useState<PairedDevice[]>([]);
+  const [pairing, setPairing] = useState<Pairing | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    setDevices(await client.listDevices().catch(() => [] as PairedDevice[]));
+  }, [client]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  return (
+    <>
+      <h3>{t("Phones and tablets")}</h3>
+      <p className="hint">
+        {t(
+          "A paired device can make the agent run commands on this machine. Pair only your own, and revoke anything you do not recognise.",
+        )}
+      </p>
+      {error ? <p className="error">{error}</p> : null}
+
+      <ul className="rows">
+        {devices.map((device) => (
+          <li key={device.id}>
+            <strong>{device.name}</strong>
+            <span>
+              {device.lastSeen
+                ? t("last seen {when}", { when: ago(device.lastSeen) })
+                : t("never connected")}
+            </span>
+            <div className="actions">
+              <button
+                className="link"
+                onClick={() => {
+                  void client
+                    .revokeDevice(device.id)
+                    .then(reload)
+                    .catch((err: unknown) =>
+                      setError(err instanceof Error ? err.message : String(err)),
+                    );
+                }}
+              >
+                {t("Revoke")}
+              </button>
+            </div>
+          </li>
+        ))}
+        <li>
+          <strong>{t("Add a device")}</strong>
+          <span>{t("Scan the code with its camera, or open the address.")}</span>
+          <div className="actions">
+            <button
+              className="secondary"
+              onClick={() => {
+                void client
+                  .pairDevice()
+                  .then((made) => {
+                    setPairing(made);
+                    void reload();
+                  })
+                  .catch((err: unknown) =>
+                    setError(err instanceof Error ? err.message : String(err)),
+                  );
+              }}
+            >
+              {t("Pair a device")}
+            </button>
+          </div>
+        </li>
+      </ul>
+
+      {pairing ? (
+        pairing.url ? (
+          <div className="pairing">
+            <QrCode text={pairing.url} />
+            <div className="pairing-what">
+              {/* Shown as text as well as a code. A code that will not scan
+                  otherwise leaves somebody with nothing. */}
+              <code>{pairing.url}</code>
+              <p className="hint">
+                {t(
+                  "This is the only time this address is shown. Anything holding it can run commands here.",
+                )}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="error">
+            {t(
+              "No address on this network could be found, so another device has nothing to connect to. Join a network, or install Tailscale and try again.",
+            )}
+          </p>
+        )
+      ) : null}
+    </>
+  );
+}
+
 export function SettingsView({
   client,
   version,
@@ -901,6 +1013,8 @@ export function SettingsView({
           </label>
         ))}
       </div>
+
+      <Devices client={client} />
 
       <h3>{t("About")}</h3>
       <ul className="rows">

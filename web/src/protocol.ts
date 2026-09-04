@@ -261,6 +261,26 @@ export interface DepartmentTemplate {
   samples: string[];
 }
 
+/** A device paired with this machine. */
+export interface PairedDevice {
+  id: string;
+  name: string;
+  pairedAt: number;
+  /** Absent until it has connected once. */
+  lastSeen: number | null;
+}
+
+/** What pairing produced. The URL exists only in this answer. */
+export interface Pairing {
+  id: string;
+  name: string;
+  pairedAt: number;
+  /** Absent when no address on this network could be found. */
+  url: string | null;
+  host: string | null;
+  validForSeconds: number;
+}
+
 /** A skill available in the current working directory. */
 export interface SkillSummary {
   name: string;
@@ -2045,6 +2065,27 @@ export class OpenCliClient {
       bots: number;
       duties: number;
     };
+  }
+
+  /** Devices allowed to connect, without their secrets. */
+  async listDevices(): Promise<PairedDevice[]> {
+    const result = (await this.request("device/list", {})) as { data?: unknown[] };
+    return (result.data ?? []) as PairedDevice[];
+  }
+
+  /**
+   * Pair a device.
+   *
+   * The URL in the answer carries a token that lasts, and this is the only
+   * time it is ever produced — nothing can read it back afterwards.
+   */
+  async pairDevice(name?: string): Promise<Pairing> {
+    return (await this.request("device/pair", name ? { name } : {})) as Pairing;
+  }
+
+  async revokeDevice(id: string): Promise<boolean> {
+    const result = (await this.request("device/revoke", { id })) as { removed?: boolean };
+    return result.removed === true;
   }
 
   async clearRuns(): Promise<number> {

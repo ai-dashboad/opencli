@@ -33,6 +33,7 @@ use axum::extract::ws::WebSocketUpgrade;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::get;
+use opencli_core::devices;
 use serde::Deserialize;
 use std::net::IpAddr;
 use std::net::SocketAddr;
@@ -74,6 +75,9 @@ struct GatewayState {
     server_bin: PathBuf,
     /// Where scheduled tasks are stored.
     opencli_home: PathBuf,
+    /// The port actually bound, which a pairing URL has to carry: asked for
+    /// zero, the one in the config is not the one anybody can connect to.
+    port: u16,
 }
 
 #[derive(Deserialize)]
@@ -147,10 +151,12 @@ pub async fn serve_with_listener(
         .opencli_home
         .clone()
         .unwrap_or_else(default_opencli_home);
+    let bound = listener.local_addr().context("resolve bound address")?;
     let state = Arc::new(GatewayState {
         token: token.clone(),
         server_bin: server_bin.clone(),
         opencli_home: opencli_home.clone(),
+        port: bound.port(),
     });
 
     // One scheduler per gateway, not per connection: tasks must run whether or
@@ -176,7 +182,6 @@ pub async fn serve_with_listener(
         .route("/ws", get(ws_handler))
         .with_state(state);
 
-    let bound = listener.local_addr().context("resolve bound address")?;
     match token.as_deref() {
         Some(token) => {
             println!("OpenCLI gateway listening on ws://{bound}/ws?token={token}");
@@ -215,11 +220,29 @@ async fn ws_handler(
     Query(params): Query<ConnectParams>,
     upgrade: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    if let Some(expected) = state.token.as_deref() {
-        // Compare full strings; these are single-use local tokens, and a
-        // mismatch is answered identically either way.
-        if params.token.as_deref() != Some(expected) {
+    if state.token.is_some() {
+        let offered = params.token.as_deref().unwrap_or_default();
+        // Two ways in, and they are for different things. The run token is
+        // printed once and belongs to whoever is sitting at this machine; a
+        // device token was handed to a phone at pairing time and has to
+        // survive a restart, or the phone is locked out every morning with no
+        // way back except reading a terminal.
+        let by_run_token = state
+            .token
+            .as_deref()
+            .is_some_and(|expected| expected == offered);
+        let device = if by_run_token {
+            None
+        } else {
+            devices::recognise(&state.opencli_home, offered)
+        };
+        if !by_run_token && device.is_none() {
             return (StatusCode::UNAUTHORIZED, "invalid or missing token").into_response();
+        }
+        // Recorded so an unfamiliar device can be spotted at all. There is
+        // nowhere else this is known.
+        if let Some(device) = device {
+            let _ = devices::seen(&state.opencli_home, &device.id);
         }
     }
     let state = Arc::clone(&state);
@@ -305,7 +328,8 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             .or_else(|| workspace::handle(&text, &state.opencli_home))
             .or_else(|| bot::handle(&text, &state.opencli_home))
             .or_else(|| duty::handle(&text, &state.opencli_home))
-            .or_else(|| handoff::handle(&text, &state.opencli_home));
+            .or_else(|| handoff::handle(&text, &state.opencli_home))
+            .or_else(|| device::handle(&text, &state.opencli_home, state.port));
         if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -366,6 +390,7 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
 
 mod bot;
 mod connector;
+mod device;
 mod dispatch;
 mod duty;
 mod handoff;

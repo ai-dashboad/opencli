@@ -37,8 +37,9 @@ SKIP_LINE = re.compile(
     # Generics and comparisons look like tags to a regex: `Promise<Foo>`,
     # `Record<string, X>`, `count > 0 && …`. None of them reach a screen.
     r"Promise<|Record<|Array<|useState<|: string|=> |\breturn\b|\bconst\b|\bfunction\b|"
-    # `a.length > 0 && …` in a condition.
-    r"\.length > |> 0 |\bBeta\b"
+    # `a.length > 0 && …` in a condition, and `y >= SIZE || x < 0` — a pair of
+    # comparisons reads to this as text between two tags.
+    r"\.length > |> 0 |>= |<= |\bif \(|\bBeta\b"
 )
 
 

@@ -2,7 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      `viewport-fit=cover` so the page reaches under a phone's rounded corners
+      and home indicator, which is what makes an installed web app stop looking
+      like a web page in a frame.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#191817" />
+    <!--
+      Added to the home screen rather than shipped to a store. It works the
+      same on Android and on iPhone, which is the whole reason it is a web app
+      and not two native ones — and on iPhone it is the only way there is.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>OpenCLI</title>
   </head>
   <body>

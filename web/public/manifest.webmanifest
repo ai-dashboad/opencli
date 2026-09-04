@@ -1,0 +1,16 @@
+{
+  "name": "OpenCLI",
+  "short_name": "OpenCLI",
+  "description": "Your bots, and what they are waiting on.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#191817",
+  "theme_color": "#191817",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
