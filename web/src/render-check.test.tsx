@@ -46,14 +46,14 @@ describe("one kind of work, on its own page", () => {
 
   it("should say what to ask, and offer to start it", () => {
     const html = renderToStaticMarkup(
-      <ScenarioView scenario={scenario} connected={["shopify"]} onRun={() => {}} onConnect={() => {}} />,
+      <ScenarioView scenario={scenario} connected={["postgres"]} onRun={() => {}} onConnect={() => {}} />,
     );
 
     expect(html).toContain("Selling abroad");
     expect(html).toContain("Ask for it like this");
     expect(html).toContain("Translate every product title");
     // Connected, so the instruction that needs it is offered rather than blocked.
-    expect(html).toContain("List the ten slowest-selling things in my store");
+    expect(html).toContain("List the ten slowest-selling products in the orders table");
     expect(html).toContain("connected");
   });
 
@@ -62,7 +62,7 @@ describe("one kind of work, on its own page", () => {
       <ScenarioView scenario={scenario} connected={[]} onRun={() => {}} onConnect={() => {}} />,
     );
 
-    expect(html).toContain("needs shopify");
+    expect(html).toContain("needs postgres");
     expect(html).toContain("disabled");
   });
 

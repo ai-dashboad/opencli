@@ -63,12 +63,13 @@ export const SCENARIOS: Scenario[] = [
           t("Read the questions in questions.csv and draft an answer to each one"),
       },
       {
-        prompt: () => t("Summarise the customer emails I have not answered yet"),
-        needs: ["gmail"],
+        prompt: () => t("Summarise the questions in our support channel that nobody has answered"),
+        needs: ["slack"],
       },
       {
-        prompt: () => t("Every ten minutes, check for new mail and tell me if a customer is waiting"),
-        needs: ["gmail"],
+        prompt: () =>
+          t("Every ten minutes, check the support channel and tell me if somebody is waiting"),
+        needs: ["slack"],
       },
     ],
   },
@@ -86,7 +87,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         prompt: () => t("Find what people said about us in the last day and sort it by mood"),
-        needs: ["web-search"],
+        needs: ["brave-search"],
       },
     ],
   },
@@ -103,8 +104,8 @@ export const SCENARIOS: Scenario[] = [
         prompt: () => t("Rewrite these product descriptions so they read as though written in English"),
       },
       {
-        prompt: () => t("List the ten slowest-selling things in my store"),
-        needs: ["shopify"],
+        prompt: () => t("List the ten slowest-selling products in the orders table"),
+        needs: ["postgres"],
       },
     ],
   },

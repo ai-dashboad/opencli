@@ -849,13 +849,13 @@ mod tests {
     fn should_refuse_a_template_nobody_wrote() {
         let dir = tempdir().expect("tempdir");
         let reply = call(
-            r#"{"method":"project/fromTemplate","id":1,"params":{"template":"marketing"}}"#,
+            r#"{"method":"project/fromTemplate","id":1,"params":{"template":"no-such-department"}}"#,
             dir.path(),
         );
         assert!(
             reply["error"]["message"]
                 .as_str()
-                .is_some_and(|message| message.contains("marketing"))
+                .is_some_and(|message| message.contains("no-such-department"))
         );
     }
 }

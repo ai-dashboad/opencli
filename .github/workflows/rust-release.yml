@@ -606,8 +606,18 @@ jobs:
   # July 31, 2025: https://github.blog/changelog/2025-07-31-npm-trusted-publishing-with-oidc-is-generally-available/
   # npm docs: https://docs.npmjs.com/trusted-publishers
   publish-npm:
-    # Publish to npm for stable releases and alpha pre-releases with numeric suffixes.
-    if: ${{ needs.release.outputs.should_publish_npm == 'true' }}
+    # Published for stable releases and numbered alpha pre-releases — and only
+    # where the npm side has actually been set up.
+    #
+    # `@ai-dashboad` is not a scope this account can publish to, so every
+    # release so far has ended red on a step that publishes nothing anybody was
+    # waiting for: the binaries and the desktop bundles were already on the
+    # release page. A release that reports failure when it succeeded is a
+    # release nobody reads the status of.
+    #
+    # Set `PUBLISH_NPM` to `true` in the repository variables once the scope
+    # exists and this account can publish to it.
+    if: ${{ needs.release.outputs.should_publish_npm == 'true' && vars.PUBLISH_NPM == 'true' }}
     name: publish-npm
     needs: release
     runs-on: ubuntu-latest
@@ -670,21 +680,3 @@ jobs:
             npm publish "${GITHUB_WORKSPACE}/dist/npm/${tarball}" "${tag_args[@]}"
           done
 
-  update-branch:
-    name: Update latest-alpha-cli branch
-    permissions:
-      contents: write
-    needs: release
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Update latest-alpha-cli branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh api \
-            repos/${GITHUB_REPOSITORY}/git/refs/heads/latest-alpha-cli \
-            -X PATCH \
-            -f sha="${GITHUB_SHA}" \
-            -F force=true

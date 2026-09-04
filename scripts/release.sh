@@ -64,6 +64,7 @@ cargo update --quiet --workspace --manifest-path "$root/desktop/src-tauri/Cargo.
 echo "Checking the translations…"
 python3 "$root/scripts/i18n-check.py"
 python3 "$root/scripts/i18n-untranslated.py" >/dev/null
+python3 "$root/scripts/connector-check.py" >/dev/null
 
 echo "Checking formatting…"
 (cd "$root/opencli-rs" && cargo fmt -- --config imports_granularity=Item --check >/dev/null 2>&1) || {

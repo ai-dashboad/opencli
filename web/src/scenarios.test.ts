@@ -69,24 +69,28 @@ describe("isRunnable", () => {
 describe("scenariosNeeding", () => {
   it("should say which kinds of work a service opens up", () => {
     // The Connectors panel reads the other way round from this table: a row
-    // that says `shopify` should be able to say why anyone would want it.
-    const names = scenariosNeeding("shopify").map((scenario) => scenario.id);
+    // that says `postgres` should be able to say why anyone would want it.
+    const names = scenariosNeeding("postgres").map((scenario) => scenario.id);
     expect(names).toEqual(["commerce"]);
   });
 
   it("should match a service however it was named", () => {
-    expect(scenariosNeeding("google-gmail").map((s) => s.id)).toEqual(["messages"]);
+    // Slack opens up two of these, and the Connectors panel says so: one
+    // service is worth having for more than one reason.
+    expect(scenariosNeeding("my-slack").map((s) => s.id)).toEqual(["messages", "community"]);
   });
 
   it("should say nothing for a service no work asks for", () => {
-    expect(scenariosNeeding("postgres")).toEqual([]);
+    expect(scenariosNeeding("figma")).toEqual([]);
   });
 
   it("should list every service the table asks for, once", () => {
     const needs = allNeeds();
     expect(new Set(needs).size).toBe(needs.length);
-    expect(needs).toContain("gmail");
-    expect(needs).toContain("shopify");
+    // Everything here is in the connector catalogue, which
+    // `scripts/connector-check.py` holds to permanently.
+    expect(needs).toContain("slack");
+    expect(needs).toContain("postgres");
   });
 });
 

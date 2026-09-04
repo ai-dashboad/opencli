@@ -156,6 +156,113 @@ fn catalog() -> Value {
                     "args": ["-y", "@modelcontextprotocol/server-postgres"]
                 },
                 "note": "Add the connection string as a further argument."
+            },
+            {
+                "id": "sqlite",
+                "name": "SQLite",
+                "description": "Query a SQLite file.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "uvx",
+                    "args": ["mcp-server-sqlite"]
+                },
+                "note": "Add --db-path and the file as further arguments."
+            },
+            {
+                "id": "slack",
+                "name": "Slack",
+                "description": "Read channels and post messages.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-slack"],
+                    "envVars": ["SLACK_BOT_TOKEN", "SLACK_TEAM_ID"]
+                },
+                "note": "Needs a bot token from a Slack app you install into the workspace.",
+                "keyHint": "SLACK_BOT_TOKEN"
+            },
+            {
+                "id": "notion",
+                "name": "Notion",
+                "description": "Read and write pages and databases in Notion.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "npx",
+                    "args": ["-y", "@notionhq/notion-mcp-server"],
+                    "envVars": ["NOTION_TOKEN"]
+                },
+                "note": "Needs an internal integration token, and each page shared with it.",
+                "keyHint": "NOTION_TOKEN"
+            },
+            {
+                "id": "google-drive",
+                "name": "Google Drive",
+                "description": "Search and read files in Drive.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-gdrive"]
+                },
+                "note": "Signs in through a browser the first time."
+            },
+            {
+                "id": "playwright",
+                "name": "Browser",
+                "description": "Drive a real browser: open pages, fill forms, read what is there.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "npx",
+                    "args": ["-y", "@playwright/mcp@latest"]
+                },
+                "note": "Downloads a browser on first use. This is what reaches a site that has no API — and it acts as you, so it can do anything you can."
+            },
+            {
+                "id": "brave-search",
+                "name": "Web search",
+                "description": "Search the web and read the results.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+                    "envVars": ["BRAVE_API_KEY"]
+                },
+                "note": "Needs a free API key from brave.com/search/api.",
+                "keyHint": "BRAVE_API_KEY"
+            },
+            {
+                "id": "fetch",
+                "name": "Fetch",
+                "description": "Retrieve a web page and read it as text.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "uvx",
+                    "args": ["mcp-server-fetch"]
+                },
+                "note": "For reading a page. Use Browser when something has to be clicked."
+            },
+            {
+                "id": "git",
+                "name": "Git",
+                "description": "Read history, diffs and blame in a local repository.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "uvx",
+                    "args": ["mcp-server-git"]
+                },
+                "note": "Add --repository and the path as further arguments."
+            },
+            {
+                "id": "sentry",
+                "name": "Sentry",
+                "description": "Read issues and stack traces from Sentry.",
+                "transport": {
+                    "kind": "stdio",
+                    "command": "uvx",
+                    "args": ["mcp-server-sentry"],
+                    "envVars": ["SENTRY_AUTH_TOKEN"]
+                },
+                "note": "Needs an auth token from your Sentry organisation settings.",
+                "keyHint": "SENTRY_AUTH_TOKEN"
             }
         ]
     })
@@ -472,5 +579,67 @@ mod tests {
             rows.iter().all(|row| row["transport"]["kind"].is_string()),
             "every entry must say how it is started"
         );
+    }
+
+    #[test]
+    fn should_offer_every_connector_with_a_way_to_start_it() {
+        // The list is only worth having if each entry can actually be run. An
+        // entry with no command is a name in a catalogue.
+        let dir = tempdir().expect("tempdir");
+        let listed = call(r#"{"method":"connector/catalog","id":1}"#, dir.path());
+        let rows = listed["result"]["data"].as_array().expect("data");
+        assert!(rows.len() >= 10, "got {}", rows.len());
+
+        for row in rows {
+            let transport = &row["transport"];
+            let runnable = match transport["kind"].as_str() {
+                Some("http") => transport["url"].as_str().is_some_and(|url| !url.is_empty()),
+                Some("stdio") => transport["command"]
+                    .as_str()
+                    .is_some_and(|command| !command.is_empty()),
+                _ => false,
+            };
+            assert!(runnable, "`{}` cannot be started", row["id"]);
+        }
+    }
+
+    #[test]
+    fn should_say_what_each_connector_needs_before_it_will_work() {
+        // A server added and then silently doing nothing because a token was
+        // never set is the failure this note exists to prevent.
+        let dir = tempdir().expect("tempdir");
+        let listed = call(r#"{"method":"connector/catalog","id":1}"#, dir.path());
+
+        for row in listed["result"]["data"].as_array().expect("data") {
+            let needs_key = row["transport"]["envVars"]
+                .as_array()
+                .is_some_and(|vars| !vars.is_empty());
+            if needs_key {
+                assert!(
+                    row["keyHint"].as_str().is_some(),
+                    "`{}` needs a token and does not say which",
+                    row["id"]
+                );
+            }
+            assert!(
+                row["note"].as_str().is_some_and(|note| !note.is_empty()),
+                "`{}` says nothing about what it needs",
+                row["id"]
+            );
+        }
+    }
+
+    #[test]
+    fn should_give_every_connector_a_distinct_id() {
+        let dir = tempdir().expect("tempdir");
+        let listed = call(r#"{"method":"connector/catalog","id":1}"#, dir.path());
+        let ids: Vec<&str> = listed["result"]["data"]
+            .as_array()
+            .expect("data")
+            .iter()
+            .filter_map(|row| row["id"].as_str())
+            .collect();
+        let unique: std::collections::HashSet<&&str> = ids.iter().collect();
+        assert_eq!(unique.len(), ids.len());
     }
 }
