@@ -31,6 +31,8 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
         "project/root" => Ok(root_json(opencli_home)),
         "project/files" => files(opencli_home, &params),
         "project/setAccess" => set_access(opencli_home, &params),
+        "project/templates" => Ok(templates()),
+        "project/fromTemplate" => from_template(opencli_home, &params),
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -297,6 +299,54 @@ fn delete(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     let forgotten = memory::forget_project(opencli_home, id)
         .map_err(|err| format!("could not forget the project's memories: {err}"))?;
     Ok(json!({ "forgottenMemories": forgotten }))
+}
+
+/// The departments that can be created ready to work.
+fn templates() -> Value {
+    let data: Vec<Value> = opencli_core::templates::TEMPLATES
+        .iter()
+        .map(|template| {
+            json!({
+                "id": template.id,
+                "name": template.name,
+                "description": template.description,
+                "bots": template.bots.iter().map(|bot| json!({
+                    "name": bot.name,
+                    "job": bot.job,
+                    "duties": bot.duties.iter().map(|duty| json!({
+                        "name": duty.name,
+                        "what": duty.what,
+                        "rules": duty.rules,
+                        "escalateWhen": duty.escalate_when,
+                        "intervalSeconds": duty.interval_seconds,
+                    })).collect::<Vec<_>>(),
+                })).collect::<Vec<_>>(),
+                // Named so somebody can see what will appear in their
+                // workspace before it does.
+                "samples": template.samples.iter().map(|sample| sample.name).collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+    json!({ "data": data })
+}
+
+/// Create a department from a template: its bots, their duties, and the files
+/// those duties work on.
+fn from_template(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let id = params
+        .get("template")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .ok_or("template is required")?;
+
+    let applied = opencli_core::templates::apply(opencli_home, id)
+        .map_err(|err| format!("could not set up `{id}`: {err}"))?;
+    Ok(json!({
+        "department": project_json(&applied.department),
+        "bots": applied.bots.len(),
+        "duties": applied.duties.len(),
+    }))
 }
 
 /// Change what a department may reach and who may reach it.
@@ -760,5 +810,52 @@ mod tests {
         );
         // Not sent, so not wiped.
         assert_eq!(set["result"]["acceptsFrom"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn should_offer_the_departments_that_come_ready_to_work() {
+        let dir = tempdir().expect("tempdir");
+        let offered = call(r#"{"method":"project/templates","id":1}"#, dir.path());
+        let rows = offered["result"]["data"].as_array().expect("data");
+        assert!(!rows.is_empty());
+        // The files are named, so somebody can see what will land in their
+        // workspace before it does.
+        assert!(rows.iter().any(|row| {
+            row["samples"]
+                .as_array()
+                .is_some_and(|samples| !samples.is_empty())
+        }));
+    }
+
+    #[test]
+    fn should_create_a_department_that_already_has_something_to_do() {
+        let dir = tempdir().expect("tempdir");
+        let made = call(
+            r#"{"method":"project/fromTemplate","id":1,"params":{"template":"finance"}}"#,
+            dir.path(),
+        );
+        assert_eq!(made["result"]["department"]["name"], "Finance");
+        assert_eq!(made["result"]["bots"], 3);
+        assert_eq!(made["result"]["duties"], 2);
+
+        // And the files those duties work on are there, which is the whole
+        // difference between a department that works and one that explains
+        // there is no ledger.
+        let cwd = made["result"]["department"]["cwd"].as_str().expect("cwd");
+        assert!(std::path::Path::new(cwd).join("ledger.csv").is_file());
+    }
+
+    #[test]
+    fn should_refuse_a_template_nobody_wrote() {
+        let dir = tempdir().expect("tempdir");
+        let reply = call(
+            r#"{"method":"project/fromTemplate","id":1,"params":{"template":"marketing"}}"#,
+            dir.path(),
+        );
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("marketing"))
+        );
     }
 }

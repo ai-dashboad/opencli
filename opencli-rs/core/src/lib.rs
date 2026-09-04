@@ -51,6 +51,7 @@ pub mod providers;
 pub mod runtimes;
 pub mod scheduled;
 pub mod servers;
+pub mod templates;
 mod transport_manager;
 pub use mcp_connection_manager::MCP_SANDBOX_STATE_CAPABILITY;
 pub use mcp_connection_manager::MCP_SANDBOX_STATE_METHOD;

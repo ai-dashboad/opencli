@@ -11,6 +11,9 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "Or start with one that already works": "或者直接用一个现成能跑的",
+  "Each comes with its bots, what they are for, and files for them to work on — so the first run does something rather than explaining that there is nothing to do.": "每个都自带员工、职责,以及给他们干活的文件 —— 所以第一次运行是真的做了点什么,而不是解释「没有可做的事」。",
+  "Set this up": "就用这个",
   "Bots": "员工",
   "What they are waiting on, and what they set off between themselves.": "他们在等什么,以及他们之间互相派了什么活。",
   "Waiting on you": "等你答复",

@@ -241,6 +241,26 @@ export interface Escalation {
   answer: string | null;
 }
 
+/** A department that can be created ready to work. */
+export interface DepartmentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  bots: {
+    name: string;
+    job: string;
+    duties: {
+      name: string;
+      what: string;
+      rules: string;
+      escalateWhen: string;
+      intervalSeconds: number;
+    }[];
+  }[];
+  /** Files it will write, named so they are no surprise. */
+  samples: string[];
+}
+
 /** A skill available in the current working directory. */
 export interface SkillSummary {
   name: string;
@@ -2008,6 +2028,23 @@ export class OpenCliClient {
   async readChain(chain: string): Promise<Handoff[]> {
     const result = (await this.request("handoff/chain", { chain })) as { data?: unknown[] };
     return (result.data ?? []) as Handoff[];
+  }
+
+  /** Departments that come with bots, duties and something to work on. */
+  async listTemplates(): Promise<DepartmentTemplate[]> {
+    const result = (await this.request("project/templates", {})) as { data?: unknown[] };
+    return (result.data ?? []) as DepartmentTemplate[];
+  }
+
+  /** Create one, with its bots, their duties, and the files those duties use. */
+  async createFromTemplate(
+    template: string,
+  ): Promise<{ department: Project; bots: number; duties: number }> {
+    return (await this.request("project/fromTemplate", { template })) as {
+      department: Project;
+      bots: number;
+      duties: number;
+    };
   }
 
   async clearRuns(): Promise<number> {

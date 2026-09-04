@@ -77,7 +77,7 @@ export function BotsView({ client }: { client: OpenCliClient }) {
 
   return (
     <div className="panel">
-      <header className="panel-head">
+      <header className="panel-intro">
         <h2>{t("Bots")}</h2>
         <p>{t("What they are waiting on, and what they set off between themselves.")}</p>
       </header>

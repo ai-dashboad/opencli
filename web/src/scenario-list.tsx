@@ -134,7 +134,7 @@ export function ScenarioView({
 
   return (
     <div className="panel">
-      <header className="panel-head">
+      <header className="panel-intro">
         <h2>{scenario.name()}</h2>
         <p>{scenario.blurb()}</p>
       </header>

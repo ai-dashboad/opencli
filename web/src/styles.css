@@ -3533,15 +3533,25 @@ textarea:focus {
  * matched nothing. It reads as a page that has lost its stylesheet rather than
  * as a page with no styling, which is the more alarming of the two.
  */
-.panel-head {
+/*
+ * A title with a line under it saying what the page is for.
+ *
+ * Not `.panel-head`, which was already taken and is a different shape: a flex
+ * row holding a title and the controls beside it. Reusing the name put the
+ * description alongside the heading instead of under it — the two look alike
+ * in the markup and behave nothing alike.
+ */
+.panel-intro {
   margin-bottom: 6px;
 }
 
-.panel-head h2 {
+.panel-intro h2 {
   margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 550;
 }
 
-.panel-head p {
+.panel-intro p {
   margin: 0;
   max-width: 68ch;
   color: var(--text-faint);
@@ -3705,4 +3715,51 @@ textarea:focus {
   margin: 3px 0;
   color: var(--accent);
   font-size: 12.5px;
+}
+
+/* Departments that come ready to work, offered while there are none. */
+.templates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.templates li {
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+}
+
+.template-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.template-head strong {
+  font-weight: 550;
+}
+
+.template-what {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.template-parts {
+  margin: 0 0 3px;
+  font-size: 12.5px;
+}
+
+/* What will land in the workspace, named so it is no surprise. */
+.template-files {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 12px;
 }

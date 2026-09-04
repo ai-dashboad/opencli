@@ -24,6 +24,7 @@ import type {
   TextSize,
   SecretStatus,
   ModelVariant,
+  DepartmentTemplate,
   Project,
   ProjectFile,
   PullProgress,
@@ -1335,6 +1336,7 @@ export function ProjectsView({
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
   const [composing, setComposing] = useState(false);
+  const [templates, setTemplates] = useState<DepartmentTemplate[]>([]);
   const [sort, setSort] = useState<ProjectSort>("updated");
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -1345,7 +1347,13 @@ export function ProjectsView({
 
   const reload = useCallback(async () => {
     try {
-      setProjects(await client.listProjects());
+      const [listed, offered] = await Promise.all([
+        client.listProjects(),
+        // Not having any is not an error worth a red line on the page.
+        client.listTemplates().catch(() => [] as DepartmentTemplate[]),
+      ]);
+      setProjects(listed);
+      setTemplates(offered);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1467,6 +1475,52 @@ export function ProjectsView({
       </div>
 
       {error ? <p className="error">{error}</p> : null}
+
+      {/* Offered while there is nothing here, and not after. A ready-made
+          department is worth a lot on the first day and is clutter on the
+          tenth — and the sample files it writes would be a surprise in a
+          workspace somebody has already made their own. */}
+      {projects.length === 0 && templates.length > 0 ? (
+        <section className="panel-section">
+          <h3>{t("Or start with one that already works")}</h3>
+          <p className="panel-note">
+            {t(
+              "Each comes with its bots, what they are for, and files for them to work on — so the first run does something rather than explaining that there is nothing to do.",
+            )}
+          </p>
+          <ul className="templates">
+            {templates.map((template) => (
+              <li key={template.id}>
+                <div className="template-head">
+                  <strong>{template.name}</strong>
+                  <button
+                    className="filled sm"
+                    onClick={() => {
+                      void client
+                        .createFromTemplate(template.id)
+                        .then(() => {
+                          void reload();
+                          onChanged?.();
+                        })
+                        .catch((err: unknown) =>
+                          setError(err instanceof Error ? err.message : String(err)),
+                        );
+                    }}
+                  >
+                    {t("Set this up")}
+                  </button>
+                </div>
+                <p className="template-what">{template.description}</p>
+                <p className="template-parts">
+                  {template.bots.map((bot) => bot.name).join(" · ")}
+                </p>
+                {/* Named, so what lands in the workspace is no surprise. */}
+                <p className="template-files">{template.samples.join(" · ")}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <Dialog
         open={composing}
