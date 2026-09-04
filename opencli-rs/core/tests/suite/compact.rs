@@ -351,8 +351,13 @@ async fn compaction_announces_progress_so_the_turn_is_not_silent() {
     let EventMsg::BackgroundEvent(BackgroundEventEvent { message }) = background_event else {
         panic!("expected a background event during compaction");
     };
+    // The first thing compaction says. It used to say "Compacting", which said
+    // that something was happening and not what; the messages now name the
+    // step — reading, then which part of how many, then how many were
+    // summarised — so that a compaction taking minutes reads as progress
+    // rather than as a hang.
     assert!(
-        message.contains("Compacting"),
+        message.contains("reading the conversation"),
         "compaction should announce itself, got: {message}"
     );
 
@@ -1791,16 +1796,19 @@ async fn manual_compact_retries_after_context_window_error() {
     // Compaction now emits an opening "Compacting…" status before this
     // post-trim summary, so wait for the specific message rather than the first
     // background event.
+    // Said as "trimmed 1 old message(s) to fit" now. The count is what matters
+    // and is still there; the wording moved when these messages were rewritten
+    // to read as progress rather than as internals.
     let EventMsg::BackgroundEvent(event) = wait_for_event(&opencli, |ev| {
         matches!(ev, EventMsg::BackgroundEvent(BackgroundEventEvent { message })
-            if message.contains("Trimmed 1 older thread item"))
+            if message.contains("trimmed 1 old message"))
     })
     .await
     else {
         panic!("expected background event after compact retry");
     };
     assert!(
-        event.message.contains("Trimmed 1 older thread item"),
+        event.message.contains("trimmed 1 old message"),
         "background event should mention trimmed item count: {}",
         event.message
     );
