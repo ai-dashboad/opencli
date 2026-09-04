@@ -222,6 +222,19 @@ fn clear(opencli_home: &Path) -> Result<Value, String> {
 }
 
 /// Run queued work forever, a few at a time.
+/// What the person asked to be stopped for.
+///
+/// Read from the file on every tick rather than held, so turning approvals off
+/// takes effect on the next run instead of on the next restart — which is what
+/// somebody who has just changed it is expecting.
+fn approval_policy(opencli_home: &Path) -> opencli_core::protocol::AskForApproval {
+    std::fs::read_to_string(opencli_home.join("config.toml"))
+        .ok()
+        .and_then(|text| toml::from_str::<opencli_core::config::ConfigToml>(&text).ok())
+        .and_then(|parsed| parsed.approval_policy)
+        .unwrap_or_default()
+}
+
 pub async fn run_worker(opencli_home: PathBuf, opencli_bin: PathBuf) {
     loop {
         tokio::time::sleep(TICK).await;
@@ -248,7 +261,11 @@ pub async fn run_worker(opencli_home: PathBuf, opencli_bin: PathBuf) {
             // each run able to reach `.ssh` and `Documents`, with nobody asked.
             // Held rather than failed: running somewhere unusual is often what
             // was meant, and the answer is a prompt.
-            if !opencli_core::directories::allowed(&opencli_home, std::path::Path::new(&run.cwd)) {
+            if opencli_core::directories::must_ask(
+                &opencli_home,
+                std::path::Path::new(&run.cwd),
+                approval_policy(&opencli_home),
+            ) {
                 let _ = dispatch::set_output(
                     &opencli_home,
                     &run.id,

@@ -2593,7 +2593,11 @@ export function DispatchView({
           <p className="hint">
             {t(
               "A run can write anywhere in the directory it runs in. These are outside every department, so they are held until you say otherwise.",
-            )}
+            )}{" "}
+            {/* Said here rather than left to be discovered. Somebody who turns
+                approvals off and then wonders where this section went has been
+                given a setting with an unexplained consequence. */}
+            {t("Set approvals to never, in Customize, and nothing is held.")}
           </p>
           <ul className="rows">
             {held.map((run) => (

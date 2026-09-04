@@ -22,6 +22,8 @@ use serde::Serialize;
 use std::path::Path;
 use std::path::PathBuf;
 
+use opencli_protocol::protocol::AskForApproval;
+
 use crate::projects;
 use crate::scheduled::now_seconds;
 
@@ -137,6 +139,24 @@ pub fn standing(opencli_home: &Path, cwd: &Path) -> Standing {
 /// Whether background work may run here without asking.
 pub fn allowed(opencli_home: &Path, cwd: &Path) -> bool {
     standing(opencli_home, cwd) != Standing::Unknown
+}
+
+/// Whether a run in this directory has to stop and ask first.
+///
+/// `Never` means it does not. Holding a run is itself an approval, and
+/// somebody who has turned approvals off has said, in as many words, that they
+/// do not want to be stopped — deciding they meant something narrower would be
+/// the product overruling a setting it offered.
+///
+/// Every other policy asks, including `OnFailure`. That one is about a command
+/// that has already gone wrong; this is about how much a run could reach
+/// before anything goes wrong at all, which is a question that has to be
+/// answered in advance or not at all.
+pub fn must_ask(opencli_home: &Path, cwd: &Path, policy: AskForApproval) -> bool {
+    if policy == AskForApproval::Never {
+        return false;
+    }
+    !allowed(opencli_home, cwd)
 }
 
 #[cfg(test)]
@@ -291,5 +311,54 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         std::fs::write(store_path(dir.path()), "{ not json").expect("write");
         assert!(granted(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn should_not_hold_anything_when_approvals_are_off() {
+        // Holding a run is an approval, and somebody who turned approvals off
+        // said they do not want to be stopped. Deciding they meant something
+        // narrower would be overruling a setting we offered.
+        let dir = tempdir().expect("tempdir");
+        let home = std::env::var("HOME").expect("HOME");
+        assert!(!must_ask(
+            dir.path(),
+            Path::new(&home),
+            AskForApproval::Never
+        ));
+    }
+
+    #[test]
+    fn should_hold_under_every_policy_that_asks() {
+        let dir = tempdir().expect("tempdir");
+        let home = std::env::var("HOME").expect("HOME");
+        for policy in [
+            AskForApproval::UnlessTrusted,
+            AskForApproval::OnRequest,
+            // Including this one: it is about a command that has already gone
+            // wrong, and this is about reach before anything goes wrong.
+            AskForApproval::OnFailure,
+        ] {
+            assert!(
+                must_ask(dir.path(), Path::new(&home), policy),
+                "{policy:?} should still ask"
+            );
+        }
+    }
+
+    #[test]
+    fn should_never_ask_about_a_departments_own_directory() {
+        let dir = tempdir().expect("tempdir");
+        let finance = dir.path().join("finance");
+        std::fs::create_dir_all(&finance).expect("mkdir");
+        department(dir.path(), "Finance", &finance);
+
+        for policy in [
+            AskForApproval::UnlessTrusted,
+            AskForApproval::OnRequest,
+            AskForApproval::OnFailure,
+            AskForApproval::Never,
+        ] {
+            assert!(!must_ask(dir.path(), &finance, policy));
+        }
     }
 }

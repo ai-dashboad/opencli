@@ -11,6 +11,7 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "Set approvals to never, in Customize, and nothing is held.": "在 Customize 里把审批设为「从不」,就不会再扣住任何运行。",
   "Waiting for you": "等你授权",
   "A run can write anywhere in the directory it runs in. These are outside every department, so they are held until you say otherwise.": "一次运行可以写它所在目录里的任何东西。下面这些不在任何部门的目录里,所以先扣住,等你说了算。",
   "Allow this directory": "允许这个目录",
