@@ -144,7 +144,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "filesystem",
-                "departments": ["engineering", "finance", "operations", "people"],
+                "departments": ["engineering", "finance", "operations", "people", "legal", "research", "clinical"],
                 "name": "Filesystem",
                 "description": "Read and write files under a directory you choose.",
                 "transport": {
@@ -156,7 +156,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "postgres",
-                "departments": ["finance", "operations", "engineering"],
+                "departments": ["finance", "operations", "engineering", "clinical"],
                 "name": "Postgres",
                 "description": "Query a Postgres database read-only.",
                 "transport": {
@@ -168,7 +168,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "sqlite",
-                "departments": ["finance", "operations", "engineering"],
+                "departments": ["finance", "operations", "engineering", "clinical", "research"],
                 "name": "SQLite",
                 "description": "Query a SQLite file.",
                 "transport": {
@@ -194,7 +194,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "notion",
-                "departments": ["people", "marketing", "operations"],
+                "departments": ["people", "marketing", "operations", "legal", "research"],
                 "name": "Notion",
                 "description": "Read and write pages and databases in Notion.",
                 "transport": {
@@ -208,7 +208,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "google-drive",
-                "departments": ["people", "finance", "operations"],
+                "departments": ["people", "finance", "operations", "legal", "research"],
                 "name": "Google Drive",
                 "description": "Search and read files in Drive.",
                 "transport": {
@@ -232,7 +232,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "brave-search",
-                "departments": ["marketing", "support"],
+                "departments": ["marketing", "support", "research"],
                 "name": "Web search",
                 "description": "Search the web and read the results.",
                 "transport": {
@@ -246,7 +246,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "fetch",
-                "departments": ["marketing", "operations"],
+                "departments": ["marketing", "operations", "research"],
                 "name": "Fetch",
                 "description": "Retrieve a web page and read it as text.",
                 "transport": {

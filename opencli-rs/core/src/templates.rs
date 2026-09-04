@@ -157,6 +157,52 @@ Sam Iversen,2026-08-22,2,Strong on data; no customer-facing experience
 Nell Okonkwo,2026-08-25,9,Ran a support team of four
 ";
 
+const OUR_TERMS: &str = "\
+# Standard terms (ours)
+
+3. Liability. Neither party's liability exceeds the fees paid in the twelve
+   months before the claim.
+5. Termination. Either party may terminate on 30 days' written notice.
+7. Payment. Invoices are due 30 days from receipt.
+9. Governing law. England and Wales.
+";
+
+// The differences are the point, and one of them is the sort that has to be
+// escalated rather than noted: an uncapped indemnity.
+const THEIR_DRAFT: &str = "\
+# Supply agreement (their draft)
+
+3. Liability. Neither party's liability exceeds the fees paid in the twelve
+   months before the claim.
+4. Indemnity. Supplier shall indemnify Customer against all losses arising
+   from the services, without limit.
+5. Termination. Customer may terminate on 7 days' notice; Supplier may
+   terminate on 90 days' notice.
+7. Payment. Invoices are due 60 days from receipt.
+9. Governing law. Delaware.
+";
+
+const PAPERS: &str = "\
+reference,year,claim,method,n
+Okafor 2024,2024,Short daily sessions beat weekly ones,randomised,412
+Lindqvist 2023,2023,Weekly sessions beat short daily ones,observational,88
+Marchetti 2025,2025,No difference between schedules,randomised,1104
+Baptiste 2022,2022,Short daily sessions beat weekly ones,randomised,96
+";
+
+// Synthetic, and deliberately holds two things a reviewing clinician would
+// want raised: a drug pair that interacts, and an allergy that contradicts a
+// prescription.
+const RECORDS: &str = "\
+patient,recorded,note
+P-1041,2026-07-02,Allergy: penicillin (rash, documented 2019)
+P-1041,2026-08-14,Prescribed amoxicillin 500mg tds for 7 days
+P-1041,2026-08-14,Prescribed warfarin 3mg daily; INR to be checked weekly
+P-1041,2026-08-20,Prescribed fluconazole 150mg single dose
+P-2277,2026-08-09,Prescribed metformin 500mg bd
+P-2277,2026-08-09,eGFR 22 mL/min recorded at last review
+";
+
 pub static TEMPLATES: &[DepartmentTemplate] = &[
     DepartmentTemplate {
         id: "engineering",
@@ -441,6 +487,118 @@ pub static TEMPLATES: &[DepartmentTemplate] = &[
                 contents: NOTES,
             },
         ],
+    },
+    DepartmentTemplate {
+        id: "legal",
+        name: "Legal",
+        description: "Reading what the other side sent against what you normally agree \
+                      to, and saying where it differs.",
+        instructions: "Quote the clause you mean. Say what a change would cost or risk in \
+                       practice, not that it is 'unfavourable'. You are not giving legal \
+                       advice; you are showing a lawyer what changed.",
+        bots: &[
+            BotTemplate {
+                name: "Redline",
+                job: "Compare a draft against the terms we normally agree to and set out \
+                      every difference, with the clause number and what it would mean.",
+                duties: &[DutyTemplate {
+                    name: "Compare the draft",
+                    what: "Compare their-draft.md against our-terms.md. List every clause \
+                           that differs, quote both versions, and say what the change \
+                           would mean in practice.",
+                    rules: "Report differences, not preferences. A clause that is merely \
+                            worded differently but means the same thing is noted as such \
+                            and not argued with.",
+                    escalate_when: "Liability or indemnity is uncapped, the governing law \
+                                    changes, or termination is one-sided.",
+                    interval_seconds: 86_400,
+                }],
+            },
+            BotTemplate {
+                name: "Obligations",
+                job: "Pull the dates and duties out of an agreement — what we must do, by \
+                      when — so nothing is discovered after it was due.",
+                duties: &[],
+            },
+        ],
+        samples: &[
+            SampleFile {
+                name: "our-terms.md",
+                contents: OUR_TERMS,
+            },
+            SampleFile {
+                name: "their-draft.md",
+                contents: THEIR_DRAFT,
+            },
+        ],
+    },
+    DepartmentTemplate {
+        id: "research",
+        name: "Research",
+        description: "Reading what has been published, saying what it adds up to, and \
+                      being plain about where it disagrees.",
+        instructions: "Cite the reference for every claim. Where studies disagree, say so \
+                       and say what differs between them — method, size, population — \
+                       rather than picking a side.",
+        bots: &[BotTemplate {
+            name: "Literature",
+            job: "Read what has been published on a question and set out what is \
+                      agreed, what is disputed, and what nobody has looked at.",
+            duties: &[DutyTemplate {
+                name: "Where the evidence stands",
+                what: "Read papers.csv and summarise what the studies agree on and \
+                           where they conflict. For each conflict, say what differs in \
+                           method or size.",
+                rules: "Weight by method and size, and say you are doing it. An \
+                            observational study is not the same evidence as a randomised \
+                            one and the summary must say which is which.",
+                escalate_when: "The studies disagree and the better-designed one is \
+                                    also the smaller, so the disagreement cannot be \
+                                    settled from what is here.",
+                interval_seconds: 604_800,
+            }],
+        }],
+        samples: &[SampleFile {
+            name: "papers.csv",
+            contents: PAPERS,
+        }],
+    },
+    DepartmentTemplate {
+        id: "clinical",
+        name: "Clinical records",
+        description: "Reading a patient's notes and raising what a clinician should look \
+                      at. The decision stays with the clinician.",
+        instructions: "You are helping a clinician review records. Raise what is worth \
+                       checking and cite the note you found it in, by date. Never state a \
+                       diagnosis, never recommend a treatment, and never say a course of \
+                       action is safe — say what you found and what it might bear on. If \
+                       a record is unclear, say which record and why rather than reading \
+                       past it.",
+        bots: &[BotTemplate {
+            name: "Notes",
+            job: "Read a patient's records in order and set out what happened, with \
+                      the date of every note you draw on. Point out where the record \
+                      contradicts itself.",
+            duties: &[DutyTemplate {
+                name: "Read the notes for what needs a look",
+                what: "Read records.csv patient by patient. Set out what is recorded, \
+                           in order, and list anything a clinician should look at — \
+                           quoting the note and its date. Do not give a diagnosis or \
+                           recommend a treatment.",
+                rules: "Raise, do not decide. Anything you raise must quote the note \
+                            it came from. Where two notes disagree, show both rather than \
+                            choosing.",
+                escalate_when: "Anything that would matter today: a prescription that \
+                                    conflicts with a recorded allergy, two prescriptions \
+                                    that interact, or a dose against a recorded organ \
+                                    function. Stop and put it in front of a person.",
+                interval_seconds: 86_400,
+            }],
+        }],
+        samples: &[SampleFile {
+            name: "records.csv",
+            contents: RECORDS,
+        }],
     },
 ];
 
