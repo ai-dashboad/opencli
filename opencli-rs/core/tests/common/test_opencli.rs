@@ -204,6 +204,18 @@ impl TestOpenCLIBuilder {
     ) -> anyhow::Result<(Config, Arc<TempDir>)> {
         let model_provider = ModelProviderInfo {
             base_url: Some(base_url),
+            // No retries in a test.
+            //
+            // A mock serves one response; anything after it gets a 404, which
+            // the client treats as worth retrying — with backoff, up to the
+            // provider's limit. Tests that then wait for the turn to end wait
+            // through all of it and time out, and the failure reads as the
+            // behaviour under test being broken rather than as the harness
+            // retrying against a server with nothing left to say. Two other
+            // test binaries here already set these to zero for the same
+            // reason.
+            request_max_retries: Some(0),
+            stream_max_retries: Some(0),
             ..built_in_model_providers()["openai"].clone()
         };
         let cwd = Arc::new(TempDir::new()?);

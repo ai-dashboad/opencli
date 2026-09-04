@@ -103,7 +103,14 @@ async fn websocket_turn_state_persists_within_turn_and_resets_after() -> Result<
     ])
     .await;
 
-    let mut builder = test_opencli();
+    // The harness turns retries off so a mock with nothing left to say ends a
+    // turn promptly instead of being retried through its backoff. This one
+    // needs them: its websocket flow reconnects within a turn, and without a
+    // retry the first turn ends after a single handshake.
+    let mut builder = test_opencli().with_config(|config| {
+        config.model_provider.request_max_retries = Some(2);
+        config.model_provider.stream_max_retries = Some(2);
+    });
     let test = builder.build_with_websocket_server(&server).await?;
     test.submit_turn("run the echo command").await?;
     test.submit_turn("second turn").await?;
