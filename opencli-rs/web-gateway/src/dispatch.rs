@@ -254,16 +254,27 @@ async fn execute(opencli_home: PathBuf, opencli_bin: PathBuf, run: dispatch::Run
     if let Some(model) = &run.model {
         command.arg("-m").arg(model);
     }
-    // Which duty this is, told to the process rather than to the model.
+    // What this run is part of, told to the process rather than to the model.
     //
-    // The duty tools read it from here, so an invented or mistyped id cannot
-    // write notes into another department's duty. A run that is not a duty —
-    // a dispatch, or a plain scheduled task — sets nothing, and the tools are
+    // Everything a bot can set off from inside a run is decided from these:
+    // which duty it may write notes against, who it is handing work on as, and
+    // how far the chain it is in has already gone. A model that could name any
+    // of them could write into another department's duty, hand work on as
+    // somebody else, or start a fresh chain on every hop and never reach the
+    // cap. A run that is none of these things sets nothing, and the tools are
     // not offered at all.
-    if let Some(task) = &run.task_id
-        && opencli_core::duties::get(&opencli_home, task).is_some()
-    {
-        command.env(opencli_core::duties::DUTY_ENV, task);
+    if let Some(task) = &run.task_id {
+        if let Some(duty) = opencli_core::duties::get(&opencli_home, task) {
+            command.env(opencli_core::duties::DUTY_ENV, task);
+            command.env(opencli_core::bots::BOT_ENV, &duty.bot);
+        } else if let Some(handoff) = opencli_core::handoffs::load(&opencli_home)
+            .into_iter()
+            .find(|handoff| &handoff.id == task)
+        {
+            command.env(opencli_core::bots::BOT_ENV, &handoff.to_bot);
+            command.env(opencli_core::handoffs::CHAIN_ENV, &handoff.chain);
+            command.env(opencli_core::handoffs::HOP_ENV, handoff.hop.to_string());
+        }
     }
 
     command.arg(&run.prompt).current_dir(&run.cwd);

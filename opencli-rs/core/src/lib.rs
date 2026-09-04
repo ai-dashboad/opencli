@@ -36,6 +36,7 @@ mod exec_policy;
 pub mod features;
 mod flags;
 pub mod git_info;
+pub mod handoffs;
 pub mod hooks;
 pub mod instructions;
 pub mod landlock;

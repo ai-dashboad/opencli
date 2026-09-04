@@ -75,6 +75,19 @@ pub struct Bot {
     pub updated_at: u64,
 }
 
+/// Names the bot a process is working as, set by whatever queued it.
+///
+/// In the environment for the same reason the duty is: a bot that could name
+/// itself could hand work on as somebody else, and the department policy that
+/// decides who may send work where is written in terms of who is sending.
+pub const BOT_ENV: &str = "OPENCLI_BOT";
+
+/// The bot this process is working as, if it is working as one.
+pub fn current(opencli_home: &Path) -> Option<Bot> {
+    let id = std::env::var(BOT_ENV).ok()?;
+    get(opencli_home, id.trim())
+}
+
 fn store_path(opencli_home: &Path) -> PathBuf {
     opencli_home.join(STORE_FILE)
 }

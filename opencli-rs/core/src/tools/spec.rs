@@ -4,6 +4,7 @@ use crate::client_common::tools::ToolSpec;
 use crate::features::Feature;
 use crate::features::Features;
 use crate::tools::handlers::ASK_TOOL;
+use crate::tools::handlers::HANDOFF_TOOL;
 use crate::tools::handlers::PLAN_TOOL;
 use crate::tools::handlers::REMEMBER_TOOL;
 use crate::tools::handlers::apply_patch::create_apply_patch_freeform_tool;
@@ -1289,6 +1290,7 @@ pub(crate) fn build_specs(
     use crate::tools::handlers::DutyHandler;
     use crate::tools::handlers::DynamicToolHandler;
     use crate::tools::handlers::GrepFilesHandler;
+    use crate::tools::handlers::HandoffHandler;
     use crate::tools::handlers::ListDirHandler;
     use crate::tools::handlers::McpHandler;
     use crate::tools::handlers::McpResourceHandler;
@@ -1364,6 +1366,15 @@ pub(crate) fn build_specs(
         builder.push_spec(ASK_TOOL.clone());
         builder.register_handler("duty_remember", duty_handler.clone());
         builder.register_handler("duty_ask", duty_handler);
+    }
+
+    // Offered wherever a run knows which bot it is, which a duty run and a
+    // handed-on run both do and an ordinary chat does not. Same reasoning as
+    // above: a tool that can only answer "you are not a bot" teaches nothing
+    // but that it is broken.
+    if std::env::var_os(crate::bots::BOT_ENV).is_some() {
+        builder.push_spec(HANDOFF_TOOL.clone());
+        builder.register_handler("bot_handoff", Arc::new(HandoffHandler));
     }
 
     if config.collaboration_modes_tools {
