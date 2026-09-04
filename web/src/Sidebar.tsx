@@ -24,12 +24,10 @@ import {
   WorkingDot,
 } from "./icons";
 import { t } from "./i18n";
-import { SCENARIOS } from "./scenarios";
 import type { Bot } from "./protocol";
 
 export type View =
   | "chat"
-  | "scenario"
   | "bots"
   | "projects"
   | "artifacts"
@@ -56,10 +54,6 @@ interface SidebarProps {
   /** The project whose own page is on screen, which is a selection. */
   viewedProjectId: string | null;
   onNavigate: (view: View) => void;
-  /** Opens the page for one kind of work. */
-  onOpenScenario: (id: string) => void;
-  /** Which kind of work is being read, when one is. */
-  openScenarioId: string | null;
   /** The bots hired into each department. */
   bots: Bot[];
   onOpenBot: (bot: Bot) => void;
@@ -228,8 +222,6 @@ export default function Sidebar({
   activeProjectId,
   viewedProjectId,
   onNavigate,
-  onOpenScenario,
-  openScenarioId,
   bots,
   onOpenBot,
   onNewChat,
@@ -309,27 +301,6 @@ export default function Sidebar({
             {item.badge ? <em className="pill">{item.badge}</em> : null}
           </button>
         ))}
-
-        {/* Named for what someone wants done, where everything above is named
-            for a part of the machine. Both belong in the same strip: the
-            panels are how it is set up, these are what it is for. */}
-        <Section label={t("Ways to use it")}>
-          <ul className="tree">
-            {SCENARIOS.map((scenario) => (
-              <li key={scenario.id} className="tree-item">
-                <button
-                  className={`tree-row${
-                    view === "scenario" && openScenarioId === scenario.id ? " active" : ""
-                  }`}
-                  onClick={() => onOpenScenario(scenario.id)}
-                  title={scenario.blurb()}
-                >
-                  <span>{scenario.name()}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Section>
 
         {active.length > 0 ? (
           <Section label={t("Scheduled")}>
