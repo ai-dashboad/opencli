@@ -304,7 +304,8 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             .or_else(|| secrets::handle(&text, &state.opencli_home))
             .or_else(|| workspace::handle(&text, &state.opencli_home))
             .or_else(|| bot::handle(&text, &state.opencli_home))
-            .or_else(|| duty::handle(&text, &state.opencli_home));
+            .or_else(|| duty::handle(&text, &state.opencli_home))
+            .or_else(|| handoff::handle(&text, &state.opencli_home));
         if let Some(reply) = handled {
             if out_tx_for_local.send(reply).await.is_err() {
                 break;
@@ -367,6 +368,7 @@ mod bot;
 mod connector;
 mod dispatch;
 mod duty;
+mod handoff;
 mod hub;
 mod memory;
 mod plugin;

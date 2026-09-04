@@ -65,7 +65,19 @@ def main() -> int:
 
     failed = False
     for locale in sorted((root / "locales").glob("*.ts")):
-        have = set(ENTRY.findall(locale.read_text(encoding="utf-8")))
+        listed = ENTRY.findall(locale.read_text(encoding="utf-8"))
+        have = set(listed)
+        # A key written twice means one translation silently replaces the
+        # other, and reading these as a set made that invisible here — it was
+        # the TypeScript compiler that noticed, which is luck rather than a
+        # check.
+        if len(listed) != len(have):
+            seen: set[str] = set()
+            for text in listed:
+                if text in seen:
+                    print(f"  twice:    {text}")
+                    failed = True
+                seen.add(text)
         missing = sorted(used - have)
         orphaned = sorted(have - used)
         print(f"{locale.stem}: {len(have)} of {len(used)} translated")

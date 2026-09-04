@@ -3523,3 +3523,186 @@ textarea:focus {
 .tree-row.bot em.pill {
   margin-left: auto;
 }
+
+/*
+ * The shared parts of a panel: a heading with a line under it saying what the
+ * page is for, sections, an aside, and an error.
+ *
+ * Added late, and two panels had already been written against them — the
+ * scenario page and this one — so both were rendering with class names that
+ * matched nothing. It reads as a page that has lost its stylesheet rather than
+ * as a page with no styling, which is the more alarming of the two.
+ */
+.panel-head {
+  margin-bottom: 6px;
+}
+
+.panel-head h2 {
+  margin: 0 0 4px;
+}
+
+.panel-head p {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.panel-section {
+  margin-top: 26px;
+}
+
+.panel-section h3 {
+  margin: 0 0 10px;
+}
+
+/* An aside: true, worth knowing, and not what the reader came for. */
+.panel-note {
+  margin: 0 0 10px;
+  max-width: 68ch;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.panel-error {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border-left: 2px solid #c0504d;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* Questions a bot stopped on. First on the page, because they are the part
+   blocked on a person. */
+.asked {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.asked li {
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.asked-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.asked-head strong {
+  font-weight: 500;
+}
+
+.asked-head em {
+  flex: none;
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.asked-context {
+  margin: 6px 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.asked-answer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.asked-answer textarea {
+  flex: 1;
+  min-height: 62px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+/* One cascade of handed-on work. */
+.chains {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chains li {
+  border-top: 1px solid var(--line-soft);
+}
+
+.chain-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chain-head strong {
+  font-weight: 500;
+}
+
+.chain-head em {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.pill.warn {
+  margin-left: auto;
+  color: #d4a72c;
+}
+
+.chain-hops {
+  margin: 0 0 14px;
+  padding: 0 0 0 18px;
+  font-size: 13px;
+}
+
+.chain-hops li {
+  border: 0;
+  padding: 6px 0;
+}
+
+.chain-hop-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.chain-hop-head em {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.chain-did,
+.chain-next {
+  margin: 3px 0;
+  color: var(--text-dim);
+}
+
+/* The files, which are what the next bot actually works on. */
+.chain-files {
+  margin: 3px 0;
+  color: var(--accent);
+  font-size: 12.5px;
+}

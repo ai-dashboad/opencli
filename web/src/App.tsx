@@ -59,6 +59,7 @@ import { shouldInterrupt, shouldSend } from "./composer";
 import "./styles.css";
 import { plural, t } from "./i18n";
 import { groupRuns } from "./runs";
+import { BotsView } from "./bots-view";
 import { ScenarioView, Scenarios } from "./scenario-list";
 import { findScenario } from "./scenarios";
 
@@ -1437,6 +1438,8 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
               );
             }}
           />
+        ) : view === "bots" && client ? (
+          <BotsView client={client} />
         ) : view === "settings" && client ? (
           <SettingsView client={client} version={appVersion} update={update} />
         ) : view === "scenario" && scenarioId && findScenario(scenarioId) ? (

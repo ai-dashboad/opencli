@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { BotsView } from "./bots-view";
+import type { OpenCliClient } from "./protocol";
 import { ScenarioView, Scenarios } from "./scenario-list";
 import { findScenario } from "./scenarios";
 
@@ -70,5 +72,28 @@ describe("one kind of work, on its own page", () => {
       <ScenarioView scenario={messages} connected={[]} onRun={() => {}} onConnect={() => {}} />,
     );
     expect(html).toContain("Qianniu");
+  });
+});
+
+describe("the bots page", () => {
+  const client = {
+    listQuestions: async () => [],
+    listChains: async () => ({ chains: [], maxHops: 8 }),
+  } as unknown as OpenCliClient;
+
+  it("should render its two sections before anything has loaded", () => {
+    // Server-rendered, so this is the first paint: what somebody sees while
+    // the two requests are still out. Blank until they answer would read as a
+    // page that had failed.
+    const html = renderToStaticMarkup(<BotsView client={client} />);
+
+    expect(html).toContain("Waiting on you");
+    expect(html).toContain("Work passed between bots");
+  });
+
+  it("should say plainly that nothing is waiting rather than showing nothing", () => {
+    const html = renderToStaticMarkup(<BotsView client={client} />);
+    expect(html).toContain("Nothing is waiting");
+    expect(html).toContain("No bot has handed work to another yet");
   });
 });

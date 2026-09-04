@@ -178,6 +178,69 @@ export interface Bot {
   updatedAt: number;
 }
 
+/** One bot handing work to another. */
+export interface Handoff {
+  id: string;
+  chain: string;
+  /** How many handoffs deep, counting from one. */
+  hop: number;
+  from: string;
+  fromName: string;
+  to: string;
+  toName: string;
+  /** What the sender did. */
+  did: string;
+  /** Files they produced, which is what the receiver works on. */
+  artifacts: string[];
+  /** What they are asking for. */
+  next: string;
+  at: number;
+  outcome: { status: string; run?: string };
+}
+
+/** Everything that followed from one original piece of work. */
+export interface Chain {
+  chain: string;
+  hops: number;
+  /** Who was drawn in, in the order they were. */
+  involved: string[];
+  startedAt: number;
+  lastAt: number;
+  /** It stopped because it ran out of rope, not because it finished. */
+  atTheLimit: boolean;
+}
+
+/** Work a bot keeps doing. */
+export interface Duty {
+  id: string;
+  bot: string;
+  name: string;
+  what: string;
+  /** How to decide, and the numbers that decide it. */
+  rules: string;
+  escalateWhen: string;
+  intervalSeconds: number;
+  enabled: boolean;
+  lastRun: number | null;
+  runCount: number;
+  /** Waiting on an answer, so not becoming due. */
+  blocked: boolean;
+  /** What it carries from one run to the next. */
+  knows: Record<string, string>;
+}
+
+/** A question a bot stopped on. */
+export interface Escalation {
+  id: string;
+  duty: string;
+  bot: string;
+  question: string;
+  context: string;
+  askedAt: number;
+  answeredAt: number | null;
+  answer: string | null;
+}
+
 /** A skill available in the current working directory. */
 export interface SkillSummary {
   name: string;
@@ -1878,6 +1941,73 @@ export class OpenCliClient {
       allowed?: boolean;
       bot?: Bot;
     };
+  }
+
+  /** Every duty, or one bot's. */
+  async listDuties(bot?: string): Promise<Duty[]> {
+    const result = (await this.request("duty/list", bot ? { bot } : {})) as { data?: unknown[] };
+    return (result.data ?? []) as Duty[];
+  }
+
+  async createDuty(duty: {
+    bot: string;
+    name: string;
+    what: string;
+    rules?: string;
+    escalateWhen?: string;
+    intervalSeconds?: number;
+  }): Promise<Duty> {
+    return (await this.request("duty/create", duty)) as Duty;
+  }
+
+  async updateDuty(
+    id: string,
+    changes: {
+      name?: string;
+      what?: string;
+      rules?: string;
+      escalateWhen?: string;
+      intervalSeconds?: number;
+      enabled?: boolean;
+    },
+  ): Promise<Duty> {
+    return (await this.request("duty/update", { id, ...changes })) as Duty;
+  }
+
+  async deleteDuty(id: string): Promise<boolean> {
+    const result = (await this.request("duty/delete", { id })) as { removed?: boolean };
+    return result.removed === true;
+  }
+
+  /** Run a duty now, whatever its interval says. */
+  async runDutyNow(id: string): Promise<void> {
+    await this.request("duty/runNow", { id });
+  }
+
+  /** Questions waiting on a person, oldest first. */
+  async listQuestions(): Promise<Escalation[]> {
+    const result = (await this.request("duty/asking", {})) as { data?: unknown[] };
+    return (result.data ?? []) as Escalation[];
+  }
+
+  /** Answer a question, which unblocks the duty that asked it. */
+  async answerQuestion(id: string, answer: string): Promise<Escalation> {
+    return (await this.request("duty/answer", { id, answer })) as Escalation;
+  }
+
+  /** Every chain of handoffs, most recent first. */
+  async listChains(): Promise<{ chains: Chain[]; maxHops: number }> {
+    const result = (await this.request("handoff/chains", {})) as {
+      data?: unknown[];
+      maxHops?: number;
+    };
+    return { chains: (result.data ?? []) as Chain[], maxHops: result.maxHops ?? 0 };
+  }
+
+  /** One chain, in the order it happened. */
+  async readChain(chain: string): Promise<Handoff[]> {
+    const result = (await this.request("handoff/chain", { chain })) as { data?: unknown[] };
+    return (result.data ?? []) as Handoff[];
   }
 
   async clearRuns(): Promise<number> {

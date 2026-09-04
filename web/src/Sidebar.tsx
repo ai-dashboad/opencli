@@ -8,6 +8,7 @@ import {
   ArtifactIcon,
   DispatchIcon,
   ChevronIcon,
+  BoltIcon,
   ClockIcon,
   ConnectorIcon,
   MemoryIcon,
@@ -29,6 +30,7 @@ import type { Bot } from "./protocol";
 export type View =
   | "chat"
   | "scenario"
+  | "bots"
   | "projects"
   | "artifacts"
   | "memory"
@@ -183,6 +185,7 @@ const NAV: { id: View; label: string; icon: React.ReactNode; badge?: string }[] 
   { id: "artifacts", label: t("Artifacts"), icon: <ArtifactIcon /> },
   { id: "scheduled", label: t("Scheduled"), icon: <ClockIcon /> },
   { id: "dispatch", label: t("Dispatch"), icon: <DispatchIcon />, badge: "Beta" },
+  { id: "bots", label: t("Bots"), icon: <BoltIcon /> },
   { id: "memory", label: t("Memory"), icon: <MemoryIcon /> },
   { id: "customize", label: t("Customize"), icon: <SlidersIcon /> },
 ];

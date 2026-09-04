@@ -11,6 +11,17 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "Bots": "员工",
+  "What they are waiting on, and what they set off between themselves.": "他们在等什么,以及他们之间互相派了什么活。",
+  "Waiting on you": "等你答复",
+  "Nothing is waiting. Every bot is either working or idle.": "没有人在等。所有员工不是在干活就是空闲。",
+  "This duty will not run again until you answer.": "在你答复之前,这条值守不会再运行。",
+  "Answer this": "回答",
+  "Answer": "提交答复",
+  "Work passed between bots": "员工之间的交接",
+  "No bot has handed work to another yet.": "还没有员工把活交给过别人。",
+  "{hops} of {max} hops": "{hops} / {max} 跳",
+  "stopped at the limit": "触顶停下",
   "asking": "待批",
   "Ways to use it": "能做什么",
   "Ask for it like this": "可以这样开口",
