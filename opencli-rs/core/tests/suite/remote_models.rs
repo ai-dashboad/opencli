@@ -294,12 +294,15 @@ async fn remote_models_truncation_policy_with_tool_output_override() -> Result<(
 // one, no bundled entry for a remote one to replace, and no bundled base
 // instructions to be overridden.
 //
-// That is arguably right for an agent aimed at models running on your own
-// machine, which are discovered from the local runtime rather than shipped in
-// a list. But it makes these assertions about a catalogue that is not there,
-// rather than about behaviour that broke. Marked rather than deleted: the
-// merge logic is still present and still worth covering the day the bundle
-// has anything in it. See issue #14.
+// That is how it is meant to be. Models come from configuration and from
+// whatever runtime is on the machine, not from a list shipped in the binary,
+// and `Feature::RemoteModels` — which is what fills that list — is off by
+// default because it fetches OpenAI's catalogue and no other provider serves
+// one.
+//
+// So these cover a feature that is off, reading a bundle that is empty on
+// purpose. Marked rather than deleted: the merge logic is still there for
+// anyone who does use OpenAI and turns it on. See issue #14.
 #[ignore = "the bundled model catalogue is empty in this build"]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn remote_models_apply_remote_base_instructions() -> Result<()> {
@@ -424,12 +427,15 @@ async fn remote_models_apply_remote_base_instructions() -> Result<()> {
 // one, no bundled entry for a remote one to replace, and no bundled base
 // instructions to be overridden.
 //
-// That is arguably right for an agent aimed at models running on your own
-// machine, which are discovered from the local runtime rather than shipped in
-// a list. But it makes these assertions about a catalogue that is not there,
-// rather than about behaviour that broke. Marked rather than deleted: the
-// merge logic is still present and still worth covering the day the bundle
-// has anything in it. See issue #14.
+// That is how it is meant to be. Models come from configuration and from
+// whatever runtime is on the machine, not from a list shipped in the binary,
+// and `Feature::RemoteModels` — which is what fills that list — is off by
+// default because it fetches OpenAI's catalogue and no other provider serves
+// one.
+//
+// So these cover a feature that is off, reading a bundle that is empty on
+// purpose. Marked rather than deleted: the merge logic is still there for
+// anyone who does use OpenAI and turns it on. See issue #14.
 #[ignore = "the bundled model catalogue is empty in this build"]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn remote_models_preserve_builtin_presets() -> Result<()> {
@@ -548,12 +554,15 @@ async fn remote_models_merge_adds_new_high_priority_first() -> Result<()> {
 // one, no bundled entry for a remote one to replace, and no bundled base
 // instructions to be overridden.
 //
-// That is arguably right for an agent aimed at models running on your own
-// machine, which are discovered from the local runtime rather than shipped in
-// a list. But it makes these assertions about a catalogue that is not there,
-// rather than about behaviour that broke. Marked rather than deleted: the
-// merge logic is still present and still worth covering the day the bundle
-// has anything in it. See issue #14.
+// That is how it is meant to be. Models come from configuration and from
+// whatever runtime is on the machine, not from a list shipped in the binary,
+// and `Feature::RemoteModels` — which is what fills that list — is off by
+// default because it fetches OpenAI's catalogue and no other provider serves
+// one.
+//
+// So these cover a feature that is off, reading a bundle that is empty on
+// purpose. Marked rather than deleted: the merge logic is still there for
+// anyone who does use OpenAI and turns it on. See issue #14.
 #[ignore = "the bundled model catalogue is empty in this build"]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn remote_models_merge_replaces_overlapping_model() -> Result<()> {
@@ -617,12 +626,15 @@ async fn remote_models_merge_replaces_overlapping_model() -> Result<()> {
 // one, no bundled entry for a remote one to replace, and no bundled base
 // instructions to be overridden.
 //
-// That is arguably right for an agent aimed at models running on your own
-// machine, which are discovered from the local runtime rather than shipped in
-// a list. But it makes these assertions about a catalogue that is not there,
-// rather than about behaviour that broke. Marked rather than deleted: the
-// merge logic is still present and still worth covering the day the bundle
-// has anything in it. See issue #14.
+// That is how it is meant to be. Models come from configuration and from
+// whatever runtime is on the machine, not from a list shipped in the binary,
+// and `Feature::RemoteModels` — which is what fills that list — is off by
+// default because it fetches OpenAI's catalogue and no other provider serves
+// one.
+//
+// So these cover a feature that is off, reading a bundle that is empty on
+// purpose. Marked rather than deleted: the merge logic is still there for
+// anyone who does use OpenAI and turns it on. See issue #14.
 #[ignore = "the bundled model catalogue is empty in this build"]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn remote_models_merge_preserves_bundled_models_on_empty_response() -> Result<()> {
@@ -670,12 +682,15 @@ async fn remote_models_merge_preserves_bundled_models_on_empty_response() -> Res
 // one, no bundled entry for a remote one to replace, and no bundled base
 // instructions to be overridden.
 //
-// That is arguably right for an agent aimed at models running on your own
-// machine, which are discovered from the local runtime rather than shipped in
-// a list. But it makes these assertions about a catalogue that is not there,
-// rather than about behaviour that broke. Marked rather than deleted: the
-// merge logic is still present and still worth covering the day the bundle
-// has anything in it. See issue #14.
+// That is how it is meant to be. Models come from configuration and from
+// whatever runtime is on the machine, not from a list shipped in the binary,
+// and `Feature::RemoteModels` — which is what fills that list — is off by
+// default because it fetches OpenAI's catalogue and no other provider serves
+// one.
+//
+// So these cover a feature that is off, reading a bundle that is empty on
+// purpose. Marked rather than deleted: the merge logic is still there for
+// anyone who does use OpenAI and turns it on. See issue #14.
 #[ignore = "the bundled model catalogue is empty in this build"]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn remote_models_request_times_out_after_5s() -> Result<()> {
@@ -751,12 +766,15 @@ async fn remote_models_request_times_out_after_5s() -> Result<()> {
 // one, no bundled entry for a remote one to replace, and no bundled base
 // instructions to be overridden.
 //
-// That is arguably right for an agent aimed at models running on your own
-// machine, which are discovered from the local runtime rather than shipped in
-// a list. But it makes these assertions about a catalogue that is not there,
-// rather than about behaviour that broke. Marked rather than deleted: the
-// merge logic is still present and still worth covering the day the bundle
-// has anything in it. See issue #14.
+// That is how it is meant to be. Models come from configuration and from
+// whatever runtime is on the machine, not from a list shipped in the binary,
+// and `Feature::RemoteModels` — which is what fills that list — is off by
+// default because it fetches OpenAI's catalogue and no other provider serves
+// one.
+//
+// So these cover a feature that is off, reading a bundle that is empty on
+// purpose. Marked rather than deleted: the merge logic is still there for
+// anyone who does use OpenAI and turns it on. See issue #14.
 #[ignore = "the bundled model catalogue is empty in this build"]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn remote_models_hide_picker_only_models() -> Result<()> {
