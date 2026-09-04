@@ -3678,10 +3678,9 @@ async fn run_auto_compact(sess: &Arc<Session>, turn_context: &Arc<TurnContext>) 
     } else {
         run_inline_auto_compact_task(Arc::clone(sess), Arc::clone(turn_context)).await;
     }
-    // Where it got to. The next turn judges a compaction by whether the
-    // conversation has grown past this, not by the limit alone.
-    let settled = sess.get_total_token_usage().await;
-    sess.state.lock().await.record_compaction_floor(settled);
+    // How large the conversation was left. The next turn judges a compaction
+    // by whether it has grown past this, not by the limit alone.
+    sess.state.lock().await.record_compaction_floor();
 }
 
 /// Summarise the conversation if that is what the length is made of.

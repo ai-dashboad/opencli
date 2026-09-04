@@ -364,7 +364,14 @@ async fn manual_compact_uses_custom_prompt() {
     skip_if_no_network!();
 
     let server = start_mock_server().await;
-    let sse_stream = sse(vec![ev_completed("r1")]);
+    // The summary matters even though this test is about the request: a
+    // compaction whose model says nothing now leaves the conversation alone
+    // rather than replacing it with an empty summary, so a server that
+    // returns no message is a server that did not compact.
+    let sse_stream = sse(vec![
+        ev_assistant_message("m1", SUMMARY_TEXT),
+        ev_completed("r1"),
+    ]);
     let response_mock = mount_sse_once(&server, sse_stream).await;
 
     let custom_prompt = "Use this compact prompt instead";

@@ -45,11 +45,18 @@ pub(crate) fn should_use_remote_compact_task(
 
 /// Shorter than this and it is not a summary of anything.
 ///
-/// Deliberately a low bar. The job here is to tell a summary from an empty
-/// answer or a stray bracket, not to judge how good it is — a terse summary of
-/// a short exchange is still a summary, and refusing it would leave the
-/// conversation growing with no way to shorten it.
-const SHORTEST_USABLE_SUMMARY: usize = 40;
+/// The job is to tell a summary from an empty answer or a stray bracket, not
+/// to judge how good it is: a terse summary of a short exchange is still a
+/// summary, and refusing it would leave the conversation growing with no way
+/// to shorten it.
+///
+/// This was forty, picked without looking at a single real summary, and it
+/// rejected `SUMMARY_ONLY_CONTEXT` and `AUTO_SUMMARY` — the fixtures the
+/// integration suite has used all along. Eight is the length below which a
+/// model has plainly answered without summarising: `)`, `OK`, `Done`, `N/A`.
+/// Nothing that is genuinely a summary of a conversation is seven characters
+/// long.
+const SHORTEST_USABLE_SUMMARY: usize = 8;
 
 fn is_usable_summary(summary: &str) -> bool {
     let trimmed = summary.trim();
@@ -835,6 +842,8 @@ mod tests {
         assert!(!is_usable_summary(""));
         assert!(!is_usable_summary("   \n  "));
         assert!(!is_usable_summary("Sure!"));
+        assert!(!is_usable_summary("OK"));
+        assert!(!is_usable_summary("Done"));
     }
 
     #[test]
@@ -842,6 +851,10 @@ mod tests {
         assert!(is_usable_summary(
             "The user asked for the build to be fixed; the icon path was wrong."
         ));
+        // The fixtures the integration suite has always used. A bar set
+        // without looking at a real summary rejected both of these.
+        assert!(is_usable_summary("SUMMARY_ONLY_CONTEXT"));
+        assert!(is_usable_summary("AUTO_SUMMARY"));
     }
 
     #[test]

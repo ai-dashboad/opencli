@@ -126,10 +126,16 @@ impl SessionState {
         self.history.request_overhead()
     }
 
-    /// Remember where a compaction left the count, so the next one can be
-    /// judged on whether it has anything left to do.
-    pub(crate) fn record_compaction_floor(&mut self, total_tokens: i64) {
-        self.compaction_floor = Some(total_tokens);
+    /// Remember how large the conversation was when a compaction finished.
+    ///
+    /// The conversation, not the request. Two different questions are being
+    /// asked — "is this request too big" and "has the conversation grown since
+    /// I last summarised it" — and only the second is about something
+    /// compaction can change. Answering both with the request's size made the
+    /// fixed overhead count as growth, and a duty that had genuinely doubled
+    /// in size could be refused because the tool schemas had not.
+    pub(crate) fn record_compaction_floor(&mut self) {
+        self.compaction_floor = Some(self.history.estimated_token_usage());
     }
 
     /// Whether summarising the conversation now would accomplish anything.
@@ -149,6 +155,7 @@ impl SessionState {
     pub(crate) fn compaction_verdict(&self, total_tokens: i64, limit: i64) -> CompactionVerdict {
         compaction_verdict_for(
             total_tokens,
+            self.history.estimated_token_usage(),
             limit,
             self.compaction_floor,
             self.request_overhead(),
@@ -197,21 +204,26 @@ impl SessionState {
 
 fn compaction_verdict_for(
     total_tokens: i64,
+    conversation_tokens: i64,
     limit: i64,
     compaction_floor: Option<i64>,
     overhead: i64,
 ) -> CompactionVerdict {
+    // Whether the request is too big is about the request, all of it.
     if total_tokens < limit {
         return CompactionVerdict::NotNeeded;
     }
     let Some(floor) = compaction_floor else {
         return CompactionVerdict::Compact;
     };
+    // Whether summarising would help is about the conversation alone, since
+    // that is the only part summarising can shorten.
+    //
     // A tenth of the limit: enough that a compaction earns back more than the
     // request it costs, small enough that a conversation genuinely growing is
     // still summarised well before it stops fitting.
     let minimum_gain = (limit / 10).max(1);
-    if total_tokens > floor.saturating_add(minimum_gain) {
+    if conversation_tokens > floor.saturating_add(minimum_gain) {
         CompactionVerdict::Compact
     } else {
         CompactionVerdict::WontHelp { overhead }
@@ -246,7 +258,7 @@ mod tests {
     #[test]
     fn should_not_compact_when_the_conversation_is_within_the_limit() {
         assert_eq!(
-            compaction_verdict_for(14_986, LIMIT, None, 10_000),
+            compaction_verdict_for(14_986, 4_986, LIMIT, None, 10_000),
             CompactionVerdict::NotNeeded
         );
     }
@@ -254,7 +266,7 @@ mod tests {
     #[test]
     fn should_compact_when_over_the_limit_and_nothing_has_been_tried_yet() {
         assert_eq!(
-            compaction_verdict_for(25_000, LIMIT, None, 0),
+            compaction_verdict_for(25_000, 15_000, LIMIT, None, 0),
             CompactionVerdict::Compact
         );
     }
@@ -264,7 +276,7 @@ mod tests {
         // What happened: compaction ran, the request came back at 25,000 all
         // the same, and the next turn asked for another compaction.
         assert_eq!(
-            compaction_verdict_for(25_000, LIMIT, Some(24_800), 10_000),
+            compaction_verdict_for(25_000, 14_900, LIMIT, Some(14_800), 10_000),
             CompactionVerdict::WontHelp { overhead: 10_000 }
         );
     }
@@ -274,7 +286,7 @@ mod tests {
         // A tenth of the limit past the floor is a real conversation getting
         // longer, not accounting noise.
         assert_eq!(
-            compaction_verdict_for(28_000, LIMIT, Some(24_800), 10_000),
+            compaction_verdict_for(28_000, 18_000, LIMIT, Some(14_800), 10_000),
             CompactionVerdict::Compact
         );
     }
@@ -282,7 +294,7 @@ mod tests {
     #[test]
     fn should_report_the_overhead_that_compaction_cannot_reach() {
         let CompactionVerdict::WontHelp { overhead } =
-            compaction_verdict_for(25_000, LIMIT, Some(24_900), 19_500)
+            compaction_verdict_for(25_000, 5_400, LIMIT, Some(5_300), 19_500)
         else {
             panic!("expected the verdict to be that compaction cannot help");
         };
