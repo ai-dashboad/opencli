@@ -3,7 +3,6 @@ import Sidebar, { type View } from "./Sidebar";
 import {
   ApprovalChanges,
   ArtifactsView,
-  ConnectorsView,
   CustomizeView,
   DispatchView,
   MemoryView,
@@ -12,7 +11,6 @@ import {
   ProjectsView,
   ScheduledView,
   SettingsView,
-  SkillsView,
   ago,
 } from "./views";
 import {
@@ -59,6 +57,7 @@ import { shouldInterrupt, shouldSend } from "./composer";
 import "./styles.css";
 import { plural, t } from "./i18n";
 import { groupRuns } from "./runs";
+import { AbilitiesView } from "./abilities";
 import { BotsView } from "./bots-view";
 import { Scenarios } from "./scenario-list";
 
@@ -1366,10 +1365,8 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
             cwd={cwd || "."}
             onBrowse={isDesktop() ? chooseDirectory : undefined}
           />
-        ) : view === "skills" && client ? (
-          <SkillsView client={client} cwd={cwd || "."} />
-        ) : view === "connectors" && client ? (
-          <ConnectorsView client={client} />
+        ) : view === "abilities" && client ? (
+          <AbilitiesView client={client} cwd={cwd} />
         ) : view === "project" && client && viewing ? (
           <ProjectDetailView
             client={client}
@@ -1437,7 +1434,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
                         setDraft(prompt);
                         composerRef.current?.focus();
                       }}
-                      onConnect={() => go("connectors")}
+                      onConnect={() => go("abilities")}
                     />
                     {runs.length > 0 ? (
                       <section className="recent">
@@ -1749,7 +1746,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
                       }}
                       onManageSkills={() => {
                         setAttachMenu(false);
-                        go("skills");
+                        go("abilities");
                       }}
                       onRecordSkill={() => {
                         setAttachMenu(false);
@@ -1757,11 +1754,11 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
                       }}
                       onManageConnectors={() => {
                         setAttachMenu(false);
-                        go("connectors");
+                        go("abilities");
                       }}
                       onBrowsePlugins={() => {
                         setAttachMenu(false);
-                        go("skills");
+                        go("abilities");
                       }}
                       onCloneRepo={() => {
                         setAttachMenu(false);

@@ -133,6 +133,7 @@ fn catalog() -> Value {
         "data": [
             {
                 "id": "anthropic-skills",
+                "departments": ["people", "finance", "marketing", "operations"],
                 "name": "Anthropic example skills",
                 "description": "Document handling, spreadsheets, slides and more, from Anthropic's public skills repository.",
                 "source": "https://github.com/anthropics/skills",
@@ -140,6 +141,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "mcp-servers",
+                "departments": ["engineering"],
                 "name": "Reference MCP servers",
                 "description": "The reference server implementations, useful as worked examples when writing your own.",
                 "source": "https://github.com/modelcontextprotocol/servers",

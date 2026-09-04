@@ -43,6 +43,7 @@ import type {
 } from "./protocol";
 import { LOCALES, plural, t } from "./i18n";
 import { QrCode } from "./qr";
+import { shows, type AbilityFilter } from "./abilities";
 import { scenariosNeeding } from "./scenarios";
 
 
@@ -56,7 +57,16 @@ import { scenariosNeeding } from "./scenarios";
  * one — and a person looking for "the thing that adds abilities" had to know
  * which of two words this project had chosen for which half.
  */
-export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string }) {
+export function SkillsView({
+  client,
+  cwd,
+  filter,
+}: {
+  client: OpenCliClient;
+  cwd: string;
+  /** Set by the page above, which holds the search box and the chips. */
+  filter?: AbilityFilter;
+}) {
   const [rows, setRows] = useState<SkillSummary[]>([]);
   const [installed, setInstalled] = useState<InstalledPlugin[]>([]);
   const [offers, setOffers] = useState<PluginOffer[]>([]);
@@ -216,6 +226,7 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
           <ul className="cards">
             {offers
               .filter((offer) => matches(offer.name, offer.description))
+              .filter((offer) => !filter || shows(filter, offer))
               .map((offer) => {
                 const already = installed.some((plugin) => plugin.name === offer.id);
                 return (
@@ -276,7 +287,14 @@ export function SkillsView({ client, cwd }: { client: OpenCliClient; cwd: string
  * a change applies to the next chat, which the panel says rather than leaving
  * the user to wonder why nothing happened.
  */
-export function ConnectorsView({ client }: { client: OpenCliClient }) {
+export function ConnectorsView({
+  client,
+  filter,
+}: {
+  client: OpenCliClient;
+  /** Set by the page above, which holds the search box and the chips. */
+  filter?: AbilityFilter;
+}) {
   const [configured, setConfigured] = useState<ConnectorConfig[]>([]);
   const [offers, setOffers] = useState<ConnectorOffer[]>([]);
   const [status, setStatus] = useState<ConnectorSummary[]>([]);
@@ -381,9 +399,9 @@ export function ConnectorsView({ client }: { client: OpenCliClient }) {
     );
   }, [client, draft, run]);
 
-  const notYetAdded = offers.filter(
-    (offer) => !configured.some((row) => row.name === offer.id || row.name === offer.name),
-  );
+  const notYetAdded = offers
+    .filter((offer) => !configured.some((row) => row.name === offer.id || row.name === offer.name))
+    .filter((offer) => !filter || shows(filter, offer));
 
   return (
     <section className="panel">

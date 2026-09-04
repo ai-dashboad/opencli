@@ -11,6 +11,9 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "Abilities": "能力",
+  "All": "全部",
+  "Search abilities": "搜索能力",
   "pairing code": "配对二维码",
   "Phones and tablets": "手机与平板",
   "A paired device can make the agent run commands on this machine. Pair only your own, and revoke anything you do not recognise.": "配对过的设备可以让 agent 在这台机器上执行命令。只配对你自己的设备,看到不认识的立即吊销。",

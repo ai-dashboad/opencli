@@ -10,7 +10,6 @@ import {
   ChevronIcon,
   BoltIcon,
   ClockIcon,
-  ConnectorIcon,
   MemoryIcon,
   OpenCliMark,
   ChipIcon,
@@ -35,8 +34,7 @@ export type View =
   | "customize"
   | "dispatch"
   | "scheduled"
-  | "skills"
-  | "connectors"
+  | "abilities"
   | "models"
   | "project"
   | "settings";
@@ -185,8 +183,7 @@ const NAV: { id: View; label: string; icon: React.ReactNode; badge?: string }[] 
 ];
 
 const SECONDARY: { id: View; label: string; icon: React.ReactNode }[] = [
-  { id: "skills", label: t("Skills"), icon: <SkillIcon /> },
-  { id: "connectors", label: t("Connectors"), icon: <ConnectorIcon /> },
+  { id: "abilities", label: t("Abilities"), icon: <SkillIcon /> },
   { id: "models", label: t("Models"), icon: <ChipIcon /> },
   { id: "settings", label: t("Settings"), icon: <SettingsIcon /> },
 ];

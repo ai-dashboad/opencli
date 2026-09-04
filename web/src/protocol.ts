@@ -626,6 +626,8 @@ export interface PluginOffer {
   description: string;
   source: string;
   note?: string;
+  /** Which departments would want it, for the ability filter. */
+  departments?: string[];
 }
 
 /** A connector as configured on this machine. */
@@ -656,7 +658,9 @@ export interface ConnectorOffer {
     args?: string[];
     url?: string;
     envVars?: string[];
-  };
+    /** Which departments would want it, for the ability filter. */
+  departments?: string[];
+};
   note?: string;
   /** The variable this server needs a value for, when it needs one. */
   keyHint?: string;

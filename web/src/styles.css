@@ -3837,3 +3837,59 @@ textarea:focus {
     flex-direction: column;
   }
 }
+
+/* One page for skills and connectors: the tabs, and the department chips
+   under them. Both sit above whichever list is showing, because the search
+   and the filter apply to either. */
+.abilities .tabs {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 12px;
+}
+
+.abilities .tabs button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.abilities .tabs button.on {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Chips wrap rather than scroll: a filter you have to scroll to find is one
+   nobody uses, and there are six of them. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.chips button {
+  padding: 5px 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.chips button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The page below is already a panel; nested, it must not pad twice. */
+.abilities .panel {
+  padding: 0;
+  overflow: visible;
+}

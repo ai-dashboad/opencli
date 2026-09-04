@@ -109,6 +109,11 @@ fn list(opencli_home: &Path) -> Result<Value, String> {
 
 /// Connectors worth offering by name.
 ///
+/// Each says which departments would want it, so the ability list can be
+/// filtered the way somebody thinks — "I have just made a Finance department,
+/// what should it be connected to" — rather than by what a server happens to
+/// be called. The names match the department templates.
+///
 /// A short, honest list: each entry is a real MCP server that exists, with the
 /// command or URL it is actually started by. Anything else is added by hand,
 /// which `connector/add` also supports.
@@ -117,6 +122,7 @@ fn catalog() -> Value {
         "data": [
             {
                 "id": "figma",
+                "departments": ["marketing", "engineering"],
                 "name": "Figma",
                 "description": "Read designs, components and variables from Figma files.",
                 "transport": { "kind": "http", "url": "https://mcp.figma.com/mcp" },
@@ -124,6 +130,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "github",
+                "departments": ["engineering"],
                 "name": "GitHub",
                 "description": "Issues, pull requests and code search on GitHub.",
                 "transport": {
@@ -137,6 +144,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "filesystem",
+                "departments": ["engineering", "finance", "operations", "people"],
                 "name": "Filesystem",
                 "description": "Read and write files under a directory you choose.",
                 "transport": {
@@ -148,6 +156,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "postgres",
+                "departments": ["finance", "operations", "engineering"],
                 "name": "Postgres",
                 "description": "Query a Postgres database read-only.",
                 "transport": {
@@ -159,6 +168,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "sqlite",
+                "departments": ["finance", "operations", "engineering"],
                 "name": "SQLite",
                 "description": "Query a SQLite file.",
                 "transport": {
@@ -170,6 +180,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "slack",
+                "departments": ["support", "people", "marketing"],
                 "name": "Slack",
                 "description": "Read channels and post messages.",
                 "transport": {
@@ -183,6 +194,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "notion",
+                "departments": ["people", "marketing", "operations"],
                 "name": "Notion",
                 "description": "Read and write pages and databases in Notion.",
                 "transport": {
@@ -196,6 +208,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "google-drive",
+                "departments": ["people", "finance", "operations"],
                 "name": "Google Drive",
                 "description": "Search and read files in Drive.",
                 "transport": {
@@ -207,6 +220,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "playwright",
+                "departments": ["marketing", "operations", "support"],
                 "name": "Browser",
                 "description": "Drive a real browser: open pages, fill forms, read what is there.",
                 "transport": {
@@ -218,6 +232,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "brave-search",
+                "departments": ["marketing", "support"],
                 "name": "Web search",
                 "description": "Search the web and read the results.",
                 "transport": {
@@ -231,6 +246,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "fetch",
+                "departments": ["marketing", "operations"],
                 "name": "Fetch",
                 "description": "Retrieve a web page and read it as text.",
                 "transport": {
@@ -242,6 +258,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "git",
+                "departments": ["engineering"],
                 "name": "Git",
                 "description": "Read history, diffs and blame in a local repository.",
                 "transport": {
@@ -253,6 +270,7 @@ fn catalog() -> Value {
             },
             {
                 "id": "sentry",
+                "departments": ["engineering", "support"],
                 "name": "Sentry",
                 "description": "Read issues and stack traces from Sentry.",
                 "transport": {
@@ -641,5 +659,64 @@ mod tests {
             .collect();
         let unique: std::collections::HashSet<&&str> = ids.iter().collect();
         assert_eq!(unique.len(), ids.len());
+    }
+
+    #[test]
+    fn should_say_which_departments_would_want_each_connector() {
+        // The filter people actually reach for: "I have just made a Finance
+        // department, what should it be connected to". A catalogue tagged by
+        // what a server is called cannot answer that.
+        let dir = tempdir().expect("tempdir");
+        let listed = call(r#"{"method":"connector/catalog","id":1}"#, dir.path());
+        let rows = listed["result"]["data"].as_array().expect("data");
+
+        for row in rows {
+            let departments = row["departments"].as_array();
+            assert!(
+                departments.is_some_and(|list| !list.is_empty()),
+                "`{}` belongs to no department, so no filter will ever show it",
+                row["id"]
+            );
+        }
+    }
+
+    #[test]
+    fn should_name_only_departments_that_exist() {
+        // A tag naming a department nobody can create is a filter that shows
+        // nothing, and nothing says why.
+        let known: std::collections::HashSet<&str> = opencli_core::templates::TEMPLATES
+            .iter()
+            .map(|template| template.id)
+            .collect();
+
+        let dir = tempdir().expect("tempdir");
+        let listed = call(r#"{"method":"connector/catalog","id":1}"#, dir.path());
+        for row in listed["result"]["data"].as_array().expect("data") {
+            for department in row["departments"].as_array().expect("departments") {
+                let name = department.as_str().expect("a name");
+                assert!(known.contains(name), "`{name}` is not a department");
+            }
+        }
+    }
+
+    #[test]
+    fn should_give_every_department_something_to_connect() {
+        // A department whose filter is empty reads as one nothing works with.
+        let dir = tempdir().expect("tempdir");
+        let listed = call(r#"{"method":"connector/catalog","id":1}"#, dir.path());
+        let rows = listed["result"]["data"].as_array().expect("data");
+
+        for template in opencli_core::templates::TEMPLATES {
+            let any = rows.iter().any(|row| {
+                row["departments"]
+                    .as_array()
+                    .is_some_and(|list| list.iter().any(|d| d == template.id))
+            });
+            assert!(
+                any,
+                "nothing in the catalogue is offered to {}",
+                template.id
+            );
+        }
     }
 }
