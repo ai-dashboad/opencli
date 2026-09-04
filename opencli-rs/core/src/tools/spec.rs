@@ -3,7 +3,9 @@ use crate::client_common::tools::ResponsesApiTool;
 use crate::client_common::tools::ToolSpec;
 use crate::features::Feature;
 use crate::features::Features;
+use crate::tools::handlers::ASK_TOOL;
 use crate::tools::handlers::PLAN_TOOL;
+use crate::tools::handlers::REMEMBER_TOOL;
 use crate::tools::handlers::apply_patch::create_apply_patch_freeform_tool;
 use crate::tools::handlers::apply_patch::create_apply_patch_json_tool;
 use crate::tools::handlers::collab::DEFAULT_WAIT_TIMEOUT_MS;
@@ -1284,6 +1286,7 @@ pub(crate) fn build_specs(
 ) -> ToolRegistryBuilder {
     use crate::tools::handlers::ApplyPatchHandler;
     use crate::tools::handlers::CollabHandler;
+    use crate::tools::handlers::DutyHandler;
     use crate::tools::handlers::DynamicToolHandler;
     use crate::tools::handlers::GrepFilesHandler;
     use crate::tools::handlers::ListDirHandler;
@@ -1350,6 +1353,18 @@ pub(crate) fn build_specs(
 
     builder.push_spec(PLAN_TOOL.clone());
     builder.register_handler("set_plan", plan_handler);
+
+    // Only where there is a duty to record against. Offered to an ordinary
+    // chat these read as things the agent could do and cannot: it would call
+    // `duty_remember`, be told there is no duty, and have learned nothing
+    // except that one of its tools does not work.
+    if crate::duties::current().is_some() {
+        let duty_handler = Arc::new(DutyHandler);
+        builder.push_spec(REMEMBER_TOOL.clone());
+        builder.push_spec(ASK_TOOL.clone());
+        builder.register_handler("duty_remember", duty_handler.clone());
+        builder.register_handler("duty_ask", duty_handler);
+    }
 
     if config.collaboration_modes_tools {
         builder.push_spec(create_request_user_input_tool());

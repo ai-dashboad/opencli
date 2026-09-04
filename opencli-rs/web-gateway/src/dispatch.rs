@@ -254,6 +254,18 @@ async fn execute(opencli_home: PathBuf, opencli_bin: PathBuf, run: dispatch::Run
     if let Some(model) = &run.model {
         command.arg("-m").arg(model);
     }
+    // Which duty this is, told to the process rather than to the model.
+    //
+    // The duty tools read it from here, so an invented or mistyped id cannot
+    // write notes into another department's duty. A run that is not a duty —
+    // a dispatch, or a plain scheduled task — sets nothing, and the tools are
+    // not offered at all.
+    if let Some(task) = &run.task_id
+        && opencli_core::duties::get(&opencli_home, task).is_some()
+    {
+        command.env(opencli_core::duties::DUTY_ENV, task);
+    }
+
     command.arg(&run.prompt).current_dir(&run.cwd);
 
     // Piped and read as it arrives, rather than collected at the end. A run

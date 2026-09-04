@@ -118,6 +118,21 @@ impl Duty {
     }
 }
 
+/// Names the duty a process is running, set by whatever queued it.
+///
+/// An environment variable rather than an argument the model supplies: which
+/// duty is running is not the model's to say, and a guessed id would write
+/// notes into another department's duty.
+pub const DUTY_ENV: &str = "OPENCLI_DUTY";
+
+/// The duty this process is running, if it is running one.
+pub fn current() -> Option<String> {
+    std::env::var(DUTY_ENV)
+        .ok()
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty())
+}
+
 fn path(opencli_home: &Path, file: &str) -> PathBuf {
     opencli_home.join(file)
 }
@@ -774,5 +789,17 @@ mod tests {
         )
         .expect("ask");
         assert!(answer_to_carry(dir.path(), &duty).is_none());
+    }
+
+    #[test]
+    fn should_read_the_running_duty_from_the_environment() {
+        // Not from the model: a guessed id would write notes into another
+        // department's duty.
+        unsafe { std::env::set_var(DUTY_ENV, "  ") };
+        assert!(current().is_none(), "blank is nobody's duty");
+        unsafe { std::env::set_var(DUTY_ENV, " duty-1 ") };
+        assert_eq!(current().as_deref(), Some("duty-1"));
+        unsafe { std::env::remove_var(DUTY_ENV) };
+        assert!(current().is_none());
     }
 }
