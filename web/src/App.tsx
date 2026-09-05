@@ -50,7 +50,7 @@ import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./
 import { chooseDirectory, chooseFiles, fromHost, isDesktop } from "./host";
 import { useUpdate } from "./update";
 import { applyAppearance, readPreferences, writePreferences } from "./preferences";
-import { getLocale, type Locale } from "./i18n";
+import { addLocales, getLocale, setLocaleDirectory, type Locale } from "./i18n";
 import { Boot } from "./boot";
 import { Markdown } from "./markdown";
 import { shouldInterrupt, shouldSend } from "./composer";
@@ -754,6 +754,22 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
         // connection — a thread's instructions must be settled before it
         // starts, and `memory/*` is answered by the gateway, not the thread.
         await client.openSession(target);
+        // Languages added on this machine, before anything is drawn in the
+        // wrong one. A gateway too old to know the method simply has none.
+        try {
+          const { data, directory } = await client.addedLocales();
+          setLocaleDirectory(directory);
+          if (data.length > 0) {
+            addLocales(data);
+            // The chosen language may be one of these, in which case what is
+            // already on screen was drawn from a dictionary that did not yet
+            // exist. Re-applying settles it.
+            applyAppearance(preferencesRef.current);
+            onLocaleChange(getLocale());
+          }
+        } catch {
+          // No added languages, or a gateway that predates them.
+        }
         await openThreadOn(client, directory, instructions, projectId);
         const available = await client.listModels();
         setModels(available);
@@ -801,16 +817,16 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
   const doing = (() => {
     // Summarising is not writing, and saying "Writing…" through a minute of
     // it was the wrong word for the longest part of the turn.
-    if (compacting) return "Summarising the conversation…";
+    if (compacting) return t("Summarising the conversation…");
     const last = items[items.length - 1];
-    if (!last) return "Waiting for the model…";
-    if (last.kind === "command") return `${last.summary ?? "Running a command"}…`;
+    if (!last) return t("Waiting for the model…");
+    if (last.kind === "command") return `${last.summary ?? t("Running a command")}…`;
     if (last.kind === "reasoning") return "Thinking…";
     // Nothing has come back yet when the last thing in the transcript is what
     // the reader just typed. That window is the model reading the
     // conversation, not writing an answer, and it is the longest wait in a
     // turn — saying "Writing…" through all of it was simply untrue.
-    if (last.kind === "user") return "Waiting for the model…";
+    if (last.kind === "user") return t("Waiting for the model…");
     return "Writing…";
   })();
 
@@ -1841,7 +1857,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
                     title={t("Model and effort")}
                   >
                     <span>
-                      {models.find((option) => option.model === model)?.displayName ?? "No model"}
+                      {models.find((option) => option.model === model)?.displayName ?? t("No model")}
                     </span>
                     {preferences.effort ? <em>{preferences.effort}</em> : null}
                     <ChevronIcon size={13} />

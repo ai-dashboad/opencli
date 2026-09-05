@@ -42,7 +42,7 @@ import type {
   SkillSummary,
   ThreadSummary,
 } from "./protocol";
-import { LOCALES, plural, t } from "./i18n";
+import { localeDirectory, locales, plural, t } from "./i18n";
 import { QrCode } from "./qr";
 import { shows, type AbilityFilter } from "./abilities";
 import { scenariosNeeding } from "./scenarios";
@@ -561,7 +561,7 @@ export function ConnectorsView({
                   onChange={() => setDraft({ ...draft, kind })}
                 />
                 <span>
-                  <strong>{kind === "stdio" ? "Local command" : "HTTP server"}</strong>
+                  <strong>{kind === "stdio" ? t("Local command") : t("HTTP server")}</strong>
                   <span className="hint">
                     {kind === "stdio"
                       ? t("A program on this machine, started by OpenCLI.")
@@ -914,7 +914,7 @@ export function SettingsView({
           {t("Model")}
           <select
             value={currentModel}
-            onChange={(e) => void put("model", e.target.value, "Default model")}
+            onChange={(e) => void put("model", e.target.value, t("Default model"))}
           >
             <option value="">{t("Not set")}</option>
             {models.map((model) => (
@@ -1005,7 +1005,7 @@ export function SettingsView({
               type="radio"
               name="approval-setting"
               checked={currentApproval === option.value}
-              onChange={() => void put("approval_policy", option.value, "Permission setting")}
+              onChange={() => void put("approval_policy", option.value, t("Permission setting"))}
             />
             <span>
               <strong>{option.label}</strong>
@@ -1023,7 +1023,7 @@ export function SettingsView({
               type="radio"
               name="sandbox-setting"
               checked={currentSandbox === option.value}
-              onChange={() => void put("sandbox_mode", option.value, "Sandbox setting")}
+              onChange={() => void put("sandbox_mode", option.value, t("Sandbox setting"))}
             />
             <span>
               <strong>{option.label}</strong>
@@ -1382,7 +1382,7 @@ export function ScheduledView({
                     className="secondary"
                     onClick={() => setExpanded(expanded === task.id ? null : task.id)}
                   >
-                    {expanded === task.id ? "Hide runs" : `Runs (${history.length})`}
+                    {expanded === task.id ? t("Hide runs") : t("Runs ({count})", { count: history.length })}
                   </button>
                 ) : null}
                 <button
@@ -2210,7 +2210,7 @@ export function MemoryView({
       <h3>{t("In every conversation")}</h3>
       <ul className="rows wide">
         {everywhere.length === 0 ? (
-          <li className="muted">{needle ? "Nothing matches." : "Nothing remembered yet."}</li>
+          <li className="muted">{needle ? t("Nothing matches.") : t("Nothing remembered yet.")}</li>
         ) : null}
         {everywhere.map(row)}
       </ul>
@@ -2343,8 +2343,7 @@ export function CustomizeView({
     <section className="panel">
       <h2>{t("Customize")}</h2>
       <p className="hint">
-        Kept on this computer. Most of it applies to chats you start from now on; the effort and
-        the appearance apply straight away.
+        {t("Kept on this computer. Most of it applies to chats you start from now on; the effort and the appearance apply straight away.")}
       </p>
 
       <h3>{t("Appearance")}</h3>
@@ -2382,7 +2381,7 @@ export function CustomizeView({
             <span className="hint">{t("Uses your browser's language.")}</span>
           </span>
         </label>
-        {LOCALES.map((locale) => (
+        {locales().map((locale) => (
           <label key={locale.value} className="choice">
             <input
               type="radio"
@@ -2396,6 +2395,14 @@ export function CustomizeView({
           </label>
         ))}
       </div>
+      {/* Without this the feature does not exist: a directory nobody is told
+          about is not somewhere anybody puts a file. */}
+      <p className="hint">
+        {t("Add a language by putting a file in {directory} — named for the language, like {example}, holding each English sentence and its replacement. A file named for a language that already ships corrects sentences in it rather than replacing the whole translation.", {
+          directory: localeDirectory() || "~/.opencli/locales",
+          example: "de.json",
+        })}
+      </p>
 
       <h3>{t("Text size")}</h3>
       <div className="choices">
@@ -2458,8 +2465,7 @@ export function CustomizeView({
         <li>
           <strong>{t("Show the agent's thinking")}</strong>
           <span>
-            Asks the model to summarise its reasoning. It thinks either way; turning this off
-            only stops the summary being requested.
+            {t("Asks the model to summarise its reasoning. It thinks either way; turning this off only stops the summary being requested.")}
           </span>
           <div className="actions">
             <label className="scope">
@@ -2614,7 +2620,7 @@ function RunRow({
       </div>
       {open ? (
         <pre className={`run-output${finished ? "" : " live"}`} ref={tail}>
-          {run.output || "Waiting for the agent to say something…"}
+          {run.output || t("Waiting for the agent to say something…")}
         </pre>
       ) : null}
     </li>
@@ -2931,7 +2937,7 @@ export function ProjectDetailView({
         </button>
       </div>
       <p className="hint">
-        {project.description || "No description."} · {project.cwd}
+        {project.description || t("No description.")} · {project.cwd}
       </p>
 
       {/* A project is somewhere to work, so the way to start working is here
@@ -3410,7 +3416,7 @@ export function ModelsView({
                         );
                     }}
                   >
-                    {busy === "adding" ? "Adding…" : usable ? "Already usable" : "Use in chats"}
+                    {busy === "adding" ? t("Adding…") : usable ? t("Already usable") : t("Use in chats")}
                   </button>
                   <button
                     className="secondary"
@@ -3591,7 +3597,7 @@ function OfferRow({
         {offer.downloads ? `${offer.downloads.toLocaleString()} downloads` : ""}
       </span>
       {offer.tools === false ? (
-        <span className="warn">Does not call tools — cannot drive the agent&apos;s own work</span>
+        <span className="warn">{t("Does not call tools — cannot drive the agent's own work")}</span>
       ) : null}
       {offer.tools === null && offer.source === "huggingface" ? (
         <span>{t("Whether it calls tools is only known once installed.")}</span>

@@ -410,7 +410,15 @@ export type ApprovalPolicy = "untrusted" | "on-failure" | "on-request" | "never"
 /** Per-thread preferences the user can change. */
 export type Appearance = "system" | "dark" | "light";
 /** `null` follows the browser's language list. */
-export type LanguageChoice = "system" | "en" | "zh";
+/**
+ * `"system"`, or a language code.
+ *
+ * Left open rather than listing the two that ship, because a language added
+ * in `$OPENCLI_HOME/locales` is chosen the same way as one that came in the
+ * build — and a type that could not name it would have made the setting
+ * unstorable for exactly the people the feature is for.
+ */
+export type LanguageChoice = "system" | string;
 export type TextSize = "normal" | "large" | "larger";
 
 export interface Preferences {
@@ -1831,6 +1839,22 @@ export class OpenCliClient {
     this.#runListeners.add(listener);
     return () => {
       this.#runListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Languages found in `$OPENCLI_HOME/locales`, plus where that is.
+   *
+   * An older gateway does not know the method, so the caller treats a failure
+   * as "none added" rather than as an error worth showing.
+   */
+  async addedLocales(): Promise<{
+    data: { code: string; name: string; strings: Record<string, string> }[];
+    directory: string;
+  }> {
+    return (await this.request("locale/list", {})) as {
+      data: { code: string; name: string; strings: Record<string, string> }[];
+      directory: string;
     };
   }
 

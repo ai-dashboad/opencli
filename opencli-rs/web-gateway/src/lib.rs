@@ -359,6 +359,7 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
             .or_else(|| plugin::handle(&text, &state.opencli_home))
             .or_else(|| secrets::handle(&text, &state.opencli_home))
             .or_else(|| workspace::handle(&text, &state.opencli_home))
+            .or_else(|| locale::handle(&text, &state.opencli_home))
             .or_else(|| bot::handle(&text, &state.opencli_home))
             .or_else(|| duty::handle(&text, &state.opencli_home))
             .or_else(|| handoff::handle(&text, &state.opencli_home))
@@ -429,6 +430,7 @@ mod dispatch;
 mod duty;
 mod handoff;
 mod hub;
+mod locale;
 mod memory;
 mod notify;
 mod plugin;

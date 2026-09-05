@@ -169,7 +169,7 @@ function writeSeen(seen: Record<string, number>): void {
 /** One readable line for a chat row. */
 function summarize(thread: ThreadSummary): string {
   const text = (thread.name ?? thread.preview).replace(/\s+/g, " ").trim();
-  return text || "New chat";
+  return text || t("New chat");
 }
 
 const NAV: { id: View; label: string; icon: React.ReactNode; badge?: string }[] = [
@@ -442,7 +442,7 @@ export default function Sidebar({
           ) : null}
           <ul className="tree">
             {loose.length === 0 ? (
-              <li className="empty">{query ? "Nothing matches" : "No chats yet"}</li>
+              <li className="empty">{query ? t("Nothing matches") : t("No chats yet")}</li>
             ) : (
               loose.map((thread) => (
                 <li key={thread.id} className="tree-item">

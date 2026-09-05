@@ -51,6 +51,76 @@ def without_comments(source: str) -> str:
     )
 
 
+# Text on screen that never went through `t()`.
+#
+# The check above compares what `t()` was given against each dictionary, which
+# means a sentence nobody wrapped is invisible to it: it is not untranslated,
+# it is not orphaned, it is simply not seen. That is how a report saying every
+# string was translated coexisted with a Chinese interface full of English —
+# a hundred and ninety-five of them, in panels people use daily.
+#
+# Two shapes reach a screen without a call: text between JSX tags, and a
+# literal given to a prop that renders. Both are matched conservatively, on
+# text that reads like a sentence rather than an identifier, so what is
+# reported is worth acting on.
+# `(?<!=)` keeps the arrow of `=> Promise<void>` from reading as a closing tag
+# followed by text. A return type and a text node are the same three
+# characters otherwise.
+JSX_TEXT = re.compile(r"(?<!=)>\s*([A-Z][A-Za-z][^<>{}\n]{2,90}?)\s*<")
+RENDERED_PROP = re.compile(
+    r'(?:placeholder|title|aria-label|label|alt)=\{?"([A-Z][^"\n]{2,90})"'
+)
+# A literal sentence in a ternary or a variable that ends up on screen.
+SENTENCE = re.compile(r'(?<![\w.])"([A-Z][a-z]+(?: [A-Za-z0-9\'’…\-\.\(\)]+){1,14})"')
+
+# Words that look like sentences but are not addressed to anybody: product
+# names, protocol values, and the shell.
+NOT_PROSE = {"OpenCLI", "Hugging Face"}
+
+# `Promise<void>` and friends: a type argument sits between `<` and `>` exactly
+# as JSX text does, and no regex over one line can tell them apart. Recognised
+# by the generic that follows rather than by name, so a new one is caught too.
+TYPE_ARGUMENT = re.compile(r"[A-Za-z]<[^<>]*$")
+
+
+# A sentence that wraps across lines between its tags. Matched over the whole
+# file rather than line by line, because the line-at-a-time pass above cannot
+# see it: the opening tag, the words, and the closing tag are on three
+# different lines, and each line on its own looks like nothing.
+#
+# Found the hard way — a paragraph in Customize sat in English through a check
+# that reported every string translated.
+WRAPPED_TEXT = re.compile(r">\n\s+([A-Z][a-z][^<>{}]{20,200}?)\n\s*</", re.S)
+
+
+def bare_strings(root: Path) -> list[tuple[str, int, str]]:
+    """English that reaches a screen without being translatable."""
+    found: list[tuple[str, int, str]] = []
+    for path in sorted(root.rglob("*.tsx")):
+        # A test asserts on English by design; it is not on anybody's screen.
+        if path.name.endswith((".test.tsx", ".test.ts")):
+            continue
+        whole = path.read_text(encoding="utf-8")
+        for match in WRAPPED_TEXT.finditer(whole):
+            text = " ".join(match.group(1).split())
+            found.append((str(path), whole[: match.start()].count("\n") + 2, text))
+        for number, line in enumerate(whole.split("\n"), 1):
+            if COMMENT_LINE.match(line):
+                continue
+            for pattern in (JSX_TEXT, RENDERED_PROP, SENTENCE):
+                for match in pattern.finditer(line):
+                    text = match.group(1).strip()
+                    if text in NOT_PROSE or text.startswith(("http", "/")):
+                        continue
+                    if TYPE_ARGUMENT.search(line[: match.start()]):
+                        continue
+                    # Already translated on this line, by this very call.
+                    if f't("{text}"' in line:
+                        continue
+                    found.append((str(path), number, text))
+    return found
+
+
 def main() -> int:
     root = Path(__file__).resolve().parent.parent / "web" / "src"
 
@@ -87,6 +157,13 @@ def main() -> int:
         for text in orphaned:
             # Not a failure: an orphan is dead weight, not a hole on screen.
             print(f"  orphaned: {text}")
+
+    bare = bare_strings(root)
+    if bare:
+        print(f"\n{len(bare)} strings reach the screen without t():")
+        for path, number, text in bare:
+            print(f"  {Path(path).name}:{number}  {text}")
+        failed = True
     return 1 if failed else 0
 
 
