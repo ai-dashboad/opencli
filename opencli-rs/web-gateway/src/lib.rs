@@ -305,6 +305,39 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
         }
     });
 
+    // Background runs announce themselves rather than being asked after.
+    //
+    // The signal carries nothing: it says look again. Several arrive in a
+    // burst while a run is writing, so they are coalesced — one notification
+    // per quiet moment is what a panel needs, and a client that reloads on
+    // every write of a chatty run would be back to polling with extra steps.
+    let announce = {
+        let out = out_tx_for_local.clone();
+        let mut runs = notify::subscribe_runs(&state.opencli_home);
+        tokio::spawn(async move {
+            /// Long enough to collect a burst, short enough to feel immediate.
+            const SETTLE: std::time::Duration = std::time::Duration::from_millis(150);
+            loop {
+                // Lagging means writes were missed, and the answer to that is
+                // the answer to any signal: ask for the list.
+                match runs.recv().await {
+                    Ok(()) => {}
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+                tokio::time::sleep(SETTLE).await;
+                while runs.try_recv().is_ok() {}
+                if out
+                    .send(r#"{"method":"dispatch/changed","params":{}}"#.to_string())
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        })
+    };
+
     // websocket -> app-server stdin
     while let Some(Ok(message)) = ws_rx.recv().await {
         let text = match message {
@@ -385,6 +418,7 @@ async fn bridge(socket: WebSocket, state: Arc<GatewayState>) -> Result<()> {
     let _ = child.wait().await;
     reader.abort();
     forward.abort();
+    announce.abort();
     Ok(())
 }
 
@@ -396,6 +430,7 @@ mod duty;
 mod handoff;
 mod hub;
 mod memory;
+mod notify;
 mod plugin;
 mod project;
 mod register;

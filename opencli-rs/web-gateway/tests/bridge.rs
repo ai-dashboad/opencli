@@ -114,3 +114,54 @@ async fn should_allow_connections_when_auth_is_disabled_on_loopback() {
 
     assert!(result.is_ok(), "loopback with --no-auth should connect");
 }
+
+/// The point of the change this tests: a run that moves reaches an open window
+/// without the window having asked.
+///
+/// Creating a run is enough to prove it — the same wrapper that announces a
+/// creation announces every later status and output write, which is what makes
+/// a ten-minute run readable as it goes.
+#[tokio::test]
+async fn should_tell_an_open_window_when_a_run_moves() {
+    let (addr, token, _dir) = start_gateway(false).await;
+    let token = token.expect("token when auth is enabled");
+    let url = format!("ws://{addr}/ws?token={token}");
+
+    let (mut socket, _) = tokio_tungstenite::connect_async(&url)
+        .await
+        .expect("connect");
+
+    use futures::SinkExt;
+    use futures::StreamExt;
+    socket
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            r#"{"method":"dispatch/create","id":1,"params":
+                {"prompt":"look at the build","cwd":"/tmp"}}"#
+                .into(),
+        ))
+        .await
+        .expect("send");
+
+    // Two frames arrive: the reply to the request, and the announcement. Only
+    // the second is what this test is about, and the order is not guaranteed.
+    let mut announced = false;
+    for _ in 0..2 {
+        let frame = tokio::time::timeout(Duration::from_secs(10), socket.next())
+            .await
+            .expect("no timeout")
+            .expect("stream open")
+            .expect("frame");
+        if frame
+            .into_text()
+            .expect("text frame")
+            .contains("dispatch/changed")
+        {
+            announced = true;
+            break;
+        }
+    }
+    assert!(
+        announced,
+        "creating a run must announce itself to an open window"
+    );
+}

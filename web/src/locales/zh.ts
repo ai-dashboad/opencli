@@ -11,11 +11,13 @@
  * would be translating a thing the reader has to type back.
  */
 export const zh: Record<string, string> = {
+  "Each one is a whole agent. More than your machine can feed makes them all slower, not sooner.": "每一个都是完整的 agent。超出机器喂得动的数量,只会让它们全都变慢,而不是更快完成。",
   "Move": "移动",
   "Move task": "移动任务",
   "Move to a department": "移动到部门",
   "Or a directory": "或指定目录",
   "Pick one…": "选一个…",
+  "Run at a time": "同时运行",
   "Set approvals to never, in Customize, and nothing is held.": "在 Customize 里把审批设为「从不」,就不会再扣住任何运行。",
   "Waiting for you": "等你授权",
   "A run can write anywhere in the directory it runs in. These are outside every department, so they are held until you say otherwise.": "一次运行可以写它所在目录里的任何东西。下面这些不在任何部门的目录里,所以先扣住,等你说了算。",
@@ -370,7 +372,7 @@ export const zh: Record<string, string> = {
   "Search skills": "搜索技能",
   "Send it off to run on its own": "派出去让它自己跑",
   "Send mode": "发送方式",
-  "Send work off to run on its own. Each run is a separate agent in its own directory, so it keeps going after you close the chat that started it. Three run at a time.": "把活派出去自己跑。每个任务都是独立的 agent、独立的目录,你关掉发起它的会话它也会继续。同时最多跑三个。",
+  "Send work off to run on its own. Each run is a separate agent in its own directory, so it keeps going after you close the chat that started it.": "把活儿发出去自己跑。每个运行都是一个独立的 agent,在自己的目录里工作,所以你关掉发起它的对话之后它还在跑。",
   "Send": "发送",
   "Service": "服务",
   "Settings": "设置",

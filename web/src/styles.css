@@ -2776,6 +2776,18 @@ textarea:focus {
   resize: vertical;
 }
 
+/* A setting that belongs in the middle of a sentence rather than above one. */
+.inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.inline-field select {
+  padding: 2px 6px;
+}
+
 .field .path-input button.ghost {
   display: flex;
   align-items: center;

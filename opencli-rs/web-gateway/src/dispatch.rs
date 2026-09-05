@@ -16,11 +16,124 @@ use std::time::Duration;
 /// would only spin.
 const TICK: Duration = Duration::from_secs(2);
 
-/// How many runs may be in flight at once.
+/// How many runs may be in flight at once when nothing says otherwise.
 ///
 /// Each is a full agent with its own model calls; letting an impatient click
 /// start twenty would exhaust a local model's memory and finish none of them.
-const MAX_PARALLEL: usize = 3;
+/// Three suits a laptop running one local model. It is a poor number for a
+/// workstation talking to a hosted API, which is why it can be changed.
+const DEFAULT_PARALLEL: usize = 3;
+
+/// The ceiling on that setting.
+///
+/// Not a matter of taste: past this, runs stop making progress and start
+/// competing for the same weights. Somebody who genuinely wants more should be
+/// running a second gateway, not raising a number.
+const MAX_PARALLEL: usize = 16;
+
+/// How many runs may be in flight, as configured.
+///
+/// Read on each tick, like the approval policy below, so changing it takes
+/// effect without a restart. A missing or nonsensical value falls back rather
+/// than stopping the worker — a typo in a config file should not silently
+/// stop background work.
+fn parallel(opencli_home: &Path) -> usize {
+    settings(opencli_home)
+        .get("parallel")
+        .and_then(Value::as_u64)
+        .map(|value| (value as usize).clamp(1, MAX_PARALLEL))
+        .unwrap_or(DEFAULT_PARALLEL)
+}
+
+const SETTINGS_FILE: &str = "dispatch-settings.json";
+
+fn settings(opencli_home: &Path) -> Value {
+    std::fs::read_to_string(opencli_home.join(SETTINGS_FILE))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_else(|| json!({}))
+}
+
+/// Read the setting, for showing it.
+fn read_settings(opencli_home: &Path) -> Value {
+    json!({
+        "parallel": parallel(opencli_home),
+        "max": MAX_PARALLEL,
+        "default": DEFAULT_PARALLEL,
+    })
+}
+
+fn write_settings(opencli_home: &Path, params: &Value) -> Result<Value, String> {
+    let wanted = params
+        .get("parallel")
+        .and_then(Value::as_u64)
+        .ok_or("parallel must be a number")?;
+    if wanted < 1 || wanted as usize > MAX_PARALLEL {
+        return Err(format!("parallel must be between 1 and {MAX_PARALLEL}"));
+    }
+    std::fs::write(
+        opencli_home.join(SETTINGS_FILE),
+        serde_json::to_string_pretty(&json!({ "parallel": wanted }))
+            .map_err(|err| format!("could not encode: {err}"))?,
+    )
+    .map_err(|err| format!("could not save: {err}"))?;
+    // Raising the limit should start the work that was waiting on it, and the
+    // worker looks again on its next tick — so say so now rather than leaving
+    // the panel showing a queue that is about to move.
+    crate::notify::runs_changed(opencli_home);
+    Ok(read_settings(opencli_home))
+}
+
+/// Every write to the run store goes through one of these.
+///
+/// Not for their own sake — they only forward — but so that changing a run
+/// and telling the open windows about it cannot come apart. The previous
+/// arrangement had the panel ask again every 1.5 seconds precisely because
+/// nothing announced anything; adding an announcement at each of a dozen call
+/// sites would have lasted until the thirteenth.
+fn set_status(
+    opencli_home: &Path,
+    id: &str,
+    status: dispatch::RunStatus,
+    code: Option<i32>,
+) -> std::io::Result<bool> {
+    let changed = dispatch::set_status(opencli_home, id, status, code);
+    crate::notify::runs_changed(opencli_home);
+    changed
+}
+
+fn set_output(opencli_home: &Path, id: &str, output: &str) -> std::io::Result<bool> {
+    let changed = dispatch::set_output(opencli_home, id, output);
+    crate::notify::runs_changed(opencli_home);
+    changed
+}
+
+fn delete_run(opencli_home: &Path, id: &str) -> std::io::Result<bool> {
+    let removed = dispatch::delete(opencli_home, id);
+    crate::notify::runs_changed(opencli_home);
+    removed
+}
+
+fn clear_finished(opencli_home: &Path) -> std::io::Result<usize> {
+    let cleared = dispatch::clear_finished(opencli_home);
+    crate::notify::runs_changed(opencli_home);
+    cleared
+}
+
+#[allow(clippy::too_many_arguments)]
+fn create_run(
+    opencli_home: &Path,
+    title: String,
+    prompt: String,
+    cwd: String,
+    model: Option<String>,
+    source: dispatch::RunSource,
+    task_id: Option<String>,
+) -> std::io::Result<dispatch::Run> {
+    let made = dispatch::create(opencli_home, title, prompt, cwd, model, source, task_id);
+    crate::notify::runs_changed(opencli_home);
+    made
+}
 
 /// Answer a `dispatch/*` request, or return `None` to let it pass through.
 pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
@@ -40,6 +153,8 @@ pub fn handle(raw: &str, opencli_home: &Path) -> Option<String> {
         "dispatch/clear" => clear(opencli_home),
         "dispatch/allowDirectory" => allow_directory(opencli_home, &params),
         "dispatch/directories" => Ok(directories(opencli_home)),
+        "dispatch/settings" => Ok(read_settings(opencli_home)),
+        "dispatch/setParallel" => write_settings(opencli_home, &params),
         _ => Err(format!("unknown method `{method}`")),
     };
 
@@ -72,7 +187,7 @@ fn allow_directory(opencli_home: &Path, params: &Value) -> Result<Value, String>
         if run.status == dispatch::RunStatus::NeedsApproval
             && opencli_core::directories::allowed(opencli_home, Path::new(&run.cwd))
         {
-            let _ = dispatch::set_status(opencli_home, &run.id, dispatch::RunStatus::Queued, None);
+            let _ = set_status(opencli_home, &run.id, dispatch::RunStatus::Queued, None);
             released += 1;
         }
     }
@@ -160,7 +275,7 @@ fn create(opencli_home: &Path, params: &Value) -> Result<Value, String> {
         _ => dispatch::RunSource::Dispatch,
     };
 
-    let run = dispatch::create(
+    let run = create_run(
         opencli_home,
         title,
         prompt.to_string(),
@@ -197,7 +312,7 @@ fn required_id(params: &Value) -> Result<&str, String> {
 /// and marks it so the user knows it will not be waited on.
 fn cancel(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     let id = required_id(params)?;
-    let found = dispatch::set_status(opencli_home, id, dispatch::RunStatus::Cancelled, None)
+    let found = set_status(opencli_home, id, dispatch::RunStatus::Cancelled, None)
         .map_err(|err| format!("could not save: {err}"))?;
     if !found {
         return Err(format!("no run with id `{id}`"));
@@ -208,7 +323,7 @@ fn cancel(opencli_home: &Path, params: &Value) -> Result<Value, String> {
 fn delete(opencli_home: &Path, params: &Value) -> Result<Value, String> {
     let id = required_id(params)?;
     let removed =
-        dispatch::delete(opencli_home, id).map_err(|err| format!("could not save: {err}"))?;
+        delete_run(opencli_home, id).map_err(|err| format!("could not save: {err}"))?;
     if !removed {
         return Err("that run is still going; cancel it first".to_string());
     }
@@ -217,7 +332,7 @@ fn delete(opencli_home: &Path, params: &Value) -> Result<Value, String> {
 
 fn clear(opencli_home: &Path) -> Result<Value, String> {
     let cleared =
-        dispatch::clear_finished(opencli_home).map_err(|err| format!("could not save: {err}"))?;
+        clear_finished(opencli_home).map_err(|err| format!("could not save: {err}"))?;
     Ok(json!({ "cleared": cleared }))
 }
 
@@ -244,13 +359,14 @@ pub async fn run_worker(opencli_home: PathBuf, opencli_bin: PathBuf) {
             .iter()
             .filter(|run| run.status == dispatch::RunStatus::Running)
             .count();
-        if in_flight >= MAX_PARALLEL {
+        let limit = parallel(&opencli_home);
+        if in_flight >= limit {
             continue;
         }
 
         for run in dispatch::queued(&opencli_home)
             .into_iter()
-            .take(MAX_PARALLEL - in_flight)
+            .take(limit - in_flight)
         {
             // Where it would run, before it runs.
             //
@@ -266,7 +382,7 @@ pub async fn run_worker(opencli_home: PathBuf, opencli_bin: PathBuf) {
                 std::path::Path::new(&run.cwd),
                 approval_policy(&opencli_home),
             ) {
-                let _ = dispatch::set_output(
+                let _ = set_output(
                     &opencli_home,
                     &run.id,
                     &format!(
@@ -275,7 +391,7 @@ pub async fn run_worker(opencli_home: PathBuf, opencli_bin: PathBuf) {
                         run.cwd
                     ),
                 );
-                let _ = dispatch::set_status(
+                let _ = set_status(
                     &opencli_home,
                     &run.id,
                     dispatch::RunStatus::NeedsApproval,
@@ -285,7 +401,7 @@ pub async fn run_worker(opencli_home: PathBuf, opencli_bin: PathBuf) {
             }
 
             // Claim it before spawning: two ticks must not start the same run.
-            match dispatch::set_status(&opencli_home, &run.id, dispatch::RunStatus::Running, None) {
+            match set_status(&opencli_home, &run.id, dispatch::RunStatus::Running, None) {
                 Ok(true) => {}
                 Ok(false) => continue,
                 Err(err) => {
@@ -375,8 +491,8 @@ async fn execute(opencli_home: PathBuf, opencli_bin: PathBuf, run: dispatch::Run
         Ok(child) => child,
         Err(err) => {
             let text = format!("could not start the agent: {err}");
-            let _ = dispatch::set_output(&opencli_home, &run.id, &text);
-            let _ = dispatch::set_status(&opencli_home, &run.id, dispatch::RunStatus::Failed, None);
+            let _ = set_output(&opencli_home, &run.id, &text);
+            let _ = set_status(&opencli_home, &run.id, dispatch::RunStatus::Failed, None);
             return;
         }
     };
@@ -411,7 +527,7 @@ async fn execute(opencli_home: PathBuf, opencli_bin: PathBuf, run: dispatch::Run
         // and a chatty run would otherwise rewrite it hundreds of times a
         // second for the sake of a reader who polls every few seconds.
         if unsaved && last_save.elapsed() >= WRITE_EVERY {
-            let _ = dispatch::set_output(&opencli_home, &run.id, &text);
+            let _ = set_output(&opencli_home, &run.id, &text);
             unsaved = false;
             last_save = std::time::Instant::now();
         }
@@ -428,10 +544,10 @@ async fn execute(opencli_home: PathBuf, opencli_bin: PathBuf, run: dispatch::Run
     };
     let output = text;
 
-    if let Err(err) = dispatch::set_output(&opencli_home, &run.id, &output) {
+    if let Err(err) = set_output(&opencli_home, &run.id, &output) {
         tracing::error!("could not record output for `{}`: {err}", run.title);
     }
-    if let Err(err) = dispatch::set_status(&opencli_home, &run.id, status, code) {
+    if let Err(err) = set_status(&opencli_home, &run.id, status, code) {
         tracing::error!("could not record status for `{}`: {err}", run.title);
     }
 }

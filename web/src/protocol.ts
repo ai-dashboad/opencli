@@ -1037,6 +1037,9 @@ export class OpenCliClient {
    * the id it streamed under. Without this the repeat is appended beside it.
    */
   #shownAs = new Map<string, string>();
+
+  /** Panels watching background runs; see `onRunsChanged`. */
+  #runListeners = new Set<() => void>();
   /** The thread the agent has actually been given, if any. */
   #loadedThreadId: string | null = null;
   /**
@@ -1448,6 +1451,12 @@ export class OpenCliClient {
       this.#events.onPullProgress?.(payload as unknown as PullProgress);
       return;
     }
+    // Carries nothing: it means look again. Panels come and go, so this is a
+    // set of listeners rather than one callback given at construction.
+    if (method === "dispatch/changed") {
+      for (const listener of this.#runListeners) listener();
+      return;
+    }
     // Two spellings of the same fact. The v2 notification is camelCase and
     // nested under `tokenUsage`; the event the server actually sends today is
     // the older `token_count`, snake_case and nested under `msg.info`. Reading
@@ -1809,6 +1818,33 @@ export class OpenCliClient {
     cwd: string;
   }): Promise<ScheduledTask> {
     return (await this.request("schedule/create", task)) as ScheduledTask;
+  }
+
+  /**
+   * Be told when background runs move, instead of asking on a timer.
+   *
+   * Returns the unsubscribe, so a panel can hand it straight back from an
+   * effect. The signal says only that something changed — the caller asks for
+   * what it needs, which keeps one description of a run rather than two.
+   */
+  onRunsChanged(listener: () => void): () => void {
+    this.#runListeners.add(listener);
+    return () => {
+      this.#runListeners.delete(listener);
+    };
+  }
+
+  /** How many runs go at once, and the range that may be asked for. */
+  async dispatchSettings(): Promise<{ parallel: number; max: number; default: number }> {
+    return (await this.request("dispatch/settings", {})) as {
+      parallel: number;
+      max: number;
+      default: number;
+    };
+  }
+
+  async setDispatchParallel(parallel: number): Promise<{ parallel: number }> {
+    return (await this.request("dispatch/setParallel", { parallel })) as { parallel: number };
   }
 
   /**

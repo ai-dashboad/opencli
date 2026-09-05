@@ -2644,6 +2644,8 @@ export function DispatchView({
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [directory, setDirectory] = useState(cwd);
+  const [parallel, setParallel] = useState(3);
+  const [parallelMax, setParallelMax] = useState(16);
 
   const reload = useCallback(async () => {
     try {
@@ -2654,19 +2656,34 @@ export function DispatchView({
     }
   }, [client]);
 
+  // Asked for once. It changes only when somebody changes it here, and an
+  // older gateway does not answer at all — in which case the shown default is
+  // the one that gateway is using anyway.
+  useEffect(() => {
+    void client
+      .dispatchSettings()
+      .then((settings) => {
+        setParallel(settings.parallel);
+        setParallelMax(settings.max);
+      })
+      .catch(() => {});
+  }, [client]);
+
   const active = runs.filter((run) => run.status === "queued" || run.status === "running");
   // Not "finished" and not running: waiting on a person, which is the one
   // state somebody has to act on.
   const held = runs.filter((run) => run.status === "needsApproval");
 
-  // Faster while something is running: the output arrives as the agent
-  // produces it, and four seconds between glimpses of a live log is a long
-  // time to watch nothing.
+  // The gateway says when runs move; nothing is asked for on a timer.
+  //
+  // This used to poll every 1.5 seconds while anything ran, which got the
+  // output on screen a tick late and asked the same question hundreds of times
+  // to hear the same answer. The worker and this socket are in one process, so
+  // it can simply say so.
   useEffect(() => {
     void reload();
-    const timer = setInterval(() => void reload(), active.length > 0 ? 1500 : 6000);
-    return () => clearInterval(timer);
-  }, [active.length, reload]);
+    return client.onRunsChanged(() => void reload());
+  }, [client, reload]);
 
   const dispatch = useCallback(async () => {
     try {
@@ -2688,7 +2705,34 @@ export function DispatchView({
     <section className="panel">
       <h2>{t("Dispatch")}</h2>
       <p className="hint">
-        {t("Send work off to run on its own. Each run is a separate agent in its own directory, so it keeps going after you close the chat that started it. Three run at a time.")}
+        {t("Send work off to run on its own. Each run is a separate agent in its own directory, so it keeps going after you close the chat that started it.")}
+      </p>
+      {/* The count used to be part of the sentence above, which made it a
+          claim rather than a setting — and the claim was wrong for anyone
+          whose runs go to a hosted API instead of one local model. */}
+      <p className="hint">
+        <label className="inline-field">
+          {t("Run at a time")}
+          <select
+            value={parallel}
+            onChange={(event) => {
+              const wanted = Number(event.target.value);
+              setParallel(wanted);
+              void client
+                .setDispatchParallel(wanted)
+                .catch((err: unknown) =>
+                  setError(err instanceof Error ? err.message : String(err)),
+                );
+            }}
+          >
+            {Array.from({ length: parallelMax }, (_, index) => index + 1).map((count) => (
+              <option key={count} value={count}>
+                {count}
+              </option>
+            ))}
+          </select>
+        </label>{" "}
+        {t("Each one is a whole agent. More than your machine can feed makes them all slower, not sooner.")}
       </p>
       {error ? <p className="error">{error}</p> : null}
 
