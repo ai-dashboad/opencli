@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OpenCLI — a coding agent for the models you run yourself</title>
+    <title>OpenCLI — the agent for the models that do not have one</title>
     <meta
       name="description"
-      content="A coding agent for your terminal and your desktop that works with any OpenAI-compatible API — including a model running on your own machine. No accounts, no keys built in."
+      content="Claude has Claude Code. OpenAI has Codex. Qwen, DeepSeek, GLM, Llama and Mistral have none. OpenCLI is theirs — a terminal agent and a desktop app for any OpenAI-compatible endpoint, including one on your own machine."
     />
     <link rel="icon" href="/favicon.svg" />
     <link rel="stylesheet" href="/src/styles.css" />
@@ -42,11 +42,15 @@
     <main>
       <section class="hero">
         <div class="wrap">
-          <h1>A coding agent for the models you run yourself</h1>
+          <h1>The agent for the models that do not have one</h1>
           <p class="lede">
-            OpenCLI reads your code, runs your commands and edits your files — through any
-            OpenAI-compatible API. A hosted provider, your own gateway, or a model on the machine
-            in front of you. It ships with no accounts and no keys.
+            Claude has Claude Code. OpenAI has Codex. Gemini has its CLI. The models you can
+            actually run — Qwen, DeepSeek, GLM, Llama, Mistral — have none.
+          </p>
+          <p class="lede">
+            OpenCLI is theirs. A terminal agent and a desktop app pointed at whatever
+            OpenAI-compatible endpoint you like: a model on the machine in front of you, your own
+            gateway, or a hosted provider when you want one. No models, no accounts, no keys.
           </p>
           <div class="cta">
             <a class="button" href="/download.html" data-download-main>Download</a>
@@ -89,13 +93,206 @@
               </p>
             </div>
             <div class="card">
-              <strong>Projects, memory, schedules</strong>
+              <strong>Organised like an office</strong>
               <p>
-                Group work by directory with standing instructions, keep facts across
-                conversations, and put a recurring prompt on a timer.
+                A <em>department</em> is a directory with standing instructions. A <em>bot</em> is
+                a chat inside one, with a job. A <em>duty</em> comes round on its own and asks you
+                when it is stuck.
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>It is not only for code</h2>
+          <p>
+            The agent reads files, runs commands and edits things. That is as true of a folder of
+            invoices as it is of a repository — and most of the work people actually have is the
+            first kind. Nine departments ship with sample data, so each of these can be tried
+            before it is set up.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th>What ships with it</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Finance</strong></td>
+                <td>Reconcile a ledger against a statement; draft one chasing email per overdue customer</td>
+              </tr>
+              <tr>
+                <td><strong>Support</strong></td>
+                <td>Answer what came in; group the questions by what they are really about</td>
+              </tr>
+              <tr>
+                <td><strong>Operations</strong></td>
+                <td>List every order still unshipped, with how long it has waited</td>
+              </tr>
+              <tr>
+                <td><strong>Legal</strong></td>
+                <td>Compare their draft against our terms, clause by clause, quoting both</td>
+              </tr>
+              <tr>
+                <td><strong>People &amp; admin</strong></td>
+                <td>Read applicants against a role; pull decisions and owners out of meeting notes</td>
+              </tr>
+              <tr>
+                <td><strong>Marketing, Research, Clinical records, Engineering</strong></td>
+                <td>Posts from notes; where studies conflict and why; what a clinician should look at, quoted; what in a service would give a wrong answer</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="margin-top: 22px">
+            Six more workflows ship as skills and work in any directory: reviewing a file of rows
+            against its rules, reporting what changed over a week, triaging an inbox, comparing two
+            drafts, turning a transcript into decisions and owners, and reading a set of records
+            for what is worth checking.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>Which models actually work</h2>
+          <p>
+            The question nobody else answers. Calling tools is what separates a model that can do
+            this from one that can only talk about it, and the model card never says.
+          </p>
+          <p>
+            One fixed task: a six-row invoice file with three planted problems — an amount over the
+            limit with no purchase order, a blank amount, and a date with a month of 13 — and a
+            file stating the three rules. A pass means all three found, each quoted against the
+            rule it breaks, with the row number.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Runtime</th>
+                <th>Calls tools</th>
+                <th>Found 3/3</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>huihui-qwen3.8-27b</code></td>
+                <td>Ollama, local</td>
+                <td>yes</td>
+                <td>yes</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="margin-top: 22px">
+            This table is short because it only holds what has been run.
+            <a href="https://github.com/ai-dashboad/opencli/blob/main/docs/model-check.md">Adding a
+            row</a> is the most useful contribution you can make, and it takes about five minutes.
+            Negative results are worth as much as positive ones and are harder to come by — nobody
+            posts about the model that did not work.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>What it cannot do</h2>
+          <p>
+            Said here rather than discovered later.
+          </p>
+          <ul>
+            <li>
+              <strong>General open models reach for <code>grep</code> when they have a file
+              tool.</strong> A model not trained towards agentic work will shell out even when
+              given a structured way to read a file. That is a gap in the models, and no interface
+              closes it. What this project can change is reach, not intelligence.
+            </li>
+            <li>
+              <strong>The desktop builds are not signed</strong> with an Apple or Microsoft
+              certificate. Your operating system will warn you, and it is right to — it cannot tell
+              who built them. The <a href="/download.html">download page</a> says what to do.
+            </li>
+            <li>
+              <strong>Scheduled tasks run only while OpenCLI is open.</strong> This is a local
+              agent, not a server. Anything that must fire while the machine sleeps belongs in the
+              operating system's scheduler.
+            </li>
+            <li>
+              <strong>Token counts are estimated, never counted.</strong> The tokenizer belongs to
+              the model, and this runs models it has never seen.
+            </li>
+            <li>
+              <strong>A background run may write anything inside the directory it runs in.</strong>
+              The sandbox's writable root <em>is</em> that directory. Runs outside a department's
+              directory are held until you allow the place by name.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <h2>How it compares</h2>
+          <p>
+            Not a scorecard. These are different tools, and the row that matters is the first one.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>&nbsp;</th>
+                <th>OpenCLI</th>
+                <th>Claude Code · Codex · Gemini CLI</th>
+                <th>Ollama · LM Studio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Which models</td>
+                <td>Any OpenAI-compatible endpoint</td>
+                <td>Their own vendor's</td>
+                <td>Any local one — but as a runtime, not an agent</td>
+              </tr>
+              <tr>
+                <td>Reads and edits your files</td>
+                <td>Yes</td>
+                <td>Yes</td>
+                <td>No — it is a chat window</td>
+              </tr>
+              <tr>
+                <td>Runs commands, unattended if you allow it</td>
+                <td>Yes</td>
+                <td>Yes</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td>Where your files go</td>
+                <td>The endpoint you configured, and nowhere else</td>
+                <td>The vendor</td>
+                <td>Nowhere</td>
+              </tr>
+              <tr>
+                <td>Works offline</td>
+                <td>Yes, with a local model</td>
+                <td>No</td>
+                <td>Yes</td>
+              </tr>
+              <tr>
+                <td>Cost</td>
+                <td>Free; you pay for inference, or nothing if it is local</td>
+                <td>Per seat or per token</td>
+                <td>Free</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="margin-top: 22px">
+            One thing worth saying plainly: a small local model is not as good at this as a
+            frontier one. The interface is the same; the reasoning is not. OpenCLI is built so
+            that choice is yours to make per task, not made for you — and if the frontier model is
+            the right answer today, point it there. It speaks the same API.
+          </p>
         </div>
       </section>
 
@@ -126,48 +323,6 @@ slug = "qwen3-coder"
 model = "qwen3-coder:30b"
 provider = "ollama"
 context_window = 32768</pre>
-        </div>
-      </section>
-
-      <section>
-        <div class="wrap">
-          <h2>How it compares</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>&nbsp;</th>
-                <th>OpenCLI</th>
-                <th>Hosted agents</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Where the model runs</td>
-                <td>Wherever you point it, including your own hardware</td>
-                <td>The vendor's servers</td>
-              </tr>
-              <tr>
-                <td>Where your code goes</td>
-                <td>To the endpoint you configured, and nowhere else</td>
-                <td>To the vendor</td>
-              </tr>
-              <tr>
-                <td>Cost</td>
-                <td>Free; you pay for inference, or nothing if it is local</td>
-                <td>Per seat or per token</td>
-              </tr>
-              <tr>
-                <td>Works offline</td>
-                <td>Yes, with a local model</td>
-                <td>No</td>
-              </tr>
-            </tbody>
-          </table>
-          <p style="margin-top: 22px">
-            One thing worth saying plainly: a small local model is not as good at this as a
-            frontier one. The interface is the same; the reasoning is not. OpenCLI is built so
-            that choice is yours to make per task, not made for you.
-          </p>
         </div>
       </section>
     </main>
