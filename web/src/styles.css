@@ -3938,3 +3938,35 @@ textarea:focus {
   padding: 0;
   overflow: visible;
 }
+
+/*
+ * A file picker that reads as a button.
+ *
+ * The native control says "Choose File" in the browser's own language and
+ * cannot be relabelled — on a screen about choosing a language, a particularly
+ * bad place for a word nobody asked for. So the input is hidden and its label
+ * carries the appearance.
+ */
+.upload input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.upload .button-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.upload .button-like:hover {
+  background: var(--surface-hover);
+}

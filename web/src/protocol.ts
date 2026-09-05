@@ -1858,6 +1858,23 @@ export class OpenCliClient {
     };
   }
 
+  /** Keep a language file, so it is there next time and on any other window. */
+  async addLocale(locale: {
+    code: string;
+    name: string;
+    strings: Record<string, string>;
+  }): Promise<{ code: string; name: string; count: number }> {
+    return (await this.request("locale/add", locale)) as {
+      code: string;
+      name: string;
+      count: number;
+    };
+  }
+
+  async removeLocale(code: string): Promise<void> {
+    await this.request("locale/remove", { code });
+  }
+
   /** How many runs go at once, and the range that may be asked for. */
   async dispatchSettings(): Promise<{ parallel: number; max: number; default: number }> {
     return (await this.request("dispatch/settings", {})) as {

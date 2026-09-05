@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addLocales, getLocale, locales, setLocale, t } from "./i18n";
+import { addLocales, detectLocale, getLocale, locales, setLocale, t } from "./i18n";
 
 /**
  * Languages added on the machine running this, rather than in the build.
@@ -32,19 +32,40 @@ describe("added languages", () => {
     setLocale("en");
   });
 
-  it("should correct a shipped language rather than replacing it", () => {
+  it("should correct a shipped language rather than replacing it", async () => {
     // The point of merging: changing one awkward sentence must not cost the
-    // other four hundred.
+    // other four hundred. Awaited because a shipped dictionary is fetched
+    // when its language is chosen rather than bundled with the app.
     addLocales([{ code: "zh", name: "", strings: { Dispatch: "派活儿" } }]);
-    setLocale("zh");
+    await setLocale("zh");
     expect(t("Dispatch")).toBe("派活儿");
     expect(t("Memory")).toBe("记忆");
-    setLocale("en");
+    await setLocale("en");
   });
 
   it("should keep a shipped language's own name when the file gives none", () => {
     addLocales([{ code: "zh", name: "", strings: {} }]);
-    expect(locales().find((each) => each.value === "zh")?.label).toBe("中文");
+    expect(locales().find((each) => each.value === "zh")?.label).toBe("简体中文");
+  });
+
+  it("should offer the languages that ship in the build", () => {
+    // The list the picker draws. Named in themselves, so a reader who cannot
+    // read what is currently on screen can still find their own.
+    const offered = locales().map((each) => each.value);
+    for (const code of ["en", "zh", "zh-Hant", "ja", "ko", "es", "pt-BR", "fr", "de", "ru"]) {
+      expect(offered).toContain(code);
+    }
+  });
+
+  it("should prefer the longer match when a reader asks for a script", () => {
+    // `zh-Hant-TW` must find `zh-Hant`, not `zh`. The other way round gives a
+    // traditional-Chinese reader the simplified translation, which is worse
+    // than English: it looks right.
+    Object.defineProperty(navigator, "languages", {
+      value: ["zh-Hant-TW", "en"],
+      configurable: true,
+    });
+    expect(detectLocale()).toBe("zh-Hant");
   });
 
   it("should fill in the numbers an added sentence asks for", () => {

@@ -53,7 +53,7 @@ export function writePreferences(preferences: Preferences): void {
  * `system` removes the attribute rather than setting it, so the media query in
  * the stylesheet is what decides — one place makes the choice instead of two.
  */
-export function applyAppearance(preferences: Preferences): void {
+export function applyAppearance(preferences: Preferences): Promise<void> {
   const root = document.documentElement;
   const appearance = preferences.appearance ?? "system";
   if (appearance === "system") {
@@ -70,5 +70,7 @@ export function applyAppearance(preferences: Preferences): void {
   }
 
   const language = preferences.language ?? "system";
-  setLocale(language === "system" ? detectLocale() : language);
+  // The dictionary for a shipped language is fetched rather than bundled, so
+  // this finishes a moment after it is called.
+  return setLocale(language === "system" ? detectLocale() : language);
 }

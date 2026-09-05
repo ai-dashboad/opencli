@@ -42,7 +42,7 @@ import type {
   SkillSummary,
   ThreadSummary,
 } from "./protocol";
-import { localeDirectory, locales, plural, t } from "./i18n";
+import { addLocales, localeDirectory, locales, plural, t } from "./i18n";
 import { QrCode } from "./qr";
 import { shows, type AbilityFilter } from "./abilities";
 import { scenariosNeeding } from "./scenarios";
@@ -2330,13 +2330,53 @@ export function CustomizeView({
   preferences,
   onChange,
   efforts,
+  client,
 }: {
   preferences: Preferences;
   onChange: (next: Preferences) => void;
   /** Efforts the chosen model accepts; empty when it takes none. */
   efforts: string[];
+  /** Absent before the agent has connected; the language upload needs it. */
+  client?: OpenCliClient;
 }) {
   const available = EFFORTS.filter((effort) => efforts.includes(effort.value));
+  const [languageNote, setLanguageNote] = useState<string | null>(null);
+  const [languageError, setLanguageError] = useState<string | null>(null);
+
+  /**
+   * Take a language file somebody chose, and keep it.
+   *
+   * Both shapes the documentation describes are accepted, because both are the
+   * obvious thing to write: an envelope with a `name`, or the bare map of
+   * sentences. The code comes from the filename, which is what the directory
+   * has always used.
+   */
+  const uploadLanguage = useCallback(
+    async (file: File) => {
+      if (!client) return;
+      setLanguageNote(null);
+      setLanguageError(null);
+      try {
+        const parsed = JSON.parse(await file.text()) as Record<string, unknown>;
+        const strings = (
+          parsed.strings && typeof parsed.strings === "object" ? parsed.strings : parsed
+        ) as Record<string, string>;
+        const code = file.name.replace(/\.json$/i, "");
+        const name = typeof parsed.name === "string" ? parsed.name : code;
+        const saved = await client.addLocale({ code, name, strings });
+        addLocales([{ code: saved.code, name: saved.name, strings }]);
+        setLanguageNote(
+          t("Added {name} with {count} sentences. Choose it above.", {
+            name: saved.name,
+            count: saved.count,
+          }),
+        );
+      } catch (err) {
+        setLanguageError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [client],
+  );
 
   return (
     <section className="panel">
@@ -2394,10 +2434,31 @@ export function CustomizeView({
           </label>
         ))}
       </div>
-      {/* Without this the feature does not exist: a directory nobody is told
-          about is not somewhere anybody puts a file. */}
+      {/* Two ways in, on purpose. The file picker is how somebody with a
+          translation in hand uses it without knowing anything; the directory
+          is how they find it afterwards, edit it, and copy it to another
+          machine. Naming the directory is what keeps the first from being a
+          one-way door. */}
+      {client ? (
+        <div className="actions">
+          <label className="upload">
+            <input
+              type="file"
+              accept=".json,application/json"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) void uploadLanguage(file);
+              }}
+            />
+            <span className="button-like">{t("Add a language file…")}</span>
+          </label>
+        </div>
+      ) : null}
+      {languageNote ? <p className="hint">{languageNote}</p> : null}
+      {languageError ? <p className="error">{languageError}</p> : null}
       <p className="hint">
-        {t("Add a language by putting a file in {directory} — named for the language, like {example}, holding each English sentence and its replacement. A file named for a language that already ships corrects sentences in it rather than replacing the whole translation.", {
+        {t("A language is one JSON file, named for the language — {example} — holding each English sentence and its replacement. Files live in {directory}, so one added here can be edited by hand afterwards or copied to another machine. A file named for a language that already ships corrects sentences in it rather than replacing the whole translation.", {
           directory: localeDirectory() || "~/.opencli/locales",
           example: "de.json",
         })}

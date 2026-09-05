@@ -50,7 +50,7 @@ import { APPROVAL_MODES, ApprovalMenu, AttachMenu, ModelMenu, Popover } from "./
 import { chooseDirectory, chooseFiles, fromHost, isDesktop } from "./host";
 import { useUpdate } from "./update";
 import { applyAppearance, readPreferences, writePreferences } from "./preferences";
-import { addLocales, getLocale, setLocaleDirectory, type Locale } from "./i18n";
+import { addLocales, localeTag, setLocaleDirectory, type Locale } from "./i18n";
 import { Boot } from "./boot";
 import { Markdown } from "./markdown";
 import { shouldInterrupt, shouldSend } from "./composer";
@@ -314,7 +314,7 @@ const TranscriptItem = memo(function TranscriptItem({
  * changed about once per install.
  */
 export default function App() {
-  const [locale, setLocale] = useState(getLocale);
+  const [locale, setLocale] = useState(localeTag);
   return <Interface key={locale} onLocaleChange={setLocale} />;
 }
 
@@ -380,8 +380,10 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
   const [preferences, setPreferences] = useState<Preferences>(readPreferences);
   useEffect(() => {
     writePreferences(preferences);
-    applyAppearance(preferences);
-    onLocaleChange(getLocale());
+    // Told twice on purpose: once now, so the theme and text size take effect
+    // at once, and again when the language's dictionary has arrived.
+    onLocaleChange(localeTag());
+    void applyAppearance(preferences).then(() => onLocaleChange(localeTag()));
   }, [onLocaleChange, preferences]);
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -765,7 +767,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
             // already on screen was drawn from a dictionary that did not yet
             // exist. Re-applying settles it.
             applyAppearance(preferencesRef.current);
-            onLocaleChange(getLocale());
+            onLocaleChange(localeTag());
           }
         } catch {
           // No added languages, or a gateway that predates them.
@@ -1359,6 +1361,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
           />
         ) : view === "customize" ? (
           <CustomizeView
+            client={clientRef.current ?? undefined}
             preferences={preferences}
             onChange={setPreferences}
             efforts={models.find((option) => option.model === model)?.reasoningEfforts ?? []}

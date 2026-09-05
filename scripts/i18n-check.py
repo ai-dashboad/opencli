@@ -11,6 +11,7 @@ interface quietly reverts to English in the middle of a panel.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -29,7 +30,22 @@ PLURAL = re.compile(
     r'"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"'
 )
 
-ENTRY = re.compile(r'^  "((?:[^"\\]|\\.)*)":', re.M)
+# Translations are JSON files in `web/src/locales`, the same shape as one
+# somebody drops in `$OPENCLI_HOME/locales`. One format for both is the point:
+# a shipped translation can be copied out, corrected and put back.
+def entries(path: Path) -> list[str]:
+    body = json.loads(path.read_text(encoding="utf-8"))
+    return list(body.get("strings", body))
+
+
+# Which translations must be complete for this to pass.
+#
+# Nine ship. Requiring every one of them to be finished before an English
+# sentence may be added would mean no sentence is ever added — a translation
+# nobody has caught up on yet shows English for those lines, which is the
+# design, not a fault. So one is held to completeness and the rest are
+# reported.
+MAINTAINED = {"zh"}
 
 # A `t("…")` written *about* the code is not a string the interface uses. One
 # in a docstring explaining how this very check works was duly reported as an
@@ -174,8 +190,8 @@ def main() -> int:
             used |= {match.group(1), match.group(2)}
 
     failed = False
-    for locale in sorted((root / "locales").glob("*.ts")):
-        listed = ENTRY.findall(locale.read_text(encoding="utf-8"))
+    for locale in sorted((root / "locales").glob("*.json")):
+        listed = entries(locale)
         have = set(listed)
         # A key written twice means one translation silently replaces the
         # other, and reading these as a set made that invisible here — it was
@@ -190,10 +206,13 @@ def main() -> int:
                 seen.add(text)
         missing = sorted(used - have)
         orphaned = sorted(have - used)
-        print(f"{locale.stem}: {len(have)} of {len(used)} translated")
+        held = locale.stem in MAINTAINED
+        note = "" if held else "  (reported, not required)"
+        print(f"{locale.stem}: {len(have & used)} of {len(used)} translated{note}")
         for text in missing:
             print(f"  missing:  {text}")
-            failed = True
+            if held:
+                failed = True
         for text in orphaned:
             # Not a failure: an orphan is dead weight, not a hole on screen.
             print(f"  orphaned: {text}")

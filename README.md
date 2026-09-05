@@ -164,10 +164,18 @@ reference is in [docs/config.md](./docs/config.md).
 
 ## Interface
 
-English and Simplified Chinese ship with it. Any other language is a file in
-`~/.opencli/locales` — see [docs/languages.md](./docs/languages.md). A file
-named for a language that already ships corrects sentences in it rather than
-replacing the whole translation.
+Ten translations ship with it: English, 简体中文, 繁體中文, 日本語, 한국어,
+Español, Português (Brasil), Français, Deutsch and Русский. Each is fetched
+when chosen rather than bundled, so nine of them cost you nothing.
+
+Any other language is one JSON file — added through **Customize → Language**,
+or dropped in `~/.opencli/locales`. Both write to the same place, so what is
+added through the interface can be edited by hand afterwards or copied to
+another machine. A file named for a language that already ships corrects
+sentences in it rather than replacing the whole translation.
+
+See [docs/languages.md](./docs/languages.md). Right-to-left languages are not
+among them yet: that is a change to the stylesheet, not a translation file.
 
 ---
 
