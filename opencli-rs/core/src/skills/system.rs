@@ -175,6 +175,83 @@ mod tests {
     use super::SYSTEM_SKILLS_DIR;
     use super::collect_fingerprint_items;
 
+
+    /// The workflows that ship with the product.
+    ///
+    /// Two skills shipped before these, and both were about authoring skills.
+    /// So a fresh install offered nothing that did any work — which is what an
+    /// empty Abilities panel was really saying.
+    const SHIPPED_WORKFLOWS: &[&str] = &[
+        "spreadsheet-review",
+        "weekly-report",
+        "inbox-triage",
+        "document-compare",
+        "meeting-notes",
+        "records-review",
+    ];
+
+    fn embedded(path: &str) -> String {
+        SYSTEM_SKILLS_DIR
+            .get_file(path)
+            .unwrap_or_else(|| panic!("`{path}` is not embedded"))
+            .contents_utf8()
+            .unwrap_or_else(|| panic!("`{path}` is not UTF-8"))
+            .to_string()
+    }
+
+    #[test]
+    fn should_ship_a_workflow_for_each_kind_of_work() {
+        let mut items = Vec::new();
+        collect_fingerprint_items(&SYSTEM_SKILLS_DIR, &mut items);
+        let paths: Vec<String> = items.into_iter().map(|(path, _)| path).collect();
+        for skill in SHIPPED_WORKFLOWS {
+            let wanted = format!("{skill}/SKILL.md");
+            assert!(
+                paths.contains(&wanted),
+                "`{wanted}` is not embedded, so it will not reach an installed copy"
+            );
+        }
+    }
+
+    #[test]
+    fn should_give_every_shipped_workflow_the_frontmatter_that_makes_it_findable() {
+        // Without a name and a description a skill is loaded and never
+        // chosen: the description is what the agent matches a request
+        // against, and the short one is what a person reads in the panel.
+        for skill in SHIPPED_WORKFLOWS {
+            let text = embedded(&format!("{skill}/SKILL.md"));
+            let frontmatter = text
+                .strip_prefix("---\n")
+                .and_then(|rest| rest.split("\n---\n").next())
+                .unwrap_or_else(|| panic!("`{skill}` has no frontmatter"));
+            assert!(
+                frontmatter.contains(&format!("name: {skill}")),
+                "`{skill}` must be named for its directory, or the two disagree"
+            );
+            assert!(
+                frontmatter.contains("description:"),
+                "`{skill}` has no description, so nothing will ever trigger it"
+            );
+            assert!(
+                frontmatter.contains("short-description:"),
+                "`{skill}` has no short description, so the panel has nothing to show"
+            );
+        }
+    }
+
+    #[test]
+    fn should_say_when_to_use_each_shipped_workflow() {
+        // A description that only says what a skill is leaves the model to
+        // guess when it applies. Every one of these names its occasions.
+        for skill in SHIPPED_WORKFLOWS {
+            let text = embedded(&format!("{skill}/SKILL.md"));
+            assert!(
+                text.contains("Use when"),
+                "`{skill}` never says when to use it"
+            );
+        }
+    }
+
     #[test]
     fn fingerprint_traverses_nested_entries() {
         let mut items = Vec::new();

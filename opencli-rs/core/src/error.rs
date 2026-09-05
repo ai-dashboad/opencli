@@ -325,14 +325,43 @@ The model is most likely still working but is too slow to answer within that lim
 prompt on a machine without a free GPU is the usual cause. Retrying sends the same request and \
 waits the same time, so it is not retried.";
 
+/// Statuses that mean "these credentials will not do", not "try again".
+///
+/// The same reasoning as the timeouts above, arrived at the same way. A fresh
+/// install with nothing configured sent its first request, was told 401, and
+/// then sent it seven more times over a minute before giving up with
+/// `unexpected status 401 Unauthorized:` — a minute of silence and then a
+/// sentence that says nothing about the one thing that was wrong. Credentials
+/// do not become valid by being offered again.
+///
+/// 429 is deliberately not here: being asked to slow down is precisely the
+/// case where trying again later works.
+const AUTHENTICATION_STATUSES: &[u16] = &[
+    401, // no credentials, or credentials the provider does not accept
+    403, // credentials understood, and not allowed to do this
+];
+
+const NO_CREDENTIALS_MESSAGE: &str = "The model provider would not accept the request without \
+credentials. Either no API key is configured, or the one configured is not valid for this \
+provider. Set one in Settings, or in `~/.opencli/config.toml` — or point OpenCLI at a model \
+running on this machine, which needs no key at all.";
+
+const NOT_ALLOWED_MESSAGE: &str = "The model provider understood the credentials and refused \
+the request anyway. The key is usually valid but not entitled to this model — check which \
+model is selected, and what the key is allowed to reach.";
+
 impl UnexpectedResponseError {
     /// Whether sending the identical request again could plausibly work.
     pub fn is_worth_retrying(&self) -> bool {
-        !GATEWAY_TIMEOUT_STATUSES.contains(&self.status.as_u16())
+        let status = self.status.as_u16();
+        !GATEWAY_TIMEOUT_STATUSES.contains(&status) && !AUTHENTICATION_STATUSES.contains(&status)
     }
 
     fn friendly_message(&self) -> Option<String> {
-        if !self.is_worth_retrying() {
+        // Asked by status rather than through `is_worth_retrying`, which now
+        // answers for two different reasons — routing both to one message
+        // would have explained a 401 as a timeout.
+        if GATEWAY_TIMEOUT_STATUSES.contains(&self.status.as_u16()) {
             return Some(self.with_context(GATEWAY_TIMEOUT_MESSAGE.to_string()));
         }
         if self.status == StatusCode::FORBIDDEN
@@ -340,6 +369,23 @@ impl UnexpectedResponseError {
             && self.body.contains("blocked")
         {
             return Some(self.with_context(CLOUDFLARE_BLOCKED_MESSAGE.to_string()));
+        }
+        if AUTHENTICATION_STATUSES.contains(&self.status.as_u16()) {
+            let advice = if self.status == StatusCode::UNAUTHORIZED {
+                NO_CREDENTIALS_MESSAGE
+            } else {
+                NOT_ALLOWED_MESSAGE
+            };
+            // Both, not one: the provider often says something specific and
+            // useful — which model, which entitlement — and replacing that
+            // with general advice would throw away the part that names the
+            // problem.
+            return Some(self.with_context(
+                match extract_provider_error_message(&self.body) {
+                    Some(said) => format!("{advice} The provider said: {said}"),
+                    None => advice.to_string(),
+                },
+            ));
         }
 
         // Turn a provider's JSON error body into its human-readable message
@@ -1107,15 +1153,102 @@ mod tests {
         );
     }
 
+    /// The first minute of a fresh install, before this changed.
+    ///
+    /// Nothing configured, one request, 401 — then seven more of them over a
+    /// minute, and `unexpected status 401 Unauthorized:` at the end.
+    #[test]
+    fn should_not_retry_credentials_that_were_refused() {
+        let refused = UnexpectedResponseError {
+            status: StatusCode::UNAUTHORIZED,
+            body: String::new(),
+            url: None,
+            request_id: None,
+        };
+        assert!(!refused.is_worth_retrying());
+    }
+
+    #[test]
+    fn should_still_retry_being_asked_to_slow_down() {
+        // The case where trying again later is exactly the right answer.
+        let throttled = UnexpectedResponseError {
+            status: StatusCode::TOO_MANY_REQUESTS,
+            body: String::new(),
+            url: None,
+            request_id: None,
+        };
+        assert!(throttled.is_worth_retrying());
+    }
+
+    #[test]
+    fn should_say_no_key_is_configured_rather_than_the_status() {
+        let refused = UnexpectedResponseError {
+            status: StatusCode::UNAUTHORIZED,
+            body: r#"{"error":{"message":"Missing bearer or basic authentication in header"}}"#
+                .to_string(),
+            url: None,
+            request_id: None,
+        };
+        let said = refused.to_string();
+        assert!(said.contains("API key"), "{said}");
+        assert!(said.contains("running on this machine"), "{said}");
+        // And what the provider itself said, which often names the problem.
+        assert!(said.contains("Missing bearer"), "{said}");
+    }
+
+    #[test]
+    fn should_tell_a_refused_key_apart_from_a_missing_one() {
+        // 403 is a key that works and is not allowed to do this, which is a
+        // different thing to check than a key that is absent.
+        let forbidden = UnexpectedResponseError {
+            status: StatusCode::FORBIDDEN,
+            body: String::new(),
+            url: None,
+            request_id: None,
+        };
+        let said = forbidden.to_string();
+        assert!(said.contains("refused the request anyway"), "{said}");
+        assert!(!forbidden.is_worth_retrying());
+    }
+
+    #[test]
+    fn should_still_name_cloudflare_when_it_is_cloudflare() {
+        // A blocked region also arrives as 403, and the advice for it is
+        // different from the advice about entitlements.
+        let blocked = UnexpectedResponseError {
+            status: StatusCode::FORBIDDEN,
+            body: "Cloudflare has blocked this request".to_string(),
+            url: None,
+            request_id: None,
+        };
+        assert!(blocked.to_string().contains("Cloudflare"));
+    }
+
+    #[test]
+    fn should_explain_a_gateway_timeout_as_a_timeout() {
+        // Two reasons not to retry now share one answer from
+        // `is_worth_retrying`, and routing both to one message would have
+        // explained a 401 as a slow model.
+        let timed_out = UnexpectedResponseError {
+            status: StatusCode::from_u16(524).expect("a real status"),
+            body: String::new(),
+            url: None,
+            request_id: None,
+        };
+        assert!(timed_out.to_string().contains("gave up waiting"));
+    }
+
     #[test]
     fn unexpected_status_non_html_is_unchanged() {
+        // A status with no advice of its own, so this stays a test about
+        // plain-text bodies rather than about what 403 now says.
         let err = UnexpectedResponseError {
-            status: StatusCode::FORBIDDEN,
+            status: StatusCode::BAD_GATEWAY,
             body: "plain text error".to_string(),
             url: Some("http://example.com/plain".to_string()),
             request_id: None,
         };
-        let status = StatusCode::FORBIDDEN.to_string();
+        let status = StatusCode::BAD_GATEWAY.to_string();
         let url = "http://example.com/plain";
         assert_eq!(
             err.to_string(),
