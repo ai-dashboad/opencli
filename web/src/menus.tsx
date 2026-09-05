@@ -347,7 +347,14 @@ export function AttachMenu({
   );
 }
 
-const EFFORTS: { value: ReasoningEffort; label: string; note?: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const EFFORTS = (): { value: ReasoningEffort; label: string; note?: string }[] => [
   { value: "low", label: t("Low") },
   { value: "medium", label: t("Medium"), note: t("Default") },
   { value: "high", label: t("High") },
@@ -377,12 +384,19 @@ const EFFORTS: { value: ReasoningEffort; label: string; note?: string }[] = [
  * its labels; a label that is itself a paragraph gives the eye nothing to
  * land on, and the explanation underneath then says the same thing twice.
  */
-export const APPROVAL_MODES: {
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+export const APPROVAL_MODES = (): {
   value: ApprovalPolicy;
   label: string;
   hint: string;
   icon: () => React.ReactNode;
-}[] = [
+}[] => [
   {
     value: "untrusted",
     label: t("Manual"),
@@ -416,7 +430,7 @@ export function ApprovalMenu({
         <span>{t("Modes")}</span>
         <em>{t("Applies from your next message")}</em>
       </div>
-      {APPROVAL_MODES.map((mode) => (
+      {APPROVAL_MODES().map((mode) => (
         <MenuItem
           key={mode.value}
           icon={mode.icon()}
@@ -448,7 +462,7 @@ export function ModelMenu({
   onToggleThinking: (on: boolean) => void;
 }) {
   const chosen = models.find((option) => option.model === model);
-  const allowed = EFFORTS.filter((option) => chosen?.reasoningEfforts.includes(option.value));
+  const allowed = EFFORTS().filter((option) => chosen?.reasoningEfforts.includes(option.value));
 
   // A handful up front and the rest behind a submenu: a long flat list buries
   // the one being used. The chosen model is always in the short list, so it is

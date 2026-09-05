@@ -172,7 +172,14 @@ function summarize(thread: ThreadSummary): string {
   return text || t("New chat");
 }
 
-const NAV: { id: View; label: string; icon: React.ReactNode; badge?: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const NAV = (): { id: View; label: string; icon: React.ReactNode; badge?: string }[] => [
   { id: "projects", label: t("Projects"), icon: <ProjectIcon /> },
   { id: "artifacts", label: t("Artifacts"), icon: <ArtifactIcon /> },
   { id: "scheduled", label: t("Scheduled"), icon: <ClockIcon /> },
@@ -182,7 +189,14 @@ const NAV: { id: View; label: string; icon: React.ReactNode; badge?: string }[] 
   { id: "customize", label: t("Customize"), icon: <SlidersIcon /> },
 ];
 
-const SECONDARY: { id: View; label: string; icon: React.ReactNode }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const SECONDARY = (): { id: View; label: string; icon: React.ReactNode }[] => [
   { id: "abilities", label: t("Abilities"), icon: <SkillIcon /> },
   { id: "models", label: t("Models"), icon: <ChipIcon /> },
   { id: "settings", label: t("Settings"), icon: <SettingsIcon /> },
@@ -287,7 +301,7 @@ export default function Sidebar({
           <span>{t("New")}</span>
         </button>
 
-        {NAV.map((item) => (
+        {NAV().map((item) => (
           <button
             key={item.id}
             className={`nav-row${view === item.id ? " active" : ""}`}
@@ -485,7 +499,7 @@ export default function Sidebar({
 
       <div className="sidebar-foot">
         {update && update.stage !== "none" ? <UpdateLine update={update} /> : null}
-        {SECONDARY.map((item) => (
+        {SECONDARY().map((item) => (
           <button
             key={item.id}
             className={`nav-row${view === item.id ? " active" : ""}`}

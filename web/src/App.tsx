@@ -1862,7 +1862,7 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
                   >
                     <BoltIcon size={13} />
                     <span>
-                      {APPROVAL_MODES.find(
+                      {APPROVAL_MODES().find(
                         (mode) => mode.value === (preferences.approvalPolicy ?? "untrusted"),
                       )?.label ?? t("Manual")}
                     </span>

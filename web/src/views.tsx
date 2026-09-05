@@ -639,7 +639,14 @@ function originFile(origins: Record<string, unknown>, path: string): string | nu
 }
 
 /** The permission choices, worded as consequences rather than as settings. */
-const APPROVAL_SETTINGS: { value: string; label: string; hint: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const APPROVAL_SETTINGS = (): { value: string; label: string; hint: string }[] => [
   {
     value: "untrusted",
     label: t("Ask before anything unfamiliar"),
@@ -657,7 +664,14 @@ const APPROVAL_SETTINGS: { value: string; label: string; hint: string }[] = [
   },
 ];
 
-const SANDBOX_SETTINGS: { value: string; label: string; hint: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const SANDBOX_SETTINGS = (): { value: string; label: string; hint: string }[] => [
   {
     value: "read-only",
     label: t("Read only"),
@@ -998,7 +1012,7 @@ export function SettingsView({
 
       <h3>{t("When to ask permission")}</h3>
       <div className="choices">
-        {APPROVAL_SETTINGS.map((option) => (
+        {APPROVAL_SETTINGS().map((option) => (
           <label key={option.value} className="choice">
             <input
               type="radio"
@@ -1016,7 +1030,7 @@ export function SettingsView({
 
       <h3>{t("What it may change")}</h3>
       <div className="choices">
-        {SANDBOX_SETTINGS.map((option) => (
+        {SANDBOX_SETTINGS().map((option) => (
           <label key={option.value} className="choice">
             <input
               type="radio"
@@ -1174,7 +1188,14 @@ function describeWhen(unix: number | null): string {
   return mins < 1 ? "just now" : `${mins}m ago`;
 }
 
-const INTERVAL_UNITS: { value: string; label: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const INTERVAL_UNITS = (): { value: string; label: string }[] => [
   { value: "m", label: t("minutes") },
   { value: "h", label: t("hours") },
   { value: "d", label: t("days") },
@@ -1287,7 +1308,7 @@ export function ScheduledView({
               onChange={(e) => setEvery(e.target.value)}
             />
             <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-              {INTERVAL_UNITS.map((option) => (
+              {INTERVAL_UNITS().map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -1543,7 +1564,14 @@ export function parseInterval(raw: string): number | null {
  */
 type ProjectSort = "updated" | "created" | "name";
 
-const SORTS: { value: ProjectSort; label: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const SORTS = (): { value: ProjectSort; label: string }[] => [
   { value: "updated", label: t("Last updated") },
   { value: "created", label: t("Date created") },
   { value: "name", label: t("Name") },
@@ -1719,7 +1747,7 @@ export function ProjectsView({
         <label className="sort">
           {t("Sort by")}
           <select value={sort} onChange={(e) => setSort(e.target.value as ProjectSort)}>
-            {SORTS.map((option) => (
+            {SORTS().map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -2261,12 +2289,26 @@ export function ApprovalChanges({ changes }: { changes: FileChange[] }) {
   );
 }
 
-const PERSONALITIES: { value: Personality; label: string; hint: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const PERSONALITIES = (): { value: Personality; label: string; hint: string }[] => [
   { value: "pragmatic", label: t("Pragmatic"), hint: t("Terse. Answers, not commentary.") },
   { value: "friendly", label: t("Friendly"), hint: t("Warmer, more explanatory.") },
 ];
 
-const EFFORTS: { value: ReasoningEffort; label: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const EFFORTS = (): { value: ReasoningEffort; label: string }[] => [
   { value: "minimal", label: t("Minimal") },
   { value: "low", label: t("Low") },
   { value: "medium", label: t("Medium") },
@@ -2274,7 +2316,14 @@ const EFFORTS: { value: ReasoningEffort; label: string }[] = [
   { value: "xhigh", label: t("Highest") },
 ];
 
-const POLICIES: { value: ApprovalPolicy; label: string; hint: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const POLICIES = (): { value: ApprovalPolicy; label: string; hint: string }[] => [
   {
     value: "untrusted",
     label: t("Ask before anything unfamiliar"),
@@ -2301,13 +2350,27 @@ const POLICIES: { value: ApprovalPolicy; label: string; hint: string }[] = [
  * anyone who picks it expecting to be consulted, which is the wrong way for a
  * security setting to be wrong.
  */
-const APPEARANCES: { value: Appearance; label: string; hint: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const APPEARANCES = (): { value: Appearance; label: string; hint: string }[] => [
   { value: "system", label: t("Follow the system"), hint: t("Changes when your computer does.") },
   { value: "dark", label: t("Dark"), hint: t("Warm dark grey.") },
   { value: "light", label: t("Light"), hint: t("Warm off-white.") },
 ];
 
-const TEXT_SIZES: { value: TextSize; label: string }[] = [
+/**
+ * A function, not a constant: `t()` must run when this is drawn.
+ *
+ * As a `const` it was evaluated once, when the module loaded, which is
+ * before any language has been chosen — so every label here stayed English
+ * for the life of the process no matter what was picked afterwards.
+ */
+const TEXT_SIZES = (): { value: TextSize; label: string }[] => [
   { value: "normal", label: t("Normal") },
   { value: "large", label: t("Large") },
   { value: "larger", label: t("Larger") },
@@ -2339,7 +2402,7 @@ export function CustomizeView({
   /** Absent before the agent has connected; the language upload needs it. */
   client?: OpenCliClient;
 }) {
-  const available = EFFORTS.filter((effort) => efforts.includes(effort.value));
+  const available = EFFORTS().filter((effort) => efforts.includes(effort.value));
   const [languageNote, setLanguageNote] = useState<string | null>(null);
   const [languageError, setLanguageError] = useState<string | null>(null);
 
@@ -2387,7 +2450,7 @@ export function CustomizeView({
 
       <h3>{t("Appearance")}</h3>
       <div className="choices">
-        {APPEARANCES.map((option) => (
+        {APPEARANCES().map((option) => (
           <label key={option.value} className="choice">
             <input
               type="radio"
@@ -2466,7 +2529,7 @@ export function CustomizeView({
 
       <h3>{t("Text size")}</h3>
       <div className="choices">
-        {TEXT_SIZES.map((option) => (
+        {TEXT_SIZES().map((option) => (
           <label key={option.value} className="choice">
             <input
               type="radio"
@@ -2483,7 +2546,7 @@ export function CustomizeView({
 
       <h3>{t("Tone")}</h3>
       <div className="choices">
-        {PERSONALITIES.map((option) => (
+        {PERSONALITIES().map((option) => (
           <label key={option.value} className="choice">
             <input
               type="radio"
@@ -2577,7 +2640,7 @@ export function CustomizeView({
         {t("For chats started from here. The same setting lives in Settings, where it is written to your configuration file and applies to every interface.")}
       </p>
       <div className="choices">
-        {POLICIES.map((option) => (
+        {POLICIES().map((option) => (
           <label key={option.value} className="choice">
             <input
               type="radio"

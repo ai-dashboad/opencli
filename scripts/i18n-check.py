@@ -146,6 +146,82 @@ def outside_comments(source: str) -> list[str]:
     return lines
 
 
+# `t()` where it runs once, at import, rather than when something is drawn.
+#
+# The sidebar found this: `Projects`, `Artifacts`, `Scheduled` and seven more
+# sat in English in a window that was otherwise entirely translated, and the
+# check above reported every string translated — because they were. A `const`
+# at the top of a module is evaluated before any language has been chosen, so
+# its labels are frozen in English for the life of the process.
+#
+# Counting bracket depth was the first attempt and found nothing: the entries
+# of `const X: T[] = [` sit at depth one, not zero, so "top level" is the
+# wrong question. The right one is whether the declaration they belong to is a
+# function — `const X = () => [...]` is fine, `const X = [...]` is not.
+CALL_AT_TOP = re.compile(r'(?<![\w.$])t\(\s*"')
+DECLARATION = re.compile(r"^(?:export )?(?:const|let|var) \w+")
+IS_FUNCTION = re.compile(r"=>|\bfunction\b")
+
+
+def frozen_labels(root: Path) -> list[tuple[str, int, str]]:
+    """Translations that happen once, when the file loads.
+
+    Inside a declaration that is not itself a function, a `t()` is still fine
+    if it sits behind an arrow — `name: () => t("…")` is called when the name
+    is read. So an arrow opens a region that lasts until its brackets close,
+    and only calls outside every such region are reported.
+    """
+    found: list[tuple[str, int, str]] = []
+    for path in sorted(root.rglob("*.ts")) + sorted(root.rglob("*.tsx")):
+        if path.name in {"i18n.ts"} or path.name.endswith((".test.ts", ".test.tsx")):
+            continue
+        lines = outside_comments(path.read_text(encoding="utf-8"))
+        inside = False
+        depth = 0
+        lazy_from: int | None = None
+        for number, line in enumerate(lines, 1):
+            if not inside and DECLARATION.match(line):
+                # A declaration's head can span lines — the arrow of
+                # `export const X = (): {\n  …\n}[] => [` is four lines below
+                # its name — so the look is forward to wherever the value
+                # begins rather than at the first line alone.
+                head = ""
+                for ahead in lines[number - 1 : number + 9]:
+                    head += ahead
+                    if CALL_AT_TOP.search(ahead):
+                        break
+                inside = not IS_FUNCTION.search(head)
+                depth = 0
+                lazy_from = None
+            if not inside:
+                continue
+
+            arrow = line.find("=>")
+            for call in CALL_AT_TOP.finditer(line):
+                behind_arrow = arrow != -1 and arrow < call.start()
+                in_lazy_region = lazy_from is not None and depth >= lazy_from
+                if not behind_arrow and not in_lazy_region:
+                    found.append((str(path), number, line.strip()[:80]))
+
+            # An arrow with nothing after it on this line starts a body on
+            # the next. The body of a single-expression arrow opens no bracket
+            # of its own, so the region is recognised at the same depth rather
+            # than a deeper one — which is why this reads `>=` above.
+            if arrow != -1 and not CALL_AT_TOP.search(line[arrow:]):
+                lazy_from = depth
+            depth += sum(line.count(each) for each in "{([")
+            depth -= sum(line.count(each) for each in "})]")
+            # The region ends with the property it belongs to. Without this,
+            # one `icon: () => <Icon />` made every later line of the same
+            # object look lazy, and the labels under it went unreported.
+            ended = line.rstrip().endswith((",", ";"))
+            if lazy_from is not None and (depth < lazy_from or (depth <= lazy_from and ended)):
+                lazy_from = None
+            if depth <= 0:
+                inside = False
+    return found
+
+
 def bare_strings(root: Path) -> list[tuple[str, int, str]]:
     """English that reaches a screen without being translatable."""
     found: list[tuple[str, int, str]] = []
@@ -216,6 +292,14 @@ def main() -> int:
         for text in orphaned:
             # Not a failure: an orphan is dead weight, not a hole on screen.
             print(f"  orphaned: {text}")
+
+    frozen = frozen_labels(root)
+    if frozen:
+        print(f"\n{len(frozen)} translations happen at import, before a language is chosen:")
+        for path, number, line in frozen:
+            print(f"  {Path(path).name}:{number}  {line}")
+        print("  Make the surrounding constant a function, so t() runs when it is drawn.")
+        failed = True
 
     bare = bare_strings(root)
     if bare:
