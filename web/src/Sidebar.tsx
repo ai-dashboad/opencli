@@ -332,7 +332,7 @@ export default function Sidebar({
                     >
                       <i className={`dot${fresh > 0 ? " on" : ""}`} />
                       <span>{task.name}</span>
-                      {fresh > 0 ? <em className="pill">{fresh} new</em> : null}
+                      {fresh > 0 ? <em className="pill">{t("{count} new", { count: fresh })}</em> : null}
                     </button>
                   </li>
                 );

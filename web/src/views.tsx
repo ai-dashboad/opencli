@@ -1173,19 +1173,26 @@ function shortPath(file: string): string {
 }
 
 /** Format an interval the way a user would type it. */
+/**
+ * How often, in the reader's language.
+ *
+ * Built from a number and a unit rather than from a sentence per unit,
+ * because "every 3 days" and "每 3 天" put the number in different places and
+ * only a placeholder can hold both.
+ */
 function describeInterval(seconds: number): string {
-  if (seconds % 86400 === 0) return `every ${seconds / 86400}d`;
-  if (seconds % 3600 === 0) return `every ${seconds / 3600}h`;
-  if (seconds % 60 === 0) return `every ${seconds / 60}m`;
-  return `every ${seconds}s`;
+  if (seconds % 86400 === 0) return t("every {count}d", { count: seconds / 86400 });
+  if (seconds % 3600 === 0) return t("every {count}h", { count: seconds / 3600 });
+  if (seconds % 60 === 0) return t("every {count}m", { count: seconds / 60 });
+  return t("every {count}s", { count: seconds });
 }
 
 function describeWhen(unix: number | null): string {
-  if (!unix) return "not yet";
+  if (!unix) return t("not yet");
   const delta = unix - Date.now() / 1000;
   const mins = Math.round(Math.abs(delta) / 60);
-  if (delta > 0) return mins < 1 ? "due now" : `in ${mins}m`;
-  return mins < 1 ? "just now" : `${mins}m ago`;
+  if (delta > 0) return mins < 1 ? t("due now") : t("in {count}m", { count: mins });
+  return mins < 1 ? t("just now") : t("{count}m ago", { count: mins });
 }
 
 /**
@@ -1285,7 +1292,7 @@ export function ScheduledView({
 
       <div className="project-form">
         <label className="field">
-          What should it do?
+          {t("What should it do?")}
           <textarea
             value={prompt}
             rows={2}
@@ -1357,9 +1364,9 @@ export function ScheduledView({
               <strong>{task.name}</strong>
               <span>{task.prompt}</span>
               <span>
-                {describeInterval(task.intervalSeconds)} · next {describeWhen(task.nextRun)} ·{" "}
-                {task.enabled ? "active" : "paused"}
-                {last ? ` · ${t("last run {status}", { status: STATUS_LABEL[last.status]().toLowerCase() })}` : " · never run"}
+                {describeInterval(task.intervalSeconds)} · {t("next {when}", { when: describeWhen(task.nextRun) })} ·{" "}
+                {task.enabled ? t("active") : t("paused")}
+                {last ? ` · ${t("last run {status}", { status: STATUS_LABEL[last.status]().toLowerCase() })}` : ` · ${t("never run")}`}
               </span>
               {/*
                 The directory was never shown, which is how a task kept running
@@ -1823,7 +1830,7 @@ export function ProjectsView({
         }
       >
         <label className="field">
-          What are you working on?
+          {t("What are you working on?")}
           <input
             value={draft.name}
             autoFocus
@@ -1842,7 +1849,7 @@ export function ProjectsView({
         </label>
 
         <label className="field">
-          What are you trying to achieve?
+          {t("What are you trying to achieve?")}
           <textarea
             value={draft.description}
             onChange={(e) => setDraft({ ...draft, description: e.target.value })}
@@ -1852,7 +1859,7 @@ export function ProjectsView({
         </label>
 
         <label className="field">
-          Which folder?
+          {t("Which folder?")}
           <span className="path-input">
             <input
               value={draft.cwd}
@@ -4138,7 +4145,7 @@ function MachinesDialog({
       {adding ? (
         <div className="project-form">
           <label className="field">
-            What do you call it?
+            {t("What do you call it?")}
             <input
               value={draft.name}
               autoFocus
@@ -4147,7 +4154,7 @@ function MachinesDialog({
             />
           </label>
           <label className="field">
-            Where does the runtime answer?
+            {t("Where does the runtime answer?")}
             <input
               value={draft.baseUrl}
               onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
@@ -4155,7 +4162,7 @@ function MachinesDialog({
             />
           </label>
           <label className="field">
-            Can it also be reached by SSH? (optional)
+            {t("Can it also be reached by SSH? (optional)")}
             <select
               value={draft.sshAlias}
               onChange={(e) => setDraft({ ...draft, sshAlias: e.target.value })}

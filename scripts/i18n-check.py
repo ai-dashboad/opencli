@@ -106,7 +106,16 @@ TYPE_ARGUMENT = re.compile(r"[A-Za-z]<[^<>]*$")
 #
 # Found the hard way — a paragraph in Customize sat in English through a check
 # that reported every string translated.
-WRAPPED_TEXT = re.compile(r">\n\s+([A-Z][a-z][^<>{}]{20,200}?)\n\s*</", re.S)
+# The closing `<` may open the next element rather than close this one:
+#
+#     <label className="field">
+#       What should it do?
+#       <textarea …
+#
+# Requiring `</` missed that, and the label sat in English on a screen where
+# everything around it was translated. The length floor comes down to four
+# characters because a label is often three words.
+WRAPPED_TEXT = re.compile(r">\n\s+([A-Z][a-z][^<>{}]{4,200}?)\n\s*<", re.S)
 
 # Emphasis inside a sentence, which the pattern above would otherwise read as
 # the end of the text node.
