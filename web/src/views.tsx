@@ -906,8 +906,7 @@ export function SettingsView({
       </p>
       {models.length === 0 ? (
         <p className="muted">
-          No models are configured yet. Add one under <strong>{t("Models")}</strong>, or declare a
-          provider in <code>{t("config.toml")}</code>.
+          {t("No models are configured yet. Add one under Models, or declare a provider in config.toml.")}
         </p>
       ) : (
         <label className="sort">

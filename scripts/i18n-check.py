@@ -92,6 +92,43 @@ TYPE_ARGUMENT = re.compile(r"[A-Za-z]<[^<>]*$")
 # that reported every string translated.
 WRAPPED_TEXT = re.compile(r">\n\s+([A-Z][a-z][^<>{}]{20,200}?)\n\s*</", re.S)
 
+# Emphasis inside a sentence, which the pattern above would otherwise read as
+# the end of the text node.
+INLINE_TAG = re.compile(r"</?(?:strong|em|b|i|code|span)>")
+
+
+# A JSX comment: `{/*` … `*/}`, usually over several lines, none of which
+# begins with a comment marker. The line-prefix rule above sees only the first
+# of them, so a comment quoting an English sentence — which the ones in this
+# codebase routinely do, since they explain what a screen used to say — reads
+# as untranslated text.
+#
+# Matched on `{/*` rather than on `/*`, which is what makes this safe: the
+# earlier attempt at multi-line comments matched `accept="image/*"` and ate
+# four thousand characters of working code. A `/*` with a `{` in front of it
+# is a comment and nothing else.
+JSX_COMMENT_OPEN = re.compile(r"\{\s*/\*")
+JSX_COMMENT_CLOSE = re.compile(r"\*/")
+
+
+def outside_comments(source: str) -> list[str]:
+    """Each line, blanked where it is inside a comment of any shape."""
+    lines: list[str] = []
+    in_block = False
+    for line in source.split("\n"):
+        opens = JSX_COMMENT_OPEN.search(line)
+        if in_block:
+            lines.append("")
+            if JSX_COMMENT_CLOSE.search(line):
+                in_block = False
+            continue
+        if opens and not JSX_COMMENT_CLOSE.search(line[opens.end():]):
+            in_block = True
+            lines.append(line[: opens.start()])
+            continue
+        lines.append("" if COMMENT_LINE.match(line) else line)
+    return lines
+
 
 def bare_strings(root: Path) -> list[tuple[str, int, str]]:
     """English that reaches a screen without being translatable."""
@@ -100,13 +137,16 @@ def bare_strings(root: Path) -> list[tuple[str, int, str]]:
         # A test asserts on English by design; it is not on anybody's screen.
         if path.name.endswith((".test.tsx", ".test.ts")):
             continue
-        whole = path.read_text(encoding="utf-8")
-        for match in WRAPPED_TEXT.finditer(whole):
+        whole = "\n".join(outside_comments(path.read_text(encoding="utf-8")))
+        # A sentence broken by an inline `<strong>` or `<code>` is still one
+        # sentence to a reader, and hiding behind emphasis is how "No models
+        # are configured yet" stayed in English. The tags are dropped before
+        # matching, so what is reported reads as prose rather than as source.
+        plain = INLINE_TAG.sub("", whole)
+        for match in WRAPPED_TEXT.finditer(plain):
             text = " ".join(match.group(1).split())
-            found.append((str(path), whole[: match.start()].count("\n") + 2, text))
+            found.append((str(path), plain[: match.start()].count("\n") + 2, text))
         for number, line in enumerate(whole.split("\n"), 1):
-            if COMMENT_LINE.match(line):
-                continue
             for pattern in (JSX_TEXT, RENDERED_PROP, SENTENCE):
                 for match in pattern.finditer(line):
                     text = match.group(1).strip()

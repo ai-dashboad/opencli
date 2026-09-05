@@ -1438,8 +1438,35 @@ function Interface({ onLocaleChange }: { onLocaleChange: (locale: Locale) => voi
                   <div className="landing">
                     <h1>
                       <OpenCliMark size={30} />
-                      <span>{t("Ready when you are")}</span>
+                      <span>{models.length === 0 ? t("One thing first") : t("Ready when you are")}</span>
                     </h1>
+                    {/*
+                      A fresh install has no model, and every route out of that
+                      was hidden. The screen said "Ready when you are", the
+                      picker said "No models configured — add them in
+                      config.toml", and a typed message went to a provider with
+                      no key and came back refused. Telling somebody to edit a
+                      TOML file is the thing the panels exist to avoid, so the
+                      two real routes are offered here instead.
+                    */}
+                    {models.length === 0 ? (
+                      <div className="first-run">
+                        <p>
+                          {t("There is no model to answer with yet. Two ways to get one:")}
+                        </p>
+                        <div className="actions">
+                          <button onClick={() => go("models")}>
+                            {t("Install one on this machine")}
+                          </button>
+                          <button className="secondary" onClick={() => go("settings")}>
+                            {t("Use a provider's API key")}
+                          </button>
+                        </div>
+                        <p className="hint">
+                          {t("A model on this machine needs no key and no account, and nothing you type leaves the machine. A key is quicker to set up and runs on somebody else's hardware.")}
+                        </p>
+                      </div>
+                    ) : null}
                     {/* What it can be asked to do, before being asked. The
                         panels down the side name the parts — artifacts,
                         dispatch, connectors — which tells a first-time reader

@@ -479,7 +479,7 @@ export function ModelMenu({
         <em>{t("Applies from your next message")}</em>
       </div>
       {models.length === 0 ? (
-        <MenuItem label={t("No models configured")} hint={t("Add them in config.toml")} />
+        <MenuItem label={t("No models configured")} hint={t("Add one under Models")} />
       ) : (
         primary.map(row)
       )}

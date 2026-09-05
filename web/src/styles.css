@@ -1826,6 +1826,39 @@ textarea:focus {
   color: var(--accent);
 }
 
+/*
+ * The one thing a fresh install has to do before anything else works.
+ *
+ * Sits above the scenarios rather than replacing them: what the product can
+ * be asked to do is still worth reading while deciding which of the two
+ * routes to take.
+ */
+.first-run {
+  max-width: 520px;
+  margin: -20px auto 36px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.first-run p {
+  margin: 0 0 14px;
+}
+
+.first-run .actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.first-run .hint {
+  margin: 0;
+  font-size: 13px;
+}
+
 /* What it can be asked to do, above the record of what it has done. Same
    column as `.recent` so the empty screen reads as one thing rather than two
    panels that happen to be stacked. */
