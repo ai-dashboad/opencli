@@ -1765,7 +1765,7 @@
       "type": "boolean"
     },
     "tool_output_token_limit": {
-      "description": "Token budget applied when storing tool/function outputs in the context manager.",
+      "description": "Token budget applied when storing tool/function outputs in the context manager.\n\nTokens are estimated, not counted: the tokenizer belongs to the model, and this product is built to run models it has never seen. The estimate is four ASCII bytes to a token and one token per character otherwise, which is close for English and Chinese alike and errs towards over-counting elsewhere. Setting this to 500 will not cut at exactly 500 tokens; it will cut near it, in the same units the number is written in.",
       "format": "uint",
       "minimum": 0.0,
       "type": "integer"

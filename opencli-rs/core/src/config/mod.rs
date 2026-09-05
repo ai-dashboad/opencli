@@ -265,7 +265,16 @@ pub struct Config {
     /// Additional filenames to try when looking for project-level docs.
     pub project_doc_fallback_filenames: Vec<String>,
 
-    /// Token budget applied when storing tool/function outputs in the context manager.
+    /// Token budget applied when storing tool/function outputs in the context
+    /// manager.
+    ///
+    /// Tokens are estimated, not counted: the tokenizer belongs to the model,
+    /// and this product is built to run models it has never seen. The estimate
+    /// is four ASCII bytes to a token and one token per character otherwise,
+    /// which is close for English and Chinese alike and errs towards
+    /// over-counting elsewhere. Setting this to 500 will not cut at exactly
+    /// 500 tokens; it will cut near it, in the same units the number is
+    /// written in.
     pub tool_output_token_limit: Option<usize>,
 
     /// Maximum number of agent threads that can be open concurrently.
@@ -917,7 +926,16 @@ pub struct ConfigToml {
     /// Ordered list of fallback filenames to look for when AGENTS.md is missing.
     pub project_doc_fallback_filenames: Option<Vec<String>>,
 
-    /// Token budget applied when storing tool/function outputs in the context manager.
+    /// Token budget applied when storing tool/function outputs in the context
+    /// manager.
+    ///
+    /// Tokens are estimated, not counted: the tokenizer belongs to the model,
+    /// and this product is built to run models it has never seen. The estimate
+    /// is four ASCII bytes to a token and one token per character otherwise,
+    /// which is close for English and Chinese alike and errs towards
+    /// over-counting elsewhere. Setting this to 500 will not cut at exactly
+    /// 500 tokens; it will cut near it, in the same units the number is
+    /// written in.
     pub tool_output_token_limit: Option<usize>,
 
     /// Profile to use from the `profiles` map.

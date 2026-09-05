@@ -98,17 +98,17 @@ pub(crate) fn with_config_overrides(mut model: ModelInfo, config: &Config) -> Mo
         model.auto_compact_token_limit = Some(auto_compact_token_limit);
     }
     if let Some(token_limit) = config.tool_output_token_limit {
-        model.truncation_policy = match model.truncation_policy.mode {
-            TruncationMode::Bytes => {
-                let byte_limit =
-                    i64::try_from(approx_bytes_for_tokens(token_limit)).unwrap_or(i64::MAX);
-                TruncationPolicyConfig::bytes(byte_limit)
-            }
-            TruncationMode::Tokens => {
-                let limit = i64::try_from(token_limit).unwrap_or(i64::MAX);
-                TruncationPolicyConfig::tokens(limit)
-            }
-        };
+        // A limit given in tokens is kept in tokens.
+        //
+        // It used to be turned into `tokens * 4` bytes whenever the model's
+        // own policy was expressed in bytes — which is every model, since
+        // nothing in this product has ever produced the other kind. So a
+        // setting named for tokens was a byte cap in a hat, and on Chinese
+        // output it was a third larger than what was asked for. The mode
+        // belongs to whoever set the limit, not to whatever the model
+        // happened to default to.
+        let limit = i64::try_from(token_limit).unwrap_or(i64::MAX);
+        model.truncation_policy = TruncationPolicyConfig::tokens(limit);
     }
 
     if let Some(base_instructions) = &config.base_instructions {

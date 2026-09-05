@@ -165,12 +165,15 @@ fn truncate_with_token_budget(s: &str, policy: TruncationPolicy) -> (String, Opt
     }
     let max_tokens = policy.token_budget();
 
-    let byte_len = s.len();
-    if max_tokens > 0 && byte_len <= approx_bytes_for_tokens(max_tokens) {
+    // Measured against what this text is estimated to cost, not against
+    // `tokens * 4` bytes. The two agree on English and disagree on everything
+    // else, and disagreeing is the point: a budget given in tokens should be
+    // spent in tokens.
+    if max_tokens > 0 && approx_token_count(s) <= max_tokens {
         return (s.to_string(), None);
     }
 
-    let truncated = truncate_with_byte_estimate(s, policy);
+    let truncated = truncate_to_bytes(s, bytes_within_token_budget(s, max_tokens), policy);
     let approx_total_usize = approx_token_count(s);
     let approx_total = u64::try_from(approx_total_usize).unwrap_or(u64::MAX);
     if truncated == s {
@@ -180,40 +183,37 @@ fn truncate_with_token_budget(s: &str, policy: TruncationPolicy) -> (String, Opt
     }
 }
 
-/// Truncate a string using a byte budget derived from the token budget, without
-/// performing any real tokenization. This keeps the logic purely byte-based and
-/// uses a bytes placeholder in the truncated output.
+/// Truncate a string using the policy's own byte budget.
 fn truncate_with_byte_estimate(s: &str, policy: TruncationPolicy) -> String {
+    truncate_to_bytes(s, policy.byte_budget(), policy)
+}
+
+/// Keep the beginning and the end, and say what was dropped from the middle.
+///
+/// The budget is separate from the policy because they answer different
+/// questions. `max_bytes` is where to cut, which for a token budget depends on
+/// what the text is made of. `policy` is only what to call the units in the
+/// marker — a limit given in tokens reports tokens, whatever arithmetic found
+/// the cut. Deriving both from the policy meant a token budget could only ever
+/// cut where `tokens * 4` bytes fell, which is the English answer to a
+/// question that was not always about English.
+fn truncate_to_bytes(s: &str, max_bytes: usize, policy: TruncationPolicy) -> String {
     if s.is_empty() {
         return String::new();
     }
 
-    let total_chars = s.chars().count();
-    let max_bytes = policy.byte_budget();
-
     if max_bytes == 0 {
-        // No budget to show content; just report that everything was truncated.
-        let marker = format_truncation_marker(
-            policy,
-            removed_units_for_source(policy, s.len(), total_chars),
-        );
-        return marker;
+        // No budget to show content; just report that everything was dropped.
+        return format_truncation_marker(policy, removed_units(policy, s, "", ""));
     }
 
     if s.len() <= max_bytes {
         return s.to_string();
     }
 
-    let total_bytes = s.len();
-
     let (left_budget, right_budget) = split_budget(max_bytes);
-
-    let (removed_chars, left, right) = split_string(s, left_budget, right_budget);
-
-    let marker = format_truncation_marker(
-        policy,
-        removed_units_for_source(policy, total_bytes.saturating_sub(max_bytes), removed_chars),
-    );
+    let (_removed_chars, left, right) = split_string(s, left_budget, right_budget);
+    let marker = format_truncation_marker(policy, removed_units(policy, s, left, right));
 
     assemble_truncated_output(left, right, &marker)
 }
@@ -270,15 +270,19 @@ fn split_budget(budget: usize) -> (usize, usize) {
     (left, budget - left)
 }
 
-fn removed_units_for_source(
-    policy: TruncationPolicy,
-    removed_bytes: usize,
-    removed_chars: usize,
-) -> u64 {
-    match policy {
-        TruncationPolicy::Tokens(_) => approx_tokens_from_byte_count(removed_bytes),
-        TruncationPolicy::Bytes(_) => u64::try_from(removed_chars).unwrap_or(u64::MAX),
-    }
+/// What the marker reports: the size of the middle that was dropped.
+///
+/// Measured on the dropped text itself rather than by subtracting two rounded
+/// halves from a rounded whole. Rounding each piece up and then subtracting
+/// counts a two-character fragment as a whole token twice over, and the marker
+/// ends up disagreeing with the budget that produced it.
+fn removed_units(policy: TruncationPolicy, whole: &str, left: &str, right: &str) -> u64 {
+    let middle = &whole[left.len()..whole.len().saturating_sub(right.len())];
+    let count = match policy {
+        TruncationPolicy::Tokens(_) => approx_token_count(middle),
+        TruncationPolicy::Bytes(_) => middle.chars().count(),
+    };
+    u64::try_from(count).unwrap_or(u64::MAX)
 }
 
 fn assemble_truncated_output(prefix: &str, suffix: &str, marker: &str) -> String {
@@ -289,9 +293,66 @@ fn assemble_truncated_output(prefix: &str, suffix: &str, marker: &str) -> String
     out
 }
 
+/// How many tokens a string is estimated to cost.
+///
+/// Nothing here counts real tokens, and nothing here can: the tokenizer
+/// belongs to the model, and this product is built to run models it has never
+/// seen. Every number produced here is an estimate, which is why the names say
+/// so — a budget that claimed to be exact would be a worse lie than one that
+/// admits to guessing.
+///
+/// Four bytes to a token is the usual rule of thumb, and it is a rule about
+/// English. A Chinese character is three bytes and around one token, so
+/// dividing its bytes by four reads a page of Chinese as three quarters of
+/// what it costs. Undercounting is the direction that hurts: this budget is
+/// what stops a tool's output from crowding out the conversation it was meant
+/// to inform.
+///
+/// So ASCII is counted by the rule of thumb and everything else by the
+/// character. That over-counts accented Latin a little, which is the safe way
+/// to be wrong.
 pub(crate) fn approx_token_count(text: &str) -> usize {
-    let len = text.len();
-    len.saturating_add(APPROX_BYTES_PER_TOKEN.saturating_sub(1)) / APPROX_BYTES_PER_TOKEN
+    let mut ascii_bytes = 0usize;
+    let mut wide_chars = 0usize;
+    for character in text.chars() {
+        if character.is_ascii() {
+            ascii_bytes += 1;
+        } else {
+            wide_chars += 1;
+        }
+    }
+    ascii_bytes.div_ceil(APPROX_BYTES_PER_TOKEN) + wide_chars
+}
+
+/// The byte length whose estimated cost fits in `max_tokens`.
+///
+/// The counterpart of the estimate above, and the reason a token budget is now
+/// a different thing from a byte budget: `tokens * 4` bytes is the right
+/// answer only for the English the rule of thumb was written for. On Chinese
+/// it is a third too generous, which is how a budget expressed in tokens
+/// silently spent more of them than it was given.
+pub(crate) fn bytes_within_token_budget(text: &str, max_tokens: usize) -> usize {
+    // Counted in quarters of a token, so an ASCII byte can cost less than one
+    // unit without floating point: four ASCII bytes make a token, and any
+    // other character makes one on its own.
+    //
+    // Charging only every fourth ASCII byte was tried first and let up to
+    // three bytes ride free past the end of the budget, which returned seven
+    // bytes for a one-token budget.
+    let budget = max_tokens.saturating_mul(APPROX_BYTES_PER_TOKEN);
+    let mut spent = 0usize;
+    for (offset, character) in text.char_indices() {
+        let cost = if character.is_ascii() {
+            1
+        } else {
+            APPROX_BYTES_PER_TOKEN
+        };
+        if spent + cost > budget {
+            return offset;
+        }
+        spent += cost;
+    }
+    text.len()
 }
 
 pub(crate) fn approx_bytes_for_tokens(tokens: usize) -> usize {
@@ -370,6 +431,69 @@ mod tests {
             "Total output lines: 1\n\nex…3 tokens truncated…ut",
             formatted_truncate_text(content, TruncationPolicy::Tokens(1)),
         );
+    }
+
+    /// The estimate is about cost, and cost is not bytes.
+    ///
+    /// A Chinese character is three bytes and about one token. Dividing bytes
+    /// by four called a hundred of them seventy-five tokens, so a budget
+    /// expressed in tokens quietly spent a third more than it was given —
+    /// on exactly the output a Chinese reader's tools produce.
+    #[test]
+    fn should_count_a_chinese_character_as_about_one_token() {
+        let hundred: String = "\u{6d4b}".repeat(100);
+        assert_eq!(hundred.len(), 300, "three bytes each");
+        assert_eq!(approx_token_count(&hundred), 100);
+    }
+
+    #[test]
+    fn should_still_count_english_at_four_bytes_to_a_token() {
+        // The rule of thumb this started from, unchanged for what it was
+        // written about.
+        assert_eq!(approx_token_count("12345678"), 2);
+    }
+
+    #[test]
+    fn should_count_mixed_text_by_what_each_part_costs() {
+        // Eight ASCII bytes make two tokens; two Chinese characters make two.
+        assert_eq!(approx_token_count("12345678\u{4f60}\u{597d}"), 4);
+    }
+
+    #[test]
+    fn should_keep_a_chinese_string_that_fits_its_token_budget() {
+        // Ten characters is about ten tokens, and 30 bytes — which the old
+        // byte arithmetic would have called seven and a half.
+        let ten: String = "\u{6d4b}".repeat(10);
+        assert_eq!(truncate_text(&ten, TruncationPolicy::Tokens(10)), ten);
+    }
+
+    #[test]
+    fn should_cut_chinese_at_the_budget_rather_than_at_four_bytes_a_token() {
+        // Forty characters, a budget of ten. The cut has to fall around ten
+        // characters, not around the thirteen that `10 * 4` bytes would buy.
+        let forty: String = "\u{6d4b}".repeat(40);
+        let cut = truncate_text(&forty, TruncationPolicy::Tokens(10));
+        let kept = cut.chars().filter(|each| *each == '\u{6d4b}').count();
+        assert!(
+            kept <= 10,
+            "kept {kept} characters for a ten-token budget: {cut}"
+        );
+        assert!(kept >= 8, "cut far more than asked: {cut}");
+    }
+
+    #[test]
+    fn should_never_split_a_character_in_half() {
+        // The budget is in bytes internally and a character is three of them,
+        // so an off-by-one here produces invalid UTF-8 rather than a wrong
+        // number.
+        let text: String = "\u{6d4b}".repeat(20);
+        for budget in 1..25 {
+            let cut = truncate_text(&text, TruncationPolicy::Tokens(budget));
+            assert!(cut.is_char_boundary(0), "budget {budget}");
+            // Rebuilding it proves every byte kept is part of a whole
+            // character; a split one would not survive the round trip.
+            assert_eq!(cut, String::from_utf8(cut.clone().into_bytes()).expect("valid UTF-8"));
+        }
     }
 
     #[test]
