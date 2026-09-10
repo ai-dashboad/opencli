@@ -142,3 +142,27 @@ jobs:
               print(f"cloudflare: {e.get('code')} {e.get('message')}", file=sys.stderr)
           sys.exit(1)
           CHECK
+
+      # A deploy that succeeded and a site that works are different claims.
+      # This checks the second one: the English root, a translated page, and
+      # the page whose whole job is handing somebody a download.
+      #
+      # Cloudflare rejects some clients by user agent, so this runs here
+      # rather than from a laptop.
+      - if: ${{ github.event_name != 'pull_request' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+        name: Check the site actually answers
+        run: |
+          failed=0
+          for path in "" "getting-started/install" "zh-CN/getting-started/install" "help/faq"; do
+            code=000
+            # Propagation after the first deploy of a new domain takes a
+            # moment; three tries rather than a flaky red run.
+            for attempt in 1 2 3; do
+              code=$(curl -sS -o /tmp/page -m 25 -w '%{http_code}' -L "https://docs.opencli.ai/$path" || echo 000)
+              [ "$code" = "200" ] && break
+              sleep 15
+            done
+            echo "$code  /$path"
+            [ "$code" = "200" ] || failed=1
+          done
+          exit $failed
