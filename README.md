@@ -107,17 +107,22 @@ shaped like the OpenAI API.
 [Baseten](https://baseten.co) · [Novita AI](https://novita.ai) ·
 [Hyperbolic](https://hyperbolic.xyz) · [Nebius AI Studio](https://studio.nebius.com) ·
 [Cerebras](https://cerebras.ai) · [SambaNova](https://sambanova.ai) ·
-[Featherless](https://featherless.ai) ·
+[Featherless](https://featherless.ai) · [Chutes](https://chutes.ai) ·
+[NVIDIA NIM](https://build.nvidia.com) ·
 [Hugging Face Inference](https://huggingface.co/docs/inference-providers) ·
-[OpenRouter](https://openrouter.ai) · [Perplexity](https://docs.perplexity.ai)
+[OpenRouter](https://openrouter.ai) · [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) ·
+[Perplexity](https://docs.perplexity.ai)
 
 **In China**
 
 [硅基流动 SiliconFlow](https://siliconflow.cn) ·
 [无问芯穹 Infinigence](https://cloud.infini-ai.com) ·
 [PPIO 派欧云](https://ppinfra.com) · [七牛云 Qiniu](https://qiniu.com) ·
+[魔搭 ModelScope](https://modelscope.cn) ·
 [阿里云百炼 DashScope](https://bailian.console.aliyun.com) ·
-[火山方舟 Volcengine](https://volcengine.com/product/ark) ·
+[火山方舟 Volcengine · 豆包](https://volcengine.com/product/ark) ·
+[百度千帆 Qianfan](https://cloud.baidu.com/product/wenxinworkshop) ·
+[讯飞星火 iFlytek](https://xinghuo.xfyun.cn) ·
 [DeepSeek](https://deepseek.com) · [智谱 Zhipu](https://bigmodel.cn) ·
 [月之暗面 Moonshot](https://moonshot.cn) · [MiniMax](https://minimax.io) ·
 [阶跃星辰 StepFun](https://stepfun.com) · [腾讯混元 Hunyuan](https://cloud.tencent.com/product/hunyuan) ·
@@ -127,6 +132,39 @@ shaped like the OpenAI API.
 
 [OpenAI](https://openai.com) · [Anthropic](https://anthropic.com) ·
 [Mistral](https://mistral.ai) · [xAI](https://x.ai)
+
+**A model is not always reached from the company that made it**
+
+Xiaomi publishes MiMo and ByteDance publishes Seed, and neither runs a public
+OpenAI-compatible endpoint of its own that could be found. Both are served by
+others, which is how you reach them:
+
+| Model | Served by |
+| --- | --- |
+| Xiaomi MiMo | OpenRouter · Novita · DeepInfra · PPIO · Featherless · Hugging Face |
+| ByteDance Seed | OpenRouter · DeepInfra |
+| Doubao 豆包 | 火山方舟 (ByteDance's own platform) · 七牛云 |
+
+Those rows come from asking each provider for its model list and looking, on
+2026-09-10 — not from a press release.
+
+**Documented, but not verified here**
+
+[Google Gemini](https://ai.google.dev/gemini-api/docs/openai),
+[GitHub Models](https://docs.github.com/github-models) and
+[Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai) all
+document an OpenAI-compatible endpoint, and none of them could be confirmed
+with a keyless request. They are listed here rather than above so the
+difference is visible.
+
+**Free allowances**
+
+Several of these give something away — Groq, Cerebras, ModelScope, NVIDIA,
+OpenRouter's free models, 智谱's Flash tier, SiliconFlow, 百度千帆, Google and
+GitHub among them. What is free changes month to month and is not something
+this file can keep true, so no amounts are quoted: check the provider's own
+pricing page. It is the cheapest way to try this with a model larger than
+your machine can hold.
 
 Two honest notes. Being reachable is not the same as being good at this — that
 is what the model table above is for, and it has one row because one model has

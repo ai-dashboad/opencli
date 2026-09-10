@@ -96,16 +96,21 @@ curl -fsSL https://opencli.ai/install.sh | sh
 [Baseten](https://baseten.co) · [Novita AI](https://novita.ai) ·
 [Hyperbolic](https://hyperbolic.xyz) · [Nebius AI Studio](https://studio.nebius.com) ·
 [Cerebras](https://cerebras.ai) · [SambaNova](https://sambanova.ai) ·
-[Featherless](https://featherless.ai) ·
+[Featherless](https://featherless.ai) · [Chutes](https://chutes.ai) ·
+[NVIDIA NIM](https://build.nvidia.com) ·
 [Hugging Face Inference](https://huggingface.co/docs/inference-providers) ·
-[OpenRouter](https://openrouter.ai) · [Perplexity](https://docs.perplexity.ai)
+[OpenRouter](https://openrouter.ai) · [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) ·
+[Perplexity](https://docs.perplexity.ai)
 
 **国内**
 
 [硅基流动](https://siliconflow.cn) · [无问芯穹](https://cloud.infini-ai.com) ·
 [PPIO 派欧云](https://ppinfra.com) · [七牛云](https://qiniu.com) ·
+[魔搭 ModelScope](https://modelscope.cn) ·
 [阿里云百炼](https://bailian.console.aliyun.com) ·
-[火山方舟](https://volcengine.com/product/ark) ·
+[火山方舟 · 豆包](https://volcengine.com/product/ark) ·
+[百度千帆](https://cloud.baidu.com/product/wenxinworkshop) ·
+[讯飞星火](https://xinghuo.xfyun.cn) ·
 [DeepSeek](https://deepseek.com) · [智谱](https://bigmodel.cn) ·
 [月之暗面 Kimi](https://moonshot.cn) · [MiniMax](https://minimax.io) ·
 [阶跃星辰](https://stepfun.com) · [腾讯混元](https://cloud.tencent.com/product/hunyuan) ·
@@ -115,6 +120,35 @@ curl -fsSL https://opencli.ai/install.sh | sh
 
 [OpenAI](https://openai.com) · [Anthropic](https://anthropic.com) ·
 [Mistral](https://mistral.ai) · [xAI](https://x.ai)
+
+**一个模型,不一定从做它的那家公司拿**
+
+小米发布 MiMo、字节发布 Seed,但**这两家都没有自己的公开 OpenAI 兼容接口**
+(`xiaoai.mi.com` 返回的是网页,不是 API)。它们由别人托管 —— 这才是你实际连过去的地方:
+
+| 模型 | 谁在提供 |
+| --- | --- |
+| 小米 MiMo | OpenRouter · Novita · DeepInfra · PPIO · Featherless · Hugging Face |
+| 字节 Seed | OpenRouter · DeepInfra |
+| 豆包 | 火山方舟(字节自家平台) · 七牛云 |
+
+这几行是 2026-09-10 逐个问各家的模型列表、在里面找出来的,**不是从新闻稿抄的**。
+
+**文档里写着支持,但我没验证成功的**
+
+[Google Gemini](https://ai.google.dev/gemini-api/docs/openai)、
+[GitHub Models](https://docs.github.com/github-models)、
+[Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai)
+三家都在文档里写了 OpenAI 兼容接口,但都没能用一次不带 key 的请求确认。
+放在这里而不是上面,是为了让这个差别看得见。
+
+**免费额度**
+
+这里面不少家是给免费额度的 —— Groq、Cerebras、魔搭、NVIDIA、OpenRouter 的免费模型、
+智谱的 Flash、硅基流动、百度千帆、Google、GitHub 都在其中。**免费的部分逐月在变,
+这个文件保不住它的准确性**,所以这里不写具体数字,请看各家自己的价格页。
+
+这是用**比你机器装得下更大的模型**试这个东西最便宜的办法。
 
 两句实话。**能连上不等于干得了这活儿** —— 那是上面那张模型表回答的问题,而它只有
 一行,因为只跑过一个模型。另外,一个只实现了 OpenAI 对话接口、没实现工具调用的服务,
