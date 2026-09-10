@@ -7,7 +7,7 @@
     "format:fix": "prettier --write *.json *.md docs/*.md .github/workflows/*.yml **/*.js"
   },
   "devDependencies": {
-    "prettier": "^3.5.3"
+    "prettier": "^3.9.6"
   },
   "resolutions": {
     "braces": "^3.0.3",
