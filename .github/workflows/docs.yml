@@ -62,24 +62,68 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: pnpm --dir docs-site exec wrangler pages deploy build --project-name=opencli-docs --branch=main
 
-      # After the deploy, not before: if attaching the domain fails, the docs
-      # are already live at `opencli-docs.pages.dev` and only the pretty name
-      # is missing. Failing here is then a loud, accurate signal rather than a
+      # After the deploy, not before: if any of this fails, the docs are
+      # already live at `opencli-docs.pages.dev` and only the pretty name is
+      # missing. Failing here is then a loud, accurate signal rather than a
       # lost deployment.
       #
-      # Wrangler cannot do this — `pages project` has create, list and delete
-      # and nothing else — so it is one API call. The zone is on the same
-      # account, so Cloudflare adds the DNS record itself.
+      # Two calls, because attaching a custom domain in the dashboard quietly
+      # does two things and the API does only the first. Wrangler cannot do
+      # either — `pages project` has create, list and delete and nothing else.
+      #
+      # Both are idempotent: after the first run they find their work already
+      # done and say so.
       - if: ${{ github.event_name != 'pull_request' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
         name: Attach docs.opencli.ai
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          curl -sS -X POST \
+          api() {
+            curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                     -H "Content-Type: application/json" "$@"
+          }
+
+          # 1. The DNS record. Without it the domain below stays at
+          #    `verification=pending` for ever: attached to the project, with
+          #    nothing pointing at it.
+          api "https://api.cloudflare.com/client/v4/zones?name=opencli.ai" > /tmp/zone.json
+          api "https://api.cloudflare.com/client/v4/zones/$(python3 -c "
+          import json; z = json.load(open('/tmp/zone.json'))['result']
+          print(z[0]['id'] if z else '')
+          ")/dns_records?name=docs.opencli.ai" > /tmp/records.json
+          python3 - <<'CHECK'
+          import json
+          records = json.load(open("/tmp/records.json")).get("result") or []
+          open("/tmp/needs-record", "w").write("" if records else "yes")
+          print("dns:", records[0]["content"] if records else "missing")
+          CHECK
+
+          if [ -s /tmp/needs-record ]; then
+            zone=$(python3 -c "
+          import json; z = json.load(open('/tmp/zone.json'))['result']
+          print(z[0]['id'] if z else '')
+          ")
+            api -X POST "https://api.cloudflare.com/client/v4/zones/$zone/dns_records" \
+              --data '{"type":"CNAME","name":"docs","content":"opencli-docs.pages.dev","proxied":true}' \
+              > /tmp/created.json
+            python3 - <<'CHECK'
+          import json, sys
+          reply = json.load(open("/tmp/created.json"))
+          if reply.get("success"):
+              print("created CNAME docs -> opencli-docs.pages.dev")
+              sys.exit(0)
+          for e in reply.get("errors", []):
+              print(f"cloudflare: {e.get('code')} {e.get('message')}", file=sys.stderr)
+          # 10000 here means the token can read the zone and not write to it —
+          # it needs Zone:DNS:Edit. Nothing retries its way out of that.
+          sys.exit(1)
+          CHECK
+          fi
+
+          # 2. The domain on the Pages project itself.
+          api -X POST \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/opencli-docs/domains" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H "Content-Type: application/json" \
             --data '{"name":"docs.opencli.ai"}' > /tmp/domain.json
           python3 - <<'CHECK'
           import json, sys
