@@ -144,8 +144,10 @@ jobs:
           CHECK
 
       # A deploy that succeeded and a site that works are different claims.
-      # This checks the second one: the English root, a translated page, and
-      # the page whose whole job is handing somebody a download.
+      # This checks the second one: the English root, the FAQ, and the install
+      # page — the one whose whole job is handing somebody a download — in
+      # every locale. Ten locales are ten builds, and a locale that fails to
+      # emit is invisible from the English site.
       #
       # Cloudflare rejects some clients by user agent, so this runs here
       # rather than from a laptop.
@@ -153,7 +155,11 @@ jobs:
         name: Check the site actually answers
         run: |
           failed=0
-          for path in "" "getting-started/install" "zh-CN/getting-started/install" "help/faq"; do
+          paths=("" "help/faq")
+          for locale in "" zh-CN/ zh-TW/ ja/ ko/ es/ pt-BR/ fr/ de/ ru/; do
+            paths+=("${locale}getting-started/install")
+          done
+          for path in "${paths[@]}"; do
             code=000
             # Propagation after the first deploy of a new domain takes a
             # moment; three tries rather than a flaky red run.
