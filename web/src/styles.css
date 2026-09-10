@@ -3970,3 +3970,33 @@ textarea:focus {
 .upload .button-like:hover {
   background: var(--surface-hover);
 }
+
+/*
+ * A table in a reply.
+ *
+ * `table-layout: auto` on purpose: a model writing a table does not know how
+ * wide anything is, and a fixed layout would cut the one column that matters.
+ * The wrapper scrolls instead, so a wide table costs a scrollbar rather than
+ * the width of the conversation.
+ */
+.prose-table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 14px;
+}
+
+.prose-table th,
+.prose-table td {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose-table th {
+  background: var(--surface);
+  font-weight: 600;
+}

@@ -126,12 +126,30 @@ type Block =
   | { kind: "paragraph"; lines: string[] }
   | { kind: "heading"; level: number; text: string }
   | { kind: "list"; ordered: boolean; items: string[] }
-  | { kind: "code"; text: string; language?: string };
+  | { kind: "code"; text: string; language?: string }
+  | { kind: "table"; head: string[]; rows: string[][] };
 
 const HEADING = /^(#{1,6})\s+(.*)$/;
 const BULLET = /^\s*[-*+]\s+(.*)$/;
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/;
 const FENCE = /^\s*```\s*(\S*)\s*$/;
+
+/**
+ * A table, which needs two lines before it is one.
+ *
+ * A single line of pipes is a sentence with pipes in it. What makes a table is
+ * the divider under the header — so both are required before anything is
+ * treated as one, and a stray `a | b` stays the paragraph it is.
+ */
+const TABLE_ROW = /^\s*\|(.+)\|\s*$/;
+const TABLE_DIVIDER = /^\s*\|[\s:|-]+\|\s*$/;
+
+/** The cells of one row, without the outer pipes. */
+function cells(line: string): string[] {
+  const inner = TABLE_ROW.exec(line);
+  if (!inner) return [];
+  return inner[1].split("|").map((cell) => cell.trim());
+}
 
 /** Group lines into blocks. */
 export function parseBlocks(text: string): Block[] {
@@ -155,6 +173,28 @@ export function parseBlocks(text: string): Block[] {
       }
       index += 1;
       blocks.push({ kind: "code", text: body.join("\n"), language: fence[1] || undefined });
+      continue;
+    }
+
+    // Before headings and paragraphs, because a table's rows would otherwise
+    // be swallowed as one.
+    if (
+      TABLE_ROW.test(line) &&
+      index + 1 < lines.length &&
+      TABLE_DIVIDER.test(lines[index + 1])
+    ) {
+      const head = cells(line);
+      index += 2;
+      const rows: string[][] = [];
+      while (index < lines.length && TABLE_ROW.test(lines[index])) {
+        const row = cells(lines[index]);
+        // Short rows are padded rather than dropped: a model that writes one
+        // cell too few has still said something, and losing the line loses it.
+        while (row.length < head.length) row.push("");
+        rows.push(row.slice(0, head.length));
+        index += 1;
+      }
+      blocks.push({ kind: "table", head, rows });
       continue;
     }
 
@@ -192,7 +232,8 @@ export function parseBlocks(text: string): Block[] {
       !HEADING.test(lines[index]) &&
       !BULLET.test(lines[index]) &&
       !NUMBERED.test(lines[index]) &&
-      !FENCE.test(lines[index])
+      !FENCE.test(lines[index]) &&
+      !(TABLE_ROW.test(lines[index]) && TABLE_DIVIDER.test(lines[index + 1] ?? ""))
     ) {
       paragraph.push(lines[index]);
       index += 1;
@@ -222,6 +263,29 @@ export function Markdown({ text }: { text: string }) {
             const Tag = (block.level <= 2 ? "h3" : block.level === 3 ? "h4" : "h5") as "h3";
             return <Tag key={key}>{renderInline(block.text, key)}</Tag>;
           }
+          case "table":
+            return (
+              <table key={key} className="prose-table">
+                <thead>
+                  <tr>
+                    {block.head.map((cell, at) => (
+                      <th key={`${key}-h${at}`}>{renderInline(cell, `${key}-h${at}`)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, at) => (
+                    <tr key={`${key}-r${at}`}>
+                      {row.map((cell, column) => (
+                        <td key={`${key}-r${at}c${column}`}>
+                          {renderInline(cell, `${key}-r${at}c${column}`)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
           case "list": {
             const Tag = block.ordered ? "ol" : "ul";
             return (

@@ -101,9 +101,47 @@ describe("blocks", () => {
   });
 
   it("should treat what it does not understand as text", () => {
-    // A table shown as its own pipes is more readable than one rendered
-    // wrongly, so it stays a paragraph.
-    const table = "| a | b |\n| - | - |";
-    expect(parseBlocks(table)).toEqual([{ kind: "paragraph", lines: ["| a | b |", "| - | - |"] }]);
+    // The property, not the example: syntax with no block of its own is shown
+    // as written rather than swallowed. This used to be demonstrated with a
+    // table, which is now understood — a blockquote is not.
+    const quoted = "> something quoted\n> over two lines";
+    expect(parseBlocks(quoted)).toEqual([
+      { kind: "paragraph", lines: ["> something quoted", "> over two lines"] },
+    ]);
+  });
+});
+
+describe("tables", () => {
+  it("should read a table as a table", () => {
+    // The fifth thing the first screen offers is "put it in a table", and
+    // until now the reply came back as three paragraphs of pipes.
+    const [block] = parseBlocks("| Company | Contact |\n| --- | --- |\n| Northwind | Ana |");
+    expect(block).toEqual({
+      kind: "table",
+      head: ["Company", "Contact"],
+      rows: [["Northwind", "Ana"]],
+    });
+  });
+
+  it("should leave a sentence with pipes in it alone", () => {
+    // One line of pipes is not a table. The divider is what makes it one.
+    const [block] = parseBlocks("choose a | b | c");
+    expect(block.kind).toBe("paragraph");
+  });
+
+  it("should pad a row that is short rather than dropping it", () => {
+    // A model that writes one cell too few has still said something.
+    const [block] = parseBlocks("| a | b |\n| --- | --- |\n| only |");
+    expect(block).toMatchObject({ rows: [["only", ""]] });
+  });
+
+  it("should keep what follows a table separate from it", () => {
+    const blocks = parseBlocks("| a |\n| --- |\n| 1 |\n\nAfter.");
+    expect(blocks.map((each) => each.kind)).toEqual(["table", "paragraph"]);
+  });
+
+  it("should read the cells of an aligned divider", () => {
+    const [block] = parseBlocks("| a | b |\n|:---|---:|\n| 1 | 2 |");
+    expect(block.kind).toBe("table");
   });
 });

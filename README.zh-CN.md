@@ -64,6 +64,64 @@ curl -fsSL https://opencli.ai/install.sh | sh
 
 ---
 
+## 模型从哪来
+
+**这不是一张"我们对接了谁"的清单,而是一个协议。** 任何按 OpenAI 的方式回答
+`/v1/chat/completions` 和 `/v1/models` 的地址都能指过去,而且它的模型会自动出现在
+选单里,不用一个个声明。
+
+所以下面这张表列的是**人们把它指向哪里**。表里每一个地址都在 2026-09-06 被不带 key
+地问过一次模型列表 —— 返回 `401` 就是证据:路径存在、要鉴权、而且是 OpenAI 的形状。
+
+**在你自己的机器上**
+
+[Ollama](https://ollama.com) · [LM Studio](https://lmstudio.ai) ·
+[llama.cpp](https://github.com/ggml-org/llama.cpp) ·
+[LocalAI](https://localai.io) · [Jan](https://jan.ai) ·
+[Xinference](https://inference.readthedocs.io) ·
+[KoboldCpp](https://github.com/LostRuins/koboldcpp) ·
+[llamafile](https://github.com/Mozilla-Ocho/llamafile)
+
+**在你自己的服务器上**
+
+[vLLM](https://docs.vllm.ai) · [SGLang](https://docs.sglang.ai) ·
+[Text Generation Inference](https://huggingface.co/docs/text-generation-inference) ·
+[NVIDIA NIM](https://developer.nvidia.com/nim) ·
+以及用 [LiteLLM](https://docs.litellm.ai) 在它们前面做网关
+
+**托管开源模型的**
+
+[Fireworks AI](https://fireworks.ai) · [Together AI](https://together.ai) ·
+[Groq](https://groq.com) · [DeepInfra](https://deepinfra.com) ·
+[Baseten](https://baseten.co) · [Novita AI](https://novita.ai) ·
+[Hyperbolic](https://hyperbolic.xyz) · [Nebius AI Studio](https://studio.nebius.com) ·
+[Cerebras](https://cerebras.ai) · [SambaNova](https://sambanova.ai) ·
+[Featherless](https://featherless.ai) ·
+[Hugging Face Inference](https://huggingface.co/docs/inference-providers) ·
+[OpenRouter](https://openrouter.ai) · [Perplexity](https://docs.perplexity.ai)
+
+**国内**
+
+[硅基流动](https://siliconflow.cn) · [无问芯穹](https://cloud.infini-ai.com) ·
+[PPIO 派欧云](https://ppinfra.com) · [七牛云](https://qiniu.com) ·
+[阿里云百炼](https://bailian.console.aliyun.com) ·
+[火山方舟](https://volcengine.com/product/ark) ·
+[DeepSeek](https://deepseek.com) · [智谱](https://bigmodel.cn) ·
+[月之暗面 Kimi](https://moonshot.cn) · [MiniMax](https://minimax.io) ·
+[阶跃星辰](https://stepfun.com) · [腾讯混元](https://cloud.tencent.com/product/hunyuan) ·
+[百川智能](https://baichuan-ai.com)
+
+**闭源模型,想用的时候**
+
+[OpenAI](https://openai.com) · [Anthropic](https://anthropic.com) ·
+[Mistral](https://mistral.ai) · [xAI](https://x.ai)
+
+两句实话。**能连上不等于干得了这活儿** —— 那是上面那张模型表回答的问题,而它只有
+一行,因为只跑过一个模型。另外,一个只实现了 OpenAI 对话接口、没实现工具调用的服务,
+在这里只能聊天,干不了别的。
+
+---
+
 ## 它做不到什么
 
 写在这里,而不是让你后面自己发现。

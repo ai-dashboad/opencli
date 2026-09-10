@@ -73,6 +73,68 @@ the most useful contribution you can make** — the task is in
 
 ---
 
+## Where the model comes from
+
+This is not a list of integrations. It is one protocol: anything that answers
+`/v1/chat/completions` and `/v1/models` the way OpenAI does can be pointed at,
+and its models appear in the picker without being declared one by one.
+
+So the list below is not "what we built support for". It is where people point
+it — and every endpoint in it was asked for its model list, without a key, on
+2026-09-06. A `401` is the proof: the path exists, it wants a key, and it is
+shaped like the OpenAI API.
+
+**On your own machine**
+
+[Ollama](https://ollama.com) · [LM Studio](https://lmstudio.ai) ·
+[llama.cpp](https://github.com/ggml-org/llama.cpp) ·
+[LocalAI](https://localai.io) · [Jan](https://jan.ai) ·
+[Xinference](https://inference.readthedocs.io) ·
+[KoboldCpp](https://github.com/LostRuins/koboldcpp) ·
+[llamafile](https://github.com/Mozilla-Ocho/llamafile)
+
+**On your own server**
+
+[vLLM](https://docs.vllm.ai) · [SGLang](https://docs.sglang.ai) ·
+[Text Generation Inference](https://huggingface.co/docs/text-generation-inference) ·
+[NVIDIA NIM](https://developer.nvidia.com/nim) ·
+[LiteLLM](https://docs.litellm.ai) as a gateway in front of any of them
+
+**Hosting open models**
+
+[Fireworks AI](https://fireworks.ai) · [Together AI](https://together.ai) ·
+[Groq](https://groq.com) · [DeepInfra](https://deepinfra.com) ·
+[Baseten](https://baseten.co) · [Novita AI](https://novita.ai) ·
+[Hyperbolic](https://hyperbolic.xyz) · [Nebius AI Studio](https://studio.nebius.com) ·
+[Cerebras](https://cerebras.ai) · [SambaNova](https://sambanova.ai) ·
+[Featherless](https://featherless.ai) ·
+[Hugging Face Inference](https://huggingface.co/docs/inference-providers) ·
+[OpenRouter](https://openrouter.ai) · [Perplexity](https://docs.perplexity.ai)
+
+**In China**
+
+[硅基流动 SiliconFlow](https://siliconflow.cn) ·
+[无问芯穹 Infinigence](https://cloud.infini-ai.com) ·
+[PPIO 派欧云](https://ppinfra.com) · [七牛云 Qiniu](https://qiniu.com) ·
+[阿里云百炼 DashScope](https://bailian.console.aliyun.com) ·
+[火山方舟 Volcengine](https://volcengine.com/product/ark) ·
+[DeepSeek](https://deepseek.com) · [智谱 Zhipu](https://bigmodel.cn) ·
+[月之暗面 Moonshot](https://moonshot.cn) · [MiniMax](https://minimax.io) ·
+[阶跃星辰 StepFun](https://stepfun.com) · [腾讯混元 Hunyuan](https://cloud.tencent.com/product/hunyuan) ·
+[百川智能 Baichuan](https://baichuan-ai.com)
+
+**Closed models, when you want one**
+
+[OpenAI](https://openai.com) · [Anthropic](https://anthropic.com) ·
+[Mistral](https://mistral.ai) · [xAI](https://x.ai)
+
+Two honest notes. Being reachable is not the same as being good at this — that
+is what the model table above is for, and it has one row because one model has
+been run. And a provider that answers the OpenAI API but not its tool-calling
+part will chat and not much else.
+
+---
+
 ## What it cannot do
 
 Said here rather than discovered later.
