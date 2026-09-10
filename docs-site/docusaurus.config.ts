@@ -61,6 +61,8 @@ const config: Config = {
       logo: { alt: "OpenCLI", src: "img/logo.svg" },
       items: [
         { type: "docSidebar", sidebarId: "docs", position: "left", label: "Docs" },
+        { to: "/getting-started/install", position: "left", label: "Get started" },
+        { to: "/help/faq", position: "left", label: "FAQ" },
         { href: "https://opencli.ai/download.html", label: "Download", position: "right" },
         { href: "https://github.com/ai-dashboad/opencli", label: "GitHub", position: "right" },
       ],
@@ -73,6 +75,14 @@ const config: Config = {
           items: [
             { label: "Install", to: "/getting-started/install" },
             { label: "Point it at a model", to: "/getting-started/point-at-a-model" },
+          ],
+        },
+        {
+          title: "Help",
+          items: [
+            { label: "FAQ", to: "/help/faq" },
+            { label: "Troubleshooting", to: "/help/troubleshooting" },
+            { label: "Security", to: "/help/security" },
           ],
         },
         {

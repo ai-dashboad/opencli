@@ -41,3 +41,69 @@
 .markdown table th {
   text-align: left;
 }
+
+/*
+ * The landing page.
+ *
+ * A hero and a grid of cards, because the first question somebody arrives
+ * with is "where do I go", and a wall of prose answers it slowly. The cards
+ * are plain links: no JavaScript, and they still work when the stylesheet
+ * does not load.
+ */
+.hero {
+  text-align: center;
+  padding: 32px 0 8px;
+}
+
+.hero h1 {
+  font-size: 2.6rem;
+  margin-bottom: 4px;
+}
+
+.hero h3 {
+  color: var(--ifm-color-primary);
+  font-weight: 500;
+  margin-bottom: 18px;
+}
+
+.hero p {
+  max-width: 44rem;
+  margin: 0 auto;
+  font-size: 1.05rem;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+  gap: 14px;
+  margin: 20px 0 8px;
+}
+
+.doc-card {
+  display: block;
+  padding: 16px 18px;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.doc-card:hover {
+  border-color: var(--ifm-color-primary);
+  text-decoration: none;
+  color: inherit;
+  transform: translateY(-1px);
+}
+
+.doc-card h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: var(--ifm-color-primary);
+}
+
+.doc-card p {
+  margin: 0;
+  font-size: 0.92rem;
+  opacity: 0.85;
+}

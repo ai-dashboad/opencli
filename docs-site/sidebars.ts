@@ -45,6 +45,12 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: "category",
+      label: "Help",
+      collapsed: false,
+      items: ["help/faq", "help/troubleshooting", "help/security"],
+    },
+    {
+      type: "category",
       label: "Reference",
       items: ["reference/checking-a-model", "reference/limits", "reference/contributing"],
     },
