@@ -49,27 +49,42 @@
  * with is "where do I go", and a wall of prose answers it slowly. The cards
  * are plain links: no JavaScript, and they still work when the stylesheet
  * does not load.
+ *
+ * `page-hero` and not `hero`: Infima already owns `.hero`, and its rule is
+ * `display: flex`. Setting only padding here left that flex in place, so the
+ * title, the tagline and the paragraph became three columns sitting side by
+ * side. Renaming is the fix rather than overriding `display`, because the
+ * collision would still be there waiting for the next property.
  */
-.hero {
+.page-hero {
   text-align: center;
   padding: 32px 0 8px;
 }
 
-.hero h1 {
+.page-hero h1 {
   font-size: 2.6rem;
   margin-bottom: 4px;
 }
 
-.hero h3 {
+.page-hero h3 {
   color: var(--ifm-color-primary);
   font-weight: 500;
   margin-bottom: 18px;
 }
 
-.hero p {
+.page-hero p {
   max-width: 44rem;
   margin: 0 auto;
   font-size: 1.05rem;
+}
+
+/*
+ * A breadcrumb on the landing page reads "Home › OpenCLI" directly above a
+ * heading that says OpenCLI — it points at the page you are standing on.
+ * Hidden only there; on every other page the trail is the point.
+ */
+article:has(.page-hero) > .theme-doc-breadcrumbs {
+  display: none;
 }
 
 .card-grid {
