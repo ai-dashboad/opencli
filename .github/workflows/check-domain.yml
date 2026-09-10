@@ -33,29 +33,35 @@ jobs:
 
           echo "--- existing docs record"
           api "https://api.cloudflare.com/client/v4/zones/$zone/dns_records?name=docs.opencli.ai" > /tmp/rec.json
-          python3 -c "
-          import json; r=json.load(open('/tmp/rec.json'))
-          print('found:', [(x['type'], x['content']) for x in (r.get('result') or [])] or 'none')
-          open('/tmp/has','w').write('yes' if (r.get('result') or []) else '')
-          "
+          python3 - <<'PY'
+          import json
+          r = json.load(open("/tmp/rec.json"))
+          found = [(x["type"], x["content"]) for x in (r.get("result") or [])]
+          print("found:", found or "none")
+          open("/tmp/has", "w").write("yes" if found else "")
+          PY
 
           if [ ! -s /tmp/has ]; then
             echo "--- creating CNAME docs -> opencli-docs.pages.dev"
             api -X POST "https://api.cloudflare.com/client/v4/zones/$zone/dns_records" \
               --data '{"type":"CNAME","name":"docs","content":"opencli-docs.pages.dev","proxied":true}' > /tmp/new.json
-            python3 -c "
-            import json; r=json.load(open('/tmp/new.json'))
-            print('created:', r.get('success'))
-            [print('error:', e.get('code'), e.get('message')) for e in r.get('errors', [])]
-            "
+            python3 - <<'PY'
+          import json
+          r = json.load(open("/tmp/new.json"))
+          print("created:", r.get("success"))
+          for e in r.get("errors", []):
+              print("error:", e.get("code"), e.get("message"))
+          PY
           fi
 
           echo "--- domain status now"
           api "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/opencli-docs/domains" > /tmp/d.json
-          python3 -c "
-          import json; r=json.load(open('/tmp/d.json'))
-          [print(f\"domain={d['name']} status={d.get('status')}\") for d in (r.get('result') or [])]
-          "
+          python3 - <<'PY'
+          import json
+          r = json.load(open("/tmp/d.json"))
+          for d in r.get("result") or []:
+              print(f"domain={d['name']} status={d.get('status')}")
+          PY
 
       - name: And whether it answers
         run: |
