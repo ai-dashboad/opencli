@@ -1,0 +1,30 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Getting started": {
+    "message": "はじめに",
+    "description": "The label for category 'Getting started' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Doing work": {
+    "message": "仕事に使う",
+    "description": "The label for category 'Doing work' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Configuration": {
+    "message": "設定",
+    "description": "The label for category 'Configuration' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Tutorials": {
+    "message": "チュートリアル",
+    "description": "The label for category 'Tutorials' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Help": {
+    "message": "ヘルプ",
+    "description": "The label for category 'Help' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Reference": {
+    "message": "リファレンス",
+    "description": "The label for category 'Reference' in sidebar 'docs'"
+  }
+}

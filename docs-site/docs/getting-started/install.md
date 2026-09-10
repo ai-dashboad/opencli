@@ -10,12 +10,15 @@ sidebar_position: 1
 Download it from [opencli.ai/download](https://opencli.ai/download.html), or
 take it straight from the latest release:
 
-| Platform | File |
+| Platform | Download |
 | --- | --- |
-| macOS, Apple Silicon | `OpenCLI-macos-aarch64.dmg` |
-| macOS, Intel | `OpenCLI-macos-x86_64.dmg` |
-| Windows | `OpenCLI-windows-x86_64-setup.exe` |
-| Linux | `OpenCLI-linux-x86_64.AppImage` |
+| macOS · Apple Silicon | [`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg) |
+| macOS · Intel | [`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg) |
+| Windows | [`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe) |
+| Linux | [`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage) |
+
+Each link always points at the newest release, so it keeps working as versions
+change.
 
 The app updates itself after that.
 

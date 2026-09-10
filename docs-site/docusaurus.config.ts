@@ -24,7 +24,27 @@ const config: Config = {
   onBrokenLinks: "throw",
   markdown: { hooks: { onBrokenMarkdownLinks: "throw" } },
 
-  i18n: { defaultLocale: "en", locales: ["en"] },
+  // The same ten the interface offers, so somebody who set the app to Korean
+  // does not arrive at documentation that only speaks English.
+  //
+  // A page with no translation falls back to the English one rather than
+  // 404ing, which is what makes it possible to add them a few at a time.
+  i18n: {
+    defaultLocale: "en",
+    locales: ["en", "zh-CN", "zh-TW", "ja", "ko", "es", "pt-BR", "fr", "de", "ru"],
+    localeConfigs: {
+      en: { label: "English" },
+      "zh-CN": { label: "简体中文" },
+      "zh-TW": { label: "繁體中文" },
+      ja: { label: "日本語" },
+      ko: { label: "한국어" },
+      es: { label: "Español" },
+      "pt-BR": { label: "Português" },
+      fr: { label: "Français" },
+      de: { label: "Deutsch" },
+      ru: { label: "Русский" },
+    },
+  },
 
   presets: [
     [
@@ -63,6 +83,7 @@ const config: Config = {
         { type: "docSidebar", sidebarId: "docs", position: "left", label: "Docs" },
         { to: "/getting-started/install", position: "left", label: "Get started" },
         { to: "/help/faq", position: "left", label: "FAQ" },
+        { type: "localeDropdown", position: "right" },
         { href: "https://opencli.ai/download.html", label: "Download", position: "right" },
         { href: "https://github.com/ai-dashboad/opencli", label: "GitHub", position: "right" },
       ],

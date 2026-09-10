@@ -1,0 +1,30 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Getting started": {
+    "message": "Начало работы",
+    "description": "The label for category 'Getting started' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Doing work": {
+    "message": "Работа с ним",
+    "description": "The label for category 'Doing work' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Configuration": {
+    "message": "Настройка",
+    "description": "The label for category 'Configuration' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Tutorials": {
+    "message": "Руководства",
+    "description": "The label for category 'Tutorials' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Help": {
+    "message": "Помощь",
+    "description": "The label for category 'Help' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Reference": {
+    "message": "Справка",
+    "description": "The label for category 'Reference' in sidebar 'docs'"
+  }
+}

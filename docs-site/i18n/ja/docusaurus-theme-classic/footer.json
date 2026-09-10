@@ -1,0 +1,50 @@
+{
+  "link.title.Start here": {
+    "message": "ここから",
+    "description": "The title of the footer links column with title=Start here in the footer"
+  },
+  "link.title.Help": {
+    "message": "ヘルプ",
+    "description": "The title of the footer links column with title=Help in the footer"
+  },
+  "link.title.Elsewhere": {
+    "message": "その他",
+    "description": "The title of the footer links column with title=Elsewhere in the footer"
+  },
+  "link.item.label.Install": {
+    "message": "インストール",
+    "description": "The label of footer link with label=Install linking to /getting-started/install"
+  },
+  "link.item.label.Point it at a model": {
+    "message": "モデルを指定する",
+    "description": "The label of footer link with label=Point it at a model linking to /getting-started/point-at-a-model"
+  },
+  "link.item.label.FAQ": {
+    "message": "よくある質問",
+    "description": "The label of footer link with label=FAQ linking to /help/faq"
+  },
+  "link.item.label.Troubleshooting": {
+    "message": "トラブルシューティング",
+    "description": "The label of footer link with label=Troubleshooting linking to /help/troubleshooting"
+  },
+  "link.item.label.Security": {
+    "message": "セキュリティ",
+    "description": "The label of footer link with label=Security linking to /help/security"
+  },
+  "link.item.label.opencli.ai": {
+    "message": "opencli.ai",
+    "description": "The label of footer link with label=opencli.ai linking to https://opencli.ai"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "The label of footer link with label=GitHub linking to https://github.com/ai-dashboad/opencli"
+  },
+  "link.item.label.Issues": {
+    "message": "問題を報告",
+    "description": "The label of footer link with label=Issues linking to https://github.com/ai-dashboad/opencli/issues"
+  },
+  "copyright": {
+    "message": "OpenCLI · Apache-2.0 · a fork of <a href=\"https://github.com/openai/codex\">OpenAI Codex CLI</a>, not affiliated with OpenAI",
+    "description": "The footer copyright"
+  }
+}

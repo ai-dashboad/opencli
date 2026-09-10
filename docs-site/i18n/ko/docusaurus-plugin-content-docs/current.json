@@ -1,0 +1,30 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Getting started": {
+    "message": "시작하기",
+    "description": "The label for category 'Getting started' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Doing work": {
+    "message": "일에 쓰기",
+    "description": "The label for category 'Doing work' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Configuration": {
+    "message": "설정",
+    "description": "The label for category 'Configuration' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Tutorials": {
+    "message": "튜토리얼",
+    "description": "The label for category 'Tutorials' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Help": {
+    "message": "도움말",
+    "description": "The label for category 'Help' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Reference": {
+    "message": "참고",
+    "description": "The label for category 'Reference' in sidebar 'docs'"
+  }
+}

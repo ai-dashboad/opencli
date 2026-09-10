@@ -1,0 +1,30 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Getting started": {
+    "message": "Démarrer",
+    "description": "The label for category 'Getting started' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Doing work": {
+    "message": "Travailler avec",
+    "description": "The label for category 'Doing work' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Configuration": {
+    "message": "Configuration",
+    "description": "The label for category 'Configuration' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Tutorials": {
+    "message": "Tutoriels",
+    "description": "The label for category 'Tutorials' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Help": {
+    "message": "Aide",
+    "description": "The label for category 'Help' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Reference": {
+    "message": "Référence",
+    "description": "The label for category 'Reference' in sidebar 'docs'"
+  }
+}
