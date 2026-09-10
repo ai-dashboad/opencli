@@ -3,100 +3,104 @@ title: Contributing
 sidebar_position: 3
 ---
 
-## Contributing
+# Contributing
 
-**External contributions are by invitation only**
+**Pull requests are welcome, and there is no invitation to wait for.** This is
+a small project; the useful thing is usually not a large feature but a row in a
+table, a sentence in a translation, or a bug report detailed enough to act on.
 
-At this time, the OpenCLI team does not accept unsolicited code contributions.
+## The most useful contributions
 
-If you would like to propose a new feature or a change in behavior, please open an issue describing the proposal or upvote an existing enhancement request. We prioritize new features based on community feedback, alignment with our roadmap, and consistency across all OpenCLI surfaces (CLI, IDE extensions, web, etc.).
+**A row in the model table.** [Checking a model](/reference/checking-a-model)
+is a fixed five-minute task. The table is short because it only holds models
+somebody ran, and **a negative result is worth as much as a positive one** —
+nobody posts about the model that did not work, so everybody rediscovers it.
 
-If you encounter a bug, please open a bug report or verify that an existing report already covers the issue. If you would like to help, we encourage you to contribute by sharing analysis, reproduction details, root-cause hypotheses, or a high-level outline of a potential fix directly in the issue thread.
+**A translation, or one line of a correction to one.** Ten ship. Any of them
+can be corrected one sentence at a time without touching the rest — see
+[Languages](/configuration/languages). A new language is a single JSON file.
 
-The OpenCLI team may invite an external contributor to submit a pull request when:
+**A bug report with the four things.** The model and provider written exactly
+(`qwen3-coder:30b` on Ollama, not "a local model"), what you asked, what
+happened, and fifty lines of `~/.opencli/log` from around the failure.
+**Check those log lines for keys before you paste them.**
 
-- the problem is well understood,
-- the proposed approach aligns with the team’s intended solution, and
-- the issue is deemed high-impact and high-priority.
+**Telling us what you actually wanted to do.** The built-in departments and
+skills were written from guesses about what people need. The thing you reached
+for and did not find is the most useful thing you can say.
 
-Pull requests that have not been explicitly invited by a member of the OpenCLI team will be closed without review.
+## Before you write code
 
-**Why we do not generally accept external code contributions**
+**Open an issue first for anything larger than a fix.** Not as a gate — so the
+approach can be agreed before you spend an evening on it. A PR that arrives
+with no issue behind it still gets read.
 
-In the past, the OpenCLI team accepted external pull requests for bug fixes. While we appreciated the effort and engagement from the community, this model did not scale well.
+## Setting up
 
-Many contributions were made without full visibility into the architectural context, system-level constraints, or near-term roadmap considerations that guide OpenCLI development. Others focused on issues that were low priority or affected a very small subset of users. Reviewing and iterating on these PRs often took more time than implementing the fix directly, and diverted attention from higher-priority work.
+Rust and pnpm; the workspace is `opencli-rs/`, the web interface is `web/`, and
+the desktop shell is `desktop/`.
 
-The most valuable contributions consistently came from community members who demonstrated deep understanding of a problem domain. That expertise is most helpful when shared early -- through detailed bug reports, analysis, and design discussion in issues. Identifying the right solution is typically the hard part; implementing it is comparatively straightforward with the help of OpenCLI itself.
+```shell
+git clone https://github.com/ai-dashboad/opencli
+cd opencli
+pnpm install
+cargo build -p opencli-cli
+```
 
-For these reasons, we focus external contributions on discussion, analysis, and feedback, and reserve code changes for cases where a targeted invitation makes sense.
+`just` from the repo root runs the workspace helpers; `just help` lists them.
 
-### Development workflow
+## Before you open the PR
 
-If you are invited by a OpenCLI team member to contribute a PR, here is the recommended development workflow.
+```shell
+just fmt
+just fix -p <crate>          # clippy, on the crate you touched
+cargo test -p <crate>
+```
 
-- Create a _topic branch_ from `main` - e.g. `feat/interactive-prompt`.
-- Keep your changes focused. Multiple unrelated fixes should be opened as separate PRs.
-- Ensure your change is free of lint warnings and test failures.
+**Do not run a bare `cargo fmt`.** The tree is formatted with
+`imports_granularity=Item`, which is nightly-only. On stable that option is
+**silently ignored**, so `cargo fmt` rewrites the import block of nearly every
+file in the workspace and buries your change in hundreds of unrelated diffs.
+`just fmt` invokes nightly for exactly this reason. Without a nightly toolchain
+(`rustup toolchain install nightly`), format only the files you touched and let
+CI confirm the rest.
 
-### Guidance for invited code contributions
+If you touched the web interface, `python3 scripts/i18n-check.py` finds English
+that was never wrapped for translation — including the cases that are easy to
+miss, like text split by an inline tag and labels built at import time.
 
-1. **Start with an issue.** Open a new one or comment on an existing discussion so we can agree on the solution before code is written.
-2. **Add or update tests.** A bug fix should generally come with test coverage that fails before your change and passes afterwards. 100% coverage is not required, but aim for meaningful assertions.
-3. **Document behavior.** If your change affects user-facing behavior, update the README, inline help (`opencli --help`), or relevant example projects.
-4. **Keep commits atomic.** Each commit should compile and the tests should pass. This makes reviews and potential rollbacks easier.
+## What makes a PR easy to merge
 
-### Opening a pull request (by invitation only)
+- **One thing.** Unrelated fixes are separate PRs.
+- **A test that fails before your change and passes after.** Not full coverage —
+  one assertion that would have caught the bug.
+- **Commits that each build.** It makes review and rollback possible.
+- **Documentation, if behaviour changed.** The README, `opencli --help`, or the
+  page here that is now wrong.
+- **What, why, how** in the description. The *why* is the part that cannot be
+  read off the diff.
 
-- Fill in the PR template (or include similar information) - **What? Why? How?**
-- Include a link to a bug report or enhancement request in the issue tracker
-- Run **all** checks locally. Use the root `just` helpers so you stay consistent with the rest of the workspace: `just fmt`, `just fix -p <crate>` for the crate you touched, and the relevant tests (e.g., `cargo test -p opencli-tui` or `just test` if you need a full sweep). CI failures that could have been caught locally slow down the process.
+## No CLA
 
-  **Do not run a bare `cargo fmt`.** The tree is formatted with
-  `imports_granularity=Item`, which is nightly-only. On stable that option is
-  silently ignored, so `cargo fmt` rewrites the import block of nearly every
-  file in the workspace and buries your change in hundreds of unrelated diffs.
-  `just fmt` invokes nightly for this reason. If you do not have a nightly
-  toolchain (`rustup toolchain install nightly`), format only the files you
-  touched and let CI confirm the rest.
+**There is nothing to sign.** Contributions are under
+[Apache-2.0](https://github.com/ai-dashboad/opencli/blob/main/LICENSE), like the
+rest of the tree.
 
-- Make sure your branch is up-to-date with `main` and that you have resolved merge conflicts.
-- Mark the PR as **Ready for review** only when you believe it is in a merge-able state.
+## Reporting a vulnerability
 
-### Review process
+**Do not open a public issue for a security bug.** Use GitHub's
+[private advisory form](https://github.com/ai-dashboad/opencli/security/advisories/new),
+which reaches the maintainers without publishing anything.
 
-1. One maintainer will be assigned as a primary reviewer.
-2. If your invited PR introduces scope or behavior that was not previously discussed and approved, we may close the PR.
-3. We may ask for changes. Please do not take this personally. We value the work, but we also value consistency and long-term maintainability.
-4. When there is consensus that the PR meets the bar, a maintainer will squash-and-merge.
+The parts most worth looking at: the sandbox policy, the approval path, and
+anything that decides what a tool call is allowed to touch. **An agent that
+reads your files and runs commands on your machine has a large surface, and it
+is better for you to find it than for somebody else to.**
 
-### Community values
+## Being decent about it
 
-- **Be kind and inclusive.** Treat others with respect; we follow the [Contributor Covenant](https://www.contributor-covenant.org/).
-- **Assume good intent.** Written communication is hard - err on the side of generosity.
-- **Teach & learn.** If you spot something confusing, open an issue or discussion with suggestions or clarifications.
-
-### Getting help
-
-If you run into problems setting up the project, would like feedback on an idea, or just want to say _hi_ - please open a Discussion topic or jump into the relevant issue. We are happy to help.
-
-Together we can make OpenCLI CLI an incredible tool. **Happy hacking!** :rocket:
-
-### Contributor license agreement (CLA)
-
-All contributors **must** accept the CLA. The process is lightweight:
-
-1. Open your pull request.
-2. Paste the following comment (or reply `recheck` if you've signed before):
-
-   ```text
-   I have read the CLA Document and I hereby sign the CLA
-   ```
-
-3. The CLA-Assistant bot records your signature in the repo and marks the status check as passed.
-
-No special Git commands, email attachments, or commit footers required.
-
-### Security & responsible AI
-
-Have you discovered a vulnerability or have concerns about model output? Please e-mail **security@openai.com** and we will respond promptly.
+Treat people with respect; we follow the
+[Contributor Covenant](https://www.contributor-covenant.org/). Assume good
+intent — **written communication is hard, so err on the side of generosity.**
+If something is confusing, that is worth an issue on its own: confusing
+documentation is a bug in the documentation.

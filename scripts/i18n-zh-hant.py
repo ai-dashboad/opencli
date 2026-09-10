@@ -26,14 +26,30 @@ import sys
 from pathlib import Path
 
 # Simplified to traditional, for the characters that differ. Built from the
-# characters this translation actually uses.
+# characters this translation actually uses, then extended when the
+# documentation brought in vocabulary the interface never needed. New entries
+# are found by running the text through ICU's Hans-Hant transliterator and
+# listing what it changes that this table does not — an oracle for finding the
+# gaps, not for filling them, because on the ambiguous characters below it is
+# wrong.
 CHARACTERS = str.maketrans({
     "关": "關", "声": "聲", "处": "處", "随": "隨", "线": "線", "养": "養",
     "电": "電", "忆": "憶", "强": "強", "于": "於",
     # Context-free here because this text only ever uses them one way: 里 is
-    # always "inside", never a unit of distance, and 后 is always "after",
-    # never a queen.
-    "后": "後", "里": "裡",
+    # always "inside", never a unit of distance; 后 is always "after", never a
+    # queen; and 干 is always "to do", never "dry" — which is what a
+    # transliterator picks, because 乾 is the commoner reading and it cannot
+    # see the sentence.
+    "后": "後", "里": "裡", "干": "幹",
+    "万": "萬", "么": "麼", "义": "義", "习": "習", "书": "書", "亏": "虧",
+    "云": "雲", "仅": "僅", "价": "價", "传": "傳", "体": "體", "册": "冊",
+    "况": "況", "凑": "湊", "凭": "憑", "占": "佔", "吗": "嗎", "国": "國",
+    "壳": "殼", "学": "學", "岗": "崗", "当": "當", "惯": "慣", "抢": "搶",
+    "槛": "檻", "炼": "煉", "红": "紅", "约": "約", "级": "級", "练": "練",
+    "脚": "腳", "舍": "捨", "获": "獲", "诚": "誠", "误": "誤", "诺": "諾",
+    "遥": "遙", "采": "採", "钩": "鈎", "钮": "鈕", "链": "鏈", "静": "靜",
+    "齐": "齊",
+    "听": "聽", "征": "徵", "横": "橫",
     "与": "與", "东": "東", "两": "兩", "个": "個", "为": "為", "买": "買",
     "产": "產", "从": "從", "仓": "倉", "们": "們", "会": "會", "余": "餘",
     "侧": "側", "值": "值", "儿": "兒", "党": "黨", "内": "內", "写": "寫",
@@ -149,6 +165,10 @@ CHARACTERS = str.maketrans({
 #
 # Longest first, so 默认模型 is settled before 默认.
 WORDS = [
+    # Names first, to undo the character table where a name is not a word. 里
+    # is converted to 裡 above because it always means "inside" — except in
+    # 阿里云, where it is part of a company's name and 阿裡雲 is simply wrong.
+    ("阿裡雲", "阿里雲"),
     ("答復", "答覆"),
     ("回復", "回覆"),
     ("重復", "重複"),

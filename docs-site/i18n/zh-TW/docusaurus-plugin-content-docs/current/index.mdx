@@ -1,0 +1,130 @@
+---
+slug: /
+title: OpenCLI
+sidebar_position: 1
+hide_title: true
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<div className="hero">
+
+# OpenCLI
+
+### 給你自己跑的模型,一個 agent
+
+跑在你自己的電腦上,能用任何 OpenAI 兼容的模型,而且**是去幹活,不是描述活兒**:
+讀你的文件、執行你的命令、修改你的東西,你不在的時候也在後臺繼續。
+
+</div>
+
+## 裝起來
+
+<Tabs groupId="install">
+<TabItem value="macos" label="macOS" default>
+
+下載 [`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg)
+(Apple 芯片)或
+[`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg)
+(Intel),拖進「應用程式」。
+
+安裝檔沒有 Apple 證書,所以第一次打開要多做一步:
+
+```shell
+xattr -dr com.apple.quarantine /Applications/OpenCLI.app
+```
+
+或者右鍵點應用、選**打開**。只需要一次。
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+下載並執行
+[`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe)。
+
+因為沒有簽名,SmartScreen 會彈一個藍框。點 **More info**,再點 **Run anyway**。
+
+</TabItem>
+<TabItem value="linux" label="Linux">
+
+下載
+[`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage),
+加執行權限然後執行:
+
+```shell
+chmod +x OpenCLI-linux-x86_64.AppImage
+./OpenCLI-linux-x86_64.AppImage
+```
+
+</TabItem>
+<TabItem value="cli" label="終端機">
+
+```shell
+curl -fsSL https://opencli.ai/install.sh | sh
+```
+
+它會判斷你的平臺、下載對應的構建,把 `opencli` 放進 `/usr/local/bin` —— 沒有寫權限
+就退到 `~/.local/bin`。
+
+</TabItem>
+<TabItem value="source" label="從源碼">
+
+需要一個較新的 Rust 工具鏈:
+
+```shell
+git clone https://github.com/ai-dashboad/opencli.git
+cd opencli/opencli-rs
+cargo build --release -p opencli-cli --bin opencli
+```
+
+</TabItem>
+</Tabs>
+
+**它不帶模型。**[指一個給它](/getting-started/point-at-a-model) —— 本機的 Ollama、
+你自己的伺服器,或者[四十來家供應商](/getting-started/providers)之一,其中不少家
+給免費額度。
+
+## 接下來去哪
+
+<div className="card-grid">
+
+<a className="doc-card" href="/zh-CN/getting-started/first-conversation">
+  <h3>第一次對話</h3>
+  <p>對話從哪個目錄開始、它在改動之前會問什麼、以及怎麼看它做了什麼。</p>
+</a>
+
+<a className="doc-card" href="/zh-CN/doing-work/departments-and-bots">
+  <h3>部門與 Bot</h3>
+  <p>一個帶常設說明的目錄,裡面的會話各有職責。九個部門帶樣例資料。</p>
+</a>
+
+<a className="doc-card" href="/zh-CN/doing-work/duties">
+  <h3>值守</h3>
+  <p>自己到點的活兒 —— 碰到不該自己決定的事情時會停下來問你。</p>
+</a>
+
+<a className="doc-card" href="/zh-CN/doing-work/background-runs">
+  <h3>後臺執行</h3>
+  <p>關掉發起它的對話之後還在跑的活兒,以及為什麼有時會被扣住。</p>
+</a>
+
+<a className="doc-card" href="/zh-CN/configuration/sandbox-and-approvals">
+  <h3>沙箱與審批</h3>
+  <p>agent 能做什麼、以及做之前必須問什麼。這裡最重要的一頁。</p>
+</a>
+
+<a className="doc-card" href="/zh-CN/reference/limits">
+  <h3>做不到什麼</h3>
+  <p>寫在前面,而不是讓你後面發現,每一條都寫了為什麼。</p>
+</a>
+
+</div>
+
+## 花一晚上之前值得知道的兩件事
+
+**小的本地模型幹這個不如前沿模型。** 介面是一樣的,推理不是。而且**一個不會調用工具的
+模型在這裡根本幹不了活** —— 它只會聊天。投入之前[先測一下](/reference/checking-a-model)。
+
+**agent 的沙箱可以寫它工作目錄裡的任何東西。** 那個目錄就是它能改動的全部範圍 ——
+這也是為什麼對話從一個工作區開始,而不是從你的家目錄。
