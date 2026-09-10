@@ -1,30 +1,43 @@
 /**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
+ * The documentation site, in the product's own colours.
+ *
+ * Not a theme for its own sake: somebody arriving here from the app should
+ * recognise it as the same thing. The values are the ones in
+ * `web/src/styles.css`, copied rather than imported — the app's stylesheet
+ * carries a great deal this site has no use for.
  */
 
-/* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-color-primary: #c96442;
+  --ifm-color-primary-dark: #b95733;
+  --ifm-color-primary-darker: #ae5230;
+  --ifm-color-primary-darkest: #904327;
+  --ifm-color-primary-light: #d0765a;
+  --ifm-color-primary-lighter: #d47f65;
+  --ifm-color-primary-lightest: #dd9885;
+  --ifm-code-font-size: 92%;
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+[data-theme="dark"] {
+  --ifm-color-primary: #c96442;
+  --ifm-color-primary-dark: #b95733;
+  --ifm-color-primary-darker: #ae5230;
+  --ifm-color-primary-darkest: #904327;
+  --ifm-color-primary-light: #d0765a;
+  --ifm-color-primary-lighter: #d47f65;
+  --ifm-color-primary-lightest: #dd9885;
+  --ifm-background-color: #262624;
+  --ifm-background-surface-color: #30302e;
+}
+
+/* The tables carry most of the reference material; they should read as
+   tables rather than as decorated lists. */
+.markdown table {
+  display: table;
+  width: 100%;
+}
+
+.markdown table th {
+  text-align: left;
 }

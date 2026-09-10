@@ -12,7 +12,7 @@ import { themes as prismThemes } from "prism-react-renderer";
 const config: Config = {
   title: "OpenCLI",
   tagline: "The agent for the models that do not have one",
-  favicon: "img/favicon.ico",
+  favicon: "img/favicon.svg",
 
   url: "https://docs.opencli.ai",
   baseUrl: "/",
@@ -56,7 +56,6 @@ const config: Config = {
   ],
 
   themeConfig: {
-    image: "img/social.png",
     navbar: {
       title: "OpenCLI",
       logo: { alt: "OpenCLI", src: "img/logo.svg" },
