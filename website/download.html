@@ -115,13 +115,12 @@
             <code>curl -fsSL https://opencli.ai/install.sh | sh</code>
             <button data-copy="curl -fsSL https://opencli.ai/install.sh | sh">Copy</button>
           </div>
-          <p style="margin-top: 18px">Or with npm:</p>
-          <div class="oneline">
-            <code>npm install -g @ai-dashboad/opencli</code>
-            <button data-copy="npm install -g @ai-dashboad/opencli">Copy</button>
-          </div>
+            <!-- The npm package is not published: the `@ai-dashboad` scope is
+                 not registered yet. A copy button for a command that 404s is
+                 worse than no command — it reads as a broken project rather
+                 than an unreleased one. This comes back with the scope. -->
           <p style="margin-top: 18px; font-size: 13.5px">
-            On Windows, use the npm package or the binaries on the
+            On Windows, use the binaries on the
             <a href="https://github.com/ai-dashboad/opencli/releases">releases page</a>.
           </p>
         </div>

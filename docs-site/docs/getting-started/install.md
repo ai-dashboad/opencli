@@ -48,11 +48,9 @@ It works out your platform, fetches the matching build, and puts `opencli` in
 `/usr/local/bin` — or in `~/.local/bin` if it cannot write there, telling you
 to add it to your `PATH`.
 
-Or with npm, anywhere Node runs:
-
-```shell
-npm install -g @ai-dashboad/opencli
-```
+The npm package is not published yet — the `@ai-dashboad` scope is not
+registered. Until it is, the installer above and the desktop builds are the
+two routes.
 
 ## From source
 
