@@ -1,0 +1,49 @@
+# Build and publish docs.opencli.ai.
+#
+# Separate from `website.yml` rather than merged into it, because the two are
+# built by different tools and a break in one should not stop the other from
+# publishing. They share the deployment shape deliberately: same credentials,
+# same skip-when-unconfigured rule, so a fork builds the docs on every pull
+# request and simply does not deploy them.
+
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs-site/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs-site/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - run: pnpm install --frozen-lockfile
+
+      # `onBrokenLinks: "throw"` means this step fails on a link to a page
+      # that does not exist. A dead link in documentation is worse than a
+      # missing page: it looks like the answer exists and has been mislaid.
+      - name: Build the docs
+        run: pnpm --dir docs-site build
+
+      - if: ${{ github.event_name != 'pull_request' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+        name: Publish to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm --dir docs-site exec wrangler pages deploy build --project-name=opencli-docs --branch=main

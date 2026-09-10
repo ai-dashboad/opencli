@@ -250,6 +250,7 @@ context_window = 32768
 
 ## 文档
 
+- [**文档站**](https://docs.opencli.ai) —— 下面这些,以及更多
 - [**配置**](./docs/config.md) —— provider、模型、路由、沙箱
 - [**加一种语言**](./docs/languages.md)
 - [**测一个模型**](./docs/model-check.md) —— 上面那张表背后的任务

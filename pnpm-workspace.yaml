@@ -4,6 +4,7 @@ packages:
   - sdk/typescript
   - web
   - website
+  - docs-site
   - shell-tool-mcp
 
 ignoredBuiltDependencies:

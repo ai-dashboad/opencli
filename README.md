@@ -281,6 +281,7 @@ among them yet: that is a change to the stylesheet, not a translation file.
 
 ## Docs
 
+- [**Documentation**](https://docs.opencli.ai) — everything below, and more, as a site
 - [**Configuration**](./docs/config.md) — providers, models, routing, sandboxing
 - [**Adding a language**](./docs/languages.md)
 - [**Checking a model**](./docs/model-check.md) — the task behind the table above
