@@ -1,9 +1,14 @@
-# Configuration
+---
+title: Full configuration reference
+sidebar_position: 4
+---
 
-This page is also published, with the rest of the documentation, at
-**[docs.opencli.ai/configuration/reference](https://docs.opencli.ai/configuration/reference)**.
+# Full configuration reference
 
-## Quickest path: let OpenCLI find your models
+Every key `~/.opencli/config.toml` accepts. For the handful most people touch,
+[the configuration file](/configuration/config-file) is shorter.
+
+### Quickest path: let OpenCLI find your models
 
 If you already run Ollama, LM Studio, vLLM, or llama.cpp locally:
 
@@ -28,7 +33,7 @@ The catalog only carries connection details — no keys ship with the binary, an
 nothing is active until you add it. To configure something not in the catalog,
 write the sections by hand as described below.
 
-### Filling in a model's capabilities
+#### Filling in a model's capabilities
 
 A local model's context window and tool-calling support are not published
 anywhere, and guessing them is worse than leaving them unset — too large a
@@ -48,13 +53,13 @@ in a separate `reasoning` field. Findings are written into the model's
 Models that cannot chat at all — embedding models, for instance — are skipped by
 `provider scan`, so they never reach the `/model` picker.
 
-## Choosing models and providers
+### Choosing models and providers
 
 This build ships presets for several gateways, but any model reachable over an
 OpenAI-compatible API can be configured in `~/.opencli/config.toml` without
 rebuilding.
 
-### Adding a provider
+#### Adding a provider
 
 Entries in `[model_providers.<id>]` override a built-in provider of the same id,
 so this is also how you repoint a bundled gateway at a proxy or mirror:
@@ -72,7 +77,7 @@ stream_idle_timeout_ms = 90000
 API keys are always read from the environment; they are never stored in the
 config file.
 
-### Adding a model
+#### Adding a model
 
 Declare models with `[[models]]`. They appear in the `/model` picker next to the
 built-in presets, and an entry whose `model` matches a built-in preset replaces
@@ -103,13 +108,13 @@ If `model` names something that is neither a built-in preset nor a `[[models]]`
 entry and `model_provider` is unset, requests fall back to the `openai` provider
 and a warning is logged.
 
-### Context windows
+#### Context windows
 
 Models this build has no metadata for start with a conservative 131,072-token
 window and learn the real one from the gateway's first context-window rejection.
 Set `model_context_window` to pin it explicitly.
 
-## Connecting to MCP servers
+### Connecting to MCP servers
 
 OpenCLI can connect to MCP servers declared in `~/.opencli/config.toml`.
 
@@ -130,13 +135,13 @@ starts with the next chat you open, not the one in front of you.
 The desktop app writes the same table from **Abilities → Connectors**, which
 also tests the handshake and lists the tools each server offers.
 
-## Apps (Connectors)
+### Apps (Connectors)
 
 Use `$` in the composer to insert a ChatGPT connector; the popover lists accessible
 apps. The `/apps` command lists available and installed apps. Connected apps appear first
 and are labeled as connected; others are marked as can be installed.
 
-## Notify
+### Notify
 
 OpenCLI can run a notification hook when the agent finishes a turn.
 
@@ -145,13 +150,20 @@ notify = ["/path/to/your/script.sh"]
 ```
 
 The program is called with one argument: a JSON object describing what
-happened. It is run detached, so a slow script does not hold up the next turn.
+happened. It is run detached, so a slow script does not hold up the next turn,
+and a script that fails is logged rather than surfaced.
 
-## JSON Schema
+### JSON Schema
 
-The generated JSON Schema for `config.toml` lives at `opencli-rs/core/config.schema.json`.
+The generated JSON Schema for `config.toml` lives at
+[`opencli-rs/core/config.schema.json`](https://github.com/ai-dashboad/opencli/blob/main/opencli-rs/core/config.schema.json),
+and is uploaded with every release as `config-schema.json`. Point your editor
+at it for completion and validation while editing the file by hand.
 
-## Notices
+It is generated from the Rust types, and CI fails if it drifts from them — so
+it is the one description of this file that cannot go stale.
+
+### Notices
 
 OpenCLI stores "do not show again" flags for some UI prompts under the `[notice]` table.
 

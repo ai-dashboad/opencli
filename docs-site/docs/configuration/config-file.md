@@ -76,5 +76,5 @@ the ones you have never set. `Show raw config` is the file itself.
 
 ## The full reference
 
-Every key, with its default:
-[docs/config.md](https://github.com/ai-dashboad/opencli/blob/main/docs/config.md).
+Every key this file accepts, with its default:
+[Full configuration reference](/configuration/reference).

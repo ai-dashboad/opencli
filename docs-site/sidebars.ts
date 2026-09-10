@@ -41,18 +41,30 @@ const sidebars: SidebarsConfig = {
         "configuration/config-file",
         "configuration/sandbox-and-approvals",
         "configuration/languages",
+        "configuration/reference",
       ],
+    },
+    {
+      type: "category",
+      label: "Tutorials",
+      collapsed: false,
+      items: ["tutorials/reconcile-a-ledger", "tutorials/watch-a-folder"],
     },
     {
       type: "category",
       label: "Help",
       collapsed: false,
-      items: ["help/faq", "help/troubleshooting", "help/security"],
+      items: ["help/faq", "help/troubleshooting", "help/security", "help/community"],
     },
     {
       type: "category",
       label: "Reference",
-      items: ["reference/checking-a-model", "reference/limits", "reference/contributing"],
+      items: [
+        "reference/checking-a-model",
+        "reference/limits",
+        "reference/roadmap",
+        "reference/contributing",
+      ],
     },
   ],
 };
