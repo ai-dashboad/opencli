@@ -93,7 +93,12 @@ If you would rather not take our word for any of it, the source is
 
 ## Reporting something
 
-Security problems: open an issue marked as such, or email the address in
-[SECURITY.md](https://github.com/ai-dashboad/opencli/blob/main/SECURITY.md).
+**Do not open a public issue for a security bug.** Use GitHub's
+[private advisory form](https://github.com/ai-dashboad/opencli/security/advisories/new),
+which reaches the maintainers without publishing anything.
 
-Please do not include your keys or logs that contain them.
+The parts most worth looking at are the ones on this page: the sandbox policy,
+the approval path, the directory check on background runs, and the gateway's
+token.
+
+Please do not include your keys, or logs that contain them.

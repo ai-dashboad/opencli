@@ -77,7 +77,11 @@ API 金鑰**不放在 `config.toml` 裡**,因為**那個文件會被分享、會
 
 ## 報告問題
 
-安全問題:開一個標注為安全的 issue,或者發郵件到
-[SECURITY.md](https://github.com/ai-dashboad/opencli/blob/main/SECURITY.md) 裡的地址。
+**安全 bug 不要開公開 issue。** 用 GitHub 的
+[私密通報表單](https://github.com/ai-dashboad/opencli/security/advisories/new),
+它能送到維護者手裡而不公開任何東西。
+
+**最值得看的地方就是這一頁上的那些**:sandbox 策略、審批路徑、後臺執行的目錄檢查,
+以及網關的權杖。
 
 **請不要附上你的金鑰,或者含有金鑰的日志。**
