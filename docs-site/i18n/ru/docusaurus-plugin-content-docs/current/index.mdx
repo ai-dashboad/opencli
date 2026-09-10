@@ -1,0 +1,129 @@
+---
+slug: /
+title: OpenCLI
+sidebar_position: 1
+hide_title: true
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<div className="hero">
+
+# OpenCLI
+
+### Агент для моделей, которые вы запускаете сами
+
+Работает на вашем компьютере, годится для любой OpenAI-совместимой модели и делает работу, а не описывает её: читает ваши файлы, выполняет ваши команды, правит вашу работу и продолжает в фоне, когда вас нет.
+
+</div>
+
+## Запустить
+
+<Tabs groupId="install">
+<TabItem value="macos" label="macOS" default>
+
+Скачайте [`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg)
+(Apple Silicon) или
+[`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg)
+(Intel) и перетащите в «Программы».
+
+**У сборки нет сертификата Apple**, поэтому при первом запуске понадобится одно из двух:
+
+```shell
+xattr -dr com.apple.quarantine /Applications/OpenCLI.app
+```
+
+либо щёлкните по приложению правой кнопкой и выберите **Открыть**. **Только один раз.**
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+Скачайте и запустите
+[`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe).
+
+**SmartScreen покажет синее окно, потому что сборка не подписана.** Нажмите
+**Подробнее**, затем **Выполнить в любом случае**.
+
+</TabItem>
+<TabItem value="linux" label="Linux">
+
+Скачайте
+[`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage),
+сделайте его исполняемым и запустите:
+
+```shell
+chmod +x OpenCLI-linux-x86_64.AppImage
+./OpenCLI-linux-x86_64.AppImage
+```
+
+</TabItem>
+<TabItem value="cli" label="Терминал">
+
+```shell
+curl -fsSL https://opencli.ai/install.sh | sh
+```
+
+**Скрипт определит вашу платформу**, скачает подходящую сборку и положит `opencli` в
+`/usr/local/bin` — или в `~/.local/bin`, если туда писать нельзя.
+
+</TabItem>
+<TabItem value="source" label="Из исходников">
+
+Понадобится свежий тулчейн Rust:
+
+```shell
+git clone https://github.com/ai-dashboad/opencli.git
+cd opencli/opencli-rs
+cargo build --release -p opencli-cli --bin opencli
+```
+
+</TabItem>
+</Tabs>
+
+**Модели внутри нет.** [Укажите ему одну](/getting-started/point-at-a-model) — локальную
+Ollama, ваш собственный сервер или любого из
+[примерно сорока поставщиков](/getting-started/providers), **у нескольких из которых есть
+бесплатная квота**.
+
+## Куда дальше
+
+<div className="card-grid">
+
+<a className="doc-card" href="/ru/getting-started/first-conversation">
+  <h3>Первый разговор</h3>
+  <p>Где начинается чат, о чём он спрашивает, прежде чем что-то менять, и как посмотреть, что он сделал.</p>
+</a>
+
+<a className="doc-card" href="/ru/doing-work/departments-and-bots">
+  <h3>Отделы и боты</h3>
+  <p>Каталог с постоянными указаниями и внутри него чаты, у которых есть работа. Девять идут с примерами данных.</p>
+</a>
+
+<a className="doc-card" href="/ru/doing-work/duties">
+  <h3>Дежурства</h3>
+  <p>Работа, которая возвращается сама — и останавливается, чтобы спросить вас, когда доходит до того, что не должна решать одна.</p>
+</a>
+
+<a className="doc-card" href="/ru/doing-work/background-runs">
+  <h3>Фоновые запуски</h3>
+  <p>Работа, которая продолжается после закрытия начавшего её чата, и почему иногда один запуск придерживают.</p>
+</a>
+
+<a className="doc-card" href="/ru/configuration/sandbox-and-approvals">
+  <h3>Песочница и подтверждения</h3>
+  <p>Что агенту можно и о чём он обязан спросить заранее. **Самая важная страница здесь.**</p>
+</a>
+
+<a className="doc-card" href="/ru/reference/limits">
+  <h3>Чего он не умеет</h3>
+  <p>Сказано сразу, а не обнаружено потом, и к каждому пункту — причина.</p>
+</a>
+
+</div>
+
+## Две вещи, которые стоит знать, прежде чем потратить на это вечер
+
+**Небольшая локальная модель справляется с этим хуже передовой.** Интерфейс тот же, рассуждение — нет. А **модель, которая не вызывает инструменты, не может делать эту работу вообще** — она будет разговаривать. [Проверьте свою](/reference/checking-a-model), прежде чем на неё ставить.
+
+**Песочница агента может писать куда угодно внутри своего рабочего каталога.** Этот каталог — всё, что он может изменить, и именно поэтому разговор открывается в рабочем пространстве, а не в вашей домашней папке.

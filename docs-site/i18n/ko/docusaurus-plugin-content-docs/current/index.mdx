@@ -1,0 +1,126 @@
+---
+slug: /
+title: OpenCLI
+sidebar_position: 1
+hide_title: true
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<div className="hero">
+
+# OpenCLI
+
+### 직접 돌리는 모델을 위한 에이전트
+
+당신의 컴퓨터에서 돌아가고, OpenAI 호환 모델이면 무엇이든 쓸 수 있으며, 설명하는 대신 일을 합니다. 파일을 읽고, 명령을 실행하고, 작업물을 고치고, 자리를 비운 사이에도 백그라운드에서 계속합니다.
+
+</div>
+
+## 실행하기
+
+<Tabs groupId="install">
+<TabItem value="macos" label="macOS" default>
+
+[`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg)(Apple Silicon) 또는
+[`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg)(Intel)를 내려받아
+응용 프로그램 폴더로 끌어다 놓습니다.
+
+**이 빌드에는 Apple 인증서가 없습니다.** 처음 실행할 때만 둘 중 하나가 필요합니다:
+
+```shell
+xattr -dr com.apple.quarantine /Applications/OpenCLI.app
+```
+
+또는 앱을 오른쪽 클릭하고 **열기** 를 선택하세요. **한 번만** 하면 됩니다.
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+[`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe)
+를 내려받아 실행합니다.
+
+**서명이 없어 SmartScreen이 파란 창을 띄웁니다.** **추가 정보** 를 누르고
+**실행** 을 선택하세요.
+
+</TabItem>
+<TabItem value="linux" label="Linux">
+
+[`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage)
+를 내려받아 실행 권한을 주고 실행합니다:
+
+```shell
+chmod +x OpenCLI-linux-x86_64.AppImage
+./OpenCLI-linux-x86_64.AppImage
+```
+
+</TabItem>
+<TabItem value="cli" label="터미널">
+
+```shell
+curl -fsSL https://opencli.ai/install.sh | sh
+```
+
+**플랫폼을 알아내** 맞는 빌드를 받아 `opencli` 를 `/usr/local/bin` 에 둡니다 ——
+거기에 쓸 수 없으면 `~/.local/bin` 에 둡니다.
+
+</TabItem>
+<TabItem value="source" label="소스에서">
+
+최근 버전의 Rust 툴체인이 필요합니다:
+
+```shell
+git clone https://github.com/ai-dashboad/opencli.git
+cd opencli/opencli-rs
+cargo build --release -p opencli-cli --bin opencli
+```
+
+</TabItem>
+</Tabs>
+
+**모델은 들어 있지 않습니다.** [하나를 가리켜 주세요](/getting-started/point-at-a-model) ——
+로컬 Ollama, 당신의 서버, 아니면 [마흔 곳 남짓한 공급자](/getting-started/providers) 중 하나.
+**그중 몇 곳은 무료 사용량을 줍니다.**
+
+## 다음에 볼 것
+
+<div className="card-grid">
+
+<a className="doc-card" href="/ko/getting-started/first-conversation">
+  <h3>첫 대화</h3>
+  <p>대화가 어디서 시작하는지, 무언가를 바꾸기 전에 무엇을 묻는지, 무엇을 했는지 어떻게 보는지.</p>
+</a>
+
+<a className="doc-card" href="/ko/doing-work/departments-and-bots">
+  <h3>부서와 봇</h3>
+  <p>상시 지침을 가진 디렉터리, 그리고 그 안에서 맡은 일이 있는 대화들. 아홉 개가 예시 데이터와 함께 들어 있습니다.</p>
+</a>
+
+<a className="doc-card" href="/ko/doing-work/duties">
+  <h3>당번</h3>
+  <p>스스로 돌아오는 일 —— 그리고 혼자 정하면 안 되는 대목에 이르면 멈춰서 당신에게 묻습니다.</p>
+</a>
+
+<a className="doc-card" href="/ko/doing-work/background-runs">
+  <h3>백그라운드 실행</h3>
+  <p>시작한 대화를 닫아도 계속되는 일, 그리고 가끔 하나가 붙들리는 이유.</p>
+</a>
+
+<a className="doc-card" href="/ko/configuration/sandbox-and-approvals">
+  <h3>샌드박스와 승인</h3>
+  <p>에이전트가 무엇을 할 수 있고 무엇을 먼저 물어야 하는지. **여기서 가장 중요한 페이지입니다.**</p>
+</a>
+
+<a className="doc-card" href="/ko/reference/limits">
+  <h3>할 수 없는 것</h3>
+  <p>나중에 알게 되는 대신 먼저 말해 두는 것들. 각각 이유와 함께.</p>
+</a>
+
+</div>
+
+## 하룻밤을 쏟기 전에 알아 둘 만한 두 가지
+
+**작은 로컬 모델은 프런티어 모델만큼 이 일을 잘하지 못합니다.** 화면은 같아도 추론은 같지 않습니다. 그리고 **도구를 부르지 않는 모델은 이 일을 아예 못 합니다** —— 대화만 합니다. 마음을 정하기 전에 [시험해 보세요](/reference/checking-a-model).
+
+**에이전트의 샌드박스는 작업 디렉터리 안이라면 어디에나 쓸 수 있습니다.** 그 디렉터리가 바뀔 수 있는 범위의 전부입니다. **대화가 홈 폴더가 아니라 작업공간에서 열리는 이유가 그것입니다.**

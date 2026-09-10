@@ -1,0 +1,129 @@
+---
+slug: /
+title: OpenCLI
+sidebar_position: 1
+hide_title: true
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<div className="hero">
+
+# OpenCLI
+
+### Un agent pour les modèles que vous faites tourner vous-même
+
+Il tourne sur votre ordinateur, fonctionne avec n'importe quel modèle compatible OpenAI, et fait le travail au lieu de le décrire : il lit vos fichiers, exécute vos commandes, modifie votre travail, et continue en arrière-plan quand vous n'êtes pas là.
+
+</div>
+
+## Le faire tourner
+
+<Tabs groupId="install">
+<TabItem value="macos" label="macOS" default>
+
+Téléchargez [`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg)
+(Apple Silicon) ou
+[`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg)
+(Intel), puis glissez-le dans Applications.
+
+**La build ne porte aucun certificat Apple**, donc le premier lancement demande l'une de ces deux choses :
+
+```shell
+xattr -dr com.apple.quarantine /Applications/OpenCLI.app
+```
+
+ou faites un clic droit sur l'application et choisissez **Ouvrir**. **Une seule fois.**
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+Téléchargez et lancez
+[`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe).
+
+**SmartScreen affichera un cadre bleu parce que la build n'est pas signée.** Cliquez sur
+**Informations complémentaires**, puis sur **Exécuter quand même**.
+
+</TabItem>
+<TabItem value="linux" label="Linux">
+
+Téléchargez
+[`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage),
+rendez-le exécutable et lancez-le :
+
+```shell
+chmod +x OpenCLI-linux-x86_64.AppImage
+./OpenCLI-linux-x86_64.AppImage
+```
+
+</TabItem>
+<TabItem value="cli" label="Terminal">
+
+```shell
+curl -fsSL https://opencli.ai/install.sh | sh
+```
+
+**Il détecte votre plateforme**, récupère la build correspondante et met `opencli` dans
+`/usr/local/bin` — ou dans `~/.local/bin` s'il ne peut pas y écrire.
+
+</TabItem>
+<TabItem value="source" label="Depuis les sources">
+
+Une chaîne d'outils Rust récente :
+
+```shell
+git clone https://github.com/ai-dashboad/opencli.git
+cd opencli/opencli-rs
+cargo build --release -p opencli-cli --bin opencli
+```
+
+</TabItem>
+</Tabs>
+
+**Il ne contient aucun modèle.** [Pointez-le vers un](/getting-started/point-at-a-model) :
+un Ollama local, votre propre serveur, ou l'un des
+[quarante et quelques fournisseurs](/getting-started/providers), **dont plusieurs offrent
+un quota gratuit**.
+
+## Où aller ensuite
+
+<div className="card-grid">
+
+<a className="doc-card" href="/fr/getting-started/first-conversation">
+  <h3>Première conversation</h3>
+  <p>Où démarre une conversation, ce qu'elle demande avant de changer quoi que ce soit, et comment voir ce qu'elle a fait.</p>
+</a>
+
+<a className="doc-card" href="/fr/doing-work/departments-and-bots">
+  <h3>Services et bots</h3>
+  <p>Un dossier avec des consignes permanentes, et à l'intérieur des conversations qui ont un travail. Neuf sont fournis avec des données d'exemple.</p>
+</a>
+
+<a className="doc-card" href="/fr/doing-work/duties">
+  <h3>Permanences</h3>
+  <p>Du travail qui revient tout seul — et qui s'arrête pour vous demander quand il atteint quelque chose qu'il ne devrait pas trancher seul.</p>
+</a>
+
+<a className="doc-card" href="/fr/doing-work/background-runs">
+  <h3>Exécutions en arrière-plan</h3>
+  <p>Du travail qui continue après la fermeture de la conversation qui l'a lancé, et pourquoi l'une d'elles est parfois retenue.</p>
+</a>
+
+<a className="doc-card" href="/fr/configuration/sandbox-and-approvals">
+  <h3>Bac à sable et autorisations</h3>
+  <p>Ce que l'agent peut faire, et ce qu'il doit demander d'abord. **La page la plus importante ici.**</p>
+</a>
+
+<a className="doc-card" href="/fr/reference/limits">
+  <h3>Ce qu'il ne sait pas faire</h3>
+  <p>Dit d'emblée plutôt que découvert plus tard, avec la raison de chaque point.</p>
+</a>
+
+</div>
+
+## Deux choses à savoir avant d'y passer une soirée
+
+**Un petit modèle local n'est pas aussi bon à cela qu'un modèle de pointe.** L'interface est la même ; le raisonnement, non. Et **un modèle qui n'appelle pas les outils ne peut pas faire ce travail du tout** — il discutera. [Testez le vôtre](/reference/checking-a-model) avant de vous y engager.
+
+**Le bac à sable de l'agent peut écrire n'importe où dans son répertoire de travail.** Ce répertoire est la totalité de ce qu'il peut modifier, et c'est pourquoi une conversation s'ouvre dans un espace de travail et non dans votre dossier personnel.

@@ -1,0 +1,129 @@
+---
+slug: /
+title: OpenCLI
+sidebar_position: 1
+hide_title: true
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<div className="hero">
+
+# OpenCLI
+
+### Um agente para os modelos que você mesmo executa
+
+Roda no seu computador, funciona com qualquer modelo compatível com a OpenAI e faz o trabalho em vez de descrevê-lo: lê seus arquivos, executa seus comandos, edita seu trabalho e continua em segundo plano quando você não está.
+
+</div>
+
+## Colocar para rodar
+
+<Tabs groupId="install">
+<TabItem value="macos" label="macOS" default>
+
+Baixe [`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg)
+(Apple Silicon) ou
+[`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg)
+(Intel) e arraste para Aplicativos.
+
+**A compilação não leva certificado da Apple**, então a primeira abertura precisa de uma destas duas coisas:
+
+```shell
+xattr -dr com.apple.quarantine /Applications/OpenCLI.app
+```
+
+ou clique com o botão direito no app e escolha **Abrir**. **Só uma vez.**
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+Baixe e execute
+[`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe).
+
+**O SmartScreen vai mostrar uma caixa azul porque a compilação não é assinada.** Clique em
+**Mais informações** e depois em **Executar assim mesmo**.
+
+</TabItem>
+<TabItem value="linux" label="Linux">
+
+Baixe
+[`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage),
+dê permissão de execução e rode:
+
+```shell
+chmod +x OpenCLI-linux-x86_64.AppImage
+./OpenCLI-linux-x86_64.AppImage
+```
+
+</TabItem>
+<TabItem value="cli" label="Terminal">
+
+```shell
+curl -fsSL https://opencli.ai/install.sh | sh
+```
+
+**Descobre a sua plataforma**, busca a compilação correspondente e coloca o `opencli` em
+`/usr/local/bin` — ou em `~/.local/bin` se não conseguir escrever lá.
+
+</TabItem>
+<TabItem value="source" label="Do código-fonte">
+
+Uma toolchain recente de Rust:
+
+```shell
+git clone https://github.com/ai-dashboad/opencli.git
+cd opencli/opencli-rs
+cargo build --release -p opencli-cli --bin opencli
+```
+
+</TabItem>
+</Tabs>
+
+**Ele não vem com modelo nenhum.** [Aponte para um](/getting-started/point-at-a-model): um
+Ollama local, o seu próprio servidor ou qualquer um dos
+[quarenta e tantos provedores](/getting-started/providers), **vários deles com cota
+gratuita**.
+
+## Para onde ir agora
+
+<div className="card-grid">
+
+<a className="doc-card" href="/pt-BR/getting-started/first-conversation">
+  <h3>Primeira conversa</h3>
+  <p>Onde um chat começa, o que ele pergunta antes de mudar qualquer coisa e como ver o que ele fez.</p>
+</a>
+
+<a className="doc-card" href="/pt-BR/doing-work/departments-and-bots">
+  <h3>Departamentos e bots</h3>
+  <p>Um diretório com instruções permanentes, e conversas dentro dele que têm um trabalho. Nove vêm com dados de exemplo.</p>
+</a>
+
+<a className="doc-card" href="/pt-BR/doing-work/duties">
+  <h3>Plantões</h3>
+  <p>Trabalho que volta sozinho — e que para para te perguntar quando chega em algo que não deveria decidir sozinho.</p>
+</a>
+
+<a className="doc-card" href="/pt-BR/doing-work/background-runs">
+  <h3>Execuções em segundo plano</h3>
+  <p>Trabalho que continua depois que você fecha a conversa que o começou, e por que às vezes um fica esperando.</p>
+</a>
+
+<a className="doc-card" href="/pt-BR/configuration/sandbox-and-approvals">
+  <h3>Sandbox e aprovações</h3>
+  <p>O que o agente pode fazer e o que ele precisa perguntar antes. **A página mais importante daqui.**</p>
+</a>
+
+<a className="doc-card" href="/pt-BR/reference/limits">
+  <h3>O que ele não faz</h3>
+  <p>Dito de cara em vez de descoberto depois, com o motivo de cada item.</p>
+</a>
+
+</div>
+
+## Duas coisas que vale saber antes de gastar uma noite nisso
+
+**Um modelo local pequeno não é tão bom nisso quanto um de fronteira.** A interface é a mesma; o raciocínio não é. E **um modelo que não chama ferramentas não consegue fazer este trabalho de jeito nenhum** — ele vai conversar. [Teste o seu](/reference/checking-a-model) antes de se comprometer.
+
+**O sandbox do agente pode escrever em qualquer lugar dentro do diretório de trabalho.** Esse diretório é tudo o que ele pode mudar, e é por isso que uma conversa abre num espaço de trabalho e não na sua pasta pessoal.

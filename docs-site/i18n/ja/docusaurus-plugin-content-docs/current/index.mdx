@@ -1,0 +1,126 @@
+---
+slug: /
+title: OpenCLI
+sidebar_position: 1
+hide_title: true
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<div className="hero">
+
+# OpenCLI
+
+### 自分で動かすモデルのためのエージェント
+
+あなたのコンピューターで動き、OpenAI 互換のモデルなら何でも使え、説明ではなく仕事をします。ファイルを読み、コマンドを実行し、作業を編集し、あなたがいない間もバックグラウンドで進め続けます。
+
+</div>
+
+## 動かす
+
+<Tabs groupId="install">
+<TabItem value="macos" label="macOS" default>
+
+[`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg)(Apple Silicon)または
+[`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg)(Intel)をダウンロードし、
+アプリケーションフォルダにドラッグします。
+
+**このビルドには Apple の証明書がありません**。初回起動だけ、次のどちらかが必要です:
+
+```shell
+xattr -dr com.apple.quarantine /Applications/OpenCLI.app
+```
+
+または、アプリを右クリックして **開く** を選びます。**一度だけ**です。
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+[`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe)
+をダウンロードして実行します。
+
+**署名がないので SmartScreen が青い画面を出します。** **詳細情報** をクリックし、
+**実行** を選んでください。
+
+</TabItem>
+<TabItem value="linux" label="Linux">
+
+[`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage)
+をダウンロードし、実行権限を与えて起動します:
+
+```shell
+chmod +x OpenCLI-linux-x86_64.AppImage
+./OpenCLI-linux-x86_64.AppImage
+```
+
+</TabItem>
+<TabItem value="cli" label="ターミナル">
+
+```shell
+curl -fsSL https://opencli.ai/install.sh | sh
+```
+
+**プラットフォームを判別**し、対応するビルドを取得して、`opencli` を `/usr/local/bin` に置きます ——
+そこに書けない場合は `~/.local/bin` に置きます。
+
+</TabItem>
+<TabItem value="source" label="ソースから">
+
+新しめの Rust ツールチェーンが要ります:
+
+```shell
+git clone https://github.com/ai-dashboad/opencli.git
+cd opencli/opencli-rs
+cargo build --release -p opencli-cli --bin opencli
+```
+
+</TabItem>
+</Tabs>
+
+**モデルは同梱していません。**[一つ指定してください](/getting-started/point-at-a-model) ——
+ローカルの Ollama、自分のサーバー、あるいは[四十社ほどの供給元](/getting-started/providers)の
+どれか。**そのうち何社かは無料枠を出しています。**
+
+## 次に読むもの
+
+<div className="card-grid">
+
+<a className="doc-card" href="/ja/getting-started/first-conversation">
+  <h3>最初の対話</h3>
+  <p>対話がどこで始まるか、何かを変える前に何を訊くか、何をしたのかをどう見るか。</p>
+</a>
+
+<a className="doc-card" href="/ja/doing-work/departments-and-bots">
+  <h3>部門とボット</h3>
+  <p>常設の指示を持つディレクトリと、その中で仕事を持つ対話。九つがサンプルデータ付きで同梱されています。</p>
+</a>
+
+<a className="doc-card" href="/ja/doing-work/duties">
+  <h3>当番</h3>
+  <p>自分から回ってくる仕事 —— そして、独断で決めるべきでないところに来ると、止まってあなたに訊きます。</p>
+</a>
+
+<a className="doc-card" href="/ja/doing-work/background-runs">
+  <h3>バックグラウンド実行</h3>
+  <p>始めた対話を閉じても続く仕事と、ときどき一つが待たされる理由。</p>
+</a>
+
+<a className="doc-card" href="/ja/configuration/sandbox-and-approvals">
+  <h3>サンドボックスと承認</h3>
+  <p>エージェントに何ができて、何を先に訊かなければならないか。**ここで一番大事なページです。**</p>
+</a>
+
+<a className="doc-card" href="/ja/reference/limits">
+  <h3>できないこと</h3>
+  <p>あとで気づくのではなく先に言っておくもの。それぞれ理由つきで。</p>
+</a>
+
+</div>
+
+## 一晩を費やす前に知っておく価値のある二つ
+
+**小さなローカルモデルは、フロンティアのモデルほどこれが得意ではありません。** 画面は同じでも、推論は同じではありません。そして**ツールを呼ばないモデルは、この仕事がまったくできません** —— 話をするだけです。腰を据える前に[試してください](/reference/checking-a-model)。
+
+**エージェントのサンドボックスは、作業ディレクトリの中ならどこにでも書けます。** そのディレクトリが、変更されうる範囲のすべてです。**対話がホームフォルダではなくワークスペースで開くのは、そのためです。**

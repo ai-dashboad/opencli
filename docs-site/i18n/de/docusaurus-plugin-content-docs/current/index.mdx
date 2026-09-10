@@ -1,0 +1,130 @@
+---
+slug: /
+title: OpenCLI
+sidebar_position: 1
+hide_title: true
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<div className="hero">
+
+# OpenCLI
+
+### Ein Agent für die Modelle, die Sie selbst betreiben
+
+Läuft auf Ihrem Rechner, arbeitet mit jedem OpenAI-kompatiblen Modell und erledigt die Arbeit, statt sie zu beschreiben: liest Ihre Dateien, führt Ihre Befehle aus, bearbeitet Ihre Arbeit und macht im Hintergrund weiter, wenn Sie nicht da sind.
+
+</div>
+
+## Zum Laufen bringen
+
+<Tabs groupId="install">
+<TabItem value="macos" label="macOS" default>
+
+Laden Sie [`OpenCLI-macos-aarch64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-aarch64.dmg)
+(Apple Silicon) oder
+[`OpenCLI-macos-x86_64.dmg`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-macos-x86_64.dmg)
+(Intel) herunter und ziehen Sie es in den Programme-Ordner.
+
+**Der Build trägt kein Apple-Zertifikat**, deshalb braucht der erste Start eines von beidem:
+
+```shell
+xattr -dr com.apple.quarantine /Applications/OpenCLI.app
+```
+
+oder rechtsklicken Sie die App und wählen **Öffnen**. **Nur einmal.**
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+Laden Sie
+[`OpenCLI-windows-x86_64-setup.exe`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-windows-x86_64-setup.exe)
+herunter und führen Sie es aus.
+
+**SmartScreen zeigt einen blauen Kasten, weil der Build nicht signiert ist.** Klicken Sie auf
+**Weitere Informationen** und dann auf **Trotzdem ausführen**.
+
+</TabItem>
+<TabItem value="linux" label="Linux">
+
+Laden Sie
+[`OpenCLI-linux-x86_64.AppImage`](https://github.com/ai-dashboad/opencli/releases/latest/download/OpenCLI-linux-x86_64.AppImage)
+herunter, machen Sie es ausführbar und starten Sie es:
+
+```shell
+chmod +x OpenCLI-linux-x86_64.AppImage
+./OpenCLI-linux-x86_64.AppImage
+```
+
+</TabItem>
+<TabItem value="cli" label="Terminal">
+
+```shell
+curl -fsSL https://opencli.ai/install.sh | sh
+```
+
+**Es ermittelt Ihre Plattform**, holt den passenden Build und legt `opencli` nach
+`/usr/local/bin` — oder nach `~/.local/bin`, wenn es dort nicht schreiben darf.
+
+</TabItem>
+<TabItem value="source" label="Aus dem Quellcode">
+
+Eine aktuelle Rust-Toolchain:
+
+```shell
+git clone https://github.com/ai-dashboad/opencli.git
+cd opencli/opencli-rs
+cargo build --release -p opencli-cli --bin opencli
+```
+
+</TabItem>
+</Tabs>
+
+**Es bringt kein Modell mit.** [Zeigen Sie ihm eines](/getting-started/point-at-a-model) —
+ein lokales Ollama, Ihren eigenen Server oder einen der
+[gut vierzig Anbieter](/getting-started/providers), **von denen mehrere ein
+kostenloses Kontingent geben**.
+
+## Wie es weitergeht
+
+<div className="card-grid">
+
+<a className="doc-card" href="/de/getting-started/first-conversation">
+  <h3>Erstes Gespräch</h3>
+  <p>Wo ein Chat beginnt, was er fragt, bevor er etwas ändert, und wie Sie sehen, was er getan hat.</p>
+</a>
+
+<a className="doc-card" href="/de/doing-work/departments-and-bots">
+  <h3>Abteilungen und Bots</h3>
+  <p>Ein Verzeichnis mit ständigen Anweisungen und darin Chats, die eine Aufgabe haben. Neun sind mit Beispieldaten dabei.</p>
+</a>
+
+<a className="doc-card" href="/de/doing-work/duties">
+  <h3>Dienste</h3>
+  <p>Arbeit, die von selbst wiederkommt — und die anhält und Sie fragt, wenn sie an etwas kommt, das sie nicht allein entscheiden sollte.</p>
+</a>
+
+<a className="doc-card" href="/de/doing-work/background-runs">
+  <h3>Hintergrundläufe</h3>
+  <p>Arbeit, die weiterläuft, nachdem Sie den Chat geschlossen haben, der sie gestartet hat, und warum einer manchmal warten muss.</p>
+</a>
+
+<a className="doc-card" href="/de/configuration/sandbox-and-approvals">
+  <h3>Sandbox und Freigaben</h3>
+  <p>Was der Agent darf und was er vorher fragen muss. **Die wichtigste Seite hier.**</p>
+</a>
+
+<a className="doc-card" href="/de/reference/limits">
+  <h3>Was es nicht kann</h3>
+  <p>Vorab gesagt statt später entdeckt, jeweils mit dem Grund.</p>
+</a>
+
+</div>
+
+## Zwei Dinge, die man wissen sollte, bevor man einen Abend investiert
+
+**Ein kleines lokales Modell ist darin nicht so gut wie ein Spitzenmodell.** Die Oberfläche ist dieselbe, das Denken nicht. Und **ein Modell, das keine Werkzeuge aufruft, kann diese Arbeit überhaupt nicht** — es wird sich unterhalten. [Prüfen Sie Ihres](/reference/checking-a-model), bevor Sie sich darauf festlegen.
+
+**Die Sandbox des Agenten darf überall in ihrem Arbeitsverzeichnis schreiben.** Dieses Verzeichnis ist alles, was sie ändern kann — und genau deshalb öffnet ein Gespräch in einem Arbeitsbereich und nicht in Ihrem Benutzerordner.
