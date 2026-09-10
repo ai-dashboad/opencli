@@ -19,6 +19,7 @@ const sidebars: SidebarsConfig = {
         "getting-started/install",
         "getting-started/point-at-a-model",
         "getting-started/first-conversation",
+        "getting-started/providers",
       ],
     },
     {
