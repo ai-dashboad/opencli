@@ -189,6 +189,44 @@ header.top nav a:hover {
   }
 }
 
+/*
+ * The shader, when there is one.
+ *
+ * `screen` is why the canvas can be opaque: screen with black changes nothing,
+ * so everything the shader's mask darkens simply falls away and the section
+ * gradient shows through. No alpha to get wrong.
+ *
+ * It is drawn at half resolution — the blur hides that, and the blur is the
+ * point anyway.
+ */
+.hero .shader {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: blur(8px);
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+
+/* Set by the shader itself, after its first frame is on the canvas. Before
+   that the gradient is doing the work and there is nothing to cross to. */
+.hero.has-shader .shader {
+  opacity: 1;
+}
+
+/* `animation: none` as well as the opacity: `drift` animates opacity too, and
+   an animation outranks a plain declaration — without this the gradient keeps
+   pulsing away underneath the shader. */
+.hero.has-shader .glow {
+  animation: none;
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+
 /* The one thing worth announcing, and a link to it. */
 .badge {
   display: inline-flex;
@@ -474,22 +512,14 @@ td {
 
 /* ── Download ──────────────────────────────────────────────────────── */
 
-.download-main {
-  padding: 24px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  text-align: center;
+/* A doorway rather than a pitch: same hero, less of it, and no terminal. */
+.hero.compact {
+  padding-top: 84px;
+  padding-bottom: 56px;
 }
 
-.download-main .button {
-  margin-top: 8px;
-}
-
-.download-main .detail {
-  margin: 10px 0 0;
-  color: var(--text-faint);
-  font-size: 13px;
+.hero.compact h1 {
+  font-size: clamp(34px, 5vw, 52px);
 }
 
 ul.files {
@@ -515,6 +545,12 @@ ul.files li span {
 /* The warning people will hit, said before they hit it rather than after. */
 .notice {
   margin-top: 28px;
+}
+
+/* It opens the section on the download page, where a top margin only widens a
+   gap the section's own padding has already made. */
+.wrap > .notice:first-child {
+  margin-top: 0;
   padding: 18px 20px;
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));

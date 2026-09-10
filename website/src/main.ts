@@ -10,6 +10,8 @@
  * awaited before anything is shown.
  */
 
+import { mountHeroShader } from "./hero-gl";
+
 const REPO = "ai-dashboad/opencli";
 
 type Platform = "macos-arm" | "macos-intel" | "windows" | "linux" | "unknown";
@@ -123,3 +125,17 @@ function setUpCopy(): void {
 setUpDownload();
 setUpCopy();
 void showLatestVersion();
+
+/*
+ * Last, and guarded. The shader is the only thing on the page that can fail
+ * because of the machine rather than the markup, and nothing above it should
+ * ever be waiting on a graphics context.
+ */
+const hero = document.querySelector<HTMLElement>(".hero");
+if (hero) {
+  try {
+    mountHeroShader(hero);
+  } catch {
+    // No WebGL, or a driver that refused. The CSS gradient is still there.
+  }
+}

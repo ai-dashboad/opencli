@@ -31,27 +31,40 @@
         <nav>
           <a href="/download.html">Download</a>
           <a href="/#cli">CLI</a>
+          <a href="https://docs.opencli.ai">Docs</a>
           <a href="https://github.com/ai-dashboad/opencli">GitHub</a>
         </nav>
       </div>
     </header>
 
     <main>
-      <section style="border-top: none; padding-top: 48px">
+      <!-- The same hero as the home page, shorter: this one is a doorway, not
+           a pitch, and the file the visitor came for should be reachable
+           without scrolling. -->
+      <section class="hero compact">
+        <div class="glow" aria-hidden="true"></div>
+
         <div class="wrap">
-          <h2>Download</h2>
-          <p>
+          <h1>Get <em>OpenCLI</em></h1>
+
+          <p class="lede">
             <span data-version-block hidden>Version <span data-version></span> · </span>The
             desktop app updates itself once installed.
           </p>
 
-          <div class="download-main">
+          <div class="cta">
             <a class="button" href="#all" data-download-main>See all downloads</a>
-            <p class="detail" data-download-detail hidden>
-              Not your platform? Everything is listed below.
-            </p>
+            <a class="button ghost" href="#cli">Install the CLI</a>
           </div>
 
+          <p class="detail" data-download-detail hidden>
+            Not your platform? <a href="#all">Everything is listed below.</a>
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
           <div class="notice">
             <h3>Your computer will warn you about this app</h3>
             <p>
@@ -107,7 +120,7 @@
         </div>
       </section>
 
-      <section>
+      <section id="cli">
         <div class="wrap">
           <h2>Command line</h2>
           <p>The agent on its own, with no window. macOS and Linux:</p>
