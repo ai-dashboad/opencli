@@ -61,3 +61,40 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: pnpm --dir docs-site exec wrangler pages deploy build --project-name=opencli-docs --branch=main
+
+      # After the deploy, not before: if attaching the domain fails, the docs
+      # are already live at `opencli-docs.pages.dev` and only the pretty name
+      # is missing. Failing here is then a loud, accurate signal rather than a
+      # lost deployment.
+      #
+      # Wrangler cannot do this — `pages project` has create, list and delete
+      # and nothing else — so it is one API call. The zone is on the same
+      # account, so Cloudflare adds the DNS record itself.
+      - if: ${{ github.event_name != 'pull_request' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+        name: Attach docs.opencli.ai
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          curl -sS -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/opencli-docs/domains" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"name":"docs.opencli.ai"}' > /tmp/domain.json
+          python3 - <<'CHECK'
+          import json, sys
+          reply = json.load(open("/tmp/domain.json"))
+          if reply.get("success"):
+              print("attached docs.opencli.ai")
+              sys.exit(0)
+          errors = reply.get("errors", [])
+          # Already attached is the ordinary state of every run after the first.
+          if any("already" in str(e.get("message", "")).lower() for e in errors):
+              print("docs.opencli.ai was already attached")
+              sys.exit(0)
+          # Anything else is worth stopping for — most likely the API token is
+          # missing Pages:Edit, which no amount of retrying fixes.
+          for e in errors:
+              print(f"cloudflare: {e.get('code')} {e.get('message')}", file=sys.stderr)
+          sys.exit(1)
+          CHECK
