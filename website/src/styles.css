@@ -116,17 +116,120 @@ header.top nav a:hover {
 
 /* ── Hero ──────────────────────────────────────────────────────────── */
 
+/*
+ * The hero is darker than the rest of the page and fades back into it.
+ *
+ * Deepening `--bg` itself would have been simpler and wrong: that token is
+ * shared with the app on purpose, and the note at the top of this file asks
+ * for the two to keep matching. So the darkness lives here, on one section,
+ * and stops where the section does.
+ */
 .hero {
-  padding: 96px 0 72px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 112px 0 0;
   text-align: center;
+  background: linear-gradient(to bottom, #131211 0%, #171615 55%, var(--bg) 100%);
+}
+
+.hero .wrap {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * Light thrown from behind the headline. Two pools of the accent, wide and
+ * faint, plus a cool one to keep the warm colour from reading as a single
+ * flat wash. `screen` so they add light rather than paint over each other.
+ */
+.hero .glow {
+  position: absolute;
+  inset: -140px -15% auto;
+  height: 820px;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    /* The core, sitting behind the headline. */
+    radial-gradient(30% 27% at 50% 44%, rgb(201 100 66 / 0.9) 0%, rgb(201 100 66 / 0.3) 44%, transparent 70%),
+    /* A wider, fainter halo so the core does not end in a ring. Kept low:
+       raised any further it stops being light and becomes a brown wash over
+       the whole band. */
+    radial-gradient(50% 44% at 50% 40%, rgb(224 138 90 / 0.17) 0%, transparent 72%),
+    /* One cool pool off to the side. A single warm hue over black reads as a
+       colour cast rather than as light. */
+    radial-gradient(26% 26% at 74% 32%, rgb(122 98 158 / 0.3) 0%, transparent 70%),
+    radial-gradient(20% 22% at 24% 28%, rgb(198 122 84 / 0.22) 0%, transparent 72%);
+  /* Falls off to nothing at the edges and before the terminal, so the corners
+     stay black and the panel below is lit by its own shadow, not by this. */
+  mask-image:
+    radial-gradient(72% 62% at 50% 38%, #000 0%, #000 42%, transparent 78%);
+  mix-blend-mode: screen;
+  filter: blur(34px);
+  opacity: 1;
+  animation: drift 22s ease-in-out infinite alternate;
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(-1.5%, 0, 0) scale(1);
+    opacity: 0.82;
+  }
+  to {
+    transform: translate3d(1.5%, -2%, 0) scale(1.07);
+    opacity: 1;
+  }
+}
+
+/* Motion here is decoration. Anyone who has asked for less gets the same
+   picture, held still. */
+@media (prefers-reduced-motion: reduce) {
+  .hero .glow {
+    animation: none;
+  }
+}
+
+/* The one thing worth announcing, and a link to it. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 26px;
+  padding: 5px 14px 5px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.badge:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+  text-decoration: none;
+}
+
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 h1 {
-  margin: 0 0 18px;
+  margin: 0 0 20px;
+  font-size: clamp(38px, 6.4vw, 68px);
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -0.028em;
+}
+
+/* The half of the sentence the whole product is about, in the other face. */
+h1 em {
   font-family: ui-serif, Georgia, "Times New Roman", serif;
-  font-size: 52px;
+  font-style: italic;
   font-weight: 400;
-  line-height: 1.12;
+  color: var(--accent);
   letter-spacing: -0.01em;
 }
 
@@ -135,6 +238,84 @@ h1 {
   margin: 0 auto 32px;
   color: var(--text-dim);
   font-size: 17px;
+}
+
+.hero .detail {
+  margin-top: 14px;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+/* ── The terminal in the hero ──────────────────────────────────────── */
+
+/*
+ * Cropped by the fold on purpose: the bottom edge is not drawn, so the panel
+ * reads as continuing past the screen rather than as a card that happens to
+ * end there.
+ */
+.terminal {
+  max-width: 760px;
+  margin: 58px auto 0;
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  background: color-mix(in srgb, #0e0d0c 88%, transparent);
+  box-shadow:
+    0 -1px 0 color-mix(in srgb, var(--text) 8%, transparent) inset,
+    0 40px 90px -30px rgb(0 0 0 / 0.8);
+  text-align: left;
+  overflow: hidden;
+}
+
+.terminal .chrome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.terminal .light {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.terminal .where {
+  margin-left: 8px;
+  color: var(--text-faint);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+.terminal pre {
+  margin: 0;
+  padding: 18px 20px 30px;
+  overflow-x: auto;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.terminal .p {
+  color: var(--accent);
+}
+
+.terminal .s {
+  color: var(--text);
+}
+
+.terminal .t {
+  color: var(--text-faint);
+}
+
+.terminal .f {
+  color: var(--accent);
+}
+
+.terminal .d {
+  color: var(--text-faint);
 }
 
 .cta {
@@ -240,7 +421,7 @@ p {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 16px;
   margin-top: 28px;
 }
@@ -379,11 +560,16 @@ footer .grow {
 }
 
 @media (max-width: 640px) {
-  h1 {
-    font-size: 38px;
+  /* h1 is on a clamp() and needs nothing here. */
+  .hero {
+    padding-top: 72px;
   }
 
-  .hero {
-    padding: 64px 0 48px;
+  .terminal {
+    margin-top: 40px;
+  }
+
+  .terminal pre {
+    font-size: 12px;
   }
 }

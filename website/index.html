@@ -42,25 +42,63 @@
 
     <main>
       <section class="hero">
+        <!--
+          The glow is four radial gradients on one empty element, not an image
+          and not a canvas: it costs nothing to load, stays sharp at any density,
+          and the whole hero still reads if it never paints. It drifts slowly,
+          and holds still for anyone who asked for less motion.
+        -->
+        <div class="glow" aria-hidden="true"></div>
+
         <div class="wrap">
-          <h1>The agent for the models that do not have one</h1>
+          <a class="badge" href="https://docs.opencli.ai">
+            <span class="dot" aria-hidden="true"></span>
+            New — the documentation, in ten languages
+          </a>
+
+          <h1>The agent for the models<br />that <em>do not have one</em></h1>
+
           <p class="lede">
-            Claude has Claude Code. OpenAI has Codex. Gemini has its CLI. The models you can
-            actually run — Qwen, DeepSeek, GLM, Llama, Mistral — have none.
+            Claude has Claude Code. OpenAI has Codex. The models you can actually run — Qwen,
+            DeepSeek, GLM, Llama, Mistral — have none. OpenCLI is theirs.
           </p>
-          <p class="lede">
-            OpenCLI is theirs. A terminal agent and a desktop app pointed at whatever
-            OpenAI-compatible endpoint you like: a model on the machine in front of you, your own
-            gateway, or a hosted provider when you want one. No models, no accounts, no keys.
-          </p>
+
           <div class="cta">
             <a class="button" href="/download.html" data-download-main>Download</a>
             <a class="button ghost" href="#cli">Install the CLI</a>
           </div>
-          <p class="detail" data-download-detail hidden style="color: var(--text-faint); font-size: 13px; margin-top: 12px">
+
+          <p class="detail" data-download-detail hidden>
             <span data-version-block hidden>Version <span data-version></span> · </span>other
             platforms on the <a href="/download.html">download page</a>
           </p>
+
+          <!--
+            The product shot, built out of text rather than photographed. A
+            screenshot would be a picture of a terminal; this is a terminal, so
+            it stays crisp, it can be selected and copied, and it cannot drift
+            out of date silently the way an image does.
+
+            The session is the model check from the documentation: six rows,
+            three planted problems, and those are the three.
+          -->
+          <div class="terminal" role="img"
+               aria-label="A terminal running opencli against a six-row invoice file: it reads the rules and the rows, then reports three findings with their row numbers.">
+            <div class="chrome" aria-hidden="true">
+              <span class="light"></span><span class="light"></span><span class="light"></span>
+              <span class="where">~/finance</span>
+            </div>
+            <pre aria-hidden="true"><span class="p">$</span> opencli exec <span class="s">"use the spreadsheet-review skill on invoices.csv"</span>
+
+  <span class="t">read</span>   rules.md       3 rules
+  <span class="t">read</span>   invoices.csv   6 rows
+
+  <span class="f">row 2</span>  INV-2202   11,800       over 10,000 with no PO number
+  <span class="f">row 5</span>  INV-2205   —            no amount
+  <span class="f">row 6</span>  INV-2206   2026-13-02   month 13 is not a date
+
+  <span class="d">3 findings in 6 rows.</span></pre>
+          </div>
         </div>
       </section>
 
@@ -190,7 +228,7 @@
           </table>
           <p style="margin-top: 22px">
             This table is short because it only holds what has been run.
-            <a href="https://github.com/ai-dashboad/opencli/blob/main/docs/model-check.md">Adding a
+            <a href="https://docs.opencli.ai/reference/checking-a-model">Adding a
             row</a> is the most useful contribution you can make, and it takes about five minutes.
             Negative results are worth as much as positive ones and are harder to come by — nobody
             posts about the model that did not work.
@@ -331,7 +369,7 @@ context_window = 32768</pre>
       <div class="wrap">
         <span class="grow">OpenCLI · Apache-2.0</span>
         <a href="https://github.com/ai-dashboad/opencli">Source</a>
-        <a href="https://github.com/ai-dashboad/opencli/tree/main/docs">Docs</a>
+        <a href="https://docs.opencli.ai">Docs</a>
         <a href="https://github.com/ai-dashboad/opencli/issues">Issues</a>
       </div>
     </footer>
