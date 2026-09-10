@@ -1,0 +1,33 @@
+name: check-domain
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Cloudflare what the domain's status is
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          curl -sS "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/opencli-docs/domains" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" > /tmp/d.json
+          python3 - <<'PY'
+          import json
+          r = json.load(open("/tmp/d.json"))
+          print("success:", r.get("success"))
+          for e in r.get("errors", []):
+              print("error:", e.get("code"), e.get("message"))
+          for d in r.get("result") or []:
+              print(f"domain={d.get('name')}  status={d.get('status')}  "
+                    f"cert={(d.get('validation_data') or {}).get('status')}  "
+                    f"verification={(d.get('verification_data') or {}).get('status')}")
+          PY
+      - name: And whether it answers
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -sS -o /dev/null -m 20 -w '%{http_code}' -L https://docs.opencli.ai || echo 000)
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] && break
+            sleep 20
+          done
