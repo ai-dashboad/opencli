@@ -1,6 +1,10 @@
 [codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = .git*,vendor,*-lock.yaml,*.lock,.codespellrc,*test.ts,*.jsonl,frame*.txt,*.snap,*.snap.new
+# The translated files are skipped, not spell-checked in the wrong language.
+# Codespell knows English; given German it reports `ist` as a misspelling of
+# `is` and `Modell` of `Model`, forty times a file. That is not a finding, it
+# is the checker being pointed at something it cannot read.
+skip = .git*,vendor,*-lock.yaml,*.lock,.codespellrc,*test.ts,*.jsonl,frame*.txt,*.snap,*.snap.new,./readme,./web/src/locales,./readme/strings
 check-hidden = true
 ignore-regex = ^\s*"image/\S+": ".*|\b(afterAll)\b
 ignore-words-list = ratatui,ser,iTerm,iterm2,iterm
