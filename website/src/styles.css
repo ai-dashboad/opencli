@@ -192,12 +192,13 @@ header.top nav a:hover {
 /*
  * The shader, when there is one.
  *
- * `screen` is why the canvas can be opaque: screen with black changes nothing,
- * so everything the shader's mask darkens simply falls away and the section
- * gradient shows through. No alpha to get wrong.
+ * No blend mode and no blur any more. Both were right for a gradient and are
+ * wrong for a mirror: `screen` can only add light, so chrome could never be
+ * darker than the page behind it, and a blur takes the edge off the one thing
+ * a polished surface is made of.
  *
- * It is drawn at half resolution — the blur hides that, and the blur is the
- * point anyway.
+ * It renders below full resolution and is stretched by the browser, whose
+ * bilinear filtering is the only softening it gets.
  */
 .hero .shader {
   position: absolute;
@@ -206,8 +207,6 @@ header.top nav a:hover {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  mix-blend-mode: screen;
-  filter: blur(8px);
   opacity: 0;
   transition: opacity 900ms ease;
 }
@@ -929,6 +928,70 @@ pre.block {
   }
 }
 
+
+
+/* ── The hero, split ───────────────────────────────────────────────── */
+
+/*
+ * The words take a column and the mark takes the space beside it. The mark is
+ * not an element — it is painted into the backdrop by the shader — so this
+ * only has to leave it room and stop the text running under it.
+ */
+.hero.split {
+  text-align: left;
+}
+
+.hero.split .wrap {
+  max-width: 1180px;
+}
+
+.hero.split .lead {
+  max-width: 620px;
+}
+
+.hero.split .lede {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.hero.split .cta {
+  justify-content: flex-start;
+}
+
+.hero.split h1 {
+  font-size: clamp(40px, 5.4vw, 74px);
+}
+
+.hero.split .badge {
+  margin-bottom: 22px;
+}
+
+/* The client below goes back to the middle of the page. */
+.hero.split .app-shot,
+.hero.split .stage {
+  text-align: left;
+}
+
+/* Narrow: the mark moves above the words, so the words get the middle back. */
+@media (max-width: 900px) {
+  .hero.split {
+    text-align: center;
+    padding-top: 300px;
+  }
+
+  .hero.split .lead {
+    max-width: none;
+  }
+
+  .hero.split .lede {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .hero.split .cta {
+    justify-content: center;
+  }
+}
 
 /* ── The desktop client in the hero ────────────────────────────────── */
 
