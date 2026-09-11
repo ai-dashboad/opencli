@@ -1338,6 +1338,333 @@ pre.block {
   }
 }
 
+
+/* ── Depth, light and the graph ────────────────────────────────────── */
+
+/*
+ * The stage the client sits on. The perspective is on the parent and the
+ * rotation on the child, which is the only arrangement where the vanishing
+ * point stays put while the panel moves.
+ */
+.stage {
+  perspective: 1500px;
+  perspective-origin: 50% 0%;
+}
+
+.stage .app-shot {
+  transform: rotateX(var(--tilt, 0deg)) translate3d(0, var(--lift, 0px), 0)
+    scale(var(--shrink, 1));
+  transform-origin: 50% 0%;
+  will-change: transform;
+}
+
+/* One light for the whole page, under the pointer. Fixed, so scrolling does
+   not drag it around, and behind everything. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 700ms ease;
+  background: radial-gradient(
+    420px circle at var(--x, 50%) var(--y, 50%),
+    color-mix(in srgb, var(--accent) 9%, transparent) 0%,
+    transparent 68%
+  );
+}
+
+.ambient.on {
+  opacity: 1;
+}
+
+/* Everything the page draws sits over it. */
+main,
+header.top,
+footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── The numbers ───────────────────────────────────────────────────── */
+
+.stats {
+  padding: 20px 0 86px;
+}
+
+.stats .wrap {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  max-width: 1100px;
+  background: var(--line-soft);
+  border-block: 1px solid var(--line-soft);
+}
+
+.stat {
+  padding: 34px 22px;
+  background: var(--bg);
+  text-align: center;
+}
+
+.stat .n {
+  display: block;
+  background: linear-gradient(180deg, #f6ece4 0%, var(--accent) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: clamp(40px, 5.4vw, 66px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.stat .w {
+  display: block;
+  max-width: 22ch;
+  margin: 12px auto 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+@media (max-width: 860px) {
+  .stats .wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── A beam along the lattice edges, and around a cell ──────────────── */
+
+.lattice {
+  position: relative;
+}
+
+.lattice::before,
+.lattice::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 90%, transparent),
+    transparent
+  );
+  background-size: 30% 100%;
+  background-repeat: no-repeat;
+  animation: run 9s linear infinite;
+}
+
+.lattice::before {
+  top: -1px;
+}
+
+.lattice::after {
+  bottom: -1px;
+  animation-delay: 4.5s;
+  animation-direction: reverse;
+}
+
+@keyframes run {
+  0% {
+    background-position: -35% 0;
+  }
+  60%,
+  100% {
+    background-position: 135% 0;
+  }
+}
+
+/*
+ * The travelling border on a hovered cell: a conic gradient spun behind the
+ * cell and masked to a one-pixel ring, so only the edge of it is ever visible.
+ */
+.lattice .cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--spin, 0deg),
+    transparent 0turn,
+    color-mix(in srgb, var(--accent) 95%, transparent) 0.12turn,
+    transparent 0.26turn,
+    transparent 1turn
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  transition: opacity 260ms ease;
+}
+
+.lattice .cell:hover::after {
+  opacity: 1;
+  animation: spin 2.6s linear infinite;
+}
+
+@property --spin {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes spin {
+  to {
+    --spin: 360deg;
+  }
+}
+
+/* ── The handoff graph ─────────────────────────────────────────────── */
+
+.graph-block {
+  padding: 8px 0 84px;
+}
+
+.graph-holder {
+  position: relative;
+  max-width: 1020px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.graph-holder.draggable .node {
+  cursor: grab;
+}
+
+.graph-holder.draggable .node.held {
+  cursor: grabbing;
+}
+
+.graph {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.graph .edge {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.4;
+  transition: stroke 260ms ease, stroke-width 260ms ease;
+}
+
+.graph.focused .edge {
+  stroke: var(--line-soft);
+}
+
+.graph .edge.lit {
+  stroke: color-mix(in srgb, var(--accent) 70%, transparent);
+  stroke-width: 2;
+}
+
+.graph .pulse {
+  fill: #f0cdb4;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 90%, transparent));
+}
+
+.graph .halo {
+  fill: color-mix(in srgb, var(--accent) 20%, transparent);
+  opacity: 0;
+  transition: opacity 280ms ease;
+}
+
+.graph .node.sending .halo,
+.graph .node.lit .halo {
+  opacity: 1;
+}
+
+.graph .disc {
+  fill: var(--surface);
+  stroke: var(--line);
+  stroke-width: 1.4;
+  transition: fill 260ms ease, stroke 260ms ease;
+}
+
+.graph.focused .node .disc {
+  fill: var(--bg-deep);
+}
+
+.graph .node.lit .disc,
+.graph .node.sending .disc {
+  fill: color-mix(in srgb, var(--accent) 26%, var(--surface));
+  stroke: var(--accent);
+}
+
+.graph .name {
+  fill: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  text-anchor: middle;
+}
+
+.graph .team {
+  fill: var(--text-faint);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+  text-transform: uppercase;
+}
+
+.graph .node:focus {
+  outline: none;
+}
+
+.graph .node:focus-visible .disc {
+  stroke: var(--accent);
+  stroke-width: 2.4;
+}
+
+.graph-holder .hint {
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.graph-block .rules {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 14px;
+  margin-top: 26px;
+}
+
+.graph-block .rules span {
+  padding: 8px 15px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.graph-block .rules b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lattice::before,
+  .lattice::after,
+  .lattice .cell:hover::after {
+    animation: none;
+  }
+
+  .stage .app-shot {
+    transform: none;
+  }
+}
+
 /* ── Footer ────────────────────────────────────────────────────────── */
 
 footer {

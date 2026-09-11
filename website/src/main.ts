@@ -12,6 +12,8 @@
 
 import { mountHeroShader } from "./hero-gl";
 import { startMotion } from "./motion";
+import { startEffects } from "./effects";
+import { mountGraph } from "./graph";
 
 const REPO = "ai-dashboad/opencli";
 
@@ -150,4 +152,18 @@ try {
   startMotion();
 } catch {
   // Everything it touches is already visible and already readable.
+}
+
+try {
+  startEffects();
+} catch {
+  // Depth, counters and the pointer light are all ornament over a page that
+  // reads without them.
+}
+
+try {
+  mountGraph();
+} catch {
+  // The rules under the graph say the same thing in words, which is why they
+  // are not inside it.
 }

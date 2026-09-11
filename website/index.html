@@ -178,6 +178,30 @@
         </div>
       </section>
 
+      <!-- Four numbers that are all checked rather than rounded up: the
+           providers are the ones on the strip above, the pages are what the
+           docs directory holds, and the languages are what ships. -->
+      <section class="stats">
+        <div class="wrap">
+          <div class="stat" data-reveal>
+            <span class="n" data-count="50">50</span>
+            <span class="w">endpoints, each asked for its model list without a key</span>
+          </div>
+          <div class="stat" data-reveal>
+            <span class="n" data-count="10">10</span>
+            <span class="w">interface languages, and any other is one file</span>
+          </div>
+          <div class="stat" data-reveal>
+            <span class="n" data-count="9">9</span>
+            <span class="w">departments, every one with sample data in it</span>
+          </div>
+          <div class="stat" data-reveal>
+            <span class="n" data-count="24">24</span>
+            <span class="w">documentation pages, in every one of those languages</span>
+          </div>
+        </div>
+      </section>
+
       <!--
         From here down the page alternates: a statement that says what the next
         thing is, then a lattice of cells that says it in detail. The cells are
@@ -267,6 +291,33 @@
               <p>Read a service and report what would give a wrong answer</p>
             </div>
       </div>
+
+      <section class="statement" data-reveal>
+        <div class="wrap">
+          <span class="kicker">02b — Handoff</span>
+          <h2>They hand work <em>to each other</em></h2>
+          <p>
+            A bot can pass what it did, and the files it produced, to another bot by name. Three
+            refusals keep that from running away — and they are the substance of it.
+          </p>
+        </div>
+      </section>
+
+      <!-- The graph is the mechanism, drawn. Bots, duties and handoffs already
+           form one of these on disk and there has never been anywhere to see
+           it; the roadmap calls that gap a workflow canvas. Drag the nodes. -->
+      <section class="graph-block">
+        <div class="graph-holder" data-graph>
+          <div class="hint" aria-hidden="true">Drag a bot · hover to follow its chain</div>
+        </div>
+        <div class="wrap">
+          <div class="rules">
+            <span><b>Depth</b> a chain stops at eight hops</span>
+            <span><b>Repetition</b> no bot more than three times in one chain</span>
+            <span><b>Direction</b> only a department that has been allowed to</span>
+          </div>
+        </div>
+      </section>
 
       <section class="after-lattice">
         <div class="wrap">
