@@ -49,6 +49,7 @@
           and holds still for anyone who asked for less motion.
         -->
         <div class="glow" aria-hidden="true"></div>
+        <div class="grid-lines" aria-hidden="true"></div>
 
         <div class="wrap">
           <a class="badge" href="https://docs.opencli.ai">
@@ -82,23 +83,52 @@
             The session is the model check from the documentation: six rows,
             three planted problems, and those are the three.
           -->
-          <div class="terminal" role="img"
+          <div class="terminal" data-terminal role="img"
                aria-label="A terminal running opencli against a six-row invoice file: it reads the rules and the rows, then reports three findings with their row numbers.">
             <div class="chrome" aria-hidden="true">
               <span class="light"></span><span class="light"></span><span class="light"></span>
               <span class="where">~/finance</span>
             </div>
-            <pre aria-hidden="true"><span class="p">$</span> opencli exec <span class="s">"use the spreadsheet-review skill on invoices.csv"</span>
-
-  <span class="t">read</span>   rules.md       3 rules
-  <span class="t">read</span>   invoices.csv   6 rows
-
-  <span class="f">row 2</span>  INV-2202   11,800       over 10,000 with no PO number
-  <span class="f">row 5</span>  INV-2205   —            no amount
-  <span class="f">row 6</span>  INV-2206   2026-13-02   month 13 is not a date
-
-  <span class="d">3 findings in 6 rows.</span></pre>
+            <!-- One span per line and no newlines between them: the lines are
+                 blocks, so a line can be faded in without the ones under it
+                 moving. The transcript is complete in the markup — the script
+                 takes it away and gives it back at the speed it happened at. -->
+            <pre aria-hidden="true"><span class="cmd"><span class="p">$</span> <span data-type>opencli exec "use the spreadsheet-review skill on invoices.csv"</span><span class="caret"></span></span><span data-line class="gap"></span><span data-line>  <span class="t">read</span>   rules.md       3 rules</span><span data-line>  <span class="t">read</span>   invoices.csv   6 rows</span><span data-line class="gap"></span><span data-line>  <span class="f">row 2</span>  INV-2202   11,800       over 10,000 with no PO number</span><span data-line>  <span class="f">row 5</span>  INV-2205   —            no amount</span><span data-line>  <span class="f">row 6</span>  INV-2206   2026-13-02   month 13 is not a date</span><span data-line class="gap"></span><span data-line>  <span class="d">3 findings in 6 rows.</span></span></pre>
           </div>
+        </div>
+      </section>
+
+      <!--
+        The providers, moving. This list is the answer to the first question
+        anybody has — "will it work with mine" — and it was a link. Each of
+        these was asked for its model list without a key before it went in.
+
+        Two rows in opposite directions: one direction reads as a slideshow,
+        two reads as a field. The track holds the names twice and slides by
+        half its width, so the loop has no seam and no JavaScript.
+      -->
+      <section class="providers" data-reveal>
+        <div class="wrap">
+          <span class="kicker">00 — Reach</span>
+          <p>
+            One protocol, not a list of integrations. Anything answering
+            <code>/v1/chat/completions</code> the way OpenAI does can be pointed at — these were
+            each asked for their model list, without a key, before they went on this page.
+          </p>
+        </div>
+
+        <div class="marquee" aria-hidden="true">
+          <div class="track"><span>Ollama</span><span>LM Studio</span><span>llama.cpp</span><span>LocalAI</span><span>Jan</span><span>Xinference</span><span>KoboldCpp</span><span>llamafile</span><span>vLLM</span><span>SGLang</span><span>Text Generation Inference</span><span>NVIDIA NIM</span><span>LiteLLM</span><span>Fireworks</span><span>Together</span><span>Groq</span><span>DeepInfra</span><span>Baseten</span><span>Novita</span><span>Hyperbolic</span><span>Nebius</span><span>Cerebras</span><span>SambaNova</span><span>Featherless</span><span>Chutes</span><span>Hugging Face</span><span>OpenRouter</span><span>Vercel AI Gateway</span><span>Perplexity</span><span>Ollama</span><span>LM Studio</span><span>llama.cpp</span><span>LocalAI</span><span>Jan</span><span>Xinference</span><span>KoboldCpp</span><span>llamafile</span><span>vLLM</span><span>SGLang</span><span>Text Generation Inference</span><span>NVIDIA NIM</span><span>LiteLLM</span><span>Fireworks</span><span>Together</span><span>Groq</span><span>DeepInfra</span><span>Baseten</span><span>Novita</span><span>Hyperbolic</span><span>Nebius</span><span>Cerebras</span><span>SambaNova</span><span>Featherless</span><span>Chutes</span><span>Hugging Face</span><span>OpenRouter</span><span>Vercel AI Gateway</span><span>Perplexity</span></div>
+        </div>
+        <div class="marquee reverse" aria-hidden="true">
+          <div class="track"><span>硅基流动</span><span>无问芯穹</span><span>PPIO</span><span>七牛云</span><span>魔搭</span><span>阿里云百炼</span><span>火山方舟 · 豆包</span><span>百度千帆</span><span>讯飞星火</span><span>DeepSeek</span><span>智谱</span><span>月之暗面</span><span>MiniMax</span><span>阶跃星辰</span><span>腾讯混元</span><span>百川</span><span>小米 MiMo</span><span>OpenAI</span><span>Anthropic</span><span>Mistral</span><span>xAI</span><span>硅基流动</span><span>无问芯穹</span><span>PPIO</span><span>七牛云</span><span>魔搭</span><span>阿里云百炼</span><span>火山方舟 · 豆包</span><span>百度千帆</span><span>讯飞星火</span><span>DeepSeek</span><span>智谱</span><span>月之暗面</span><span>MiniMax</span><span>阶跃星辰</span><span>腾讯混元</span><span>百川</span><span>小米 MiMo</span><span>OpenAI</span><span>Anthropic</span><span>Mistral</span><span>xAI</span></div>
+        </div>
+
+        <div class="wrap">
+          <p class="foot">
+            <a href="https://docs.opencli.ai/getting-started/providers">The whole list, with what
+            each one is</a> — including which of them give something away for free.
+          </p>
         </div>
       </section>
 
@@ -110,8 +140,9 @@
         and needs no last-row or last-column special cases.
       -->
 
-      <section class="statement">
+      <section class="statement" data-reveal>
         <div class="wrap">
+          <span class="kicker">01 — Shapes</span>
           <h2>The same agent in <em>three shapes</em></h2>
           <p>
             A terminal program, a desktop app, and a local web UI. All three run on your machine
@@ -121,26 +152,27 @@
       </section>
 
       <div class="lattice two">
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Bring your own model</h3>
               <p>Ollama, LM Studio, vLLM, llama.cpp, or any hosted endpoint that speaks the OpenAI API. Declare it in one config file and it appears in the picker.</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Nothing phones home</h3>
               <p>No built-in gateway, no telemetry account, no key baked into the binary. What it talks to is what you configured.</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>It asks before it acts</h3>
               <p>Commands and file writes are shown before they run, with a sandbox underneath. You choose how much it may do unattended.</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Organised like an office</h3>
               <p>A <em>department</em> is a directory with standing instructions. A <em>bot</em> is a chat inside one, with a job. A <em>duty</em> comes round on its own and asks you when it is stuck.</p>
             </div>
       </div>
 
-      <section class="statement">
+      <section class="statement" data-reveal>
         <div class="wrap">
+          <span class="kicker">02 — Departments</span>
           <h2>It is not only <em>for code</em></h2>
           <p>
             The agent reads files, runs commands and edits things. That is as true of a folder of
@@ -152,39 +184,39 @@
       </section>
 
       <div class="lattice three compact">
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Finance</h3>
               <p>Reconcile <code>ledger.csv</code> against <code>statement.csv</code>; chase what is overdue</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Support</h3>
               <p>Answer what came in; group questions by what they are really about</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Operations</h3>
               <p>List every order still unshipped, and how long it has waited</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Marketing</h3>
               <p>Turn notes into a week of posts; group contacts by what they bought</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>People &amp; admin</h3>
               <p>Read applicants against a role; pull decisions and owners out of notes</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Legal</h3>
               <p>Compare their draft against our terms, clause by clause, quoting both</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Research</h3>
               <p>Where studies agree, where they conflict, and why</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Clinical records</h3>
               <p>What is recorded, and what a clinician should look at, quoted</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Engineering</h3>
               <p>Read a service and report what would give a wrong answer</p>
             </div>
@@ -201,8 +233,9 @@
         </div>
       </section>
 
-      <section class="statement">
+      <section class="statement" data-reveal>
         <div class="wrap">
+          <span class="kicker">03 — Models</span>
           <h2>Which models <em>actually work</em></h2>
           <p>
             The question nobody else answers. Calling tools is what separates a model that can do
@@ -211,7 +244,7 @@
         </div>
       </section>
 
-      <section class="tight">
+      <section class="tight" data-reveal>
         <div class="wrap">
           <p>
             One fixed task: a six-row invoice file with three planted problems — an amount over the
@@ -247,44 +280,46 @@
         </div>
       </section>
 
-      <section class="statement">
+      <section class="statement" data-reveal>
         <div class="wrap">
+          <span class="kicker">04 — Limits</span>
           <h2>What it <em>cannot do</em></h2>
           <p>Said here rather than discovered later.</p>
         </div>
       </section>
 
       <div class="lattice two">
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Open models reach for <code>grep</code></h3>
               <p>Given a structured way to read a file, a model not trained towards agentic work will shell out anyway. That is a gap in the models, and no interface closes it.</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>The builds are not signed</h3>
               <p>No Apple or Microsoft certificate. Your operating system will warn you, and it is right to — it cannot tell who built them. The <a href="/download.html">download page</a> says what to do.</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Scheduled work needs the app open</h3>
               <p>This is a local agent, not a server. Anything that must fire while the machine sleeps belongs in the operating system's scheduler.</p>
             </div>
-            <div class="cell">
+            <div class="cell" data-reveal>
               <h3>Token counts are estimated</h3>
               <p>The tokenizer belongs to the model, and this runs models it has never seen. Everything downstream of the count is approximate.</p>
             </div>
-            <div class="cell wide">
+            <div class="cell wide" data-reveal>
               <h3>A run may write anywhere inside its directory</h3>
               <p>The sandbox's writable root <em>is</em> that directory — which is why a conversation opens in a workspace rather than your home folder, and why runs outside a department's directory are held until you allow the place by name.</p>
             </div>
       </div>
 
-      <section class="statement">
+      <section class="statement" data-reveal>
         <div class="wrap">
+          <span class="kicker">05 — Compared</span>
           <h2>How it <em>compares</em></h2>
           <p>Not a scorecard. These are different tools, and the row that matters is the first one.</p>
         </div>
       </section>
 
-      <section class="tight">
+      <section class="tight" data-reveal>
         <div class="wrap">
           <table>
             <thead>
@@ -343,8 +378,9 @@
         </div>
       </section>
 
-      <section class="statement" id="cli">
+      <section class="statement" id="cli" data-reveal>
         <div class="wrap">
+          <span class="kicker">06 — Install</span>
           <h2>One binary, <em>one line</em></h2>
           <p>macOS and Linux:</p>
           <div class="oneline">
@@ -358,7 +394,7 @@
         </div>
       </section>
 
-      <section class="tight">
+      <section class="tight" data-reveal>
         <div class="wrap">
           <p>
             Then point it at a model. A local Ollama, for example, needs nothing but this in

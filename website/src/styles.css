@@ -715,6 +715,220 @@ pre.block {
   font-size: 13px;
 }
 
+
+/* ── Motion, and the things that move ──────────────────────────────── */
+
+/*
+ * Everything here is added by `motion.ts` after the element exists and is on
+ * screen. Nothing is hidden by the stylesheet alone, so a page with no
+ * JavaScript — or one that threw before this ran — shows all of it.
+ */
+[data-reveal].armed {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+}
+
+[data-reveal].armed.shown {
+  opacity: 1;
+  transform: none;
+  transition: opacity 620ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              transform 620ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* A row arrives together but not all at once. */
+.lattice.two .cell:nth-child(2n) {
+  transition-delay: 70ms;
+}
+
+.lattice.three .cell:nth-child(3n + 2) {
+  transition-delay: 70ms;
+}
+
+.lattice.three .cell:nth-child(3n + 3) {
+  transition-delay: 140ms;
+}
+
+/* A faint rule of the grid the whole page is built on, behind the light. */
+.hero .grid-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+  background-size: 68px 68px;
+  mask-image: radial-gradient(76% 62% at 50% 34%, #000 0%, transparent 76%);
+}
+
+/*
+ * The pointer's light on a cell.
+ *
+ * `--mx` and `--my` are written by the script and are the only thing it sets;
+ * if it never runs they stay unset, the gradient sits at 50% 50%, and the cell
+ * simply lights on hover like any other.
+ */
+.lattice .cell {
+  position: relative;
+  isolation: isolate;
+  transition: background 240ms ease;
+}
+
+.lattice .cell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 240ms ease;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--accent) 16%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+.lattice .cell:hover::before {
+  opacity: 1;
+}
+
+.lattice .cell:hover h3 {
+  color: var(--accent);
+}
+
+.lattice .cell h3 {
+  transition: color 240ms ease;
+}
+
+/* ── The terminal plays its session ────────────────────────────────── */
+
+/* Blocks, so a line can fade without moving the ones below it. */
+.terminal pre > span {
+  display: block;
+  min-height: 1.75em;
+}
+
+.terminal.live [data-line] {
+  opacity: 0;
+}
+
+.terminal [data-line].out {
+  opacity: 1;
+  transition: opacity 300ms ease;
+}
+
+.terminal .caret {
+  display: none;
+  width: 7px;
+  height: 1em;
+  margin-left: 1px;
+  background: var(--accent);
+  vertical-align: -2px;
+}
+
+.terminal.running .caret {
+  display: inline-block;
+  animation: blink 1s steps(1, end) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ── Providers, moving ─────────────────────────────────────────────── */
+
+.providers {
+  padding: 96px 0 84px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.providers .wrap p {
+  max-width: 640px;
+  margin: 0 auto;
+  font-size: 16px;
+}
+
+/* `.providers .wrap p` above is more specific than `.providers .foot` would be
+   and sets `margin: 0 auto`, so this has to match at least as tightly or the
+   top margin is quietly zeroed and the line sits on the moving row. */
+.providers .wrap p.foot {
+  margin-top: 46px;
+  font-size: 14px;
+}
+
+.marquee {
+  display: flex;
+  margin-top: 30px;
+  /* Clear at the middle, gone at the edges — the strip should read as passing
+     through the page rather than starting and stopping at its margins. */
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+.marquee .track {
+  display: flex;
+  flex: none;
+  gap: 12px;
+  padding-right: 12px;
+  animation: slide 46s linear infinite;
+}
+
+.marquee.reverse .track {
+  animation-direction: reverse;
+  animation-duration: 58s;
+}
+
+.marquee:hover .track {
+  animation-play-state: paused;
+}
+
+.marquee .track span {
+  flex: none;
+  padding: 9px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-deep);
+  color: var(--text-dim);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+@keyframes slide {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* ── The index above each statement ────────────────────────────────── */
+
+.kicker {
+  display: block;
+  margin-bottom: 16px;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/*
+ * One switch for all of it. The marquee and the caret are declared outside the
+ * script, so they need turning off here rather than there.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .marquee .track,
+  .terminal.running .caret {
+    animation: none;
+  }
+
+  [data-reveal].armed {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ── Footer ────────────────────────────────────────────────────────── */
 
 footer {

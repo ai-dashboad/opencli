@@ -11,6 +11,7 @@
  */
 
 import { mountHeroShader } from "./hero-gl";
+import { startMotion } from "./motion";
 
 const REPO = "ai-dashboad/opencli";
 
@@ -143,4 +144,10 @@ if (hero) {
   } catch {
     // No WebGL, or a driver that refused. The CSS gradient is still there.
   }
+}
+
+try {
+  startMotion();
+} catch {
+  // Everything it touches is already visible and already readable.
 }
