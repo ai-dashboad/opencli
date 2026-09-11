@@ -131,9 +131,82 @@ function typeTerminal(): void {
   watcher.observe(terminal);
 }
 
+
+/**
+ * The desktop client plays its exchange.
+ *
+ * The pauses are not uniform, because the thing being shown is not uniform:
+ * reading a file is quick, deciding to ask is not, and the approval card has
+ * to sit there long enough to be read before it is answered. A constant
+ * interval would show the same six boxes arriving on a metronome, which is the
+ * one impression the product does not want to give.
+ */
+const BEATS: Record<string, number> = {
+  ask: 900,
+  think: 1100,
+  tool: 620,
+  approval: 1700,
+  found: 900,
+  files: 700,
+};
+
+function playApp(): void {
+  const found = document.querySelector<HTMLElement>("[data-app]");
+  if (!found) return;
+
+  const steps = [...found.querySelectorAll<HTMLElement>(".step")];
+  if (steps.length === 0) return;
+
+  const app = found;
+
+  function beat(step: HTMLElement): number {
+    for (const kind of Object.keys(BEATS)) {
+      if (step.classList.contains(kind)) return BEATS[kind];
+    }
+    return 600;
+  }
+
+  async function run(): Promise<void> {
+    const thinking = steps.find((step) => step.classList.contains("think"));
+    let toolsSeen = 0;
+
+    for (const step of steps) {
+      step.classList.add("out");
+
+      // The dots stand down as soon as there is something to show for them.
+      if (step.classList.contains("tool") && ++toolsSeen === 1 && thinking) {
+        thinking.classList.add("gone");
+      }
+
+      // Approve is pressed a moment after the card has had time to be read.
+      if (step.classList.contains("approval")) {
+        await sleep(beat(step));
+        app.classList.add("approved");
+        await sleep(520);
+        continue;
+      }
+
+      await sleep(beat(step));
+    }
+  }
+
+  app.classList.add("live");
+
+  const watcher = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      watcher.disconnect();
+      void run();
+    },
+    { threshold: 0.2 },
+  );
+  watcher.observe(app);
+}
+
 export function startMotion(): void {
   if (STILL) return;
   revealOnScroll();
   spotlight();
+  playApp();
   typeTerminal();
 }
