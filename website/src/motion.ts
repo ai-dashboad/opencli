@@ -166,11 +166,59 @@ function playApp(): void {
     return 600;
   }
 
+  const said = app.querySelector<HTMLElement>("[data-said]");
+  const sentence = said?.textContent ?? "";
+  const pointer = app.querySelector<HTMLElement>("[data-pointer]");
+  const approve = app.querySelector<HTMLElement>(".approval .yes");
+  const rows = [...app.querySelectorAll<HTMLElement>("[data-row]")];
+
+  /**
+   * Move the drawn pointer onto an element and press it.
+   *
+   * The coordinates are worked out against the panel rather than the page, so
+   * it lands in the right place whatever the panel is doing — it is inside the
+   * stage that tilts on scroll, and a pointer positioned from viewport
+   * coordinates would slide off the button as the window rotated.
+   */
+  async function press(target: HTMLElement): Promise<void> {
+    if (!pointer) return;
+    const panel = app.getBoundingClientRect();
+    const box = target.getBoundingClientRect();
+    pointer.style.setProperty("--px", `${box.left - panel.left + box.width * 0.5}px`);
+    pointer.style.setProperty("--py", `${box.top - panel.top + box.height * 0.62}px`);
+    pointer.classList.add("here");
+    await sleep(680);
+    pointer.classList.add("down");
+    await sleep(180);
+  }
+
   async function run(): Promise<void> {
     const thinking = steps.find((step) => step.classList.contains("think"));
     let toolsSeen = 0;
 
     for (const step of steps) {
+      // The question is typed rather than posted, which is the difference
+      // between a transcript and somebody using the thing.
+      if (said && step.contains(said)) {
+        step.classList.add("out");
+        app.classList.add("asking");
+        said.textContent = "";
+        for (let at = 1; at <= sentence.length; at++) {
+          said.textContent = sentence.slice(0, at);
+          await sleep(16);
+        }
+        app.classList.remove("asking");
+
+        // Typing is done a character at a time, which means plain text — the
+        // filenames get their code styling back now that there is nothing left
+        // to count through.
+        const rich = said.dataset.rich;
+        if (rich) said.innerHTML = rich;
+
+        await sleep(360);
+        continue;
+      }
+
       step.classList.add("out");
 
       // The dots stand down as soon as there is something to show for them.
@@ -178,16 +226,31 @@ function playApp(): void {
         thinking.classList.add("gone");
       }
 
-      // Approve is pressed a moment after the card has had time to be read.
+      // The pointer travels to Approve and presses it.
       if (step.classList.contains("approval")) {
-        await sleep(beat(step));
+        await sleep(500);
+        if (approve) await press(approve);
         app.classList.add("approved");
-        await sleep(520);
+        pointer?.classList.remove("down", "here");
+        await sleep(460);
+        continue;
+      }
+
+      // Findings land one at a time. Three arriving together reads as a
+      // picture of a result; three arriving in turn reads as one being found.
+      if (step.classList.contains("found")) {
+        for (const row of rows) {
+          row.classList.add("out");
+          await sleep(190);
+        }
+        await sleep(260);
         continue;
       }
 
       await sleep(beat(step));
     }
+
+    app.classList.add("idle");
   }
 
   app.classList.add("live");
