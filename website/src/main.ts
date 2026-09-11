@@ -14,6 +14,7 @@ import { mountHeroShader } from "./hero-gl";
 import { startMotion } from "./motion";
 import { startEffects } from "./effects";
 import { mountGraph } from "./graph";
+import { startStage } from "./stage";
 
 const REPO = "ai-dashboad/opencli";
 
@@ -159,6 +160,13 @@ try {
 } catch {
   // Depth, counters and the pointer light are all ornament over a page that
   // reads without them.
+}
+
+try {
+  startStage();
+} catch {
+  // The curtain, the eased scroll and the metal band are all things the page
+  // is complete without.
 }
 
 try {

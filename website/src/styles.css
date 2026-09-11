@@ -1728,6 +1728,113 @@ footer {
   }
 }
 
+
+/* ── The arrival, and the band ─────────────────────────────────────── */
+
+/*
+ * The curtain covers the first paint and lifts within 620ms whatever happens.
+ * The page under it is finished and scrollable the whole time — this is a
+ * sheet over the top, not a gate in front.
+ */
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: #0d0c0b;
+  transition: opacity 520ms ease, visibility 520ms;
+}
+
+.curtain.gone {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.curtain .bar {
+  display: block;
+  width: 148px;
+  height: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 999px;
+}
+
+.curtain .bar i {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: load 700ms ease-in-out infinite;
+}
+
+@keyframes load {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
+/* The hero wipes up from under the curtain as it lifts. */
+html.arriving .hero .lead {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0);
+}
+
+html.arrived .hero .lead {
+  opacity: 1;
+  transform: none;
+  transition: opacity 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 60ms,
+              transform 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 60ms;
+}
+
+/* Made by the script. `will-change` here and not on `main`, because the thing
+   being moved is this wrapper. */
+.scroller {
+  will-change: transform;
+}
+
+.band {
+  position: relative;
+  height: 260px;
+  margin: 40px 0;
+  overflow: hidden;
+}
+
+.band canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+
+.band.lit canvas {
+  opacity: 1;
+}
+
+@media (max-width: 700px) {
+  .band {
+    height: 170px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curtain {
+    display: none;
+  }
+
+  html.arriving .hero .lead {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ── Footer ────────────────────────────────────────────────────────── */
 
 footer {
