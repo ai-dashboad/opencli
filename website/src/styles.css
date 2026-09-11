@@ -930,66 +930,25 @@ pre.block {
 
 
 
-/* ── The hero, split ───────────────────────────────────────────────── */
+/* ── The hero, crowned by the wordmark ─────────────────────────────── */
 
 /*
- * The words take a column and the mark takes the space beside it. The mark is
- * not an element — it is painted into the backdrop by the shader — so this
- * only has to leave it room and stop the text running under it.
+ * The word is painted into the backdrop by the shader rather than being an
+ * element, so all this does is leave a hole at the top of the hero for it to
+ * stand in and keep the text out from under it.
  */
-.hero.split {
-  text-align: left;
+.hero.crowned {
+  padding-top: 372px;
 }
 
-.hero.split .wrap {
-  max-width: 1180px;
+.hero.crowned .lead {
+  max-width: 760px;
+  margin: 0 auto;
 }
 
-.hero.split .lead {
-  max-width: 620px;
-}
-
-.hero.split .lede {
-  margin-left: 0;
-  margin-right: 0;
-}
-
-.hero.split .cta {
-  justify-content: flex-start;
-}
-
-.hero.split h1 {
-  font-size: clamp(40px, 5.4vw, 74px);
-}
-
-.hero.split .badge {
-  margin-bottom: 22px;
-}
-
-/* The client below goes back to the middle of the page. */
-.hero.split .app-shot,
-.hero.split .stage {
-  text-align: left;
-}
-
-/* Narrow: the mark moves above the words, so the words get the middle back. */
-@media (max-width: 900px) {
-  .hero.split {
-    text-align: center;
-    padding-top: 300px;
-  }
-
-  .hero.split .lead {
-    max-width: none;
-  }
-
-  .hero.split .lede {
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .hero.split .cta {
-    justify-content: center;
+@media (max-width: 760px) {
+  .hero.crowned {
+    padding-top: 296px;
   }
 }
 

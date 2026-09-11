@@ -1,5 +1,7 @@
+import { fieldFor } from "./sdf-text";
+
 /**
- * The hero's backdrop, and the mark standing in it.
+ * The hero's backdrop, and the word standing in it.
  *
  * This used to be a gradient. It is now a raymarched scene: the OpenCLI mark —
  * the `<` and the underscore that make a prompt — extruded into a solid, given
@@ -36,6 +38,9 @@ uniform vec2 uPointer;
 uniform float uScroll;
 uniform vec2 uCenter;
 uniform float uScale;
+uniform sampler2D uSdf;
+uniform float uAspect;
+uniform float uSpread;
 
 /* ── the backdrop ──────────────────────────────────────────────────── */
 
@@ -102,42 +107,42 @@ vec3 backdrop(vec2 uv) {
   return base + fog * bloom * lift * 0.5;
 }
 
-/* ── the mark, as a distance field ─────────────────────────────────── */
-
-float segment(vec2 p, vec2 a, vec2 b) {
-  vec2 pa = p - a;
-  vec2 ba = b - a;
-  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-  return length(pa - ba * h);
-}
+/* ── the word, as a distance field ─────────────────────────────────── */
 
 /*
- * The glyph, in the favicon's own proportions: a chevron from (17,9) to (9,16)
- * to (17,23), then an underscore running out to (25,23), all measured in a
- * 32-unit box and shifted so the middle of that box is the origin.
+ * The field is built on the CPU from the page's own font and handed over as a
+ * texture: one byte per pixel, the distance to the nearest edge, inside
+ * negative. Sampling it costs one lookup where the chevron cost three segment
+ * solves, which is why the word can be seven letters instead of three strokes.
  */
-float glyph(vec3 p) {
-  vec2 a = vec2(0.0625, 0.4375);
-  vec2 b = vec2(-0.4375, 0.0);
-  vec2 c = vec2(0.0625, -0.4375);
-  vec2 d = vec2(0.5625, -0.4375);
+float word(vec3 p) {
+  // Negated, because a 2D canvas counts rows downward and a texture counts them
+  // up. Uploaded as-is the word came out mirrored top to bottom, which spells
+  // something else entirely: p becomes b, n becomes u, and the dot of the i
+  // sits under it.
+  vec2 uv = vec2(p.x / uAspect, -p.y) + 0.5;
 
-  float stroke = min(min(segment(p.xy, a, b), segment(p.xy, b, c)), segment(p.xy, c, d));
+  // Outside the texture the sample is meaningless — it is whatever the clamped
+  // edge happens to hold. The distance to the field's own bounding box is
+  // correct out there, and taking the larger of the two is conservative
+  // everywhere, which is what a raymarcher needs.
+  vec2 q = abs(vec2(p.x / uAspect, -p.y)) - 0.5;
+  float box = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
 
-  stroke -= 0.105 + 0.014 * sin(p.y * 7.0 + uTime * 0.9) * cos(p.x * 5.0 - uTime * 0.6);
+  float sampled = (texture2D(uSdf, clamp(uv, 0.0, 1.0)).r - 0.5) * uSpread;
+  float flat2 = max(sampled, box);
 
-  // The face has to move, or it is not liquid.
-  //
-  // A flat surface reflects exactly one direction of the environment, which is
-  // why a flat chrome face looks like painted plastic: there is nothing in the
-  // reflection to see. Rippling the front and back makes the reflection sweep
-  // across it, and that sweep is the whole impression of molten metal.
+  // The swell that makes it read as poured rather than cut.
+  // Nothing is taken off the outline itself. On a stroke this thin, even a
+  // few thousandths eats the joins and the counters close up.
   float swell =
-      sin(p.x * 5.4 + uTime * 0.75) * sin(p.y * 4.6 - uTime * 0.55) +
-      0.5 * sin(p.y * 9.1 + uTime * 1.15);
+      sin(p.x * 3.1 + uTime * 0.7) * sin(p.y * 6.4 - uTime * 0.5) +
+      0.5 * sin(p.y * 9.0 + uTime * 1.05);
 
-  vec2 w = vec2(stroke, abs(p.z) - (0.10 + 0.042 * swell));
-  return min(max(w.x, w.y), 0.0) + length(max(w, 0.0)) - 0.05;
+  // The swell lives in the depth, where it changes what the face reflects
+  // without touching what the letters are.
+  vec2 w = vec2(flat2, abs(p.z) - (0.062 + 0.016 * swell));
+  return min(max(w.x, w.y), 0.0) + length(max(w, 0.0)) - 0.02;
 }
 
 mat3 spin(float yaw, float pitch) {
@@ -149,13 +154,13 @@ mat3 spin(float yaw, float pitch) {
 }
 
 mat3 pose() {
-  float yaw = uPointer.x * 0.5 + sin(uTime * 0.28) * 0.26 + uScroll * 1.4;
-  float pitch = -uPointer.y * 0.34 + sin(uTime * 0.21) * 0.11 + uScroll * 0.3;
+  float yaw = uPointer.x * 0.26 + sin(uTime * 0.28) * 0.13 + uScroll * 0.55;
+  float pitch = -uPointer.y * 0.2 + sin(uTime * 0.21) * 0.07 + uScroll * 0.22;
   return spin(yaw, pitch);
 }
 
 float scene(vec3 p, mat3 m) {
-  return glyph((p / uScale) * m) * uScale;
+  return word((p / uScale) * m) * uScale;
 }
 
 vec3 normalAt(vec3 p, mat3 m) {
@@ -210,14 +215,14 @@ void main() {
 
   float travelled = 0.0;
   bool hit = false;
-  for (int step = 0; step < 72; step++) {
+  for (int step = 0; step < 96; step++) {
     vec3 at = ro + rd * travelled;
     float dist = scene(at, m);
-    if (dist < 0.0016) {
+    if (dist < 0.0012) {
       hit = true;
       break;
     }
-    travelled += dist * 0.78;
+    travelled += dist * 0.62;
     if (travelled > 6.0) break;
   }
 
@@ -283,7 +288,7 @@ function link(gl: WebGLRenderingContext): WebGLProgram | null {
 }
 
 /** Raymarching costs a lot per pixel, so it is not given many of them. */
-const SCALE = 0.65;
+const SCALE = 0.85;
 const FLOOR = 0.3;
 const FRAME_MS = 1000 / 60;
 
@@ -305,6 +310,31 @@ export function mountHeroShader(hero: HTMLElement): void {
   const program = link(gl);
   if (!program) return;
 
+  const field = fieldFor("opencli");
+  if (!field) return;
+
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  // One byte per pixel. LINEAR matters: the raymarcher needs the distance
+  // between two texels, not the nearer of them, or the surface comes out
+  // faceted along the texture grid.
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.LUMINANCE,
+    field.width,
+    field.height,
+    0,
+    gl.LUMINANCE,
+    gl.UNSIGNED_BYTE,
+    field.data,
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
@@ -320,6 +350,12 @@ export function mountHeroShader(hero: HTMLElement): void {
   const uScroll = gl.getUniformLocation(program, "uScroll");
   const uCenter = gl.getUniformLocation(program, "uCenter");
   const uScale = gl.getUniformLocation(program, "uScale");
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.uniform1i(gl.getUniformLocation(program, "uSdf"), 0);
+  gl.uniform1f(gl.getUniformLocation(program, "uAspect"), field.aspect);
+  gl.uniform1f(gl.getUniformLocation(program, "uSpread"), field.spread);
 
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -339,16 +375,22 @@ export function mountHeroShader(hero: HTMLElement): void {
   let scroll = 0;
 
   /**
-   * Beside the words on a wide screen, above them on a narrow one.
+   * Above the headline, centred.
    *
-   * `x` is in the shader's own space, where one unit is the height of the hero
-   * and the origin is its middle — so 0.34 puts the mark about three quarters
-   * of the way across a 16:9 screen, clear of the column the text is in.
+   * A wordmark is four times wider than it is tall, so there is no column it
+   * fits beside — it wants the full measure, which is also what a logotype
+   * this size is for. `y` is worked out from a pixel offset rather than fixed,
+   * because the hero's height changes with the client panel below it.
    */
   function placement(): { x: number; y: number; scale: number } {
-    return hero.clientWidth > 900
-      ? { x: 0.3, y: 0.26, scale: 0.22 }
-      : { x: 0, y: 0.36, scale: 0.15 };
+    const height = Math.max(1, hero.clientHeight);
+    const wide = hero.clientWidth > 760;
+    const fromTop = wide ? 236 : 188;
+    return {
+      x: 0,
+      y: 0.5 - fromTop / height,
+      scale: wide ? 0.3 : 0.22,
+    };
   }
 
   function resize(): void {
