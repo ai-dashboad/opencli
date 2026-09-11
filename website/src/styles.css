@@ -382,6 +382,12 @@ h1 em {
   opacity: 0.9;
 }
 
+.button.small {
+  padding: 6px 15px;
+  font-size: 13.5px;
+  font-weight: 550;
+}
+
 .button.ghost {
   background: none;
   border-color: var(--line);
@@ -436,7 +442,6 @@ h1 em {
 
 section {
   padding: 56px 0;
-  border-top: 1px solid var(--line-soft);
 }
 
 h2 {
@@ -444,6 +449,140 @@ h2 {
   font-family: ui-serif, Georgia, "Times New Roman", serif;
   font-size: 30px;
   font-weight: 400;
+}
+
+/* ── Statements and lattices ───────────────────────────────────────── */
+
+/*
+ * The page alternates between the two: a statement names the next thing, and
+ * the lattice under it says the thing. It is the rhythm the reference uses,
+ * and it works here because most of this page is a list of claims that each
+ * need a sentence rather than a paragraph.
+ */
+.statement {
+  padding: 96px 0 36px;
+  text-align: center;
+}
+
+.statement .wrap {
+  max-width: 780px;
+}
+
+/* The sans, not the serif the other h2s use: at this size the statement is
+   doing the same job as the headline and should sound like it. */
+.statement h2 {
+  margin: 0 0 16px;
+  font-family: inherit;
+  font-size: clamp(27px, 4.1vw, 43px);
+  font-weight: 500;
+  line-height: 1.14;
+  letter-spacing: -0.022em;
+}
+
+.statement h2 em {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--accent);
+  letter-spacing: -0.008em;
+}
+
+.statement p {
+  max-width: 620px;
+  margin: 0 auto;
+  font-size: 16.5px;
+}
+
+/* The closing door, in the same shape as the one at the top. */
+.statement.closing {
+  padding: 110px 0 124px;
+}
+
+.statement.closing .cta {
+  margin-top: 30px;
+}
+
+/* A section that follows a statement and should not restate the gap. */
+.tight {
+  padding-top: 20px;
+}
+
+.after-lattice {
+  padding: 34px 0 8px;
+  text-align: center;
+}
+
+.after-lattice p {
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: 14.5px;
+}
+
+/*
+ * Hairlines rather than floating cards.
+ *
+ * The rules are the grid's own gap showing the background through — one pixel
+ * of `--line-soft` between cells that are themselves opaque. Drawing borders
+ * on each cell instead would need a last-column and a last-row exception, and
+ * both break the moment the column count changes at a breakpoint.
+ */
+.lattice {
+  display: grid;
+  gap: 1px;
+  background: var(--line-soft);
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.lattice.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lattice.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lattice .cell {
+  padding: 40px 30px;
+  background: var(--bg);
+  text-align: center;
+}
+
+/* A two-column cell on a wide screen is 720px across, and a line of body text
+   that long is hard to come back from at the end of it. The cell stays wide;
+   the words inside it do not. */
+.lattice .cell > * {
+  max-width: 46ch;
+  margin-inline: auto;
+}
+
+.lattice.compact .cell {
+  padding: 30px 24px;
+}
+
+.lattice .cell h3 {
+  margin: 0 0 8px;
+  font-size: 16.5px;
+  font-weight: 600;
+}
+
+.lattice.compact .cell h3 {
+  font-size: 15px;
+}
+
+.lattice .cell p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 14.5px;
+}
+
+.lattice.compact .cell p {
+  font-size: 13.5px;
+}
+
+/* An odd cell out sits across the row rather than leaving a hole. */
+.lattice .cell.wide {
+  grid-column: 1 / -1;
 }
 
 h3 {
@@ -595,10 +734,31 @@ footer .grow {
   flex: 1;
 }
 
+@media (max-width: 900px) {
+  .lattice.three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   /* h1 is on a clamp() and needs nothing here. */
   .hero {
     padding-top: 72px;
+  }
+
+  .lattice.two,
+  .lattice.three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .statement {
+    padding-top: 66px;
+  }
+
+  /* The header's own button is enough on a narrow screen; the text links
+     beside it wrap into a second row and push the brand out of line. */
+  header.top nav a:not(.button) {
+    display: none;
   }
 
   .terminal {

@@ -32,10 +32,10 @@
           OpenCLI
         </a>
         <nav>
-          <a href="/download.html">Download</a>
           <a href="#cli">CLI</a>
           <a href="https://docs.opencli.ai">Docs</a>
           <a href="https://github.com/ai-dashboad/opencli">GitHub</a>
+          <a class="button small" href="/download.html">Download</a>
         </nav>
       </div>
     </header>
@@ -102,91 +102,97 @@
         </div>
       </section>
 
-      <section>
+      <!--
+        From here down the page alternates: a statement that says what the next
+        thing is, then a lattice of cells that says it in detail. The cells are
+        divided by hairlines rather than floated as cards — a one-pixel grid gap
+        over a coloured background, which gives clean joins at any cell count
+        and needs no last-row or last-column special cases.
+      -->
+
+      <section class="statement">
         <div class="wrap">
-          <h2>What it is</h2>
+          <h2>The same agent in <em>three shapes</em></h2>
           <p>
-            The same agent in three shapes: a terminal program, a desktop app, and a local web UI.
-            All three run on your machine and talk to whichever model you point them at.
+            A terminal program, a desktop app, and a local web UI. All three run on your machine
+            and talk to whichever model you point them at.
           </p>
-          <div class="grid">
-            <div class="card">
-              <strong>Bring your own model</strong>
-              <p>
-                Ollama, LM Studio, vLLM, llama.cpp, or any hosted endpoint that speaks the
-                OpenAI API. Declare it in one config file and it appears in the picker.
-              </p>
-            </div>
-            <div class="card">
-              <strong>Nothing phones home</strong>
-              <p>
-                No built-in gateway, no telemetry account, no key baked into the binary. What it
-                talks to is what you configured.
-              </p>
-            </div>
-            <div class="card">
-              <strong>It asks before it acts</strong>
-              <p>
-                Commands and file writes are shown before they run, with a sandbox underneath.
-                You choose how much it may do unattended.
-              </p>
-            </div>
-            <div class="card">
-              <strong>Organised like an office</strong>
-              <p>
-                A <em>department</em> is a directory with standing instructions. A <em>bot</em> is
-                a chat inside one, with a job. A <em>duty</em> comes round on its own and asks you
-                when it is stuck.
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 
-      <section>
+      <div class="lattice two">
+            <div class="cell">
+              <h3>Bring your own model</h3>
+              <p>Ollama, LM Studio, vLLM, llama.cpp, or any hosted endpoint that speaks the OpenAI API. Declare it in one config file and it appears in the picker.</p>
+            </div>
+            <div class="cell">
+              <h3>Nothing phones home</h3>
+              <p>No built-in gateway, no telemetry account, no key baked into the binary. What it talks to is what you configured.</p>
+            </div>
+            <div class="cell">
+              <h3>It asks before it acts</h3>
+              <p>Commands and file writes are shown before they run, with a sandbox underneath. You choose how much it may do unattended.</p>
+            </div>
+            <div class="cell">
+              <h3>Organised like an office</h3>
+              <p>A <em>department</em> is a directory with standing instructions. A <em>bot</em> is a chat inside one, with a job. A <em>duty</em> comes round on its own and asks you when it is stuck.</p>
+            </div>
+      </div>
+
+      <section class="statement">
         <div class="wrap">
-          <h2>It is not only for code</h2>
+          <h2>It is not only <em>for code</em></h2>
           <p>
             The agent reads files, runs commands and edits things. That is as true of a folder of
             invoices as it is of a repository — and most of the work people actually have is the
-            first kind. Nine departments ship with sample data, so each of these can be tried
+            first kind. Nine departments ship with sample data, so every one of these can be tried
             before it is set up.
           </p>
-          <table>
-            <thead>
-              <tr>
-                <th>Department</th>
-                <th>What ships with it</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Finance</strong></td>
-                <td>Reconcile a ledger against a statement; draft one chasing email per overdue customer</td>
-              </tr>
-              <tr>
-                <td><strong>Support</strong></td>
-                <td>Answer what came in; group the questions by what they are really about</td>
-              </tr>
-              <tr>
-                <td><strong>Operations</strong></td>
-                <td>List every order still unshipped, with how long it has waited</td>
-              </tr>
-              <tr>
-                <td><strong>Legal</strong></td>
-                <td>Compare their draft against our terms, clause by clause, quoting both</td>
-              </tr>
-              <tr>
-                <td><strong>People &amp; admin</strong></td>
-                <td>Read applicants against a role; pull decisions and owners out of meeting notes</td>
-              </tr>
-              <tr>
-                <td><strong>Marketing, Research, Clinical records, Engineering</strong></td>
-                <td>Posts from notes; where studies conflict and why; what a clinician should look at, quoted; what in a service would give a wrong answer</td>
-              </tr>
-            </tbody>
-          </table>
-          <p style="margin-top: 22px">
+        </div>
+      </section>
+
+      <div class="lattice three compact">
+            <div class="cell">
+              <h3>Finance</h3>
+              <p>Reconcile <code>ledger.csv</code> against <code>statement.csv</code>; chase what is overdue</p>
+            </div>
+            <div class="cell">
+              <h3>Support</h3>
+              <p>Answer what came in; group questions by what they are really about</p>
+            </div>
+            <div class="cell">
+              <h3>Operations</h3>
+              <p>List every order still unshipped, and how long it has waited</p>
+            </div>
+            <div class="cell">
+              <h3>Marketing</h3>
+              <p>Turn notes into a week of posts; group contacts by what they bought</p>
+            </div>
+            <div class="cell">
+              <h3>People &amp; admin</h3>
+              <p>Read applicants against a role; pull decisions and owners out of notes</p>
+            </div>
+            <div class="cell">
+              <h3>Legal</h3>
+              <p>Compare their draft against our terms, clause by clause, quoting both</p>
+            </div>
+            <div class="cell">
+              <h3>Research</h3>
+              <p>Where studies agree, where they conflict, and why</p>
+            </div>
+            <div class="cell">
+              <h3>Clinical records</h3>
+              <p>What is recorded, and what a clinician should look at, quoted</p>
+            </div>
+            <div class="cell">
+              <h3>Engineering</h3>
+              <p>Read a service and report what would give a wrong answer</p>
+            </div>
+      </div>
+
+      <section class="after-lattice">
+        <div class="wrap">
+          <p>
             Six more workflows ship as skills and work in any directory: reviewing a file of rows
             against its rules, reporting what changed over a week, triaging an inbox, comparing two
             drafts, turning a transcript into decisions and owners, and reading a set of records
@@ -195,13 +201,18 @@
         </div>
       </section>
 
-      <section>
+      <section class="statement">
         <div class="wrap">
-          <h2>Which models actually work</h2>
+          <h2>Which models <em>actually work</em></h2>
           <p>
             The question nobody else answers. Calling tools is what separates a model that can do
             this from one that can only talk about it, and the model card never says.
           </p>
+        </div>
+      </section>
+
+      <section class="tight">
+        <div class="wrap">
           <p>
             One fixed task: a six-row invoice file with three planted problems — an amount over the
             limit with no purchase order, a blank amount, and a date with a month of 13 — and a
@@ -228,56 +239,53 @@
           </table>
           <p style="margin-top: 22px">
             This table is short because it only holds what has been run.
-            <a href="https://docs.opencli.ai/reference/checking-a-model">Adding a
-            row</a> is the most useful contribution you can make, and it takes about five minutes.
-            Negative results are worth as much as positive ones and are harder to come by — nobody
-            posts about the model that did not work.
+            <a href="https://docs.opencli.ai/reference/checking-a-model">Adding a row</a> is the
+            most useful contribution you can make, and it takes about five minutes. Negative
+            results are worth as much as positive ones and are harder to come by — nobody posts
+            about the model that did not work.
           </p>
         </div>
       </section>
 
-      <section>
+      <section class="statement">
         <div class="wrap">
-          <h2>What it cannot do</h2>
-          <p>
-            Said here rather than discovered later.
-          </p>
-          <ul>
-            <li>
-              <strong>General open models reach for <code>grep</code> when they have a file
-              tool.</strong> A model not trained towards agentic work will shell out even when
-              given a structured way to read a file. That is a gap in the models, and no interface
-              closes it. What this project can change is reach, not intelligence.
-            </li>
-            <li>
-              <strong>The desktop builds are not signed</strong> with an Apple or Microsoft
-              certificate. Your operating system will warn you, and it is right to — it cannot tell
-              who built them. The <a href="/download.html">download page</a> says what to do.
-            </li>
-            <li>
-              <strong>Scheduled tasks run only while OpenCLI is open.</strong> This is a local
-              agent, not a server. Anything that must fire while the machine sleeps belongs in the
-              operating system's scheduler.
-            </li>
-            <li>
-              <strong>Token counts are estimated, never counted.</strong> The tokenizer belongs to
-              the model, and this runs models it has never seen.
-            </li>
-            <li>
-              <strong>A background run may write anything inside the directory it runs in.</strong>
-              The sandbox's writable root <em>is</em> that directory. Runs outside a department's
-              directory are held until you allow the place by name.
-            </li>
-          </ul>
+          <h2>What it <em>cannot do</em></h2>
+          <p>Said here rather than discovered later.</p>
         </div>
       </section>
 
-      <section>
+      <div class="lattice two">
+            <div class="cell">
+              <h3>Open models reach for <code>grep</code></h3>
+              <p>Given a structured way to read a file, a model not trained towards agentic work will shell out anyway. That is a gap in the models, and no interface closes it.</p>
+            </div>
+            <div class="cell">
+              <h3>The builds are not signed</h3>
+              <p>No Apple or Microsoft certificate. Your operating system will warn you, and it is right to — it cannot tell who built them. The <a href="/download.html">download page</a> says what to do.</p>
+            </div>
+            <div class="cell">
+              <h3>Scheduled work needs the app open</h3>
+              <p>This is a local agent, not a server. Anything that must fire while the machine sleeps belongs in the operating system's scheduler.</p>
+            </div>
+            <div class="cell">
+              <h3>Token counts are estimated</h3>
+              <p>The tokenizer belongs to the model, and this runs models it has never seen. Everything downstream of the count is approximate.</p>
+            </div>
+            <div class="cell wide">
+              <h3>A run may write anywhere inside its directory</h3>
+              <p>The sandbox's writable root <em>is</em> that directory — which is why a conversation opens in a workspace rather than your home folder, and why runs outside a department's directory are held until you allow the place by name.</p>
+            </div>
+      </div>
+
+      <section class="statement">
         <div class="wrap">
-          <h2>How it compares</h2>
-          <p>
-            Not a scorecard. These are different tools, and the row that matters is the first one.
-          </p>
+          <h2>How it <em>compares</em></h2>
+          <p>Not a scorecard. These are different tools, and the row that matters is the first one.</p>
+        </div>
+      </section>
+
+      <section class="tight">
+        <div class="wrap">
           <table>
             <thead>
               <tr>
@@ -335,10 +343,10 @@
         </div>
       </section>
 
-      <section id="cli">
+      <section class="statement" id="cli">
         <div class="wrap">
-          <h2>The CLI</h2>
-          <p>One binary. macOS and Linux:</p>
+          <h2>One binary, <em>one line</em></h2>
+          <p>macOS and Linux:</p>
           <div class="oneline">
             <code>curl -fsSL https://opencli.ai/install.sh | sh</code>
             <button data-copy="curl -fsSL https://opencli.ai/install.sh | sh">Copy</button>
@@ -347,7 +355,12 @@
                  not registered yet. A copy button for a command that 404s is
                  worse than no command — it reads as a broken project rather
                  than an unreleased one. This comes back with the scope. -->
-          <p style="margin-top: 22px">
+        </div>
+      </section>
+
+      <section class="tight">
+        <div class="wrap">
+          <p>
             Then point it at a model. A local Ollama, for example, needs nothing but this in
             <code>~/.opencli/config.toml</code>:
           </p>
@@ -363,6 +376,18 @@ provider = "ollama"
 context_window = 32768</pre>
         </div>
       </section>
+
+      <!-- The closing door, in the same shape as the one at the top. -->
+      <section class="statement closing">
+        <div class="wrap">
+          <h2>Bring the model. <em>It brings the office.</em></h2>
+          <div class="cta">
+            <a class="button" href="/download.html" data-download-main>Download</a>
+            <a class="button ghost" href="https://docs.opencli.ai">Read the docs</a>
+          </div>
+        </div>
+      </section>
+
     </main>
 
     <footer>

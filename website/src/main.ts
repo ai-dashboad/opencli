@@ -64,13 +64,18 @@ function latestDownload(asset: string): string {
 
 /** Fill in the main download button for whoever is looking at it. */
 function setUpDownload(): void {
-  const button = document.querySelector<HTMLAnchorElement>("[data-download-main]");
-  if (!button) return;
+  // All of them: the home page has one in the hero and one in the closing
+  // section, and a querySelector would have quietly left the second saying
+  // "Download" while the first named the visitor's platform.
+  const buttons = document.querySelectorAll<HTMLAnchorElement>("[data-download-main]");
+  if (buttons.length === 0) return;
 
   const platform = detectPlatform(navigator.userAgent, navigator.hardwareConcurrency ?? 0);
   const asset = ASSETS[platform];
-  button.textContent = LABELS[platform];
-  button.href = asset ? latestDownload(asset) : "/download.html#all";
+  for (const button of buttons) {
+    button.textContent = LABELS[platform];
+    button.href = asset ? latestDownload(asset) : "/download.html#all";
+  }
 
   const detail = document.querySelector<HTMLElement>("[data-download-detail]");
   if (detail && platform !== "unknown") {
