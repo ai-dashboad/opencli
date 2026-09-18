@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
 /**
- * Two pages, not a single-page app.
+ * Three pages, not a single-page app.
  *
  * A download link that has to boot a router before it can show a button is the
  * wrong trade for a site whose entire job is to hand over a file. Each page is
@@ -15,6 +15,7 @@ export default defineConfig({
       input: {
         index: resolve(__dirname, "index.html"),
         download: resolve(__dirname, "download.html"),
+        press: resolve(__dirname, "press.html"),
       },
     },
   },
