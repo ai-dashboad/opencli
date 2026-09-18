@@ -46,7 +46,7 @@ sidebar_position: 4
 
 [硅基流動 SiliconFlow](https://siliconflow.cn) ·
 [無問芯穹 Infinigence](https://cloud.infini-ai.com) ·
-[PPIO 派歐雲](https://ppinfra.com) · [七牛雲 Qiniu](https://qiniu.com) ·
+[PPIO 派歐雲](https://ppio.com) · [七牛雲 Qiniu](https://qiniu.com) ·
 [魔搭 ModelScope](https://modelscope.cn) ·
 [阿里雲百煉 DashScope](https://bailian.console.aliyun.com) ·
 [火山方舟 Volcengine · 豆包](https://volcengine.com/product/ark) ·

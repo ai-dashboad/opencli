@@ -48,7 +48,7 @@ formato da API da OpenAI.
 
 [SiliconFlow 硅基流动](https://siliconflow.cn) ·
 [Infinigence 无问芯穹](https://cloud.infini-ai.com) ·
-[PPIO 派欧云](https://ppinfra.com) · [Qiniu 七牛云](https://qiniu.com) ·
+[PPIO 派欧云](https://ppio.com) · [Qiniu 七牛云](https://qiniu.com) ·
 [ModelScope 魔搭](https://modelscope.cn) ·
 [Alibaba DashScope 阿里云百炼](https://bailian.console.aliyun.com) ·
 [Volcengine Ark 火山方舟 · Doubao 豆包](https://volcengine.com/product/ark) ·
