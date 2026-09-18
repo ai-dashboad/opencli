@@ -55,6 +55,16 @@ opencli exec --skip-git-repo-check --sandbox workspace-write \
   -m <your-model> "Use the spreadsheet-review skill on invoices.csv"
 ```
 
+### 複数のモデルを
+
+`scripts/check-models.py` は同じ課題をモデルの一覧に対して走らせ、採点します。
+各モデルの出力はすべて残るので、採点を信用する前に自分で確かめられます。発行す
+るのは上のコマンドそのままなので、この行とあなたの行は同じ意味を持ちます。
+
+```shell
+scripts/check-models.py --from-ollama
+```
+
 ## 採点する
 
 | | |

@@ -53,6 +53,16 @@ opencli exec --skip-git-repo-check --sandbox workspace-write \
   -m <你的模型> "用 spreadsheet-review 技能處理 invoices.csv"
 ```
 
+### 不止一個模型
+
+`scripts/check-models.py` 會把同一個任務跑在一串模型上並評分,每個模型的完整
+輸出都留著,好讓你在相信評分之前先核對一遍。它發出的就是上面那條命令,沒有改
+動,所以它給出的行和你手跑出來的行是一回事。
+
+```shell
+scripts/check-models.py --from-ollama
+```
+
 ## 評分
 
 | | |

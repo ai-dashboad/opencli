@@ -56,6 +56,17 @@ opencli exec --skip-git-repo-check --sandbox workspace-write \
   -m <your-model> "Use the spreadsheet-review skill on invoices.csv"
 ```
 
+### Больше одной модели
+
+`scripts/check-models.py` прогоняет ту же задачу по списку моделей и выставляет
+оценки, сохраняя полный вывод каждой модели, — чтобы вы могли проверить оценку,
+прежде чем ей доверять. Он отдаёт ровно ту команду, что выше, поэтому его строки
+и ваши значат одно и то же.
+
+```shell
+scripts/check-models.py --from-ollama
+```
+
 ## Оценка
 
 | | |

@@ -55,6 +55,16 @@ opencli exec --skip-git-repo-check --sandbox workspace-write \
   -m <your-model> "Use the spreadsheet-review skill on invoices.csv"
 ```
 
+### 모델이 여럿일 때
+
+`scripts/check-models.py` 는 같은 과제를 모델 목록에 대해 돌리고 채점합니다.
+모델마다 전체 출력을 남겨 두니, 채점을 믿기 전에 직접 확인할 수 있습니다.
+위의 명령을 그대로 내보내므로, 이 표의 줄과 당신의 줄은 같은 뜻입니다.
+
+```shell
+scripts/check-models.py --from-ollama
+```
+
 ## 채점하기
 
 | | |

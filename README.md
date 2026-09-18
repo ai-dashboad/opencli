@@ -96,8 +96,18 @@ NVIDIA · Hugging Face · OpenRouter · Vercel AI Gateway · Perplexity
 Several give a free allowance, which is the cheapest way to try a model larger than your machine can hold. Endpoints, and which providers carry which model: [Providers](https://docs.opencli.ai/getting-started/providers).
 
 > **Reachable is not the same as good at this.** Tool calling separates a model that can do this work from one that can only talk about it, and the model card never says.
-> [Check yours](https://docs.opencli.ai/reference/checking-a-model) —
-> one fixed task, five minutes. The table has one row because one model has been run, and **adding a row is the most useful contribution you can make.**
+
+### Which models can actually do this
+
+One fixed task — review six invoices against three rules — scored on four things: did it reach for a tool, did it find all three planted problems and no others, did it tie each finding to the rule it breaks, and did it say how many rows it read.
+
+| Model | Runtime | Calls tools | Found 3/3 | Cited | Counted |
+| --- | --- | --- | --- | --- | --- |
+| _nothing here yet_ | | | | | |
+
+The table is empty because the task is new, not because the models failed it. [Run it against yours](https://docs.opencli.ai/reference/checking-a-model) — five minutes, and **adding a row is the most useful contribution you can make.** Negative rows are worth as much as positive ones and are much rarer: nobody posts about the model that did not work.
+
+Checking several at once: `scripts/check-models.py --from-ollama`.
 
 ## What it cannot do
 

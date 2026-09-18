@@ -55,6 +55,17 @@ opencli exec --skip-git-repo-check --sandbox workspace-write \
   -m <your-model> "Use the spreadsheet-review skill on invoices.csv"
 ```
 
+### Más de un modelo
+
+`scripts/check-models.py` ejecuta esta misma tarea contra una lista de modelos y
+la puntúa, guardando la salida completa de cada modelo para que puedas revisar
+la puntuación antes de fiarte de ella. Lanza el comando de arriba sin cambios,
+así que sus filas y las tuyas significan lo mismo.
+
+```shell
+scripts/check-models.py --from-ollama
+```
+
 ## Puntuarlo
 
 | | |
