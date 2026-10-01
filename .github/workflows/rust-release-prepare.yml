@@ -18,7 +18,7 @@ jobs:
     if: github.repository == 'openai/opencli'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
